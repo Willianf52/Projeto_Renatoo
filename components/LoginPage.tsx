@@ -2,74 +2,68 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { HeroPanel, PerformanceLabLogo } from "./HeroPanel";
 
 type FieldErrors = {
-  email: boolean;
-  password: boolean;
+  email: string;
+  password: string;
 };
 
-function PerformanceLabLogo({ variant = "light" }: { variant?: "light" | "dark" }) {
-  const performanceColor = variant === "light" ? "text-white" : "text-slate-800";
-  const labColor = "text-sky-500";
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const inputBaseClasses =
+  "w-full border-0 border-b-2 bg-transparent px-0 py-2 text-slate-800 outline-none transition-colors placeholder:text-slate-400";
+
+const getInputClasses = (hasError: boolean) =>
+  `${inputBaseClasses} ${
+    hasError
+      ? "border-red-500 focus:border-red-500"
+      : "border-sky-500 focus:border-sky-600"
+  }`;
+
+function FormField({
+  id,
+  label,
+  type,
+  autoComplete,
+  value,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  type: string;
+  autoComplete: string;
+  value: string;
+  error: string;
+  onChange: (value: string) => void;
+}) {
+  const errorId = `${id}-error`;
 
   return (
-    <div className="flex items-center gap-2">
-      <svg
-        aria-hidden="true"
-        className="h-8 w-8 shrink-0"
-        viewBox="0 0 32 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
       >
-        <rect x="4" y="18" width="5" height="10" rx="1" fill="#2188dd" />
-        <rect x="13" y="12" width="5" height="16" rx="1" fill="#2188dd" />
-        <rect x="22" y="6" width="5" height="22" rx="1" fill="#2188dd" />
-      </svg>
-      <span className={`text-xl tracking-tight ${performanceColor}`}>
-        <span className="font-bold">Performance</span>
-        <span className={`font-light italic ${labColor}`}>lab</span>
-      </span>
-    </div>
-  );
-}
-
-function DashboardMockup() {
-  return (
-    <div className="relative mx-auto mt-10 w-full max-w-2xl px-6 lg:px-10">
-      <div className="absolute -inset-4 rounded-3xl bg-sky-500/10 blur-3xl" />
-      <div className="relative overflow-hidden rounded-2xl border border-sky-400/20 bg-slate-900/80 p-3 shadow-2xl shadow-sky-950/50">
-        <div className="rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-red-400" />
-            <div className="h-2 w-2 rounded-full bg-amber-400" />
-            <div className="h-2 w-2 rounded-full bg-emerald-400" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 h-28 rounded-lg bg-sky-600/30 p-3">
-              <div className="flex h-full items-end gap-1.5">
-                {[40, 65, 45, 80, 55, 70, 90, 60].map((height, index) => (
-                  <div
-                    key={index}
-                    className="flex-1 rounded-sm bg-sky-400/80"
-                    style={{ height: `${height}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="h-12 rounded-lg bg-amber-400/20" />
-              <div className="h-12 rounded-lg bg-sky-500/20" />
-            </div>
-            <div className="col-span-3 h-20 rounded-lg bg-slate-700/50 p-2">
-              <div className="space-y-2">
-                <div className="h-2 w-full rounded bg-slate-600/60" />
-                <div className="h-2 w-4/5 rounded bg-slate-600/60" />
-                <div className="h-2 w-3/5 rounded bg-slate-600/60" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type={type}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={getInputClasses(Boolean(error))}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+      />
+      {error && (
+        <p id={errorId} className="mt-1 text-xs text-red-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -78,27 +72,28 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({
-    email: false,
-    password: false,
+    email: "",
+    password: "",
   });
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const hasEmailError = email.trim() === "";
-    const hasPasswordError = password.trim() === "";
+    const trimmedEmail = email.trim();
+    const emailError =
+      trimmedEmail === ""
+        ? "Campo obrigatório"
+        : EMAIL_REGEX.test(trimmedEmail)
+          ? ""
+          : "E-mail inválido";
+    const passwordError = password.trim() === "" ? "Campo obrigatório" : "";
 
-    if (hasEmailError || hasPasswordError) {
-      setErrors({
-        email: hasEmailError,
-        password: hasPasswordError,
-      });
+    if (emailError || passwordError) {
+      setErrors({ email: emailError, password: passwordError });
       return;
     }
 
-    setErrors({ email: false, password: false });
-
-    console.log({ email, password });
+    setErrors({ email: "", password: "" });
 
     // TODO: Integrar autenticação com Supabase aqui
     // Exemplo futuro:
@@ -108,49 +103,9 @@ export default function LoginPage() {
     setPassword("");
   };
 
-  const inputBaseClasses =
-    "w-full border-0 border-b-2 bg-transparent px-0 py-2 text-slate-800 outline-none transition-colors placeholder:text-slate-400";
-
-  const getInputClasses = (hasError: boolean) =>
-    `${inputBaseClasses} ${
-      hasError
-        ? "border-red-500 focus:border-red-500"
-        : "border-sky-500 focus:border-sky-600"
-    }`;
-
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
-      {/* Hero — oculto no mobile */}
-      <section className="relative hidden overflow-hidden bg-slate-950 lg:flex lg:min-h-screen lg:w-[75%] lg:flex-col">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(33,136,221,0.25),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(33,136,221,0.15),transparent_40%)]" />
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, rgba(148,163,184,0.4) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-
-        <div className="relative z-10 flex flex-1 flex-col p-8 xl:p-12">
-          <PerformanceLabLogo variant="light" />
-
-          <div className="mt-16 max-w-xl space-y-2 xl:mt-24">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-sky-500 sm:text-base">
-              Soluções tecnológicas
-            </p>
-            <h1 className="text-2xl font-normal leading-snug text-white sm:text-3xl xl:text-4xl">
-              para a gestão de{" "}
-              <span className="font-bold uppercase">alta performance</span>
-            </h1>
-          </div>
-
-          <div className="flex flex-1 items-end pb-8">
-            <DashboardMockup />
-          </div>
-        </div>
-      </section>
+      <HeroPanel />
 
       {/* Sidebar de login */}
       <section className="flex min-h-screen w-full flex-col bg-gray-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
@@ -160,59 +115,35 @@ export default function LoginPage() {
           </div>
 
           <form className="mx-auto w-full max-w-xs space-y-8" onSubmit={handleSubmit} noValidate>
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
-              >
-                E-mail
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  if (errors.email) {
-                    setErrors((prev) => ({ ...prev, email: false }));
-                  }
-                }}
-                className={getInputClasses(errors.email)}
-                placeholder=""
-              />
-              {errors.email && (
-                <p className="mt-1 text-xs text-red-500">Campo obrigatório</p>
-              )}
-            </div>
+            <FormField
+              id="email"
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              value={email}
+              error={errors.email}
+              onChange={(value) => {
+                setEmail(value);
+                if (errors.email) {
+                  setErrors((prev) => ({ ...prev, email: "" }));
+                }
+              }}
+            />
 
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
-              >
-                Senha
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  if (errors.password) {
-                    setErrors((prev) => ({ ...prev, password: false }));
-                  }
-                }}
-                className={getInputClasses(errors.password)}
-                placeholder=""
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-red-500">Campo obrigatório</p>
-              )}
-            </div>
+            <FormField
+              id="password"
+              label="Senha"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              error={errors.password}
+              onChange={(value) => {
+                setPassword(value);
+                if (errors.password) {
+                  setErrors((prev) => ({ ...prev, password: "" }));
+                }
+              }}
+            />
 
             <div className="flex justify-end">
               <Link
