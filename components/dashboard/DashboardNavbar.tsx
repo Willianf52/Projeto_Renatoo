@@ -1,22 +1,31 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { BrandLogo } from "@/components/HeroPanel";
+import { createClient } from "@/lib/supabase/client";
 import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 
 export function DashboardNavbar({
   userName,
+  cargo,
   organization,
   onToggleSidebar,
 }: {
   userName: string;
+  cargo: string;
   organization: string;
   onToggleSidebar: () => void;
 }) {
   const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleSignOut = () => {
-    router.push("/");
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.replace("/");
+    router.refresh();
   };
 
   return (
@@ -50,16 +59,25 @@ export function DashboardNavbar({
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange/20 text-brand-orange">
             <UserIcon className="h-5 w-5" />
           </span>
-          <span className="text-sm font-medium text-slate-200">{userName}</span>
+          <span className="min-w-0 leading-tight">
+            <span
+              className="block max-w-[220px] truncate text-sm font-medium text-slate-200"
+              title={userName}
+            >
+              {userName}
+            </span>
+            <span className="block text-xs text-slate-400">{cargo}</span>
+          </span>
         </div>
 
         <button
           type="button"
           onClick={handleSignOut}
-          className="flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-red-500 hover:text-red-400"
+          disabled={signingOut}
+          className="flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-red-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <LogoutIcon className="h-4 w-4" />
-          <span className="hidden sm:inline">Sair</span>
+          <span className="hidden sm:inline">{signingOut ? "Saindo..." : "Sair"}</span>
         </button>
       </div>
     </header>

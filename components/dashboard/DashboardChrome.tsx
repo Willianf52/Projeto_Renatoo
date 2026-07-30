@@ -6,10 +6,12 @@ import { DashboardSidebar } from "./DashboardSidebar";
 
 export function DashboardChrome({
   userName,
+  cargo,
   organization,
   children,
 }: {
   userName: string;
+  cargo: string;
   organization: string;
   children: React.ReactNode;
 }) {
@@ -19,6 +21,7 @@ export function DashboardChrome({
     <div className="min-h-screen bg-slate-100">
       <DashboardNavbar
         userName={userName}
+        cargo={cargo}
         organization={organization}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
       />

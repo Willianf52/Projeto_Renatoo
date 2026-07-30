@@ -65,7 +65,10 @@ export function DashboardSidebar({
         </div>
 
         <p className="px-5 pb-4 text-sm text-slate-400">
-          Olá, <span className="font-medium text-slate-200">{userName}</span>
+          Olá,{" "}
+          <span className="block truncate font-medium text-slate-200" title={userName}>
+            {userName}
+          </span>
         </p>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">

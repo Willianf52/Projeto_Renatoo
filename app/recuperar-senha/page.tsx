@@ -4,13 +4,15 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
 import { EMAIL_REGEX, FormField } from "@/components/FormField";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedEmail = email.trim();
@@ -27,11 +29,16 @@ export default function RecuperarSenhaPage() {
     }
 
     setError("");
+    setLoading(true);
 
-    // TODO: Integrar envio de e-mail de recuperação de senha (Supabase) aqui
-    // Exemplo futuro:
-    // const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const supabase = createClient();
+    await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/nova-senha`,
+    });
 
+    // A confirmacao é sempre a mesma, com ou sem erro: revelar se o e-mail
+    // existe permitiria enumerar contas cadastradas.
+    setLoading(false);
     setEmail("");
     setSubmitted(true);
   };
@@ -74,9 +81,10 @@ export default function RecuperarSenhaPage() {
 
                   <button
                     type="submit"
-                    className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30"
+                    disabled={loading}
+                    className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Enviar
+                    {loading ? "Enviando..." : "Enviar"}
                   </button>
                 </form>
               </>

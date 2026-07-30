@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo, HeroPanel } from "./HeroPanel";
 import { EMAIL_REGEX, FormField } from "./FormField";
+import { createClient } from "@/lib/supabase/client";
 
 type FieldErrors = {
   email: string;
@@ -13,14 +14,23 @@ type FieldErrors = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({
     email: "",
     password: "",
   });
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  // Erro vindo do /auth/callback quando o link do e-mail expirou ou ja foi usado.
+  const linkError =
+    searchParams.get("erro") === "link-invalido"
+      ? "O link expirou ou já foi utilizado. Solicite um novo abaixo."
+      : "";
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedEmail = email.trim();
@@ -38,14 +48,28 @@ export default function LoginPage() {
     }
 
     setErrors({ email: "", password: "" });
+    setFormError("");
+    setLoading(true);
 
-    // TODO: Integrar autenticação com Supabase aqui
-    // Exemplo futuro:
-    // const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
 
-    setEmail("");
-    setPassword("");
-    router.push("/dashboard");
+    if (error) {
+      setLoading(false);
+      setFormError(
+        error.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos."
+          : "Não foi possível entrar. Tente novamente.",
+      );
+      return;
+    }
+
+    const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
+    router.replace(redirectTo);
+    router.refresh();
   };
 
   return (
@@ -72,6 +96,9 @@ export default function LoginPage() {
                 if (errors.email) {
                   setErrors((prev) => ({ ...prev, email: "" }));
                 }
+                if (formError) {
+                  setFormError("");
+                }
               }}
             />
 
@@ -87,8 +114,20 @@ export default function LoginPage() {
                 if (errors.password) {
                   setErrors((prev) => ({ ...prev, password: "" }));
                 }
+                if (formError) {
+                  setFormError("");
+                }
               }}
             />
+
+            {(formError || linkError) && (
+              <p
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+              >
+                {formError || linkError}
+              </p>
+            )}
 
             <div className="flex justify-end">
               <Link
@@ -114,9 +153,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30"
+              disabled={loading}
+              className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Entrar
+              {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
         </div>
