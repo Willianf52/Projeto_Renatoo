@@ -3,16 +3,26 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
+import { EMAIL_REGEX, FormField } from "@/components/FormField";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (email.trim() === "") {
-      setError("Campo obrigatório");
+    const trimmedEmail = email.trim();
+    const emailError =
+      trimmedEmail === ""
+        ? "Campo obrigatório"
+        : EMAIL_REGEX.test(trimmedEmail)
+          ? ""
+          : "E-mail inválido";
+
+    if (emailError) {
+      setError(emailError);
       return;
     }
 
@@ -23,6 +33,7 @@ export default function RecuperarSenhaPage() {
     // const { error } = await supabase.auth.resetPasswordForEmail(email);
 
     setEmail("");
+    setSubmitted(true);
   };
 
   return (
@@ -33,54 +44,48 @@ export default function RecuperarSenhaPage() {
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-xs">
             <h1 className="text-2xl font-bold text-slate-800">Esqueceu sua senha?</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Por favor entre com seu e-mail no campo abaixo para receber uma nova senha.
-            </p>
 
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
-              <div>
-                <label htmlFor="email" className="mb-1 block text-sm text-slate-600">
-                  Seu e-mail
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    if (error) {
-                      setError("");
-                    }
-                  }}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? "email-error" : undefined}
-                  className={`w-full border-0 border-b-2 bg-transparent px-0 py-2 text-slate-800 outline-none transition-colors placeholder:text-slate-400 ${
-                    error
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-indigo-500 focus:border-indigo-600"
-                  }`}
-                />
-                {error && (
-                  <p id="email-error" className="mt-1 text-xs text-red-500">
-                    {error}
-                  </p>
-                )}
-              </div>
+            {submitted ? (
+              <p className="mt-2 text-sm text-slate-500">
+                Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para
+                redefinir sua senha.
+              </p>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-slate-500">
+                  Por favor entre com seu e-mail no campo abaixo para receber uma nova senha.
+                </p>
 
-              <button
-                type="submit"
-                className="w-full rounded-md bg-indigo-500 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                Enviar
-              </button>
-            </form>
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
+                  <FormField
+                    id="email"
+                    label="Seu e-mail"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    error={error}
+                    onChange={(value) => {
+                      setEmail(value);
+                      if (error) {
+                        setError("");
+                      }
+                    }}
+                  />
+
+                  <button
+                    type="submit"
+                    className="w-full rounded-md bg-sky-600 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                  >
+                    Enviar
+                  </button>
+                </form>
+              </>
+            )}
 
             <div className="mt-4">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-indigo-600"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-sky-600"
               >
                 <svg
                   aria-hidden="true"
