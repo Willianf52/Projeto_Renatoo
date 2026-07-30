@@ -2,7 +2,8 @@
 
 @theme inline {
   --font-sans: var(--font-inter);
-  --color-brand-blue: #2188dd;
+  --color-brand-navy: #0a192f;
+  --color-brand-orange: #ff9800;
 }
 
 body {

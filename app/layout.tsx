@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PerformanceLab — Login",
-  description: "Soluções tecnológicas para a gestão de alta performance",
+  title: "VeloxLab — Login",
+  description: "Acelere sua tomada de decisão com inteligência operacional em tempo real",
 };
 
 export default function RootLayout({

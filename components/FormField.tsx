@@ -1,13 +1,13 @@
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const inputBaseClasses =
-  "w-full border-0 border-b-2 bg-transparent px-0 py-2 text-slate-800 outline-none transition-colors placeholder:text-slate-400";
+  "w-full rounded-2xl border bg-white px-4 py-3 text-slate-800 shadow-sm outline-none transition-all placeholder:text-slate-400 focus:shadow-md";
 
 export const getInputClasses = (hasError: boolean) =>
   `${inputBaseClasses} ${
     hasError
-      ? "border-red-500 focus:border-red-500"
-      : "border-sky-500 focus:border-sky-600"
+      ? "border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+      : "border-slate-200 focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/10"
   }`;
 
 export function FormField({

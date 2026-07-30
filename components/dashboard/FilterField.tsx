@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "./icons";
 
 const fieldBaseClasses =
-  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-500 focus:ring-1 focus:ring-sky-500";
+  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-brand-orange focus:ring-1 focus:ring-brand-orange";
 
 export function FilterInput({
   label,

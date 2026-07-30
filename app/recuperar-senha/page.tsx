@@ -40,7 +40,7 @@ export default function RecuperarSenhaPage() {
     <div className="flex min-h-screen flex-col lg:flex-row">
       <HeroPanel />
 
-      <section className="flex min-h-screen w-full flex-col bg-gray-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
+      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-xs">
             <h1 className="text-2xl font-bold text-slate-800">Esqueceu sua senha?</h1>
@@ -74,7 +74,7 @@ export default function RecuperarSenhaPage() {
 
                   <button
                     type="submit"
-                    className="w-full rounded-md bg-sky-600 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                    className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30"
                   >
                     Enviar
                   </button>
@@ -85,7 +85,7 @@ export default function RecuperarSenhaPage() {
             <div className="mt-4">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-sky-600"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
               >
                 <svg
                   aria-hidden="true"

@@ -43,12 +43,12 @@ export function DashboardSidebar({
           type="button"
           aria-label="Fechar menu"
           onClick={onCloseMobile}
-          className="fixed inset-0 z-30 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-brand-navy/60 lg:hidden"
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-slate-900 pt-4 transition-transform lg:static lg:z-0 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-brand-navy pt-4 transition-transform lg:static lg:z-0 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -81,7 +81,7 @@ export function DashboardSidebar({
                   aria-expanded={item.children ? isExpanded : undefined}
                   className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     isExpanded
-                      ? "bg-sky-600/15 text-sky-400"
+                      ? "bg-brand-orange/15 text-brand-orange"
                       : "text-slate-300 hover:bg-slate-800 hover:text-white"
                   }`}
                 >

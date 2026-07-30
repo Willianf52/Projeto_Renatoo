@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { PerformanceLabLogo } from "@/components/HeroPanel";
+import { BrandLogo } from "@/components/HeroPanel";
 import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 
 export function DashboardNavbar({
@@ -20,7 +20,7 @@ export function DashboardNavbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 bg-slate-900 px-4 shadow-md sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 bg-brand-navy px-4 shadow-md sm:px-6">
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -31,14 +31,14 @@ export function DashboardNavbar({
       </button>
 
       <div className="hidden shrink-0 sm:block">
-        <PerformanceLabLogo variant="light" />
+        <BrandLogo variant="light" />
       </div>
 
       <div className="relative flex-1 sm:max-w-sm">
         <select
           defaultValue={organization}
           aria-label="Organização"
-          className="h-9 w-full appearance-none rounded-md border border-slate-700 bg-slate-800 px-3 pr-9 text-sm text-slate-200 outline-none transition-colors focus:border-sky-500"
+          className="h-9 w-full appearance-none rounded-md border border-slate-700 bg-slate-800 px-3 pr-9 text-sm text-slate-200 outline-none transition-colors focus:border-brand-orange"
         >
           <option value={organization}>{organization}</option>
         </select>
@@ -47,7 +47,7 @@ export function DashboardNavbar({
 
       <div className="ml-auto flex items-center gap-3">
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-600/20 text-sky-400">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange/20 text-brand-orange">
             <UserIcon className="h-5 w-5" />
           </span>
           <span className="text-sm font-medium text-slate-200">{userName}</span>

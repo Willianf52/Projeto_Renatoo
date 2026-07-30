@@ -33,7 +33,7 @@ export function DashboardChrome({
         <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8">
           <div className="flex-1">{children}</div>
           <footer className="mt-8 text-center text-xs text-slate-400">
-            © {new Date().getFullYear()} PerformanceLab
+            © {new Date().getFullYear()} VeloxLab
           </footer>
         </main>
       </div>

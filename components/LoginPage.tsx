@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { HeroPanel, PerformanceLabLogo } from "./HeroPanel";
+import { BrandLogo, HeroPanel } from "./HeroPanel";
 import { EMAIL_REGEX, FormField } from "./FormField";
 
 type FieldErrors = {
@@ -53,10 +53,10 @@ export default function LoginPage() {
       <HeroPanel />
 
       {/* Sidebar de login */}
-      <section className="flex min-h-screen w-full flex-col bg-gray-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
+      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mb-10 flex justify-center lg:mb-12">
-            <PerformanceLabLogo variant="dark" />
+            <BrandLogo variant="dark" />
           </div>
 
           <form className="mx-auto w-full max-w-xs space-y-8" onSubmit={handleSubmit} noValidate>
@@ -93,7 +93,7 @@ export default function LoginPage() {
             <div className="flex justify-end">
               <Link
                 href="/recuperar-senha"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-sky-600"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
               >
                 <svg
                   aria-hidden="true"
@@ -114,7 +114,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full rounded-md bg-sky-600 py-3 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+              className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30"
             >
               Entrar
             </button>

@@ -24,7 +24,7 @@ export default function ColetasImportadasPage() {
       <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Coletas Importadas" }]} />
 
       <div className="overflow-hidden rounded-lg bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-4 bg-sky-700 px-4 py-3">
+        <div className="flex items-center justify-between gap-4 bg-brand-navy px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <FilterIcon className="h-4 w-4" />
             Coletas Importadas
@@ -67,7 +67,7 @@ export default function ColetasImportadasPage() {
           <FilterSelect label="Checkpoint" />
           <button
             type="button"
-            className="flex h-10 items-center justify-center gap-2 rounded-md bg-sky-600 text-sm font-semibold text-white transition-colors hover:bg-sky-700"
+            className="flex h-10 items-center justify-center gap-2 rounded-md bg-brand-orange text-sm font-semibold text-white transition-colors hover:bg-orange-600"
           >
             <FilterIcon className="h-4 w-4" />
             Filtrar
