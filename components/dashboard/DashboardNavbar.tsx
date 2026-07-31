@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandLogo } from "@/components/HeroPanel";
+import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 
@@ -74,9 +75,13 @@ export function DashboardNavbar({
           type="button"
           onClick={handleSignOut}
           disabled={signingOut}
-          className="flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:border-red-500 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+          className="group flex items-center gap-1.5 rounded-md border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 transition-all duration-200 hover:border-red-500 hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
         >
-          <LogoutIcon className="h-4 w-4" />
+          {signingOut ? (
+            <Spinner />
+          ) : (
+            <LogoutIcon className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          )}
           <span className="hidden sm:inline">{signingOut ? "Saindo..." : "Sair"}</span>
         </button>
       </div>

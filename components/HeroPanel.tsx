@@ -58,23 +58,39 @@ function DashboardMockup() {
                 {bars.map((height, index) => (
                   <div
                     key={index}
-                    className={`flex-1 rounded-t-full ${
+                    className={`flex-1 origin-bottom rounded-t-full animate-grow-up ${
                       index % 3 === 0 ? "bg-brand-orange" : "bg-white/25"
                     }`}
-                    style={{ height: `${height}%` }}
+                    style={{
+                      height: `${height}%`,
+                      animationDelay: `${300 + index * 70}ms`,
+                    }}
                   />
                 ))}
               </div>
             </div>
             <div className="space-y-3">
-              <div className="h-12 rounded-lg bg-brand-orange/25" />
-              <div className="h-12 rounded-lg bg-white/10" />
+              <div
+                className="h-12 rounded-lg bg-brand-orange/25 animate-pop-in"
+                style={{ animationDelay: "700ms" }}
+              />
+              <div
+                className="h-12 rounded-lg bg-white/10 animate-pop-in"
+                style={{ animationDelay: "800ms" }}
+              />
             </div>
-            <div className="col-span-3 h-20 rounded-lg bg-white/5 p-2">
+            <div
+              className="col-span-3 h-20 rounded-lg bg-white/5 p-2 animate-fade-in"
+              style={{ animationDelay: "900ms" }}
+            >
               <div className="space-y-2">
-                <div className="h-2 w-full rounded bg-white/15" />
-                <div className="h-2 w-4/5 rounded bg-white/15" />
-                <div className="h-2 w-3/5 rounded bg-white/15" />
+                {["w-full", "w-4/5", "w-3/5"].map((width, index) => (
+                  <div
+                    key={width}
+                    className={`h-2 rounded bg-white/15 animate-fade-in-left ${width}`}
+                    style={{ animationDelay: `${950 + index * 80}ms` }}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -99,18 +115,29 @@ export function HeroPanel() {
       />
 
       <div className="relative z-10 flex flex-1 flex-col p-8 xl:p-12">
-        <BrandLogo variant="light" />
+        <div className="animate-fade-in-up">
+          <BrandLogo variant="light" />
+        </div>
 
         <div className="mt-16 max-w-xl space-y-2 xl:mt-24">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-brand-orange sm:text-base">
+          <p
+            className="text-sm font-bold uppercase tracking-[0.2em] text-brand-orange animate-fade-in-up sm:text-base"
+            style={{ animationDelay: "120ms" }}
+          >
             Análise de dados e inteligência operacional
           </p>
-          <h1 className="text-2xl font-bold leading-snug text-white sm:text-3xl xl:text-4xl">
+          <h1
+            className="text-2xl font-bold leading-snug text-white animate-fade-in-up sm:text-3xl xl:text-4xl"
+            style={{ animationDelay: "200ms" }}
+          >
             <span className="text-brand-orange">VeloxLab:</span> Acelere sua Tomada de Decisão
           </h1>
         </div>
 
-        <div className="flex flex-1 items-end pb-8">
+        <div
+          className="flex flex-1 items-end pb-8 animate-fade-in-up"
+          style={{ animationDelay: "280ms" }}
+        >
           <DashboardMockup />
         </div>
       </div>

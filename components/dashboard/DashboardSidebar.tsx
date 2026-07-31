@@ -72,37 +72,42 @@ export function DashboardSidebar({
         </p>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.map((item, index) => {
             const isExpanded = expanded === item.label;
             const Icon = item.icon;
 
             return (
-              <div key={item.label}>
+              <div
+                key={item.label}
+                className="animate-fade-in-left"
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
                 <button
                   type="button"
                   onClick={() => setExpanded(isExpanded ? null : item.label)}
                   aria-expanded={item.children ? isExpanded : undefined}
-                  className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  className={`group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
                     isExpanded
                       ? "bg-brand-orange/15 text-brand-orange"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      : "text-slate-300 hover:translate-x-1 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
-                  <Icon className="h-5 w-5 shrink-0" />
+                  <Icon className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
                   <span className="flex-1">{item.label}</span>
                   {item.children && (
                     <ChevronDownIcon
-                      className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                      className={`h-4 w-4 shrink-0 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
                     />
                   )}
                 </button>
 
                 {item.children && isExpanded && (
-                  <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-3">
-                    {item.children.map((child) => (
+                  <div className="ml-8 mt-1 space-y-1 overflow-hidden border-l border-slate-700 pl-3">
+                    {item.children.map((child, childIndex) => (
                       <div
                         key={child}
-                        className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-white"
+                        className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-white animate-slide-down"
+                        style={{ animationDelay: `${childIndex * 50}ms` }}
                       >
                         {child}
                       </div>

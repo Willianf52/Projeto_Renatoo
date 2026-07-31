@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "./icons";
 
 const fieldBaseClasses =
-  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-brand-orange focus:ring-1 focus:ring-brand-orange";
+  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-500 hover:border-slate-400 focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/15";
 
 export function FilterInput({
   label,
@@ -32,7 +32,7 @@ export function FilterSelect({
       <select
         defaultValue=""
         aria-label={label}
-        className={`${fieldBaseClasses} appearance-none pr-9 text-slate-500`}
+        className={`peer ${fieldBaseClasses} appearance-none pr-9 text-slate-600`}
       >
         <option value="" disabled hidden>
           {label}
@@ -43,7 +43,7 @@ export function FilterSelect({
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-transform duration-200 peer-focus:rotate-180" />
     </div>
   );
 }

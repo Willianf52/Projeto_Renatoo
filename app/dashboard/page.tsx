@@ -21,9 +21,14 @@ const TABLE_COLUMNS = [
 export default function ColetasImportadasPage() {
   return (
     <div className="space-y-4">
-      <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Coletas Importadas" }]} />
+      <div className="animate-fade-in">
+        <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Coletas Importadas" }]} />
+      </div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+      <div
+        className="overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
+        style={{ animationDelay: "80ms" }}
+      >
         <div className="flex items-center justify-between gap-4 bg-brand-navy px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <FilterIcon className="h-4 w-4" />
@@ -34,7 +39,7 @@ export default function ColetasImportadasPage() {
               type="button"
               title="Exportar para Excel"
               aria-label="Exportar para Excel"
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white transition-colors hover:bg-emerald-500"
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white transition-all duration-200 hover:bg-emerald-500 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-emerald-400 active:scale-95"
             >
               <ExcelIcon className="h-4 w-4" />
             </button>
@@ -42,7 +47,7 @@ export default function ColetasImportadasPage() {
               type="button"
               title="Exportar para PDF"
               aria-label="Exportar para PDF"
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600 text-white transition-colors hover:bg-red-500"
+              className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600 text-white transition-all duration-200 hover:bg-red-500 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 active:scale-95"
             >
               <PdfIcon className="h-4 w-4" />
             </button>
@@ -67,9 +72,9 @@ export default function ColetasImportadasPage() {
           <FilterSelect label="Checkpoint" />
           <button
             type="button"
-            className="flex h-10 items-center justify-center gap-2 rounded-md bg-brand-orange text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+            className="group flex h-10 items-center justify-center gap-2 rounded-md bg-brand-orange text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-lg hover:shadow-brand-orange/30 focus:outline-none focus:ring-4 focus:ring-brand-orange/25 active:scale-[0.97]"
           >
-            <FilterIcon className="h-4 w-4" />
+            <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar
           </button>
         </div>

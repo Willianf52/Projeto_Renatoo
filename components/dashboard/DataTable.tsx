@@ -1,6 +1,12 @@
-import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon } from "./icons";
+import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
 
-export function DataTable({ columns }: { columns: string[] }) {
+export function DataTable({
+  columns,
+  loading = false,
+}: {
+  columns: string[];
+  loading?: boolean;
+}) {
   return (
     <div className="overflow-x-auto rounded-b-lg">
       <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
@@ -14,11 +20,15 @@ export function DataTable({ columns }: { columns: string[] }) {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-slate-400">
-              Nenhum registro encontrado
-            </td>
-          </tr>
+          {loading ? (
+            <TableSkeleton columns={columns} />
+          ) : (
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-16">
+                <EmptyState />
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -41,6 +51,42 @@ export function DataTable({ columns }: { columns: string[] }) {
   );
 }
 
+/** Placeholder pulsante exibido enquanto os dados carregam. */
+function TableSkeleton({ columns }: { columns: string[] }) {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, rowIndex) => (
+        <tr
+          key={rowIndex}
+          className="border-b border-slate-100 animate-fade-in"
+          style={{ animationDelay: `${rowIndex * 60}ms` }}
+        >
+          {columns.map((column) => (
+            <td key={column} className="px-4 py-3.5">
+              <div className="h-3 animate-pulse rounded bg-slate-200" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center animate-fade-in-up">
+      <div className="rounded-full bg-slate-100 p-3 text-slate-500">
+        <SearchIcon className="h-6 w-6" />
+      </div>
+      {/* slate-600 em vez de slate-400: garante contraste WCAG AA. */}
+      <p className="text-sm font-medium text-slate-700">Nenhuma coleta encontrada</p>
+      <p className="text-sm text-slate-600">
+        Ajuste o período ou os filtros acima para localizar registros.
+      </p>
+    </div>
+  );
+}
+
 function PaginationButton({
   children,
   disabled,
@@ -55,7 +101,7 @@ function PaginationButton({
       type="button"
       disabled={disabled}
       aria-label={ariaLabel}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100"
     >
       {children}
     </button>

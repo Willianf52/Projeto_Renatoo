@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { BrandLogo, HeroPanel } from "./HeroPanel";
 import { EMAIL_REGEX, FormField } from "./FormField";
+import { Spinner } from "./Spinner";
 import { createClient } from "@/lib/supabase/client";
 
 type FieldErrors = {
@@ -79,64 +80,71 @@ export default function LoginPage() {
       {/* Sidebar de login */}
       <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
-          <div className="mb-10 flex justify-center lg:mb-12">
+          <div className="mb-10 flex justify-center animate-fade-in-up lg:mb-12">
             <BrandLogo variant="dark" />
           </div>
 
           <form className="mx-auto w-full max-w-xs space-y-8" onSubmit={handleSubmit} noValidate>
-            <FormField
-              id="email"
-              label="E-mail"
-              type="email"
-              autoComplete="email"
-              value={email}
-              error={errors.email}
-              onChange={(value) => {
-                setEmail(value);
-                if (errors.email) {
-                  setErrors((prev) => ({ ...prev, email: "" }));
-                }
-                if (formError) {
-                  setFormError("");
-                }
-              }}
-            />
+            <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+              <FormField
+                id="email"
+                label="E-mail"
+                type="email"
+                autoComplete="email"
+                value={email}
+                error={errors.email}
+                onChange={(value) => {
+                  setEmail(value);
+                  if (errors.email) {
+                    setErrors((prev) => ({ ...prev, email: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+            </div>
 
-            <FormField
-              id="password"
-              label="Senha"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              error={errors.password}
-              onChange={(value) => {
-                setPassword(value);
-                if (errors.password) {
-                  setErrors((prev) => ({ ...prev, password: "" }));
-                }
-                if (formError) {
-                  setFormError("");
-                }
-              }}
-            />
+            <div className="animate-fade-in-up" style={{ animationDelay: "180ms" }}>
+              <FormField
+                id="password"
+                label="Senha"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                error={errors.password}
+                onChange={(value) => {
+                  setPassword(value);
+                  if (errors.password) {
+                    setErrors((prev) => ({ ...prev, password: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+            </div>
 
             {(formError || linkError) && (
               <p
                 role="alert"
-                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 animate-slide-down"
               >
                 {formError || linkError}
               </p>
             )}
 
-            <div className="flex justify-end">
+            <div
+              className="flex justify-end animate-fade-in-up"
+              style={{ animationDelay: "260ms" }}
+            >
               <Link
                 href="/recuperar-senha"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
+                className="group inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
               >
                 <svg
                   aria-hidden="true"
-                  className="h-3.5 w-3.5"
+                  className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-y-0.5"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -154,8 +162,10 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ animationDelay: "340ms" }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all duration-200 animate-fade-in-up hover:bg-orange-600 hover:shadow-xl hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100"
             >
+              {loading && <Spinner />}
               {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
