@@ -1,0 +1,88 @@
+/** Caracteres especiais aceitos pela politica de senha. */
+const SPECIAL_CHARS = "@+$#";
+
+export type PasswordRule = {
+  label: string;
+  test: (password: string) => boolean;
+};
+
+export const PASSWORD_RULES: PasswordRule[] = [
+  {
+    label: "8-15 caracteres",
+    test: (p) => p.length >= 8 && p.length <= 15,
+  },
+  {
+    label: "Pelo menos 1 letra maiúscula",
+    test: (p) => /[A-Z]/.test(p),
+  },
+  {
+    label: "Pelo menos 1 letra minúscula",
+    test: (p) => /[a-z]/.test(p),
+  },
+  {
+    label: "Pelo menos 1 número",
+    test: (p) => /[0-9]/.test(p),
+  },
+  {
+    label: `Pelo menos 1 caracter especial (permitidos: ${SPECIAL_CHARS})`,
+    test: (p) => /[@+$#]/.test(p),
+  },
+];
+
+export const isPasswordValid = (password: string) =>
+  PASSWORD_RULES.every((rule) => rule.test(password));
+
+/**
+ * Lista de requisitos que reage conforme o usuario digita. Enquanto o campo
+ * esta vazio os itens ficam neutros, para nao receber a senha com uma lista
+ * de erros em vermelho antes de qualquer tentativa.
+ */
+export function PasswordRulesList({ password }: { password: string }) {
+  const pristine = password === "";
+
+  return (
+    <ul className="mt-2 space-y-1" aria-live="polite">
+      {PASSWORD_RULES.map((rule) => {
+        const passed = rule.test(password);
+
+        return (
+          <li
+            key={rule.label}
+            className={`flex items-center gap-2 text-xs transition-colors duration-200 ${
+              pristine ? "text-slate-500" : passed ? "text-emerald-600" : "text-red-600"
+            }`}
+          >
+            <span aria-hidden="true" className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+              {pristine ? <DotIcon /> : passed ? <CheckIcon /> : <CrossIcon />}
+            </span>
+            {rule.label}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function DotIcon() {
+  return (
+    <svg viewBox="0 0 8 8" className="h-1.5 w-1.5 fill-current">
+      <circle cx="4" cy="4" r="4" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-3.5 w-3.5">
+      <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="h-3.5 w-3.5">
+      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

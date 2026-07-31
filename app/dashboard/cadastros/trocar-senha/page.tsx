@@ -1,19 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { HeroPanel } from "@/components/HeroPanel";
+import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { FormField } from "@/components/FormField";
 import { PasswordRulesList, isPasswordValid } from "@/components/PasswordRules";
+import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 
-export default function NovaSenhaPage() {
-  const router = useRouter();
+export default function TrocarSenhaPage() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState({ password: "", confirmation: "" });
   const [formError, setFormError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -44,34 +43,49 @@ export default function NovaSenhaPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
 
+    setLoading(false);
+
     if (error) {
-      setLoading(false);
       setFormError(
-        "Não foi possível redefinir a senha. O link pode ter expirado — solicite um novo.",
+        error.message.includes("should be different")
+          ? "A nova senha precisa ser diferente da atual."
+          : "Não foi possível alterar a senha. Tente novamente.",
       );
       return;
     }
 
-    router.replace("/dashboard");
-    router.refresh();
+    setPassword("");
+    setConfirmation("");
+    setSuccess(true);
   };
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
-      <HeroPanel />
+    <div className="space-y-4">
+      <div className="animate-fade-in">
+        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Trocar Senha" }]} />
+      </div>
 
-      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
-        <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
-          <div className="mx-auto w-full max-w-xs">
-            <h1 className="text-2xl font-bold text-slate-800">Definir nova senha</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Escolha uma nova senha para acessar sua conta.
-            </p>
+      <div
+        className="overflow-hidden rounded-lg bg-white shadow-sm animate-fade-in-up"
+        style={{ animationDelay: "80ms" }}
+      >
+        <div className="bg-brand-navy px-4 py-3">
+          <h1 className="text-sm font-semibold text-white">Trocar Senha</h1>
+        </div>
 
-            <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
+        <div className="p-6">
+          {success ? (
+            <div
+              role="status"
+              className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 animate-slide-down"
+            >
+              Senha alterada com sucesso. Ela já vale para os próximos acessos.
+            </div>
+          ) : (
+            <form className="max-w-xl space-y-6" onSubmit={handleSubmit} noValidate>
               <div>
                 <FormField
-                  id="password"
+                  id="nova-senha"
                   label="Nova senha"
                   type="password"
                   autoComplete="new-password"
@@ -82,14 +96,17 @@ export default function NovaSenhaPage() {
                     if (errors.password) {
                       setErrors((prev) => ({ ...prev, password: "" }));
                     }
+                    if (formError) {
+                      setFormError("");
+                    }
                   }}
                 />
                 <PasswordRulesList password={password} />
               </div>
 
               <FormField
-                id="confirmation"
-                label="Confirmar senha"
+                id="confirmar-senha"
+                label="Confirme a nova senha"
                 type="password"
                 autoComplete="new-password"
                 value={confirmation}
@@ -105,7 +122,7 @@ export default function NovaSenhaPage() {
               {formError && (
                 <p
                   role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 animate-slide-down"
                 >
                   {formError}
                 </p>
@@ -114,23 +131,15 @@ export default function NovaSenhaPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center justify-center gap-2 rounded-xl bg-brand-orange px-6 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all duration-200 hover:bg-orange-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand-orange/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100"
               >
-                {loading ? "Salvando..." : "Salvar nova senha"}
+                {loading && <Spinner />}
+                {loading ? "Alterando..." : "Alterar Senha"}
               </button>
             </form>
-
-            <div className="mt-4">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
-              >
-                Voltar ao login
-              </Link>
-            </div>
-          </div>
+          )}
         </div>
-      </section>
+      </div>
     </div>
   );
 }
