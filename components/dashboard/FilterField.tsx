@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "./icons";
 
 const fieldBaseClasses =
-  "h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none transition-all duration-200 placeholder:text-slate-500 hover:border-slate-400 focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/15";
+  "h-10 w-full rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green";
 
 export function FilterInput({
   label,
@@ -43,18 +43,18 @@ export function FilterSelect({
         name={name}
         defaultValue={defaultValue ?? ""}
         aria-label={label}
-        className={`peer ${fieldBaseClasses} appearance-none pr-9 text-slate-600`}
+        className={`peer ${fieldBaseClasses} appearance-none pr-9 text-brand-muted`}
       >
         <option value="" disabled hidden>
           {label}
         </option>
         {options.map((option) => (
-          <option key={option} value={option} className="text-slate-700">
+          <option key={option} value={option} className="text-white">
             {option}
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 transition-transform duration-200 peer-focus:rotate-180" />
+      <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
     </div>
   );
 }

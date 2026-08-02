@@ -30,7 +30,7 @@ export function DashboardNavbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 bg-brand-navy px-4 shadow-md sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-800 bg-brand-surface px-4 sm:px-6">
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -41,23 +41,23 @@ export function DashboardNavbar({
       </button>
 
       <div className="hidden shrink-0 sm:block">
-        <BrandLogo variant="light" />
+        <BrandLogo size="sm" />
       </div>
 
       <div className="relative flex-1 sm:max-w-sm">
         <select
           defaultValue={organization}
           aria-label="Organização"
-          className="h-9 w-full appearance-none rounded-md border border-slate-700 bg-slate-800 px-3 pr-9 text-sm text-slate-200 outline-none transition-colors focus:border-brand-orange"
+          className="h-9 w-full appearance-none rounded-md border border-slate-800 bg-brand-navy px-3 pr-9 text-sm text-white outline-none transition-colors focus:border-brand-green"
         >
           <option value={organization}>{organization}</option>
         </select>
-        <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
       </div>
 
       <div className="ml-auto flex items-center gap-3">
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-orange/20 text-brand-orange">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
             <UserIcon className="h-5 w-5" />
           </span>
           <span className="min-w-0 leading-tight">
@@ -67,7 +67,7 @@ export function DashboardNavbar({
             >
               {userName}
             </span>
-            <span className="block text-xs text-slate-400">{cargo}</span>
+            <span className="block text-xs text-brand-muted">{cargo}</span>
           </span>
         </div>
 

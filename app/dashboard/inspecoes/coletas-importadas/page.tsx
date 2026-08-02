@@ -26,10 +26,10 @@ export default function ColetasImportadasPage() {
       </div>
 
       <div
-        className="overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
+        className="overflow-hidden rounded-lg bg-brand-surface shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
         style={{ animationDelay: "80ms" }}
       >
-        <div className="flex items-center justify-between gap-4 bg-brand-navy px-4 py-3">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <FilterIcon className="h-4 w-4" />
             Coletas Importadas
@@ -56,7 +56,7 @@ export default function ColetasImportadasPage() {
 
         {/* Campos em grade de 5 colunas com o botao a direita, alinhado a
             ultima linha -- mesma disposicao do sistema de referencia. */}
-        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-end">
+        <div className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end">
           <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <FilterInput label="Data Inicial" type="date" />
             <FilterInput label="Data Final" type="date" />
@@ -84,7 +84,7 @@ export default function ColetasImportadasPage() {
 
           <button
             type="button"
-            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-orange px-6 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-lg hover:shadow-brand-orange/30 focus:outline-none focus:ring-4 focus:ring-brand-orange/25 active:scale-[0.97] xl:w-52"
+            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] xl:w-52"
           >
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar

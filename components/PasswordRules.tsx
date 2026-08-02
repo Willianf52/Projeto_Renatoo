@@ -49,7 +49,7 @@ export function PasswordRulesList({ password }: { password: string }) {
           <li
             key={rule.label}
             className={`flex items-center gap-2 text-xs transition-colors duration-200 ${
-              pristine ? "text-slate-500" : passed ? "text-emerald-600" : "text-red-600"
+              pristine ? "text-brand-muted" : passed ? "text-brand-green" : "text-red-400"
             }`}
           >
             <span aria-hidden="true" className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">

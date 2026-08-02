@@ -86,11 +86,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col lg:flex-row">
       <HeroPanel />
 
-      {/* Sidebar de login */}
-      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
+      {/* Sidebar de login: superficie levemente elevada sobre o fundo. */}
+      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mb-10 flex justify-center animate-fade-in-up lg:mb-12">
-            <BrandLogo variant="dark" />
+            <BrandLogo size="sm" />
           </div>
 
           <form className="mx-auto w-full max-w-xs space-y-8" onSubmit={handleSubmit} noValidate>
@@ -137,7 +137,7 @@ export default function LoginPage() {
             {(formError || urlError) && (
               <p
                 role="alert"
-                className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 animate-slide-down"
+                className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 animate-slide-down"
               >
                 {formError || urlError}
               </p>
@@ -149,7 +149,7 @@ export default function LoginPage() {
             >
               <Link
                 href="/recuperar-senha"
-                className="group inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
+                className="group inline-flex items-center gap-1.5 text-xs text-brand-muted transition-colors hover:text-brand-green"
               >
                 <svg
                   aria-hidden="true"
@@ -172,7 +172,7 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               style={{ animationDelay: "340ms" }}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all duration-200 animate-fade-in-up hover:bg-orange-600 hover:shadow-xl hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 animate-fade-in-up hover:bg-brand-green-hover hover:shadow-xl hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
             >
               {loading && <Spinner />}
               {loading ? "Entrando..." : "Entrar"}

@@ -2,8 +2,13 @@
 
 @theme inline {
   --font-sans: var(--font-inter);
-  --color-brand-navy: #0a192f;
-  --color-brand-orange: #ff9800;
+
+  /* Identidade Up Servicos. */
+  --color-brand-navy: #03031a; /* fundo primario */
+  --color-brand-surface: #0b0b26; /* superficie elevada sobre o fundo */
+  --color-brand-green: #00e676; /* acao primaria e estados ativos */
+  --color-brand-green-hover: #00c853;
+  --color-brand-muted: #a0aec0; /* texto secundario e placeholders */
 
   /* Curvas de easing: saida rapida, chegada suave. */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -84,6 +89,15 @@
 
 body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--color-brand-navy);
+  color: #ffffff;
+}
+
+/* O tema e escuro por padrao. Sem isto, os seletores nativos e os campos de
+   data/hora renderizam com a paleta clara do sistema operacional, destoando
+   do restante da interface. */
+:root {
+  color-scheme: dark;
 }
 
 /* Acessibilidade: respeita quem desativou animacoes no sistema operacional.

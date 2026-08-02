@@ -47,19 +47,19 @@ export default function RecuperarSenhaPage() {
     <div className="flex min-h-screen flex-col lg:flex-row">
       <HeroPanel />
 
-      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
+      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-xs">
-            <h1 className="text-2xl font-bold text-slate-800">Esqueceu sua senha?</h1>
+            <h1 className="text-2xl font-bold text-white">Esqueceu sua senha?</h1>
 
             {submitted ? (
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-brand-muted">
                 Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para
                 redefinir sua senha.
               </p>
             ) : (
               <>
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-brand-muted">
                   Por favor entre com seu e-mail no campo abaixo para receber uma nova senha.
                 </p>
 
@@ -82,7 +82,7 @@ export default function RecuperarSenhaPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
                   >
                     {loading ? "Enviando..." : "Enviar"}
                   </button>
@@ -93,7 +93,7 @@ export default function RecuperarSenhaPage() {
             <div className="mt-4">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
+                className="inline-flex items-center gap-1.5 text-xs text-brand-muted transition-colors hover:text-brand-green"
               >
                 <svg
                   aria-hidden="true"

@@ -18,7 +18,7 @@ export function DashboardChrome({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-brand-navy">
       <DashboardNavbar
         userName={userName}
         cargo={cargo}
@@ -35,8 +35,8 @@ export function DashboardChrome({
 
         <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8">
           <div className="flex-1">{children}</div>
-          <footer className="mt-8 text-center text-xs text-slate-400">
-            © {new Date().getFullYear()} VeloxLab
+          <footer className="mt-8 text-center text-xs text-brand-muted">
+            © {new Date().getFullYear()} Up Serviços
           </footer>
         </main>
       </div>

@@ -92,10 +92,10 @@ export default function TrocarSenhaPage() {
       </div>
 
       <div
-        className="overflow-hidden rounded-lg bg-white shadow-sm animate-fade-in-up"
+        className="overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"
         style={{ animationDelay: "80ms" }}
       >
-        <div className="bg-brand-navy px-4 py-3">
+        <div className="border-b border-slate-800 px-4 py-3">
           <h1 className="text-sm font-semibold text-white">Trocar Senha</h1>
         </div>
 
@@ -103,7 +103,7 @@ export default function TrocarSenhaPage() {
           {success ? (
             <div
               role="status"
-              className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 animate-slide-down"
+              className="max-w-xl rounded-lg border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-sm text-brand-green animate-slide-down"
             >
               Senha alterada com sucesso. Ela já vale para os próximos acessos.
             </div>
@@ -166,7 +166,7 @@ export default function TrocarSenhaPage() {
               {formError && (
                 <p
                   role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 animate-slide-down"
+                  className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 animate-slide-down"
                 >
                   {formError}
                 </p>
@@ -175,7 +175,7 @@ export default function TrocarSenhaPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center justify-center gap-2 rounded-xl bg-brand-orange px-6 py-3 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all duration-200 hover:bg-orange-600 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand-orange/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100"
+                className="flex items-center justify-center gap-2 rounded-lg bg-brand-green px-6 py-3 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/30 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100"
               >
                 {loading && <Spinner />}
                 {loading ? "Alterando..." : "Alterar Senha"}

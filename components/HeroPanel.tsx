@@ -1,41 +1,29 @@
-export function BrandLogo({
-  variant = "light",
-}: {
-  variant?: "light" | "dark";
-}) {
-  const primaryColor = variant === "light" ? "text-white" : "text-slate-800";
+import Image from "next/image";
+
+/**
+ * Marca Up Servicos, a partir do arquivo oficial em `public/`.
+ *
+ * O PNG tem fundo transparente e texto branco: foi desenhado para superficies
+ * escuras, que e o caso de todas as telas deste projeto.
+ */
+/** Proporcao do arquivo original: 126 x 71px. */
+const LOGO_RATIO = 126 / 71;
+
+export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
+  const altura = size === "sm" ? 32 : 44;
 
   return (
-    <div className="flex items-center gap-2">
-      <svg
-        aria-hidden="true"
-        className="h-8 w-8 shrink-0"
-        viewBox="0 0 32 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M20 10 L24 7 M17.5 13.5 L21.5 10"
-          stroke="#ff9800"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          opacity="0.4"
-        />
-        <path
-          d="M6 15 L13.5 23 L26 6"
-          stroke="#ff9800"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-        <circle cx="26" cy="6" r="2.75" fill="#ff9800" />
-      </svg>
-      <span className={`text-2xl font-extrabold tracking-tight ${primaryColor}`}>
-        Velox
-        <span className="font-light italic text-brand-orange">Lab</span>
-      </span>
-    </div>
+    <Image
+      src="/logo-up-servicos.png"
+      alt="Up Serviços"
+      width={Math.round(altura * LOGO_RATIO)}
+      height={altura}
+      // A logo aparece acima da dobra no login; carregar com prioridade evita
+      // o salto de layout no primeiro paint.
+      priority
+      className="w-auto shrink-0"
+      style={{ height: altura }}
+    />
   );
 }
 
@@ -44,13 +32,13 @@ function DashboardMockup() {
 
   return (
     <div className="relative mx-auto mt-10 w-full max-w-2xl px-6 lg:px-10">
-      <div className="absolute -inset-4 rounded-3xl bg-brand-orange/10 blur-3xl" />
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-slate-900/80 p-3 shadow-2xl shadow-black/40">
-        <div className="rounded-xl bg-gradient-to-br from-slate-800 to-brand-navy p-4">
+      <div className="absolute -inset-4 rounded-3xl bg-brand-green/10 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-brand-surface/80 p-3 shadow-2xl shadow-black/50">
+        <div className="rounded-xl bg-gradient-to-br from-brand-surface to-brand-navy p-4">
           <div className="mb-4 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-red-400" />
-            <div className="h-2 w-2 rounded-full bg-amber-400" />
-            <div className="h-2 w-2 rounded-full bg-emerald-400" />
+            <div className="h-2 w-2 rounded-full bg-white/25" />
+            <div className="h-2 w-2 rounded-full bg-white/25" />
+            <div className="h-2 w-2 rounded-full bg-brand-green" />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 h-28 rounded-lg bg-white/5 p-3">
@@ -59,7 +47,7 @@ function DashboardMockup() {
                   <div
                     key={index}
                     className={`flex-1 origin-bottom rounded-t-full animate-grow-up ${
-                      index % 3 === 0 ? "bg-brand-orange" : "bg-white/25"
+                      index % 3 === 0 ? "bg-brand-green" : "bg-white/20"
                     }`}
                     style={{
                       height: `${height}%`,
@@ -71,7 +59,7 @@ function DashboardMockup() {
             </div>
             <div className="space-y-3">
               <div
-                className="h-12 rounded-lg bg-brand-orange/25 animate-pop-in"
+                className="h-12 rounded-lg bg-brand-green/25 animate-pop-in"
                 style={{ animationDelay: "700ms" }}
               />
               <div
@@ -103,25 +91,25 @@ function DashboardMockup() {
 export function HeroPanel() {
   return (
     <section className="relative hidden overflow-hidden bg-brand-navy lg:flex lg:min-h-screen lg:w-[75%] lg:flex-col">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,152,0,0.20),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(37,99,235,0.16),transparent_40%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,230,118,0.16),transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(30,136,229,0.14),transparent_40%)]" />
       <div
-        className="absolute inset-0 opacity-20"
+        className="absolute inset-0 opacity-15"
         style={{
           backgroundImage:
-            "radial-gradient(circle, rgba(255,152,0,0.18) 1px, transparent 1px)",
+            "radial-gradient(circle, rgba(160,174,192,0.35) 1px, transparent 1px)",
           backgroundSize: "24px 24px",
         }}
       />
 
       <div className="relative z-10 flex flex-1 flex-col p-8 xl:p-12">
         <div className="animate-fade-in-up">
-          <BrandLogo variant="light" />
+          <BrandLogo />
         </div>
 
-        <div className="mt-16 max-w-xl space-y-2 xl:mt-24">
+        <div className="mt-16 max-w-xl space-y-3 xl:mt-24">
           <p
-            className="text-sm font-bold uppercase tracking-[0.2em] text-brand-orange animate-fade-in-up sm:text-base"
+            className="text-sm font-bold uppercase tracking-[0.2em] text-brand-green animate-fade-in-up sm:text-base"
             style={{ animationDelay: "120ms" }}
           >
             Análise de dados e inteligência operacional
@@ -130,7 +118,7 @@ export function HeroPanel() {
             className="text-2xl font-bold leading-snug text-white animate-fade-in-up sm:text-3xl xl:text-4xl"
             style={{ animationDelay: "200ms" }}
           >
-            <span className="text-brand-orange">VeloxLab:</span> Acelere sua Tomada de Decisão
+            Gestão de alta performance para a sua operação
           </h1>
         </div>
 

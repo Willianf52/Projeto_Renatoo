@@ -100,13 +100,13 @@ export function DashboardSidebar({
             type="button"
             aria-label="Fechar menu"
             onClick={onCloseMobile}
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-md p-1 text-brand-muted hover:bg-slate-800 hover:text-white"
           >
             <XIcon className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="px-5 pb-4 text-sm text-slate-400">
+        <p className="px-5 pb-4 text-sm text-brand-muted">
           Olá,{" "}
           <span className="block truncate font-medium text-slate-200" title={userName}>
             {userName}
@@ -136,7 +136,7 @@ export function DashboardSidebar({
                   title={hasChildren ? undefined : "Módulo ainda não disponível"}
                   className={`group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${
                     containsActive || isExpanded
-                      ? "bg-brand-orange/15 text-brand-orange"
+                      ? "bg-brand-green/15 text-brand-green"
                       : "text-slate-300 hover:translate-x-1 hover:bg-slate-800 hover:text-white"
                   } ${hasChildren ? "" : "cursor-not-allowed opacity-50 hover:translate-x-0 hover:bg-transparent"}`}
                 >
@@ -163,7 +163,7 @@ export function DashboardSidebar({
                           className={`block rounded-md px-3 py-2 text-sm font-medium animate-slide-down transition-colors duration-200 ${
                             isActive
                               ? "bg-slate-800 text-white"
-                              : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+                              : "text-brand-muted hover:bg-slate-800/60 hover:text-white"
                           }`}
                           style={{ animationDelay: `${childIndex * 50}ms` }}
                         >

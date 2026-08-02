@@ -60,11 +60,11 @@ export default function NovaSenhaPage() {
     <div className="flex min-h-screen flex-col lg:flex-row">
       <HeroPanel />
 
-      <section className="flex min-h-screen w-full flex-col bg-neutral-100 lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
+      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
         <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
           <div className="mx-auto w-full max-w-xs">
-            <h1 className="text-2xl font-bold text-slate-800">Definir nova senha</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="text-2xl font-bold text-white">Definir nova senha</h1>
+            <p className="mt-2 text-sm text-brand-muted">
               Escolha uma nova senha para acessar sua conta.
             </p>
 
@@ -105,7 +105,7 @@ export default function NovaSenhaPage() {
               {formError && (
                 <p
                   role="alert"
-                  className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                  className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300"
                 >
                   {formError}
                 </p>
@@ -114,7 +114,7 @@ export default function NovaSenhaPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-brand-orange py-3.5 text-sm font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-orange/30 transition-all hover:bg-orange-600 hover:shadow-brand-orange/40 focus:outline-none focus:ring-4 focus:ring-brand-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
               >
                 {loading ? "Salvando..." : "Salvar nova senha"}
               </button>
@@ -123,7 +123,7 @@ export default function NovaSenhaPage() {
             <div className="mt-4">
               <Link
                 href="/"
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 transition-colors hover:text-orange-600"
+                className="inline-flex items-center gap-1.5 text-xs text-brand-muted transition-colors hover:text-brand-green"
               >
                 Voltar ao login
               </Link>
