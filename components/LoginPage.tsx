@@ -7,6 +7,7 @@ import { BrandLogo, HeroPanel } from "./HeroPanel";
 import { EMAIL_REGEX, FormField } from "./FormField";
 import { Spinner } from "./Spinner";
 import { createClient } from "@/lib/supabase/client";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 type FieldErrors = {
   email: string;
@@ -68,8 +69,7 @@ export default function LoginPage() {
       return;
     }
 
-    const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
-    router.replace(redirectTo);
+    router.replace(safeRedirectPath(searchParams.get("redirectTo")));
     router.refresh();
   };
 
