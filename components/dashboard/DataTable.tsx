@@ -2,9 +2,11 @@ import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon,
 
 export function DataTable({
   columns,
+  rows = [],
   loading = false,
 }: {
   columns: string[];
+  rows?: string[][];
   loading?: boolean;
 }) {
   return (
@@ -22,6 +24,16 @@ export function DataTable({
         <tbody>
           {loading ? (
             <TableSkeleton columns={columns} />
+          ) : rows.length > 0 ? (
+            rows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="border-b border-slate-100 hover:bg-slate-50">
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex} className="whitespace-nowrap px-4 py-3 text-slate-700">
+                    {cell || "—"}
+                  </td>
+                ))}
+              </tr>
+            ))
           ) : (
             <tr>
               <td colSpan={columns.length} className="px-4 py-16">

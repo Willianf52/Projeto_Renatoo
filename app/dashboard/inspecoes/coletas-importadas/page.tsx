@@ -54,25 +54,37 @@ export default function ColetasImportadasPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <FilterInput label="Data Inicial" type="date" />
-          <FilterInput label="Data Final" type="date" />
-          <FilterSelect label="Localização" />
-          <FilterSelect label="Coletor de Dados" />
-          <FilterSelect label="Qualificador" />
-          <FilterInput label="Hora Inicial" type="time" />
-          <FilterInput label="Hora Final" type="time" />
-          <FilterSelect label="Motivo Visita" />
-          <FilterSelect label="Funcionários" />
-          <FilterSelect label="Locais" />
-          <FilterSelect label="Grupos de Sites" />
-          <FilterSelect label="Eventos" />
-          <FilterSelect label="Tipo" />
-          <FilterSelect label="Áreas" />
-          <FilterSelect label="Checkpoint" />
+        {/* Campos em grade de 5 colunas com o botao a direita, alinhado a
+            ultima linha -- mesma disposicao do sistema de referencia. */}
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 xl:flex-row xl:items-end">
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <FilterInput label="Data Inicial" type="date" />
+            <FilterInput label="Data Final" type="date" />
+            <FilterSelect label="Localização" />
+            <FilterSelect label="Coletor de Dados" />
+            <FilterSelect label="Qualificador" />
+
+            {/* As duas horas dividem o espaco de um campo. */}
+            <div className="flex gap-3">
+              <FilterInput label="Hora Inicial" type="time" />
+              <FilterInput label="Hora Final" type="time" />
+            </div>
+            <FilterSelect label="Motivo Visita" />
+            <FilterSelect label="Funcionários" />
+            <FilterSelect label="Locais" />
+            <FilterSelect label="Grupos de Sites" />
+
+            <FilterSelect label="Eventos" />
+            <FilterSelect label="Tipo" />
+            <FilterSelect label="Áreas" />
+            <div className="sm:col-span-2">
+              <FilterSelect label="Checkpoint" />
+            </div>
+          </div>
+
           <button
             type="button"
-            className="group flex h-10 items-center justify-center gap-2 rounded-md bg-brand-orange text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-lg hover:shadow-brand-orange/30 focus:outline-none focus:ring-4 focus:ring-brand-orange/25 active:scale-[0.97]"
+            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-orange px-6 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-orange-600 hover:shadow-lg hover:shadow-brand-orange/30 focus:outline-none focus:ring-4 focus:ring-brand-orange/25 active:scale-[0.97] xl:w-52"
           >
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar

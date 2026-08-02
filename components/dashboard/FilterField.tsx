@@ -6,13 +6,19 @@ const fieldBaseClasses =
 export function FilterInput({
   label,
   type = "text",
+  name,
+  defaultValue,
 }: {
   label: string;
   type?: "text" | "date" | "time";
+  name?: string;
+  defaultValue?: string;
 }) {
   return (
     <input
       type={type}
+      name={name}
+      defaultValue={defaultValue}
       placeholder={label}
       aria-label={label}
       className={fieldBaseClasses}
@@ -23,14 +29,19 @@ export function FilterInput({
 export function FilterSelect({
   label,
   options = [],
+  name,
+  defaultValue,
 }: {
   label: string;
   options?: string[];
+  name?: string;
+  defaultValue?: string;
 }) {
   return (
     <div className="relative">
       <select
-        defaultValue=""
+        name={name}
+        defaultValue={defaultValue ?? ""}
         aria-label={label}
         className={`peer ${fieldBaseClasses} appearance-none pr-9 text-slate-600`}
       >

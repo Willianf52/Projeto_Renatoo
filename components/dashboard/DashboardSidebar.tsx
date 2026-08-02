@@ -29,11 +29,6 @@ const NAV_ITEMS: NavItem[] = [
     label: "Cadastros",
     icon: PlusCircleIcon,
     children: [
-      { label: "Grupo de Sites", href: "/dashboard/cadastros/grupos-sites" },
-      { label: "Site / Planta", href: "/dashboard/cadastros/sites" },
-      { label: "Usuários", href: "/dashboard/cadastros/usuarios" },
-      { label: "Grupo de Usuários", href: "/dashboard/cadastros/grupos-usuarios" },
-      { label: "QR-Code", href: "/dashboard/cadastros/qr-codes" },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha" },
     ],
   },

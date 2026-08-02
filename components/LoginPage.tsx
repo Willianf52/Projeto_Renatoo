@@ -14,6 +14,16 @@ type FieldErrors = {
   password: string;
 };
 
+const URL_ERRORS: Record<string, string> = {
+  "link-invalido": "O link expirou ou já foi utilizado. Solicite um novo abaixo.",
+  "acesso-indisponivel": "Esta conta está desativada. Procure o administrador.",
+  // Autenticacao valida, mas sem perfil correspondente: e um defeito de
+  // cadastro, nao uma desativacao, e o administrador precisa saber a diferenca
+  // para nao procurar por um `ativo = false` que nao existe.
+  "perfil-ausente":
+    "Sua conta está sem perfil configurado. Procure o administrador para concluir o cadastro.",
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,11 +36,10 @@ export default function LoginPage() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Erro vindo do /auth/callback quando o link do e-mail expirou ou ja foi usado.
-  const linkError =
-    searchParams.get("erro") === "link-invalido"
-      ? "O link expirou ou já foi utilizado. Solicite um novo abaixo."
-      : "";
+  // Avisos sinalizados por outras partes da aplicacao via ?erro= na URL:
+  // o /auth/callback quando o link do e-mail falha, e o middleware quando
+  // barra o acesso.
+  const urlError = URL_ERRORS[searchParams.get("erro") ?? ""] ?? "";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -125,12 +134,12 @@ export default function LoginPage() {
               />
             </div>
 
-            {(formError || linkError) && (
+            {(formError || urlError) && (
               <p
                 role="alert"
                 className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 animate-slide-down"
               >
-                {formError || linkError}
+                {formError || urlError}
               </p>
             )}
 
