@@ -183,13 +183,23 @@ Mesmo sendo valores `NEXT_PUBLIC_*` (públicos por natureza), guardá-los como A
 
 ---
 
-## Resumo
+## Status das correções
 
-Achados novos e acionáveis desta auditoria (não repetidos do `MELHORIAS.md`):
+Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm exec tsc --noEmit`, `pnpm test`, `pnpm run build` — todos passando):
 
-1. **3 vulnerabilidades altas em dependências** (`postcss`, `sharp` — este último alcançável via `next/image`) — sem nenhum scanner automatizado pegando isso hoje.
-2. **Nenhum header de segurança configurado** (`next.config.ts` vazio).
-3. **Sem Dependabot/branch protection/secret scanning** configurados no GitHub (a confirmar, não pude inspecionar diretamente).
-4. **Gestão de segredos: limpa** — nenhum vazamento, `.gitignore` correto, histórico do git limpo. Este é o ponto forte da auditoria.
+| Item | Status |
+|---|---|
+| 4.1 Headers de segurança | **Feito**, em modo `Content-Security-Policy-Report-Only` — ver nota abaixo antes de promover a bloqueante |
+| 4.2 Dependências vulneráveis (`postcss`, `sharp`) | **Feito** — `pnpm audit` confirma 0 vulnerabilidades. Um quarto achado (`brace-expansion`, via toolchain do ESLint) apareceu só no `pnpm audit` e também foi corrigido |
+| 4.3 Validação de env vars | **Feito** — `lib/env.ts` |
+| 4.4 Dependabot | **Feito** — `.github/dependabot.yml` |
+| 4.5 Workflow de CI | **Feito** — `.github/workflows/ci.yml`, actions fixadas por SHA completo (não por tag) |
+| A07 Rate limiting no login | **Feito** — bloqueio de 30s no cliente após 5 tentativas falhas (`components/LoginPage.tsx`). É mitigação de UX, não substitui o limite do Supabase Auth no backend |
 
-O `MELHORIAS.md` já cobre CI/testes, rate limiting de login e as inconsistências de código — não dupliquei aqui.
+**Nota sobre a CSP:** ficou em `Content-Security-Policy-Report-Only` de propósito. O Next injeta script/estilo inline para hidratação, e uma CSP bloqueante sem infraestrutura de nonce quebraria isso. Abra o console do navegador em produção, confirme que não aparecem violações, e só então troque o header para `Content-Security-Policy` (sem o sufixo `-Report-Only`) em `next.config.ts`.
+
+**Descoberta durante a correção:** o projeto tinha uma inconsistência real entre gerenciadores de pacote — `.gitignore` já declarava pnpm como oficial, mas a sessão (incluindo a auditoria original) vinha instalando com npm, e o `pnpm-workspace.yaml` tinha um placeholder de aprovação de build script (`"set this to true or false"`) nunca preenchido, o que teria feito qualquer `pnpm install` limpo falhar. Corrigido: overrides movidos para `pnpm-workspace.yaml` (local correto na versão instalada do pnpm), builds de `sharp`/`unrs-resolver` aprovados explicitamente, e o CI usa pnpm.
+
+**Só dá pra resolver no GitHub, não daqui** (seção 3): branch protection, Dependabot alerts/secret scanning ligados nas Settings, confirmação de visibilidade do repo e de quem tem acesso `write`/`admin`. Nenhuma ferramenta aqui tem acesso à configuração do GitHub — precisa ser feito manualmente.
+
+O `MELHORIAS.md` cobre o restante (testes de middleware, `error.tsx`/`loading.tsx`, etc.) e não foi duplicado aqui.
