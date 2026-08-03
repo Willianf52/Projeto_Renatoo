@@ -54,18 +54,23 @@ export default function ColetasImportadasPage() {
           </div>
         </div>
 
-        {/* Campos em grade de 5 colunas com o botao a direita, alinhado a
-            ultima linha -- mesma disposicao do sistema de referencia. */}
+        {/* Campos em grade com o botao a direita, alinhado a ultima linha --
+            mesma disposicao do sistema de referencia. A quinta coluna so entra
+            em 2xl: em 1280px cada coluna ficaria com 126px e rotulos como
+            "Coletor de Dados" (164px) seriam cortados no meio. */}
         <div className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end">
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             <FilterInput label="Data Inicial" type="date" />
             <FilterInput label="Data Final" type="date" />
             <FilterSelect label="Localização" />
             <FilterSelect label="Coletor de Dados" />
             <FilterSelect label="Qualificador" />
 
-            {/* As duas horas dividem o espaco de um campo. */}
-            <div className="flex gap-3">
+            {/* A partir de xl as duas horas ocupam duas colunas: em uma so, a
+                largura minima dos inputs de hora estoura a celula e invade o
+                campo ao lado. Abaixo de xl as colunas ja sao largas o bastante
+                e o span deixaria um buraco no meio da linha. */}
+            <div className="flex min-w-0 gap-3 xl:col-span-2">
               <FilterInput label="Hora Inicial" type="time" />
               <FilterInput label="Hora Final" type="time" />
             </div>
@@ -77,7 +82,7 @@ export default function ColetasImportadasPage() {
             <FilterSelect label="Eventos" />
             <FilterSelect label="Tipo" />
             <FilterSelect label="Áreas" />
-            <div className="sm:col-span-2">
+            <div className="lg:col-span-2 2xl:col-span-1">
               <FilterSelect label="Checkpoint" />
             </div>
           </div>

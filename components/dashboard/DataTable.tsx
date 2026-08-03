@@ -11,7 +11,10 @@ export function DataTable({
 }) {
   return (
     <div className="overflow-x-auto rounded-b-lg">
-      <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+      {/* 1280px: em 1100px as 12 colunas ficam na largura minima do conteudo e
+          os titulos encostam um no outro. A folga extra e distribuida entre
+          elas; abaixo disso a area rola na horizontal. */}
+      <table className="w-full min-w-[1280px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-brand-muted">
             {columns.map((column) => (

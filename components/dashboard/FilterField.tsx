@@ -1,7 +1,12 @@
 import { ChevronDownIcon } from "./icons";
 
+/**
+ * min-w-0 e essencial: inputs date/time tem largura minima intrinseca imposta
+ * pelo navegador (~150px e ~98px). Sem isso eles se recusam a encolher e
+ * vazam por cima do campo vizinho quando a coluna da grade e mais estreita.
+ */
 const fieldBaseClasses =
-  "h-10 w-full rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green";
+  "h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green";
 
 export function FilterInput({
   label,
@@ -38,7 +43,7 @@ export function FilterSelect({
   defaultValue?: string;
 }) {
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
