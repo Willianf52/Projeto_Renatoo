@@ -1,3 +1,11 @@
 allowBuilds:
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  unrs-resolver: true
+
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+
+overrides:
+  postcss: ^8.5.18
+  sharp: ^0.35.0
+  brace-expansion: ^1.1.17
