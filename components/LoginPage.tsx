@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { BrandLogo, HeroPanel } from "./HeroPanel";
 import { EMAIL_REGEX, FormField } from "./FormField";
 import { Spinner } from "./Spinner";
@@ -24,6 +24,13 @@ const URL_ERRORS: Record<string, string> = {
     "Sua conta está sem perfil configurado. Procure o administrador para concluir o cadastro.",
 };
 
+// O Supabase Auth ja limita tentativas no backend; isto e uma camada extra no
+// cliente para dar feedback visivel e desencorajar tentativa manual repetida
+// direto na tela -- nao substitui o limite do servidor, que continua sendo a
+// defesa real contra um script batendo direto na API.
+const MAX_TENTATIVAS = 5;
+const BLOQUEIO_MS = 30_000;
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,6 +42,32 @@ export default function LoginPage() {
   });
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [tentativasFalhas, setTentativasFalhas] = useState(0);
+  const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState(0);
+
+  useEffect(() => {
+    if (!bloqueadoAte) return;
+
+    const atualizar = () => {
+      const restante = Math.ceil((bloqueadoAte - Date.now()) / 1000);
+      if (restante <= 0) {
+        setBloqueadoAte(null);
+        setSegundosRestantes(0);
+      } else {
+        setSegundosRestantes(restante);
+      }
+    };
+
+    atualizar();
+    const intervalo = setInterval(atualizar, 1000);
+    return () => clearInterval(intervalo);
+  }, [bloqueadoAte]);
+
+  // Derivado de um valor de estado (nao de Date.now() direto no corpo do
+  // componente): chamar uma funcao impura durante a renderizacao produz
+  // resultado instavel entre re-renders.
+  const bloqueado = segundosRestantes > 0;
 
   // Avisos sinalizados por outras partes da aplicacao via ?erro= na URL:
   // o /auth/callback quando o link do e-mail falha, e o middleware quando
@@ -43,6 +76,10 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (bloqueado) {
+      return;
+    }
 
     const trimmedEmail = email.trim();
     const emailError =
@@ -75,9 +112,19 @@ export default function LoginPage() {
           ? "E-mail ou senha incorretos."
           : "Não foi possível entrar. Tente novamente.",
       );
+
+      const proximaContagem = tentativasFalhas + 1;
+      if (proximaContagem >= MAX_TENTATIVAS) {
+        setTentativasFalhas(0);
+        setBloqueadoAte(Date.now() + BLOQUEIO_MS);
+        setSegundosRestantes(Math.ceil(BLOQUEIO_MS / 1000));
+      } else {
+        setTentativasFalhas(proximaContagem);
+      }
       return;
     }
 
+    setTentativasFalhas(0);
     router.replace(safeRedirectPath(searchParams.get("redirectTo")));
     router.refresh();
   };
@@ -134,12 +181,14 @@ export default function LoginPage() {
               />
             </div>
 
-            {(formError || urlError) && (
+            {(formError || urlError || bloqueado) && (
               <p
                 role="alert"
                 className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 animate-slide-down"
               >
-                {formError || urlError}
+                {bloqueado
+                  ? `Muitas tentativas. Aguarde ${segundosRestantes}s para tentar de novo.`
+                  : formError || urlError}
               </p>
             )}
 
@@ -170,12 +219,12 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || bloqueado}
               style={{ animationDelay: "340ms" }}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 animate-fade-in-up hover:bg-brand-green-hover hover:shadow-xl hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
             >
               {loading && <Spinner />}
-              {loading ? "Entrando..." : "Entrar"}
+              {bloqueado ? `Aguarde ${segundosRestantes}s` : loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
         </div>
