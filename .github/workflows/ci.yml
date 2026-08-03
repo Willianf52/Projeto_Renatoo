@@ -27,7 +27,9 @@ jobs:
       # precisa do pnpm ja no PATH para resolver o diretorio do store.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          # 24 e a versao usada no desenvolvimento, e o pnpm 11 exige >= 22.13:
+          # com Node 20 ele quebra em node:sqlite antes de qualquer passo rodar.
+          node-version: 24
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
