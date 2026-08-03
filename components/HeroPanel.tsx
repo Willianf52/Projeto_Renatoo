@@ -8,11 +8,21 @@ const LOGO_RATIO = 126 / 71;
  *
  * O PNG tem fundo transparente e texto branco: foi desenhado para superficies
  * escuras, que e o caso de todas as telas deste projeto.
+ *
+ * `framed` assenta a marca sobre uma placa azul. No painel do login a logo tem
+ * a folga do hero inteiro em volta; na navbar ela divide uma faixa de 64px com
+ * seletor, usuario e botao de sair, e sem a placa se perde no meio deles.
  */
-export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
+export function BrandLogo({
+  size = "md",
+  framed = false,
+}: {
+  size?: "sm" | "md";
+  framed?: boolean;
+}) {
   const altura = size === "sm" ? 32 : 44;
 
-  return (
+  const marca = (
     <Image
       src="/logo-up-servicos.png"
       alt="Up Serviços"
@@ -24,6 +34,14 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
       className="w-auto shrink-0"
       style={{ height: altura }}
     />
+  );
+
+  if (!framed) return marca;
+
+  return (
+    <span className="inline-flex items-center justify-center rounded-lg bg-brand-blue px-3 py-1.5 shadow-sm ring-1 ring-white/15">
+      {marca}
+    </span>
   );
 }
 

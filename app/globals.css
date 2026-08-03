@@ -8,6 +8,9 @@
   --color-brand-surface: #0b0b26; /* superficie elevada sobre o fundo */
   --color-brand-green: #00e676; /* acao primaria e estados ativos */
   --color-brand-green-hover: #00c853;
+  /* Azul do arco da logo. Escurecido o suficiente para o texto branco da marca
+     manter 5.4:1 de contraste em cima dele. */
+  --color-brand-blue: #2b6cb0;
   --color-brand-muted: #a0aec0; /* texto secundario e placeholders */
 
   /* Easing de saida rapida e chegada suave. */

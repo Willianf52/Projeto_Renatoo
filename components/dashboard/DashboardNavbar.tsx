@@ -41,7 +41,7 @@ export function DashboardNavbar({
       </button>
 
       <div className="hidden shrink-0 sm:block">
-        <BrandLogo size="sm" />
+        <BrandLogo size="sm" framed />
       </div>
 
       <div className="relative flex-1 sm:max-w-sm">
