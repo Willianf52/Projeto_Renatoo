@@ -38,7 +38,7 @@ export function FilterSelect({
   defaultValue,
 }: {
   label: string;
-  options?: string[];
+  options?: { value: string; label: string }[];
   name?: string;
   defaultValue?: string;
 }) {
@@ -54,8 +54,8 @@ export function FilterSelect({
           {label}
         </option>
         {options.map((option) => (
-          <option key={option} value={option} className="text-white">
-            {option}
+          <option key={option.value} value={option.value} className="text-white">
+            {option.label}
           </option>
         ))}
       </select>

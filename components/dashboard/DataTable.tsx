@@ -1,14 +1,27 @@
+import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
 
 export function DataTable({
   columns,
   rows = [],
   loading = false,
+  page = 1,
+  totalPages = 0,
+  totalItems = 0,
+  buildPageHref,
 }: {
   columns: string[];
   rows?: string[][];
   loading?: boolean;
+  page?: number;
+  totalPages?: number;
+  totalItems?: number;
+  /** Sem isto, a paginacao renderiza desabilitada (uso sem dados reais). */
+  buildPageHref?: (page: number) => string;
 }) {
+  const podeVoltar = page > 1;
+  const podeAvancar = totalPages > 0 && page < totalPages;
+
   return (
     <div className="overflow-x-auto rounded-b-lg">
       {/* 1280px: em 1100px as 12 colunas ficam na largura minima do conteudo e
@@ -48,17 +61,35 @@ export function DataTable({
       </table>
 
       <div className="flex items-center justify-end gap-1 border-t border-slate-800 px-4 py-3">
-        <PaginationButton disabled aria-label="Primeira página">
+        <PaginationButton
+          disabled={!podeVoltar}
+          href={podeVoltar ? buildPageHref?.(1) : undefined}
+          aria-label="Primeira página"
+        >
           <ChevronsLeftIcon className="h-4 w-4" />
         </PaginationButton>
-        <PaginationButton disabled aria-label="Página anterior">
+        <PaginationButton
+          disabled={!podeVoltar}
+          href={podeVoltar ? buildPageHref?.(page - 1) : undefined}
+          aria-label="Página anterior"
+        >
           <ChevronLeftIcon className="h-4 w-4" />
         </PaginationButton>
-        <span className="px-3 text-xs text-brand-muted">Pág: 0 de 0 | Total: 0 itens</span>
-        <PaginationButton disabled aria-label="Próxima página">
+        <span className="px-3 text-xs text-brand-muted">
+          Pág: {totalItems > 0 ? page : 0} de {totalPages} | Total: {totalItems} itens
+        </span>
+        <PaginationButton
+          disabled={!podeAvancar}
+          href={podeAvancar ? buildPageHref?.(page + 1) : undefined}
+          aria-label="Próxima página"
+        >
           <ChevronRightIcon className="h-4 w-4" />
         </PaginationButton>
-        <PaginationButton disabled aria-label="Última página">
+        <PaginationButton
+          disabled={!podeAvancar}
+          href={podeAvancar ? buildPageHref?.(totalPages) : undefined}
+          aria-label="Última página"
+        >
           <ChevronsRightIcon className="h-4 w-4" />
         </PaginationButton>
       </div>
@@ -105,20 +136,28 @@ function EmptyState() {
 function PaginationButton({
   children,
   disabled,
+  href,
   "aria-label": ariaLabel,
 }: {
   children: React.ReactNode;
   disabled?: boolean;
+  href?: string;
   "aria-label": string;
 }) {
+  const className =
+    "flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+
+  if (!href || disabled) {
+    return (
+      <button type="button" disabled aria-label={ariaLabel} className={className}>
+        {children}
+      </button>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-label={ariaLabel}
-      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100"
-    >
+    <Link href={href} aria-label={ariaLabel} className={className}>
       {children}
-    </button>
+    </Link>
   );
 }
