@@ -50,9 +50,9 @@ export function FilterSelect({
         aria-label={label}
         className={`peer ${fieldBaseClasses} appearance-none pr-9 text-brand-muted`}
       >
-        <option value="" disabled hidden>
-          {label}
-        </option>
+        {/* Selecionavel de proposito: e a unica forma de o usuario limpar o
+            filtro pela propria lista, sem depender de editar a URL. */}
+        <option value="">{label}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value} className="text-white">
             {option.label}
