@@ -16,17 +16,23 @@ export default async function DashboardLayout({
     redirect("/");
   }
 
+  // maybeSingle (nao single): o middleware ja bloqueia usuario sem perfil
+  // antes de chegar aqui, entao este caso nao devia acontecer -- mas, se
+  // acontecer (rota nova fora do matcher, policy quebrada), single() lançaria
+  // erro so por ter zero linhas, misturando esse sinal com falha de verdade.
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("nome_completo, cargo")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   // Um usuario autenticado sempre enxerga o proprio perfil pela policy de RLS.
   // Falhar aqui indica policy quebrada ou perfil ausente -- registrar evita que
   // o problema fique escondido atras do valor padrao exibido na tela.
   if (error) {
     console.error("Falha ao carregar o perfil do usuário:", error.message);
+  } else if (!profile) {
+    console.error(`Layout do dashboard: usuário ${user.id} sem perfil em profiles.`);
   }
 
   const userName = profile?.nome_completo?.trim() || user.email || "Usuário";
