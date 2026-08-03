@@ -10,5 +10,10 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // lib/env.ts exige essas envs; o vitest nao le .env.local como o Next faz.
+    env: {
+      NEXT_PUBLIC_SUPABASE_URL: "https://example-test.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key",
+    },
   },
 });
