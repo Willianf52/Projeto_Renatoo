@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BrandLogo } from "@/components/HeroPanel";
@@ -40,9 +41,16 @@ export function DashboardNavbar({
         <MenuIcon className="h-5 w-5" />
       </button>
 
-      <div className="hidden shrink-0 sm:block">
+      {/* A logo leva a tela de abertura do sistema. Aponta direto para as
+          coletas em vez de /dashboard: aquela rota so existe para redirecionar
+          para ca, e passar por ela custaria um salto a mais. */}
+      <Link
+        href="/dashboard/inspecoes/coletas-importadas"
+        title="Ir para Coletas Importadas"
+        className="hidden shrink-0 rounded-lg transition-opacity duration-200 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface sm:block"
+      >
         <BrandLogo size="sm" framed />
-      </div>
+      </Link>
 
       <div className="relative flex-1 sm:max-w-sm">
         <select
