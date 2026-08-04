@@ -66,9 +66,26 @@ function toOptions<T extends Record<string, unknown>>(
   }));
 }
 
+/**
+ * Cache de processo para getFilterOptions: as 10 tabelas de referencia abaixo
+ * mudam raramente e o mesmo resultado vale para qualquer usuario ativo (RLS
+ * ja garante isso -- ver migrations 0003/0004/0006), entao nao ha risco de
+ * vazar dado de um usuario para outro guardando isso fora do request.
+ *
+ * unstable_cache do Next nao serve aqui: createClient() chama cookies()
+ * internamente, e ler dynamic APIs dentro de uma funcao cacheada por ele nao
+ * e suportado. Por isso o cache manual com TTL abaixo.
+ */
+const FILTER_OPTIONS_TTL_MS = 60_000;
+let filterOptionsCache: { data: FilterOptions; expiresAt: number } | null = null;
+
 /** Listas para popular os selects de filtro. Tabelas de referencia, leitura
  * liberada para qualquer usuario ativo (ver migrations 0003/0004/0006). */
 export async function getFilterOptions(): Promise<FilterOptions> {
+  if (filterOptionsCache && filterOptionsCache.expiresAt > Date.now()) {
+    return filterOptionsCache.data;
+  }
+
   const supabase = await createClient();
 
   const [
@@ -95,7 +112,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
   ]);
 
-  return {
+  const options: FilterOptions = {
     locais: toOptions(locais.data, "id", "nome"),
     gruposSites: toOptions(gruposSites.data, "id", "nome"),
     tipos: toOptions(tipos.data, "id", "nome"),
@@ -107,6 +124,9 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     areas: toOptions(areas.data, "id", "nome"),
     checkpoints: toOptions(checkpoints.data, "id", "codigo"),
   };
+
+  filterOptionsCache = { data: options, expiresAt: Date.now() + FILTER_OPTIONS_TTL_MS };
+  return options;
 }
 
 /** Combina data (yyyy-mm-dd) e hora (HH:MM) num timestamp para o filtro de

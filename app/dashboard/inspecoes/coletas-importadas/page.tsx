@@ -104,19 +104,23 @@ export default async function ColetasImportadasPage({
             Coletas Importadas
           </h1>
           <div className="flex items-center gap-2">
+            {/* Exportacao ainda nao implementada: desabilitado em vez de
+                clicavel sem efeito, para nao parecer quebrado. */}
             <button
               type="button"
-              title="Exportar para Excel"
-              aria-label="Exportar para Excel"
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white transition-all duration-200 hover:bg-emerald-500 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-emerald-400 active:scale-95"
+              disabled
+              title="Exportar para Excel — em breve"
+              aria-label="Exportar para Excel — em breve"
+              className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md bg-emerald-600/40 text-white/60"
             >
               <ExcelIcon className="h-4 w-4" />
             </button>
             <button
               type="button"
-              title="Exportar para PDF"
-              aria-label="Exportar para PDF"
-              className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600 text-white transition-all duration-200 hover:bg-red-500 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-400 active:scale-95"
+              disabled
+              title="Exportar para PDF — em breve"
+              aria-label="Exportar para PDF — em breve"
+              className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md bg-red-600/40 text-white/60"
             >
               <PdfIcon className="h-4 w-4" />
             </button>
