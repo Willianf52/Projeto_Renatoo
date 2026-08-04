@@ -8,8 +8,13 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Aplica a todas as rotas, exceto arquivos estaticos e imagens.
+     * Aplica a todas as rotas, exceto arquivos estaticos, imagens e /api.
+     * Rotas de API (ex.: /api/webhooks/*) sao chamadas server-to-server, sem
+     * cookie de sessao de navegador -- cair na checagem de usuario aqui as
+     * redirecionaria pra "/" antes de rodar a propria autenticacao da rota
+     * (ex.: segredo compartilhado no header). Cada rota de API cuida da sua
+     * autenticacao.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
