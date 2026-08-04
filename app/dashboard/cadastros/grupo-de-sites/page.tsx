@@ -1,11 +1,108 @@
-import { TelaEmPreparacao } from "@/components/dashboard/TelaEmPreparacao";
+import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { DataTable } from "@/components/dashboard/DataTable";
+import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
+import { FilterIcon, SitemapIcon } from "@/components/dashboard/icons";
+import {
+  getGruposSites,
+  toTableRow,
+  PAGE_SIZE,
+  SITUACOES,
+  type GrupoSiteFiltros,
+} from "./queries";
 
-export default function GrupoDeSitesPage() {
+const TABLE_COLUMNS = ["Nome", "Descrição", "Sites", "Situação", "Criado em"];
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function primeiro(valor: string | string[] | undefined): string | undefined {
+  return (Array.isArray(valor) ? valor[0] : valor) || undefined;
+}
+
+function extrairFiltros(params: SearchParams): GrupoSiteFiltros {
+  return {
+    nome: primeiro(params.nome),
+    situacao: primeiro(params.situacao) as "ativos" | "inativos" | undefined,
+    pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
+  };
+}
+
+export default async function GrupoDeSitesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const filtros = extrairFiltros(params);
+
+  const resultado = await getGruposSites(filtros);
+
+  const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
+  const rows = resultado.rows.map(toTableRow);
+
+  const buildPageHref = (pagina: number) => {
+    const query = new URLSearchParams();
+    for (const [chave, valor] of Object.entries(params)) {
+      const v = primeiro(valor);
+      if (v) query.set(chave, v);
+    }
+    query.set("pagina", String(pagina));
+    return `?${query.toString()}`;
+  };
+
   return (
-    <TelaEmPreparacao
-      secao="Cadastros"
-      titulo="Grupo de Sites"
-      descricao="O cadastro de grupos de sites ainda será construído."
-    />
+    <div className="space-y-4">
+      <div className="animate-fade-in">
+        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Grupo de Sites" }]} />
+      </div>
+
+      <div
+        className="overflow-hidden rounded-lg bg-brand-surface shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
+        style={{ animationDelay: "80ms" }}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
+          <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
+            <SitemapIcon className="h-4 w-4" />
+            Grupo de Sites
+          </h1>
+        </div>
+
+        {/* Mesmo mecanismo das demais telas: form GET, filtros na querystring,
+            sem JS no cliente. */}
+        <form
+          method="get"
+          className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end"
+        >
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+            <FilterInput label="Nome" name="nome" defaultValue={filtros.nome} />
+            <FilterSelect
+              label="Situação"
+              name="situacao"
+              defaultValue={filtros.situacao}
+              options={SITUACOES}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] xl:w-52"
+          >
+            <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
+            Filtrar
+          </button>
+        </form>
+
+        <DataTable
+          columns={TABLE_COLUMNS}
+          rows={rows}
+          page={filtros.pagina}
+          totalPages={totalPages}
+          totalItems={resultado.totalItems}
+          buildPageHref={buildPageHref}
+          minWidth="min-w-[700px]"
+          emptyTitle="Nenhum grupo de sites encontrado"
+          emptyDescription="Ajuste os filtros acima para localizar cadastros."
+        />
+      </div>
+    </div>
   );
 }
