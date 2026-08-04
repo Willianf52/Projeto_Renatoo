@@ -9,6 +9,9 @@ export function DataTable({
   totalPages = 0,
   totalItems = 0,
   buildPageHref,
+  emptyTitle = "Nenhuma coleta encontrada",
+  emptyDescription = "Ajuste o período ou os filtros acima para localizar registros.",
+  minWidth = "min-w-[1280px]",
 }: {
   columns: string[];
   rows?: string[][];
@@ -18,6 +21,12 @@ export function DataTable({
   totalItems?: number;
   /** Sem isto, a paginacao renderiza desabilitada (uso sem dados reais). */
   buildPageHref?: (page: number) => string;
+  /** Padrao voltado a tela de coletas, a primeira a usar a tabela. */
+  emptyTitle?: string;
+  emptyDescription?: string;
+  /** Largura minima em classe Tailwind: depende de quantas colunas a tela
+   * tem. Com poucas colunas, forcar 1280px cria rolagem horizontal inutil. */
+  minWidth?: string;
 }) {
   const podeVoltar = page > 1;
   const podeAvancar = totalPages > 0 && page < totalPages;
@@ -27,7 +36,7 @@ export function DataTable({
       {/* 1280px: em 1100px as 12 colunas ficam na largura minima do conteudo e
           os titulos encostam um no outro. A folga extra e distribuida entre
           elas; abaixo disso a area rola na horizontal. */}
-      <table className="w-full min-w-[1280px] border-collapse text-left text-sm">
+      <table className={`w-full ${minWidth} border-collapse text-left text-sm`}>
         <thead>
           <tr className="border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-brand-muted">
             {columns.map((column) => (
@@ -53,7 +62,7 @@ export function DataTable({
           ) : (
             <tr>
               <td colSpan={columns.length} className="px-4 py-16">
-                <EmptyState />
+                <EmptyState title={emptyTitle} description={emptyDescription} />
               </td>
             </tr>
           )}
@@ -118,17 +127,15 @@ function TableSkeleton({ columns }: { columns: string[] }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center animate-fade-in-up">
       <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
         <SearchIcon className="h-6 w-6" />
       </div>
       {/* slate-600 em vez de slate-400: garante contraste WCAG AA. */}
-      <p className="text-sm font-medium text-white">Nenhuma coleta encontrada</p>
-      <p className="text-sm text-brand-muted">
-        Ajuste o período ou os filtros acima para localizar registros.
-      </p>
+      <p className="text-sm font-medium text-white">{title}</p>
+      <p className="text-sm text-brand-muted">{description}</p>
     </div>
   );
 }
