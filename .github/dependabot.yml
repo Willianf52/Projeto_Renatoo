@@ -4,6 +4,16 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # O pnpm 11 recusa pacote publicado ha menos de 24h
+    # (ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION), e o Dependabot abre PR assim
+    # que a versao sai -- o install falhava antes de rodar qualquer teste.
+    # Todos os prazos ficam acima de 24h de proposito: um valor 0 aqui, como
+    # no exemplo da documentacao, traria a falha de volta para aquele tier.
+    cooldown:
+      default-days: 3
+      # Major merece mais tempo de maturacao: e a atualizacao que costuma
+      # exigir mudanca de codigo, como o Next 16 no PR #8.
+      semver-major-days: 7
     open-pull-requests-limit: 10
   - package-ecosystem: "github-actions"
     directory: "/"
