@@ -4,18 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  BuildingIcon,
   ChevronDownIcon,
   ClipboardListIcon,
+  KeyIcon,
   MegaphoneIcon,
   PlusCircleIcon,
+  QrCodeIcon,
   SearchIcon,
+  SitemapIcon,
   UserIcon,
+  UsersIcon,
   XIcon,
 } from "./icons";
 
 type NavChild = {
   label: string;
   href: string;
+  icon: (props: { className?: string }) => React.ReactElement;
 };
 
 type NavItem = {
@@ -29,14 +35,27 @@ const NAV_ITEMS: NavItem[] = [
     label: "Cadastros",
     icon: PlusCircleIcon,
     children: [
-      { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha" },
+      { label: "Grupo de Sites", href: "/dashboard/cadastros/grupo-de-sites", icon: SitemapIcon },
+      { label: "Site / Planta", href: "/dashboard/cadastros/site-planta", icon: BuildingIcon },
+      { label: "Usuários", href: "/dashboard/cadastros/usuarios", icon: UserIcon },
+      {
+        label: "Grupo de Usuários",
+        href: "/dashboard/cadastros/grupo-de-usuarios",
+        icon: UsersIcon,
+      },
+      { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
+      { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },
   {
     label: "Inspeções",
     icon: SearchIcon,
     children: [
-      { label: "Coletas Importadas", href: "/dashboard/inspecoes/coletas-importadas" },
+      {
+        label: "Coletas Importadas",
+        href: "/dashboard/inspecoes/coletas-importadas",
+        icon: ClipboardListIcon,
+      },
     ],
   },
   // Modulos ainda sem telas definidas: mantidos visiveis para preservar a
@@ -153,6 +172,7 @@ export function DashboardSidebar({
                   <div className="ml-8 mt-1 space-y-1 overflow-hidden border-l border-slate-700 pl-3">
                     {item.children.map((child, childIndex) => {
                       const isActive = pathname.startsWith(child.href);
+                      const ChildIcon = child.icon;
 
                       return (
                         <Link
@@ -160,14 +180,15 @@ export function DashboardSidebar({
                           href={child.href}
                           onClick={onCloseMobile}
                           aria-current={isActive ? "page" : undefined}
-                          className={`block rounded-md px-3 py-2 text-sm font-medium animate-slide-down transition-colors duration-200 ${
+                          className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium animate-slide-down transition-colors duration-200 ${
                             isActive
                               ? "bg-slate-800 text-white"
                               : "text-brand-muted hover:bg-slate-800/60 hover:text-white"
                           }`}
                           style={{ animationDelay: `${childIndex * 50}ms` }}
                         >
-                          {child.label}
+                          <ChildIcon className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1">{child.label}</span>
                         </Link>
                       );
                     })}

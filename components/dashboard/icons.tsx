@@ -132,6 +132,60 @@ export function UserIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function UsersIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c1.2-3.4 4-5 6.5-5s5.3 1.6 6.5 5" />
+      <path d="M16 5.5a3.5 3.5 0 0 1 0 6.5M18 15c2 .8 3.2 2.4 3.5 5" />
+    </svg>
+  );
+}
+
+/** Hierarquia de sites: um no raiz ligado a tres nos filhos. */
+export function SitemapIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="5" rx="1" />
+      <rect x="2" y="17" width="5" height="5" rx="1" />
+      <rect x="9.5" y="17" width="5" height="5" rx="1" />
+      <rect x="17" y="17" width="5" height="5" rx="1" />
+      <path d="M12 7v5M4.5 17v-3h15v3M12 12v5" />
+    </svg>
+  );
+}
+
+export function BuildingIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="10" height="18" rx="1" />
+      <path d="M14 9h5a1 1 0 0 1 1 1v11" />
+      <path d="M7 7h4M7 11h4M7 15h4M17 13h0M17 17h0" />
+      <path d="M3 21h18" />
+    </svg>
+  );
+}
+
+export function QrCodeIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3h-3zM20 14h1M14 20h3M20 17v4" />
+    </svg>
+  );
+}
+
+export function KeyIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="15" r="4" />
+      <path d="m10.8 12.2 8.2-8.2M17 6l2.5 2.5M14.5 8.5 17 11" />
+    </svg>
+  );
+}
+
 export function XIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
