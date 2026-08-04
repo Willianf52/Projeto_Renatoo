@@ -8,9 +8,11 @@ import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 
 export default function TrocarSenhaPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState({
+    currentPassword: "",
     password: "",
     confirmation: "",
   });
@@ -21,6 +23,7 @@ export default function TrocarSenhaPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const currentPasswordError = currentPassword === "" ? "Campo obrigatório" : "";
     const passwordError =
       password === ""
         ? "Campo obrigatório"
@@ -34,22 +37,53 @@ export default function TrocarSenhaPage() {
           ? "As senhas não coincidem"
           : "";
 
-    if (passwordError || confirmationError) {
+    if (currentPasswordError || passwordError || confirmationError) {
       setErrors({
+        currentPassword: currentPasswordError,
         password: passwordError,
         confirmation: confirmationError,
       });
       return;
     }
 
-    setErrors({ password: "", confirmation: "" });
+    setErrors({ currentPassword: "", password: "", confirmation: "" });
     setFormError("");
     setLoading(true);
 
     const supabase = createClient();
-    // Requer que "Require current password when updating" esteja desativado
-    // nas configuracoes de Auth do Supabase -- sem isso o GoTrue recusa a
-    // troca por faltar current_password.
+
+    /**
+     * Confere a senha atual antes de trocar. Sem isso, quem encontra uma
+     * sessao aberta -- notebook destravado, cookie roubado -- troca a senha
+     * sem saber a antiga e expulsa o dono da propria conta.
+     *
+     * Esta checagem roda no cliente e por isso nao e barreira definitiva: quem
+     * controla o navegador pode chamar updateUser direto pelo console. Ela
+     * fecha o caso oportunista. A barreira real e a reautenticacao exigida
+     * pelo proprio GoTrue, que se liga no painel do Supabase
+     * (Authentication > Settings) -- ver AUDITORIA-SEGURANCA.md.
+     */
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.email) {
+      setLoading(false);
+      setFormError("Sessão expirada. Entre novamente para trocar a senha.");
+      return;
+    }
+
+    const { error: erroSenhaAtual } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (erroSenhaAtual) {
+      setLoading(false);
+      setErrors((prev) => ({ ...prev, currentPassword: "Senha atual incorreta" }));
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password });
 
     setLoading(false);
@@ -67,6 +101,7 @@ export default function TrocarSenhaPage() {
       return;
     }
 
+    setCurrentPassword("");
     setPassword("");
     setConfirmation("");
     setSuccess(true);
@@ -96,6 +131,24 @@ export default function TrocarSenhaPage() {
             </div>
           ) : (
             <form className="max-w-xl space-y-6" onSubmit={handleSubmit} noValidate>
+              <FormField
+                id="senha-atual"
+                label="Senha atual"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                error={errors.currentPassword}
+                onChange={(value) => {
+                  setCurrentPassword(value);
+                  if (errors.currentPassword) {
+                    setErrors((prev) => ({ ...prev, currentPassword: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+
               <div>
                 <FormField
                   id="nova-senha"
