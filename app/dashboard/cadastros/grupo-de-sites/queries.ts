@@ -7,7 +7,7 @@ export type GrupoSiteFiltros = {
   pagina: number;
 };
 
-type GrupoSiteRow = {
+export type GrupoSiteRow = {
   id: number;
   nome: string;
   descricao: string | null;
@@ -61,6 +61,44 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   if (error) throw error;
 
   return { rows: (data ?? []) as GrupoSiteRow[], totalItems: count ?? 0 };
+}
+
+/**
+ * Espelha `pode_administrar_cadastros()` da migration 0009. Serve so para a
+ * interface decidir entre mostrar o botao e mostra-lo desabilitado -- quem
+ * autoriza de verdade e o RLS, no banco.
+ */
+export const CARGOS_QUE_ADMINISTRAM = ["GESTOR", "SUPERVISOR", "OPERACIONAL"];
+
+export async function podeAdministrarCadastros(): Promise<boolean> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return false;
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("cargo")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return CARGOS_QUE_ADMINISTRAM.includes(data?.cargo ?? "");
+}
+
+export async function getGrupoSite(id: number): Promise<GrupoSiteRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("grupos_sites")
+    .select("id, nome, descricao, ativo")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
 }
 
 /** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
