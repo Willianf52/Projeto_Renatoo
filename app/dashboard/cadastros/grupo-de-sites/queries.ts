@@ -81,11 +81,11 @@ export async function podeAdministrarCadastros(): Promise<boolean> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("cargo")
+    .select("cargo, ativo")
     .eq("id", user.id)
     .maybeSingle();
 
-  return CARGOS_QUE_ADMINISTRAM.includes(data?.cargo ?? "");
+  return Boolean(data?.ativo) && CARGOS_QUE_ADMINISTRAM.includes(data?.cargo ?? "");
 }
 
 export async function getGrupoSite(id: number): Promise<GrupoSiteRow | null> {
