@@ -168,11 +168,29 @@ export function __limparCacheDeReferencias() {
   referenciasCache = null;
 }
 
-/** Combina data (yyyy-mm-dd) e hora (HH:MM) num timestamp para o filtro de
- * periodo. Sem data, nao ha limite para aplicar. */
-function combinarDataHora(data: string | undefined, hora: string | undefined, horaPadrao: string) {
+/**
+ * Fuso da operacao (Brasilia). Fixo em -03:00: o Brasil nao observa mais
+ * horario de verao desde 2019, entao o deslocamento nao varia ao longo do
+ * ano -- nao ha caso em que -02:00 se aplicaria.
+ */
+const FUSO_OPERACIONAL = "-03:00";
+
+/**
+ * Combina data (yyyy-mm-dd) e hora (HH:MM) num timestamp para o filtro de
+ * periodo. Sem data, nao ha limite para aplicar.
+ *
+ * O deslocamento vai explicito no timestamp -- sem ele, o Postgres
+ * interpretaria o horario conforme o fuso da conexao, nao o fuso em que a
+ * visita realmente aconteceu. Funciona por coincidencia quando os dois
+ * fusos combinam; diverge em silencio quando nao combinam.
+ */
+export function combinarDataHora(
+  data: string | undefined,
+  hora: string | undefined,
+  horaPadrao: string,
+) {
   if (!data) return null;
-  return `${data}T${hora ? `${hora}:00` : horaPadrao}`;
+  return `${data}T${hora ? `${hora}:00` : horaPadrao}${FUSO_OPERACIONAL}`;
 }
 
 /**

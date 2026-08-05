@@ -53,8 +53,13 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens } = v
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const { getColetas, getFilterOptions, montarSelectDeColetas, __limparCacheDeReferencias } =
-  await import("./queries");
+const {
+  combinarDataHora,
+  getColetas,
+  getFilterOptions,
+  montarSelectDeColetas,
+  __limparCacheDeReferencias,
+} = await import("./queries");
 
 const contar = (tabela: string) => tabelasConsultadas.filter((t) => t === tabela).length;
 
@@ -147,5 +152,28 @@ describe("getColetas", () => {
     await getColetas({ pagina: 1 });
 
     expect(contagens.get("leituras")).toBe("estimated");
+  });
+});
+
+describe("combinarDataHora", () => {
+  /**
+   * Sem o deslocamento explicito, o Postgres interpretaria o timestamp
+   * conforme o fuso da conexao -- que pode nao ser o fuso operacional (ver
+   * comentario da funcao).
+   */
+  it("adiciona o deslocamento de Brasilia ao combinar data e hora", () => {
+    expect(combinarDataHora("2026-08-05", "14:30", "00:00:00")).toBe(
+      "2026-08-05T14:30:00-03:00",
+    );
+  });
+
+  it("usa a hora padrao quando so a data foi informada", () => {
+    expect(combinarDataHora("2026-08-05", undefined, "23:59:59")).toBe(
+      "2026-08-05T23:59:59-03:00",
+    );
+  });
+
+  it("sem data, nao ha limite para aplicar", () => {
+    expect(combinarDataHora(undefined, "14:30", "00:00:00")).toBeNull();
   });
 });
