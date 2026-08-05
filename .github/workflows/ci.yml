@@ -21,7 +21,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # SHA do commit da v4.4.0, nao o do objeto de tag (a15d269...): a tag e
       # anotada, e o Actions so resolve action por commit.
       # Sem `version:`: o action le o campo `packageManager` do package.json.
