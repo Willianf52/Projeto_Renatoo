@@ -31,46 +31,14 @@ aparece hoje.
    - `anon` não escreve em `grupos_sites` (0010);
    - UPDATE em `cargo` e `ativo` negado para `authenticated` (0007).
 
-2. **A regra de autorização está duplicada em TS e em SQL.**
-   `grupo-de-sites/queries.ts:71` mantém `CARGOS_QUE_ADMINISTRAM` espelhando à
-   mão `pode_administrar_cadastros()` (migration 0009), e `usuarios/queries.ts:72`
-   faz o mesmo com `pode_ver_toda_operacao()`. Os comentários assumem o
-   espelhamento, mas nada impede a divergência.
-
-   As duas funções são `security definer` e já têm `grant execute` para
-   `authenticated`, então dá para chamar direto — `supabase.rpc("pode_administrar_cadastros")`.
-   Uma fonte só, e um round-trip em vez de dois (`getUser()` + select).
-
 ## Média prioridade
 
-3. **`error.tsx` / `not-found.tsx` só existem no nível do dashboard.** As três
-   telas públicas (`/`, `/recuperar-senha`, `/nova-senha`) são client components
-   que falam com o Supabase e caem na tela de erro genérica do Next se
-   quebrarem. Falta o par em `app/`.
-
-4. **Os índices não cobrem as buscas nem a ordenação real.**
-
-   - `ilike '%termo%'` em `grupos_sites.nome`/`descricao` e em
-     `profiles.nome_completo`/`email` não usa índice btree — é seq scan a cada
-     filtro. Resolve com `pg_trgm` + GIN.
-   - `leituras` é ordenada por `(data_hora desc, id desc)`
-     (`coletas-importadas/queries.ts:238`), mas o índice de 0004 é só
-     `(data_hora desc)`. Um composto serve o `ORDER BY` exato — e essa é, pelo
-     comentário da própria query, "a tabela que mais cresce aqui".
-   - `profiles` é ordenada por `nome_completo` sem índice nessa coluna.
-
-5. **`combinarDataHora` monta timestamp sem timezone explícito.**
-   `coletas-importadas/queries.ts:173` concatena data + hora e deixa o Postgres
-   interpretar conforme o timezone da conexão. Funciona para o caso comum, mas
-   dá resultado errado se o time operacional estiver em fuso diferente do
-   servidor.
-
-6. **Nenhum teste de ponta a ponta do fluxo de auth.** Middleware, RLS e telas
+2. **Nenhum teste de ponta a ponta do fluxo de auth.** Middleware, RLS e telas
    são testados isoladamente; nada exercita a costura entre eles. Playwright
    cobrindo login → dashboard, `redirectTo` preservado, e conta inativa barrada
    com a mensagem certa.
 
-7. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
+3. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
    "Localização" foi interpretado como presença/ausência de coordenadas na
    leitura (`leituras.latitude`), "Tipo" como `tipos_servico` do site e
    "Checkpoint" como `qr_codes`. Se o sistema de referência (UP Serviços) usa
@@ -78,49 +46,31 @@ aparece hoje.
    silêncio. Confirmar com quem conhece a tela original antes de considerar a
    página fechada.
 
-8. **Botões de exportar Excel/PDF sem handler.** Em
+4. **Botões de exportar Excel/PDF sem handler.** Em
    `coletas-importadas/page.tsx` e `grupo-de-sites/page.tsx` os botões existem
    e estão desabilitados com o motivo no rótulo. É a próxima peça óbvia dessas
    telas.
 
 ## Baixa prioridade / nice-to-have
 
-9. **`packageManager` ausente no `package.json`.** O CI contorna a ausência
-   cravando `version: 11.18.0` no YAML (`.github/workflows/ci.yml:24`), com
-   comentário explicando o porquê. Com o campo, local e CI passam a concordar
-   sozinhos e o workaround sai.
+5. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
+   não é problema de repositório — mas existe na máquina de desenvolvimento e é
+   exatamente a divergência npm/pnpm que a auditoria registra como já tendo
+   causado dor.
 
-10. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
-    não é problema de repositório — mas existe na máquina de desenvolvimento e é
-    exatamente a divergência npm/pnpm que a auditoria registra como já tendo
-    causado dor.
+6. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
+   custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
+   passphrase. É paridade exigida com o sistema legado — revisitar quando a
+   exigência cair.
 
-11. **Cliente Supabase do browser recriado a cada chamada.**
-    `lib/supabase/client.ts` — `createClient()` é chamado de novo em cada
-    `handleSubmit` (LoginForm, TrocarSenha, RecuperarSenha, NovaSenha,
-    DashboardNavbar). Funciona; o padrão comum é memoizar num singleton de
-    módulo.
+7. **`console.error` sem correlação nem destino.** `lib/supabase/middleware.ts`,
+   `app/dashboard/layout.tsx` e a rota do webhook logam solto, só para o stdout
+   do servidor. O `TODO` em `app/dashboard/error.tsx:13` já marca o lugar de
+   plugar observabilidade.
 
-12. **Botão desabilitado não alcança quem usa teclado.** `AcaoDesabilitada`
-    (`grupo-de-sites/page.tsx:56`) põe o motivo em `title`/`aria-label` de um
-    `<button disabled>`, que não recebe foco — leitor de tela e navegação por
-    teclado nunca chegam à explicação. `aria-disabled` com `onClick` no-op
-    preserva o foco. São dois lugares: o componente e a cópia inline em
-    `coletas-importadas/page.tsx:111`, que vale extrair junto.
-
-13. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
-    custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
-    passphrase. É paridade exigida com o sistema legado — revisitar quando a
-    exigência cair.
-
-14. **`console.error` sem correlação nem destino.** `lib/supabase/middleware.ts`,
-    `app/dashboard/layout.tsx` e a rota do webhook logam solto, só para o stdout
-    do servidor. O `TODO` em `app/dashboard/error.tsx:13` já marca o lugar de
-    plugar observabilidade.
-
-15. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
-    marcado como placeholder até existir tabela de organizações. Mantido aqui só
-    para não se perder de vista.
+8. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
+   marcado como placeholder até existir tabela de organizações. Mantido aqui só
+   para não se perder de vista.
 
 ---
 
@@ -137,10 +87,17 @@ renumera.
 | CI não rodava em push para `main` | Gatilho apontado para `branches: [main]`. Falta marcar o job como required em branch protection — só dá para fazer na UI do GitHub |
 | Botão "Sair" podia não sair | `DashboardNavbar` checa o retorno de `signOut()`, avisa na tela e libera o botão. Corrigiu junto um segundo defeito: `signingOut` nunca voltava a `false`, então numa falha o botão travava em "Saindo...". Sem teste automatizado — ver "teste de ponta a ponta do fluxo de auth" |
 | Três consultas a `profiles` por requisição | Duas saíram quando `podeAdministrarCadastros()` e `podeVerTodaOperacao()` viraram chamadas RPC às funções `security definer` do banco. A do layout virou `lib/perfil-atual.ts`, memoizada por requisição com `cache()` do React — o ponto não é o número de round-trips hoje, é que tela nova reusa em vez de abrir a sua. A do middleware fica: roda em invocação separada do render, e nenhum cache de requisição atravessa as duas |
+| A regra de autorização duplicada em TS e em SQL | `podeAdministrarCadastros()` (`grupo-de-sites/queries.ts`) e `podeVerTodaOperacao()` (`usuarios/queries.ts`, ex-`getNivelAcessoAtual`/`podeVerTodosOsUsuarios`) passaram a chamar `pode_administrar_cadastros()`/`pode_ver_toda_operacao()` via RPC em vez de reimplementar a regra em TS a partir de `cargo`/`ativo`. Fonte única; teste cobre concessão, negação e falha do RPC negando por padrão. O round-trip a menos é o mesmo citado em "Três consultas a `profiles`" |
+| `error.tsx`/`not-found.tsx` só no nível do dashboard | `app/error.tsx` e `app/not-found.tsx`, seguindo a identidade visual do login (fundo `brand-navy`, logo, sem depender do `DashboardChrome`) |
+| Índices não cobrem buscas nem ordenação real | `supabase/migrations/0011_indices_de_busca_e_ordenacao.sql`: GIN + `pg_trgm` para os `ilike` de `grupos_sites`/`profiles`, índice composto `(data_hora desc, id desc)` em `leituras` no lugar do de coluna única da 0004, e índice em `profiles.nome_completo`. Não testado contra banco local — mesma lacuna do `config.toml` que os testes de RLS pendentes registram |
+| `combinarDataHora` sem timezone explícito | Deslocamento `-03:00` fixo no timestamp montado (Brasil não observa horário de verão desde 2019, então o deslocamento não varia), com teste cobrindo os três casos (`combinarDataHora`, exportada de `coletas-importadas/queries.ts`) |
+| `packageManager` ausente no `package.json` | Campo `"packageManager": "pnpm@11.18.0"` adicionado; `pnpm/action-setup` no CI não crava mais `version:` — lê do `package.json`, então local e CI não podem mais divergir |
+| Cliente Supabase do browser recriado a cada chamada | Singleton de módulo em `lib/supabase/client.ts`: `createClient()` memoiza a instância entre chamadas |
+| Botão desabilitado não alcança quem usa teclado | Componente único `components/dashboard/AcaoDesabilitada.tsx` (antes duplicado em `grupo-de-sites/page.tsx` e como dois botões soltos em `coletas-importadas/page.tsx`), com `aria-disabled` + `onClick` no-op no lugar do atributo `disabled`, que preserva o foco por teclado |
 | `escaparLike` duplicado nas duas telas | Virou `lib/postgrest-escape.ts`, com teste próprio. `escaparPostgrest` foi junto, e a composição dos dois virou `termoParaOr` — a ordem entre eles não é intercambiável e agora está fixada num lugar só |
 | Envs sem validação, erro genérico | `lib/env.ts`, com mensagem apontando o `.env.example` |
 | Sem testes nem CI | vitest + `.github/workflows/ci.yml` (lint, typecheck, teste, build) |
-| Sem `error.tsx` | `app/dashboard/error.tsx` — falta ainda o nível de `app/`, que segue na lista acima |
+| Sem `error.tsx` | `app/dashboard/error.tsx` — o par em `app/` fechou junto (ver acima) |
 | Sem `loading.tsx` | `app/dashboard/loading.tsx` |
 | `.single()` vs `.maybeSingle()` | Layout passou a usar `maybeSingle`, com o motivo no comentário |
 | Sem feedback de tentativas no login | Bloqueio de 30s após 5 falhas em `components/LoginForm.tsx` |
