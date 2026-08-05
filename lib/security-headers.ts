@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 /**
  * Cabecalhos de seguranca aplicados a toda resposta.
  *
@@ -18,6 +20,25 @@
 /** Quatro diretivas abaixo mudam entre dev e producao; ver cada uma no lugar. */
 const EM_PRODUCAO = process.env.NODE_ENV === "production";
 
+/**
+ * Origem exata do projeto Supabase, nao um curinga.
+ *
+ * `https://*.supabase.co` autoriza *qualquer* projeto Supabase, e criar um e
+ * gratuito. Numa CSP a diretiva connect-src e o que sobra para conter
+ * exfiltracao depois que um script hostil ja esta rodando: com o curinga, esse
+ * script manda a sessao e as coletas para o projeto do atacante sem violar
+ * politica nenhuma -- e o navegador nao reclama, porque o destino casava com a
+ * regra. Fixando a origem, so o projeto real e alcancavel.
+ *
+ * Derivada de NEXT_PUBLIC_SUPABASE_URL para nao virar um segundo lugar onde a
+ * URL do projeto mora e sai de sincronia. `.origin` normaliza: barra final ou
+ * caminho colado na env nao vazam para a diretiva.
+ */
+const supabaseOrigem = new URL(env.supabaseUrl).origin;
+
+/** "https://x" -> "wss://x" e "http://x" -> "ws://x" (Supabase local). */
+const supabaseWebSocket = supabaseOrigem.replace(/^http/, "ws");
+
 const CSP = [
   "default-src 'self'",
   /**
@@ -36,8 +57,8 @@ const CSP = [
   // A API do Supabase e chamada direto do navegador com a anon key. Em dev
   // soma-se o websocket do Fast Refresh, que roda em ws:// sem TLS.
   EM_PRODUCAO
-    ? "connect-src 'self' https://*.supabase.co wss://*.supabase.co"
-    : "connect-src 'self' ws: https://*.supabase.co wss://*.supabase.co",
+    ? `connect-src 'self' ${supabaseOrigem} ${supabaseWebSocket}`
+    : `connect-src 'self' ws: ${supabaseOrigem} ${supabaseWebSocket}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

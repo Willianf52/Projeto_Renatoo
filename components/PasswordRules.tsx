@@ -1,36 +1,4 @@
-/** Caracteres especiais aceitos pela politica de senha. */
-const SPECIAL_CHARS = "@+$#";
-
-export type PasswordRule = {
-  label: string;
-  test: (password: string) => boolean;
-};
-
-export const PASSWORD_RULES: PasswordRule[] = [
-  {
-    label: "8-15 caracteres",
-    test: (p) => p.length >= 8 && p.length <= 15,
-  },
-  {
-    label: "Pelo menos 1 letra maiúscula",
-    test: (p) => /[A-Z]/.test(p),
-  },
-  {
-    label: "Pelo menos 1 letra minúscula",
-    test: (p) => /[a-z]/.test(p),
-  },
-  {
-    label: "Pelo menos 1 número",
-    test: (p) => /[0-9]/.test(p),
-  },
-  {
-    label: `Pelo menos 1 caracter especial (permitidos: ${SPECIAL_CHARS})`,
-    test: (p) => /[@+$#]/.test(p),
-  },
-];
-
-export const isPasswordValid = (password: string) =>
-  PASSWORD_RULES.every((rule) => rule.test(password));
+import { PASSWORD_RULES } from "@/lib/password-policy";
 
 /**
  * Lista de requisitos que reage conforme o usuario digita. Enquanto o campo

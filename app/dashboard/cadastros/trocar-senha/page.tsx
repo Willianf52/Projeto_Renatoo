@@ -3,7 +3,8 @@
 import { FormEvent, useState } from "react";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { FormField } from "@/components/FormField";
-import { PasswordRulesList, isPasswordValid } from "@/components/PasswordRules";
+import { PasswordRulesList } from "@/components/PasswordRules";
+import { isPasswordValid } from "@/lib/password-policy";
 import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
 import { FormField } from "@/components/FormField";
-import { PasswordRulesList, isPasswordValid } from "@/components/PasswordRules";
+import { PasswordRulesList } from "@/components/PasswordRules";
+import { isPasswordValid } from "@/lib/password-policy";
 import { createClient } from "@/lib/supabase/client";
 
 export default function NovaSenhaPage() {

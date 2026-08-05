@@ -49,4 +49,27 @@ describe("safeRedirectPath", () => {
   it("rejeita esquemas nao-http, como javascript:", () => {
     expect(safeRedirectPath("javascript:alert(1)")).toBe("/dashboard");
   });
+
+  /**
+   * O parser de URL remove tab, LF e CR antes de resolver o endereco. Sem essa
+   * cobertura, "/\t/site-falso.com" passava nas checagens de texto e so virava
+   * "//site-falso.com" -- destino externo -- na hora de navegar.
+   */
+  it("rejeita disfarce com caractere de controle removido pelo parser", () => {
+    expect(safeRedirectPath("/\t/site-falso.com")).toBe("/dashboard");
+    expect(safeRedirectPath("/\n/site-falso.com")).toBe("/dashboard");
+    expect(safeRedirectPath("/\r/site-falso.com")).toBe("/dashboard");
+    expect(safeRedirectPath("/\t\t//site-falso.com")).toBe("/dashboard");
+  });
+
+  it("aceita caminho interno cujo control char nao muda o destino", () => {
+    // O tab e removido, mas sobra "/dashboard" -- continua interno.
+    expect(safeRedirectPath("/dash\tboard")).toBe("/dash\tboard");
+  });
+
+  it("mantem percent-encoding intacto, sem normalizar", () => {
+    // %09 codificado nao e removido pelo parser: vira segmento de caminho
+    // comum, no proprio dominio, e deve chegar ao destino como veio.
+    expect(safeRedirectPath("/dashboard/%09/relatorio")).toBe("/dashboard/%09/relatorio");
+  });
 });
