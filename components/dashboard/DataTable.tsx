@@ -8,17 +8,24 @@ export function DataTable({
   page = 1,
   totalPages = 0,
   totalItems = 0,
+  totalAproximado = false,
   buildPageHref,
   emptyTitle = "Nenhuma coleta encontrada",
   emptyDescription = "Ajuste o período ou os filtros acima para localizar registros.",
   minWidth = "min-w-[1280px]",
 }: {
   columns: string[];
-  rows?: string[][];
+  /** ReactNode e nao string: a coluna "Acoes" das telas de cadastro leva
+   * botao, nao texto. Celula vazia continua virando travessao. */
+  rows?: React.ReactNode[][];
   loading?: boolean;
   page?: number;
   totalPages?: number;
   totalItems?: number;
+  /** Marca o total com "~". Telas que contam por estimativa (count=estimated)
+   * recebem um numero que pode ser aproximado, e apresenta-lo como contagem
+   * exata seria afirmar mais do que se sabe. */
+  totalAproximado?: boolean;
   /** Sem isto, a paginacao renderiza desabilitada (uso sem dados reais). */
   buildPageHref?: (page: number) => string;
   /** Padrao voltado a tela de coletas, a primeira a usar a tabela. */
@@ -85,7 +92,8 @@ export function DataTable({
           <ChevronLeftIcon className="h-4 w-4" />
         </PaginationButton>
         <span className="px-3 text-xs text-brand-muted">
-          Pág: {totalItems > 0 ? page : 0} de {totalPages} | Total: {totalItems} itens
+          Pág: {totalItems > 0 ? page : 0} de {totalPages} | Total: {totalAproximado ? "~" : ""}
+          {totalItems} itens
         </span>
         <PaginationButton
           disabled={!podeAvancar}

@@ -66,27 +66,35 @@ function toOptions<T extends Record<string, unknown>>(
   }));
 }
 
+/** Tudo menos `funcionarios` -- ver o comentario do cache logo abaixo. */
+type ReferenciasCompartilhadas = Omit<FilterOptions, "funcionarios">;
+
 /**
- * Cache de processo para getFilterOptions: as 10 tabelas de referencia abaixo
- * mudam raramente e o mesmo resultado vale para qualquer usuario ativo (RLS
- * ja garante isso -- ver migrations 0003/0004/0006), entao nao ha risco de
- * vazar dado de um usuario para outro guardando isso fora do request.
+ * Cache de processo para as tabelas de referencia: mudam raramente e a policy
+ * de RLS de todas elas e `usuario_ativo()` (migrations 0003/0004/0006), sem
+ * recorte por usuario -- qualquer um que chegue aqui ja passou pelo middleware
+ * e enxerga exatamente a mesma lista.
+ *
+ * `funcionarios` fica deliberadamente de fora. Vem de `profiles`, cuja policy e
+ * `auth.uid() = id or pode_ver_toda_operacao()` (migration 0006): um gestor le
+ * a operacao inteira, um operador le so a propria linha. Cacheado junto com o
+ * resto, o primeiro gestor a abrir a tela deixaria o quadro de funcionarios
+ * inteiro no cache e os operadores seguintes receberiam essa lista pronta --
+ * o RLS seria contornado pelo cache, sem erro nenhum aparecendo.
  *
  * unstable_cache do Next nao serve aqui: createClient() chama cookies()
  * internamente, e ler dynamic APIs dentro de uma funcao cacheada por ele nao
  * e suportado. Por isso o cache manual com TTL abaixo.
  */
 const FILTER_OPTIONS_TTL_MS = 60_000;
-let filterOptionsCache: { data: FilterOptions; expiresAt: number } | null = null;
+let referenciasCache: { data: ReferenciasCompartilhadas; expiresAt: number } | null = null;
 
-/** Listas para popular os selects de filtro. Tabelas de referencia, leitura
- * liberada para qualquer usuario ativo (ver migrations 0003/0004/0006). */
-export async function getFilterOptions(): Promise<FilterOptions> {
-  if (filterOptionsCache && filterOptionsCache.expiresAt > Date.now()) {
-    return filterOptionsCache.data;
+async function getReferenciasCompartilhadas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<ReferenciasCompartilhadas> {
+  if (referenciasCache && referenciasCache.expiresAt > Date.now()) {
+    return referenciasCache.data;
   }
-
-  const supabase = await createClient();
 
   const [
     locais,
@@ -95,7 +103,6 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     coletoresDados,
     qualificadores,
     motivosVisita,
-    funcionarios,
     eventos,
     areas,
     checkpoints,
@@ -106,27 +113,44 @@ export async function getFilterOptions(): Promise<FilterOptions> {
     supabase.from("coletores_dados").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qualificadores").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("motivos_visita").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("eventos").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("areas").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
   ]);
 
-  const options: FilterOptions = {
+  const referencias: ReferenciasCompartilhadas = {
     locais: toOptions(locais.data, "id", "nome"),
     gruposSites: toOptions(gruposSites.data, "id", "nome"),
     tipos: toOptions(tipos.data, "id", "nome"),
     coletoresDados: toOptions(coletoresDados.data, "id", "nome"),
     qualificadores: toOptions(qualificadores.data, "id", "nome"),
     motivosVisita: toOptions(motivosVisita.data, "id", "nome"),
-    funcionarios: toOptions(funcionarios.data, "id", "nome_completo"),
     eventos: toOptions(eventos.data, "id", "nome"),
     areas: toOptions(areas.data, "id", "nome"),
     checkpoints: toOptions(checkpoints.data, "id", "codigo"),
   };
 
-  filterOptionsCache = { data: options, expiresAt: Date.now() + FILTER_OPTIONS_TTL_MS };
-  return options;
+  referenciasCache = { data: referencias, expiresAt: Date.now() + FILTER_OPTIONS_TTL_MS };
+  return referencias;
+}
+
+/** Listas para popular os selects de filtro. */
+export async function getFilterOptions(): Promise<FilterOptions> {
+  const supabase = await createClient();
+
+  // A lista de funcionarios e resolvida a cada requisicao, com o token de quem
+  // pediu, para que o recorte do RLS sobre `profiles` continue valendo.
+  const [referencias, funcionarios] = await Promise.all([
+    getReferenciasCompartilhadas(supabase),
+    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+  ]);
+
+  return { ...referencias, funcionarios: toOptions(funcionarios.data, "id", "nome_completo") };
+}
+
+/** Apenas para teste: zera o cache entre casos. */
+export function __limparCacheDeReferencias() {
+  referenciasCache = null;
 }
 
 /** Combina data (yyyy-mm-dd) e hora (HH:MM) num timestamp para o filtro de
@@ -136,72 +160,16 @@ function combinarDataHora(data: string | undefined, hora: string | undefined, ho
   return `${data}T${hora ? `${hora}:00` : horaPadrao}`;
 }
 
-/** site_id -> visita_id -> leitura e a cadeia de filtragem. Resolver em
- * etapas (em vez de um unico embed com !inner) evita que uma FK opcional
- * (funcionario_id, motivo_visita_id, coletor_dados_id podem ser nulos)
- * exclua leituras validas por causa de um inner join que ninguem pediu. */
-async function resolveSiteIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  filtros: ColetaFiltros,
-): Promise<number[] | null> {
-  if (!filtros.local && !filtros.grupoSite && !filtros.tipo) {
-    return null;
-  }
-
-  let query = supabase.from("sites").select("id");
-  if (filtros.local) query = query.eq("id", filtros.local);
-  if (filtros.grupoSite) query = query.eq("grupo_site_id", filtros.grupoSite);
-  if (filtros.tipo) query = query.eq("tipo_servico_id", filtros.tipo);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map((site) => site.id);
-}
-
-async function resolveVisitaIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  filtros: ColetaFiltros,
-  siteIds: number[] | null,
-): Promise<number[] | null> {
-  if (!filtros.funcionario && !filtros.motivoVisita && !filtros.coletorDados && siteIds === null) {
-    return null;
-  }
-
-  let query = supabase.from("visitas").select("id");
-  if (siteIds !== null) query = query.in("site_id", siteIds);
-  if (filtros.funcionario) query = query.eq("funcionario_id", filtros.funcionario);
-  if (filtros.motivoVisita) query = query.eq("motivo_visita_id", filtros.motivoVisita);
-  if (filtros.coletorDados) query = query.eq("coletor_dados_id", filtros.coletorDados);
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map((visita) => visita.id);
-}
-
-export async function getColetas(filtros: ColetaFiltros): Promise<{
-  rows: ColetaRow[];
-  totalItems: number;
-}> {
-  const supabase = await createClient();
-
-  const siteIds = await resolveSiteIds(supabase, filtros);
-  if (siteIds !== null && siteIds.length === 0) {
-    return { rows: [], totalItems: 0 };
-  }
-
-  const visitaIds = await resolveVisitaIds(supabase, filtros, siteIds);
-  if (visitaIds !== null && visitaIds.length === 0) {
-    return { rows: [], totalItems: 0 };
-  }
-
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
-
-  let query = supabase
-    .from("leituras")
-    .select(
-      `
+/**
+ * O `!inner` entra so quando ha filtro naquele nivel. Ligado sempre, ele
+ * excluiria leituras validas cuja visita nao tem funcionario, motivo ou
+ * coletor preenchido -- FKs opcionais -- por causa de um join que ninguem
+ * pediu. Ligado sob demanda, a exclusao e exatamente o que o filtro quer
+ * dizer: quem filtra por um funcionario nao espera ver leitura sem
+ * funcionario.
+ */
+export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boolean): string {
+  return `
       id,
       data_hora,
       observacao,
@@ -212,19 +180,60 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
       acoes ( nome ),
       qualificadores ( nome ),
       qr_codes ( codigo ),
-      visitas (
+      ${precisaVisita ? "visitas!inner" : "visitas"} (
         numero_coleta,
         profiles ( nome_completo ),
         coletores_dados ( nome ),
-        sites ( nome )
+        ${precisaSite ? "sites!inner" : "sites"} ( nome )
       )
-      `,
-      { count: "exact" },
-    )
+      `;
+}
+
+export async function getColetas(filtros: ColetaFiltros): Promise<{
+  rows: ColetaRow[];
+  totalItems: number;
+}> {
+  const supabase = await createClient();
+
+  const pagina = Math.max(1, filtros.pagina);
+  const from = (pagina - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const precisaSite = Boolean(filtros.local || filtros.grupoSite || filtros.tipo);
+  const precisaVisita =
+    precisaSite ||
+    Boolean(filtros.funcionario || filtros.motivoVisita || filtros.coletorDados);
+
+  // Site e visita sao filtrados dentro da propria consulta. Resolver antes
+  // para uma lista de ids e passa-la num `.in(...)` -- como era feito aqui --
+  // esbarra no teto de linhas por resposta do PostgREST: acima dele a lista de
+  // ids volta truncada e a pagina de coletas fica incompleta sem erro nenhum.
+  let query = supabase
+    .from("leituras")
+    /**
+     * `estimated` e nao `exact`: o total exato custa uma varredura da tabela
+     * inteira com os filtros aplicados, a cada troca de pagina, e `leituras` e
+     * a tabela que mais cresce aqui. O PostgREST devolve a contagem exata
+     * enquanto ela e pequena e passa a usar a estimativa do planejador quando
+     * fica grande -- ou seja, o numero so vira aproximacao justamente onde a
+     * precisao deixa de importar. Ver `totalAproximado` na DataTable: a tela
+     * marca o valor com "~" para nao apresentar palpite como contagem.
+     */
+    .select(montarSelectDeColetas(precisaVisita, precisaSite), { count: "estimated" })
     .order("data_hora", { ascending: false })
+    // Desempate obrigatorio: varias leituras da mesma visita compartilham o
+    // mesmo data_hora. Sem um segundo criterio o Postgres nao garante ordem
+    // entre elas, e cada pagina e uma consulta nova -- a mesma linha pode
+    // aparecer na pagina 2 e na 3, enquanto outra nao aparece em nenhuma.
+    .order("id", { ascending: false })
     .range(from, to);
 
-  if (visitaIds !== null) query = query.in("visita_id", visitaIds);
+  if (filtros.local) query = query.eq("visitas.sites.id", filtros.local);
+  if (filtros.grupoSite) query = query.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
+  if (filtros.tipo) query = query.eq("visitas.sites.tipo_servico_id", filtros.tipo);
+  if (filtros.funcionario) query = query.eq("visitas.funcionario_id", filtros.funcionario);
+  if (filtros.motivoVisita) query = query.eq("visitas.motivo_visita_id", filtros.motivoVisita);
+  if (filtros.coletorDados) query = query.eq("visitas.coletor_dados_id", filtros.coletorDados);
   if (filtros.area) query = query.eq("area_id", filtros.area);
   if (filtros.evento) query = query.eq("evento_id", filtros.evento);
   if (filtros.qualificador) query = query.eq("qualificador_id", filtros.qualificador);

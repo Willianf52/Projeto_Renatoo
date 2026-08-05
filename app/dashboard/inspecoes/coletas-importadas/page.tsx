@@ -208,6 +208,8 @@ export default async function ColetasImportadasPage({
           page={filtros.pagina}
           totalPages={totalPages}
           totalItems={resultado.totalItems}
+          // getColetas conta com count=estimated; ver o comentario la.
+          totalAproximado
           buildPageHref={buildPageHref}
         />
       </div>

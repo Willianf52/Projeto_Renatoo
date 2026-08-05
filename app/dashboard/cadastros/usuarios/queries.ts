@@ -83,36 +83,17 @@ export async function getGruposUsuarios(): Promise<FilterOption[]> {
   return (data ?? []).map((grupo) => ({ value: String(grupo.id), label: grupo.nome }));
 }
 
-export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
-  rows: UsuarioRow[];
-  totalItems: number;
-}> {
-  const supabase = await createClient();
-
-  // O vinculo com grupo e N:N, entao resolve-se antes para uma lista de ids.
-  let idsDoGrupo: string[] | null = null;
-  if (filtros.grupoUsuarios) {
-    const { data, error } = await supabase
-      .from("grupos_usuarios_membros")
-      .select("profile_id")
-      .eq("grupo_id", filtros.grupoUsuarios);
-
-    if (error) throw error;
-
-    idsDoGrupo = (data ?? []).map((membro) => membro.profile_id);
-    if (idsDoGrupo.length === 0) {
-      return { rows: [], totalItems: 0 };
-    }
-  }
-
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
-
-  let query = supabase
-    .from("profiles")
-    .select(
-      `
+/**
+ * O vinculo com grupo e N:N. Resolver antes para uma lista de profile_ids e
+ * passa-la num `.in(...)` -- como era feito aqui -- esbarra no teto de linhas
+ * por resposta do PostgREST: num grupo grande a lista volta truncada e parte
+ * dos membros some da listagem sem erro nenhum. O join com `!inner` filtra no
+ * banco, entra so quando ha filtro por grupo e nao duplica linha: a policy da
+ * tabela de membros ja limita o embed, e a PK (grupo_id, profile_id) garante
+ * no maximo um vinculo por grupo.
+ */
+export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
+  return `
       id,
       nome_completo,
       login,
@@ -121,13 +102,34 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
       cargo,
       ativo,
       superior:profiles!superior_id ( nome_completo )
-      `,
-      { count: "exact" },
-    )
+      ${filtrandoPorGrupo ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
+      `;
+}
+
+export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
+  rows: UsuarioRow[];
+  totalItems: number;
+}> {
+  const supabase = await createClient();
+
+  const pagina = Math.max(1, filtros.pagina);
+  const from = (pagina - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let query = supabase
+    .from("profiles")
+    .select(montarSelectDeUsuarios(Boolean(filtros.grupoUsuarios)), { count: "exact" })
     .order("nome_completo", { ascending: true, nullsFirst: false })
+    // Homonimo e perfil sem nome preenchido empatam nesta ordenacao. Sem
+    // desempate a ordem entre eles varia de consulta para consulta, e como
+    // cada pagina e uma consulta nova, um usuario pode se repetir numa pagina
+    // e sumir da outra.
+    .order("id", { ascending: true })
     .range(from, to);
 
-  if (idsDoGrupo !== null) query = query.in("id", idsDoGrupo);
+  if (filtros.grupoUsuarios) {
+    query = query.eq("grupos_usuarios_membros.grupo_id", filtros.grupoUsuarios);
+  }
   if (filtros.nivelAcesso) query = query.eq("cargo", filtros.nivelAcesso);
   if (filtros.situacao) query = query.eq("ativo", filtros.situacao === "ativos");
   if (filtros.nome) query = query.ilike("nome_completo", `%${escaparLike(filtros.nome)}%`);

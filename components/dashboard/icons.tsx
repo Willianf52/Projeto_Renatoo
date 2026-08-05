@@ -87,6 +87,24 @@ export function PdfIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function UploadIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
+export function PencilIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4l10-10a2.83 2.83 0 0 0-4-4L4 16z" />
+      <path d="m14 6 4 4" />
+    </svg>
+  );
+}
+
 export function PlusCircleIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

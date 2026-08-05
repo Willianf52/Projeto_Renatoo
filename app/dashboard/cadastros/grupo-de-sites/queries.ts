@@ -2,14 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export const PAGE_SIZE = 25;
 
-export const SITUACOES = [
-  { value: "ativos", label: "Ativos" },
-  { value: "inativos", label: "Inativos" },
-];
-
 export type GrupoSiteFiltros = {
-  nome?: string;
-  situacao?: "ativos" | "inativos";
+  busca?: string;
   pagina: number;
 };
 
@@ -18,23 +12,7 @@ type GrupoSiteRow = {
   nome: string;
   descricao: string | null;
   ativo: boolean;
-  criado_em: string;
-  /** Lista de um elemento na forma documentada; o objeto direto aparece
-   * conforme a versao do PostgREST. Ver extrairContagem. */
-  sites: { count: number }[] | { count: number } | null;
 };
-
-/**
- * A contagem do embed chega como [{ count: n }] ou { count: n } dependendo da
- * versao do PostgREST. Ler so a primeira forma faria a coluna exibir zero em
- * todos os grupos na outra -- numero errado e plausivel, que ninguem
- * questionaria.
- */
-function extrairContagem(sites: GrupoSiteRow["sites"]): number {
-  if (!sites) return 0;
-  const registro = Array.isArray(sites) ? sites[0] : sites;
-  return registro?.count ?? 0;
-}
 
 /**
  * Neutraliza os curingas do LIKE. Sem isto, um "%" digitado na busca casaria
@@ -42,6 +20,14 @@ function extrairContagem(sites: GrupoSiteRow["sites"]): number {
  * um nome e recebe a lista inteira, sem entender por que.
  */
 const escaparLike = (valor: string) => valor.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/**
+ * Dentro de um `or(...)` o valor vai entre aspas duplas: virgula e parenteses
+ * digitados na busca seriam lidos como separadores da propria expressao e
+ * quebrariam a consulta. Aspa e barra invertida precisam ser escapadas para
+ * nao fechar as aspas antes da hora.
+ */
+const escaparPostgrest = (valor: string) => valor.replace(/["\\]/g, (c) => `\\${c}`);
 
 export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   rows: GrupoSiteRow[];
@@ -53,34 +39,31 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   const from = (pagina - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  // sites(count) resolve a quantidade de unidades no proprio banco. Trazer os
-  // sites so para conta-los no servidor puxaria toda a tabela sem necessidade.
   let query = supabase
     .from("grupos_sites")
-    .select("id, nome, descricao, ativo, criado_em, sites(count)", { count: "exact" })
+    .select("id, nome, descricao, ativo", { count: "exact" })
+    // Sem desempate de proposito: `grupos_sites.nome` e `not null unique`
+    // (migration 0003), entao esta ordenacao ja e total e a paginacao nao
+    // repete nem pula linha. Se a restricao de unicidade cair, um
+    // `.order("id")` passa a ser necessario aqui.
     .order("nome", { ascending: true })
     .range(from, to);
 
-  if (filtros.situacao) query = query.eq("ativo", filtros.situacao === "ativos");
-  if (filtros.nome) query = query.ilike("nome", `%${escaparLike(filtros.nome)}%`);
+  // Busca livre: um campo so, procurando em nome e descricao, como na tela
+  // antiga. Quem digita "portaria" espera achar tambem o grupo cuja descricao
+  // menciona portaria.
+  if (filtros.busca) {
+    const termo = escaparPostgrest(escaparLike(filtros.busca));
+    query = query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`);
+  }
 
   const { data, error, count } = await query;
   if (error) throw error;
 
-  return { rows: (data ?? []) as unknown as GrupoSiteRow[], totalItems: count ?? 0 };
+  return { rows: (data ?? []) as GrupoSiteRow[], totalItems: count ?? 0 };
 }
 
-function formatarData(valor: string | null): string {
-  if (!valor) return "";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(valor));
-}
-
+/** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
 export function toTableRow(grupo: GrupoSiteRow): string[] {
-  return [
-    grupo.nome,
-    grupo.descricao ?? "",
-    String(extrairContagem(grupo.sites)),
-    grupo.ativo ? "Ativo" : "Inativo",
-    formatarData(grupo.criado_em),
-  ];
+  return [String(grupo.id), grupo.nome, grupo.ativo ? "Ativo" : "Inativo", grupo.descricao ?? ""];
 }
