@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { escaparLike } from "@/lib/postgrest-escape";
 
 export const PAGE_SIZE = 25;
 
@@ -41,13 +42,6 @@ export type UsuarioRow = {
 
 const rotuloNivel = (cargo: string) =>
   NIVEIS_ACESSO.find((nivel) => nivel.value === cargo)?.label ?? cargo;
-
-/**
- * Neutraliza os curingas do LIKE. Sem isto, um "%" digitado na busca casaria
- * com qualquer coisa e um "_" com qualquer caractere -- a pessoa procura por
- * um nome e recebe a lista inteira, sem entender por que.
- */
-const escaparLike = (valor: string) => valor.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 /** Nivel do usuario da sessao: define se a lista mostra todos os perfis ou
  * apenas o proprio (policy "Leitura do proprio perfil ou de gestao"). */

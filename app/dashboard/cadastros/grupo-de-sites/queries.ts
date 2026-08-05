@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { termoParaOr } from "@/lib/postgrest-escape";
 
 export const PAGE_SIZE = 25;
 
@@ -13,21 +14,6 @@ export type GrupoSiteRow = {
   descricao: string | null;
   ativo: boolean;
 };
-
-/**
- * Neutraliza os curingas do LIKE. Sem isto, um "%" digitado na busca casaria
- * com qualquer coisa e um "_" com qualquer caractere -- a pessoa procura por
- * um nome e recebe a lista inteira, sem entender por que.
- */
-const escaparLike = (valor: string) => valor.replace(/[\\%_]/g, (c) => `\\${c}`);
-
-/**
- * Dentro de um `or(...)` o valor vai entre aspas duplas: virgula e parenteses
- * digitados na busca seriam lidos como separadores da propria expressao e
- * quebrariam a consulta. Aspa e barra invertida precisam ser escapadas para
- * nao fechar as aspas antes da hora.
- */
-const escaparPostgrest = (valor: string) => valor.replace(/["\\]/g, (c) => `\\${c}`);
 
 export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   rows: GrupoSiteRow[];
@@ -53,7 +39,7 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   // antiga. Quem digita "portaria" espera achar tambem o grupo cuja descricao
   // menciona portaria.
   if (filtros.busca) {
-    const termo = escaparPostgrest(escaparLike(filtros.busca));
+    const termo = termoParaOr(filtros.busca);
     query = query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`);
   }
 
