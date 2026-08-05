@@ -9,9 +9,11 @@ import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 
 export default function TrocarSenhaPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState({
+    currentPassword: "",
     password: "",
     confirmation: "",
   });
@@ -22,6 +24,7 @@ export default function TrocarSenhaPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const currentPasswordError = currentPassword === "" ? "Campo obrigatório" : "";
     const passwordError =
       password === ""
         ? "Campo obrigatório"
@@ -35,35 +38,57 @@ export default function TrocarSenhaPage() {
           ? "As senhas não coincidem"
           : "";
 
-    if (passwordError || confirmationError) {
+    if (currentPasswordError || passwordError || confirmationError) {
       setErrors({
+        currentPassword: currentPasswordError,
         password: passwordError,
         confirmation: confirmationError,
       });
       return;
     }
 
-    setErrors({ password: "", confirmation: "" });
+    setErrors({ currentPassword: "", password: "", confirmation: "" });
     setFormError("");
     setLoading(true);
 
     const supabase = createClient();
 
     /**
-     * A troca nao pede mais a senha atual. Quem tiver a sessao aberta em maos
-     * -- notebook destravado, cookie roubado -- consegue trocar a senha sem
-     * conhecer a antiga. A unica barreira que resta contra isso e a
-     * reautenticacao exigida pelo proprio GoTrue, que se liga no painel do
-     * Supabase (Authentication > Settings) -- ver AUDITORIA-SEGURANCA.md.
+     * A senha atual vai junto para que a troca exija conhecer a antiga. Sem
+     * isso, quem chega a uma sessao aberta -- notebook destravado, cookie
+     * roubado -- troca a senha sem saber a atual e tranca o dono para fora.
+     *
+     * Quem confere e o GoTrue, nao esta tela: a validacao daqui so evita uma
+     * ida ao servidor com campo vazio. A checagem de verdade depende de
+     * "Require current password when updating" estar ligado em Authentication
+     * > Sign In / Providers > Email. Com a opcao desligada o campo e coletado
+     * e enviado, mas o servidor ignora -- por isso este codigo vai primeiro e
+     * a opcao e ligada depois, sem janela em que a tela quebra.
+     *
+     * O fluxo de recuperacao (/nova-senha) nao manda `current_password` de
+     * proposito: quem esqueceu a senha nao a conhece. O GoTrue trata esse caso
+     * checando `!session.IsRecovery()` antes de exigir a senha atual, entao a
+     * recuperacao continua funcionando com a opcao ligada.
      */
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.updateUser({
+      current_password: currentPassword,
+      password,
+    });
 
     setLoading(false);
 
     if (error) {
       const mensagem = error.message.toLowerCase();
+      // Casado pelo `code`, nao pela mensagem: o texto do GoTrue muda entre
+      // versoes, o codigo nao. A mensagem fica como rede de seguranca.
+      const codigo = "code" in error && typeof error.code === "string" ? error.code : "";
+      const ehSenhaAtual =
+        codigo.includes("current_password") || mensagem.includes("current password");
 
-      if (mensagem.includes("should be different")) {
+      if (ehSenhaAtual) {
+        setErrors((prev) => ({ ...prev, currentPassword: "Senha atual incorreta" }));
+        setFormError("A senha atual informada está incorreta.");
+      } else if (mensagem.includes("should be different")) {
         setFormError("A nova senha precisa ser diferente da atual.");
       } else if (mensagem.includes("weak") || mensagem.includes("requirements")) {
         setFormError("A nova senha foi recusada por não atender aos requisitos.");
@@ -73,6 +98,7 @@ export default function TrocarSenhaPage() {
       return;
     }
 
+    setCurrentPassword("");
     setPassword("");
     setConfirmation("");
     setSuccess(true);
@@ -102,6 +128,26 @@ export default function TrocarSenhaPage() {
             </div>
           ) : (
             <form className="max-w-xl space-y-6" onSubmit={handleSubmit} noValidate>
+              {/* Antes da nova senha, como em qualquer troca: a ordem espelha o
+                  que se pede a pessoa -- prove quem voce e, depois escolha. */}
+              <FormField
+                id="senha-atual"
+                label="Senha atual"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                error={errors.currentPassword}
+                onChange={(value) => {
+                  setCurrentPassword(value);
+                  if (errors.currentPassword) {
+                    setErrors((prev) => ({ ...prev, currentPassword: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+
               <div>
                 <FormField
                   id="nova-senha"
