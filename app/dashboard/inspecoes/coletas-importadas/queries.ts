@@ -96,17 +96,7 @@ async function getReferenciasCompartilhadas(
     return referenciasCache.data;
   }
 
-  const [
-    locais,
-    gruposSites,
-    tipos,
-    coletoresDados,
-    qualificadores,
-    motivosVisita,
-    eventos,
-    areas,
-    checkpoints,
-  ] = await Promise.all([
+  const respostas = await Promise.all([
     supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("tipos_servico").select("id, nome").eq("ativo", true).order("nome"),
@@ -117,6 +107,18 @@ async function getReferenciasCompartilhadas(
     supabase.from("areas").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
   ]);
+
+  const [
+    locais,
+    gruposSites,
+    tipos,
+    coletoresDados,
+    qualificadores,
+    motivosVisita,
+    eventos,
+    areas,
+    checkpoints,
+  ] = respostas;
 
   const referencias: ReferenciasCompartilhadas = {
     locais: toOptions(locais.data, "id", "nome"),
@@ -129,6 +131,19 @@ async function getReferenciasCompartilhadas(
     areas: toOptions(areas.data, "id", "nome"),
     checkpoints: toOptions(checkpoints.data, "id", "codigo"),
   };
+
+  /**
+   * Falha nao entra no cache.
+   *
+   * Cada consulta e lida so por `.data`, e um erro faz `data` vir null -- que
+   * `toOptions` transforma no mesmo `[]` de uma tabela legitimamente vazia.
+   * Guardado, esse vazio vira 60 segundos de select sem opcao para todo mundo
+   * que abrir a tela, sem erro nenhum aparecendo e sem recarregar resolver.
+   * Sem guardar, a proxima requisicao tenta de novo.
+   */
+  if (respostas.some((resposta) => resposta.error)) {
+    return referencias;
+  }
 
   referenciasCache = { data: referencias, expiresAt: Date.now() + FILTER_OPTIONS_TTL_MS };
   return referencias;
