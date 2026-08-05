@@ -24,11 +24,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # SHA do commit da v4.4.0, nao o do objeto de tag (a15d269...): a tag e
       # anotada, e o Actions so resolve action por commit.
+      # Sem `version:`: o action le o campo `packageManager` do package.json.
+      # Local e CI passam a concordar sozinhos, sem manter os dois em sincronia
+      # na mao.
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
-        with:
-          # Sem isto o action aborta: ele le a versao do campo packageManager
-          # do package.json, que o projeto nao tem.
-          version: 11.18.0
 
       # Depois do action-setup de proposito: o cache pnpm do setup-node
       # precisa do pnpm ja no PATH para resolver o diretorio do store.
