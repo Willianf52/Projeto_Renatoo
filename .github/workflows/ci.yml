@@ -27,7 +27,7 @@ jobs:
       # Sem `version:`: o action le o campo `packageManager` do package.json.
       # Local e CI passam a concordar sozinhos, sem manter os dois em sincronia
       # na mao.
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       # Depois do action-setup de proposito: o cache pnpm do setup-node
       # precisa do pnpm ja no PATH para resolver o diretorio do store.
