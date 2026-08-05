@@ -54,6 +54,23 @@ export async function updateSession(request: NextRequest) {
     return resposta;
   };
 
+  /**
+   * Copia para `resposta` os cookies que getUser() renovou.
+   *
+   * Quando o token esta perto de expirar, getUser() troca o refresh token por
+   * um par novo e o adaptador acima grava o resultado em `supabaseResponse`.
+   * Um redirect criado do zero nasce sem esses cookies: o servidor ja consumiu
+   * o refresh token antigo, o navegador nunca recebe o novo, e a sessao cai
+   * assim que passar o intervalo de reuso do GoTrue -- de forma intermitente,
+   * porque so acontece nas requisicoes que calharam de renovar.
+   *
+   * Nao vale para `limparSessao`: la apagar os cookies e o objetivo.
+   */
+  const preservarSessao = (resposta: NextResponse) => {
+    supabaseResponse.cookies.getAll().forEach((cookie) => resposta.cookies.set(cookie));
+    return resposta;
+  };
+
   // O estado em auth.users indica que a pessoa autenticou, mas a aplicação
   // também respeita a desativação administrativa registrada em profiles.
   let motivoBloqueio: "acesso-indisponivel" | "perfil-ausente" | null = null;
@@ -107,14 +124,17 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     redirectUrl.searchParams.set("redirectTo", `${pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(redirectUrl);
+    // Aqui nao ha token para renovar, mas um refresh que falhou deixa a remocao
+    // dos cookies mortos em `supabaseResponse`. Carregar isso junto evita que a
+    // proxima requisicao tente de novo com o mesmo token vencido.
+    return preservarSessao(NextResponse.redirect(redirectUrl));
   }
 
   if (user && pathname === "/") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
+    return preservarSessao(NextResponse.redirect(redirectUrl));
   }
 
   return supabaseResponse;

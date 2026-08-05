@@ -1,26 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { getUserMock, signOutMock, maybeSingleMock, createServerClientMock } = vi.hoisted(() => {
-  const getUserMock = vi.fn();
-  const signOutMock = vi.fn();
-  const maybeSingleMock = vi.fn();
-  const createServerClientMock = vi.fn(() => ({
-    auth: {
-      getUser: getUserMock,
-      signOut: signOutMock,
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: maybeSingleMock,
-        }),
-      }),
-    }),
-  }));
+type CookieParaGravar = { name: string; value: string; options?: Record<string, unknown> };
 
-  return { getUserMock, signOutMock, maybeSingleMock, createServerClientMock };
-});
+const { getUserMock, signOutMock, maybeSingleMock, createServerClientMock, renovarCookies } =
+  vi.hoisted(() => {
+    const getUserMock = vi.fn();
+    const signOutMock = vi.fn();
+    const maybeSingleMock = vi.fn();
+
+    /**
+     * Guarda o adaptador de cookies que updateSession entrega ao createServerClient.
+     * E por ele que o supabase-js devolve o par de tokens renovado, e o teste
+     * precisa poder disparar isso no meio de getUser() -- como acontece de verdade.
+     */
+    let adaptador: { setAll: (cookies: CookieParaGravar[]) => void } | null = null;
+
+    const createServerClientMock = vi.fn(
+      (_url: string, _key: string, options: { cookies: { setAll: (c: never[]) => void } }) => {
+        adaptador = options.cookies as unknown as typeof adaptador;
+        return {
+          auth: { getUser: getUserMock, signOut: signOutMock },
+          from: () => ({
+            select: () => ({ eq: () => ({ maybeSingle: maybeSingleMock }) }),
+          }),
+        };
+      },
+    );
+
+    const renovarCookies = (cookies: CookieParaGravar[]) => adaptador?.setAll(cookies);
+
+    return { getUserMock, signOutMock, maybeSingleMock, createServerClientMock, renovarCookies };
+  });
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: createServerClientMock,
@@ -82,6 +93,24 @@ describe("updateSession", () => {
 
     const location = redirectLocation(response);
     expect(location?.pathname).toBe("/dashboard");
+  });
+
+  it("usuario ativo acessando /: leva para o redirect os cookies renovados por getUser()", async () => {
+    // getUser() renova o token e devolve o par novo pelo adaptador de cookies.
+    // Um redirect criado do zero nasce sem eles: o servidor consumiu o refresh
+    // token antigo e o navegador nunca receberia o novo -- sessao caindo sozinha.
+    getUserMock.mockImplementation(async () => {
+      renovarCookies([{ name: "sb-access-token", value: "token-renovado", options: {} }]);
+      return { data: { user: USUARIO } };
+    });
+    maybeSingleMock.mockResolvedValue({ data: { ativo: true }, error: null });
+
+    const response = await updateSession(
+      buildRequest("/", { cookie: "sb-access-token=token-antigo" }),
+    );
+
+    expect(redirectLocation(response)?.pathname).toBe("/dashboard");
+    expect(response.cookies.get("sb-access-token")?.value).toBe("token-renovado");
   });
 
   it("usuario ativo em rota protegida: nao redireciona", async () => {
