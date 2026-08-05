@@ -27,7 +27,7 @@
 | A03 XSS | **Não encontrada.** Zero uso de `dangerouslySetInnerHTML`, `eval`, `innerHTML` em todo o projeto. O React escapa por padrão o que é renderizado (nomes, observações, etc. em `DataTable`). | busca em todo `.tsx` |
 | A05 Configuração incorreta — **faltam headers de segurança** | `next.config.ts` está vazio: nenhum `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy` ou `Permissions-Policy` configurado. Não é uma falha ativa, mas é a lacuna mais concreta e barata de fechar aqui — defesa em profundidade contra clickjacking e XSS residual. | `next.config.ts:1-5` |
 | A06 Componentes vulneráveis/desatualizados | **3 vulnerabilidades altas** via `npm audit`, ambas transitivas dentro do próprio `next`: `postcss@8.4.31` (embutido em `node_modules/next/node_modules/postcss`) com CVE de path traversal/leitura arbitrária de arquivo via `sourceMappingURL` (CVSS 7.5), e `sharp@0.34.5` com CVEs em `libvips` (CVE-2026-33327/33328/35590/35591). `sharp` é alcançável de verdade: `next/image` é usado em `components/HeroPanel.tsx`, então não é teórico. | `npm audit`, `components/HeroPanel.tsx` |
-| A07 Falhas de autenticação | RLS bem desenhado (bloqueia por `usuario_ativo()`, escopo por `cargo`), redirect pós-login validado por `safeRedirectPath` (agora com teste automatizado). **Gap:** a troca de senha não pede mais a senha atual — quem tiver a sessão aberta em mãos troca a senha sem conhecer a antiga e tranca o dono para fora. Fechar isso depende de ligar a reautenticação do GoTrue no painel do Supabase (Authentication > Settings). **Gap:** login não dá nenhum feedback de limitação de tentativas — `components/LoginPage.tsx:66` chama `signInWithPassword` sem throttling visível no cliente. O Supabase Auth limita no backend, mas o usuário não percebe. | `components/LoginPage.tsx:66` |
+| A07 Falhas de autenticação | RLS bem desenhado (bloqueia por `usuario_ativo()`, escopo por `cargo`), redirect pós-login validado por `safeRedirectPath` (agora com teste automatizado). **Gap:** a troca de senha não pede mais a senha atual — quem tiver a sessão aberta em mãos troca a senha sem conhecer a antiga e tranca o dono para fora. Fechar isso depende de ligar a reautenticação do GoTrue no painel do Supabase (Authentication > Settings). ~~**Gap:** login não dá nenhum feedback de limitação de tentativas.~~ Corrigido — bloqueio de 30s após 5 tentativas em `components/LoginForm.tsx`. | `components/LoginForm.tsx` (era `LoginPage.tsx`) |
 | A08 Falhas de integridade de dados | CSRF: hoje só existe `<form method="get">` no filtro de `coletas-importadas` (não muda estado). Sem risco de CSRF ativo. **Atenção futura:** quando qualquer mutação via POST/Server Action for adicionada (ex.: exportar, editar cadastro), validar origem — Server Actions do Next já checam o header `Origin`, mas uma Route Handler tradicional com POST não tem essa proteção de graça. | n/a hoje, ficar de olho |
 | Validação de entrada | Os filtros de `coletas-importadas` (`queries.ts`) recebem strings cruas da query string e passam direto para `.eq()`/`.in()`. Não é injeção (PostgREST tipa e rejeita valor incompatível com erro controlado), mas não há validação de formato antes de bater no banco — hoje só o `pagina` tem fallback numérico. Risco baixo, mas é o tipo de andaime que ajuda a evitar erros silenciosos conforme a tela cresce. | `queries.ts` |
 
@@ -64,6 +64,14 @@ Não consigo inspecionar as configurações reais do repositório a partir daqui
 
 **Risco:** sem `X-Frame-Options`/CSP, a aplicação pode ser embutida num `<iframe>` malicioso (clickjacking) e não há camada extra contra XSS caso algum sink apareça no futuro.
 
+> **Corrigido — o snippet abaixo é o registro da proposta original, não o código atual.**
+> A implementação vive em `lib/security-headers.ts` e diverge dele em dois pontos que importam:
+>
+> - **`connect-src` não usa `https://*.supabase.co`.** O curinga autoriza *qualquer* projeto Supabase, e criar um é gratuito — um script hostil exfiltraria sessão e coletas para o projeto do atacante sem violar a política. A origem é derivada de `NEXT_PUBLIC_SUPABASE_URL`. Não copie o curinga daqui.
+> - **`script-src` precisou de `'unsafe-inline'`.** A abordagem por nonce foi tentada e revertida; o arquivo registra o porquê.
+>
+> Consulte `lib/security-headers.ts` antes de mexer em qualquer coisa desta seção.
+
 ```ts
 // next.config.ts
 import type { NextConfig } from "next";
@@ -90,6 +98,8 @@ export default nextConfig;
 ```
 
 > A CSP acima é um ponto de partida — teste em modo `Content-Security-Policy-Report-Only` primeiro, porque Tailwind/Next em dev injetam estilo/script inline e podem exigir ajuste antes de aplicar em modo bloqueante.
+>
+> **Etapa já cumprida.** O período de observação em `Report-Only` aconteceu, os ajustes que ele revelou estão em `lib/security-headers.ts`, e a política é bloqueante desde o commit `9c56fd4`.
 
 ### 4.2 Dependências vulneráveis (A06)
 
@@ -189,14 +199,20 @@ Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm 
 
 | Item | Status |
 |---|---|
-| 4.1 Headers de segurança | **Feito**, em modo `Content-Security-Policy-Report-Only` — ver nota abaixo antes de promover a bloqueante |
+| 4.1 Headers de segurança | **Feito e bloqueante** — `lib/security-headers.ts`, aplicado via `next.config.ts`. Inclui HSTS. Ver nota abaixo |
 | 4.2 Dependências vulneráveis (`postcss`, `sharp`) | **Feito** — `pnpm audit` confirma 0 vulnerabilidades. Um quarto achado (`brace-expansion`, via toolchain do ESLint) apareceu só no `pnpm audit` e também foi corrigido |
 | 4.3 Validação de env vars | **Feito** — `lib/env.ts` |
 | 4.4 Dependabot | **Feito** — `.github/dependabot.yml` |
 | 4.5 Workflow de CI | **Feito** — `.github/workflows/ci.yml`, actions fixadas por SHA completo (não por tag) |
-| A07 Rate limiting no login | **Feito** — bloqueio de 30s no cliente após 5 tentativas falhas (`components/LoginPage.tsx`). É mitigação de UX, não substitui o limite do Supabase Auth no backend |
+| A07 Rate limiting no login | **Feito** — bloqueio de 30s no cliente após 5 tentativas falhas (`components/LoginForm.tsx`). É mitigação de UX, não substitui o limite do Supabase Auth no backend |
 
-**Nota sobre a CSP:** ficou em `Content-Security-Policy-Report-Only` de propósito. O Next injeta script/estilo inline para hidratação, e uma CSP bloqueante sem infraestrutura de nonce quebraria isso. Abra o console do navegador em produção, confirme que não aparecem violações, e só então troque o header para `Content-Security-Policy` (sem o sufixo `-Report-Only`) em `next.config.ts`.
+**Nota sobre a CSP (atualizada):** a política é bloqueante desde o commit `9c56fd4` — a fase `Report-Only` descrita na versão anterior desta nota já terminou. Três coisas que mudaram junto e que não estão no snippet da seção 4.1:
+
+- **Onde mora:** `lib/security-headers.ts`, não `next.config.ts`. O config apenas espalha `HEADERS_ESTATICOS` em `headers()`, que é o único ponto de emissão — o middleware não emite cabeçalho nenhum, e o `source: "/:path*"` cobre também `/api` e estáticos, que ficam fora do matcher dele.
+- **O problema do inline continua real, e a saída não foi o nonce.** Páginas como `/` são prerenderizadas no build, sem espaço para um nonce por requisição, e a especificação manda o navegador ignorar `'unsafe-inline'` assim que existe um nonce na diretiva — os scripts do próprio Next eram bloqueados e a tela de login ficava sem formulário. `script-src` mantém `'unsafe-inline'`; o arquivo registra o custo dessa escolha e o que a política ainda garante.
+- **Quatro diretivas variam entre dev e produção** (`script-src`, `connect-src`, `upgrade-insecure-requests`, HSTS). Cada uma tem no arquivo o sintoma que aparece se for aplicada no ambiente errado — vale ler antes de "limpar" alguma.
+
+Coberto por `lib/security-headers.test.ts`.
 
 **Descoberta durante a correção:** o projeto tinha uma inconsistência real entre gerenciadores de pacote — `.gitignore` já declarava pnpm como oficial, mas a sessão (incluindo a auditoria original) vinha instalando com npm, e o `pnpm-workspace.yaml` tinha um placeholder de aprovação de build script (`"set this to true or false"`) nunca preenchido, o que teria feito qualquer `pnpm install` limpo falhar. Corrigido: overrides movidos para `pnpm-workspace.yaml` (local correto na versão instalada do pnpm), builds de `sharp`/`unrs-resolver` aprovados explicitamente, e o CI usa pnpm.
 

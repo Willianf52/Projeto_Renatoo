@@ -19,13 +19,16 @@ const origensDaRedeLocal = Object.values(networkInterfaces())
   .map((rede) => rede!.address);
 
 /**
- * A CSP nao esta aqui: ela precisa de um nonce novo a cada requisicao, e
- * headers() e estatico. Quem a emite e o middleware, via
- * lib/security-headers.ts.
+ * Unico ponto que emite cabecalho de seguranca -- CSP inclusive.
  *
- * Os cabecalhos fixos ficam duplicados aqui de proposito: o middleware nao
- * roda em /api nem em arquivos estaticos, e essas respostas tambem precisam
- * de nosniff e frame-ancestors.
+ * O middleware nao emite nenhum, de proposito. Ele nao roda em /api nem em
+ * arquivos estaticos (ver o matcher em middleware.ts), e essas respostas
+ * tambem precisam de nosniff, frame-ancestors e CSP. Aqui o `source` casa com
+ * tudo, entao nada fica descoberto e a politica mora num lugar so.
+ *
+ * Nada de nonce por requisicao: `headers()` e estatico e nao teria como
+ * gera-lo. A tentativa foi feita e revertida por outros motivos tambem --
+ * lib/security-headers.ts registra quais.
  */
 const securityHeaders = Object.entries(HEADERS_ESTATICOS).map(([key, value]) => ({
   key,
