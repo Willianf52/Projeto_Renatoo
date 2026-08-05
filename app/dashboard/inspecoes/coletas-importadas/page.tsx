@@ -1,3 +1,4 @@
+import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
@@ -106,24 +107,12 @@ export default async function ColetasImportadasPage({
           <div className="flex items-center gap-2">
             {/* Exportacao ainda nao implementada: desabilitado em vez de
                 clicavel sem efeito, para nao parecer quebrado. */}
-            <button
-              type="button"
-              disabled
-              title="Exportar para Excel — em breve"
-              aria-label="Exportar para Excel — em breve"
-              className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md bg-emerald-600/40 text-white/60"
-            >
+            <AcaoDesabilitada titulo="Exportar para Excel" className="bg-emerald-600/40">
               <ExcelIcon className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              disabled
-              title="Exportar para PDF — em breve"
-              aria-label="Exportar para PDF — em breve"
-              className="flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md bg-red-600/40 text-white/60"
-            >
+            </AcaoDesabilitada>
+            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
               <PdfIcon className="h-4 w-4" />
-            </button>
+            </AcaoDesabilitada>
           </div>
         </div>
 

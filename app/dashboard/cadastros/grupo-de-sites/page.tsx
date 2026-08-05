@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput } from "@/components/dashboard/FilterField";
@@ -32,37 +33,6 @@ function extrairFiltros(params: SearchParams): GrupoSiteFiltros {
     busca: primeiro(params.busca),
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
-}
-
-/**
- * Botao desabilitado em vez de clicavel sem efeito, o mesmo criterio da tela de
- * Coletas Importadas. O motivo entra no rotulo porque "sem destino ainda" e
- * "voce nao tem permissao" sao situacoes diferentes e o usuario precisa
- * distinguir uma da outra.
- */
-function AcaoDesabilitada({
-  titulo,
-  motivo = "em breve",
-  className,
-  children,
-}: {
-  titulo: string;
-  motivo?: string;
-  className: string;
-  children: React.ReactNode;
-}) {
-  const rotulo = `${titulo} — ${motivo}`;
-  return (
-    <button
-      type="button"
-      disabled
-      title={rotulo}
-      aria-label={rotulo}
-      className={`flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-white/60 ${className}`}
-    >
-      {children}
-    </button>
-  );
 }
 
 /** Mesma caixa da AcaoDesabilitada, com destino. */
