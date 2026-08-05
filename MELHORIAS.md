@@ -8,16 +8,13 @@ aparece hoje.
 > fica em "Itens fechados", no fim, para não reabrir discussão já resolvida.
 > Segurança tem documento próprio (`AUDITORIA-SEGURANCA.md`); aqui só entra o
 > que não é achado de auditoria.
+>
+> **Os números são identificadores, não sequência.** Item que fecha sai da lista
+> e vira linha na tabela do fim levando o número junto, para que uma referência
+> a "item 7" não passe a apontar para outro assunto na revisão seguinte. Buraco
+> na numeração é esperado.
 
 ## Alta prioridade
-
-1. **O CI não roda em push para `main`.** `.github/workflows/ci.yml:8` limita o
-   gatilho de push a `cursor/login-page-performance-lab`, e o comentário acima
-   afirma que `main` não existe — existe (`origin/HEAD -> origin/main`). PRs
-   continuam cobertos, porque o gatilho `pull_request` não filtra branch; o
-   buraco é o push direto em `main`, que não roda lint, typecheck, teste nem
-   build. Trocar para `branches: [main]` e, no GitHub, marcar o job como
-   required em branch protection (pendência de UI já registrada na auditoria).
 
 2. **As policies de RLS não têm um único teste.** Os testes cobrem bem a lógica
    pura em TypeScript, mas a autorização de verdade mora nas 10 migrations em
@@ -156,7 +153,8 @@ Registrados para não voltarem à lista. A numeração é a da revisão original
 | # | Item | Como ficou |
 |---|---|---|
 | 1 | Envs sem validação, erro genérico | `lib/env.ts`, com mensagem apontando o `.env.example` |
-| 2 | Sem testes nem CI | vitest + `.github/workflows/ci.yml` (lint, typecheck, teste, build) — ver item 1 acima, o gatilho de push ainda está na branch errada |
+| 2 | Sem testes nem CI | vitest + `.github/workflows/ci.yml` (lint, typecheck, teste, build) |
+| 1 | CI não rodava em push para `main` | Gatilho apontado para `branches: [main]`. Falta ainda marcar o job como required em branch protection — só dá para fazer na UI do GitHub |
 | 5 | Sem `error.tsx` | `app/dashboard/error.tsx` — falta ainda o nível de `app/` (item 6) |
 | 6 | Sem `loading.tsx` | `app/dashboard/loading.tsx` |
 | 7 | `.single()` vs `.maybeSingle()` | Layout passou a usar `maybeSingle`, com o motivo no comentário |

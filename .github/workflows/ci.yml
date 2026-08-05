@@ -1,11 +1,18 @@
 name: CI
 
 on:
+  # Sem filtro de branch: cobre PR de qualquer origem, que e por onde o codigo
+  # entra. E o gatilho que roda no dia a dia.
   pull_request:
   push:
-    # Branch padrao do repositorio. Nao existe "main" aqui -- apontar para ele
-    # deixava o gatilho de push inerte, e so o de pull_request funcionava.
-    branches: [cursor/login-page-performance-lab]
+    # Branch padrao do repositorio. O push aqui e a ultima rede: pega o que
+    # entrar sem passar por PR e deixa o historico de main com status proprio,
+    # em vez de depender do resultado do PR que originou cada merge.
+    #
+    # Apontava para cursor/login-page-performance-lab, com um comentario
+    # afirmando que main nao existia. Existe (origin/HEAD -> origin/main), e o
+    # efeito era o inverso do descrito: main ficava sem cobertura nenhuma.
+    branches: [main]
 
 permissions:
   contents: read
