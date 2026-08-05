@@ -21,11 +21,35 @@ export function DashboardNavbar({
 }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [erroAoSair, setErroAoSair] = useState("");
 
   const handleSignOut = async () => {
     setSigningOut(true);
+    setErroAoSair("");
+
     const supabase = createClient();
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+
+    /**
+     * O retorno do signOut era descartado, e a falha se manifestava de duas
+     * formas -- nenhuma delas parecendo erro.
+     *
+     * A sessao seguia de pe, entao o `router.replace("/")` logo abaixo levava
+     * a pessoa para o login e o middleware, vendo o usuario autenticado, a
+     * devolvia para /dashboard. O botao parecia nao fazer nada.
+     *
+     * E `signingOut` nunca voltava a false, porque o caminho de sucesso conta
+     * com a navegacao para desmontar o componente. Sem sair da tela, o botao
+     * ficava travado em "Saindo..." e desabilitado -- sem nem a chance de
+     * tentar de novo.
+     */
+    if (error) {
+      console.error("Falha ao encerrar a sessão:", error.message);
+      setErroAoSair("Não foi possível sair. Tente novamente.");
+      setSigningOut(false);
+      return;
+    }
+
     router.replace("/");
     router.refresh();
   };
@@ -63,7 +87,7 @@ export function DashboardNavbar({
         <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted" />
       </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="relative ml-auto flex items-center gap-3">
         <div className="hidden items-center gap-2 sm:flex">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
             <UserIcon className="h-5 w-5" />
@@ -92,6 +116,17 @@ export function DashboardNavbar({
           )}
           <span className="hidden sm:inline">{signingOut ? "Saindo..." : "Sair"}</span>
         </button>
+
+        {/* Ancorado abaixo do botao, fora do fluxo: o header tem altura fixa
+            (h-16) e um elemento no fluxo empurraria a barra inteira. */}
+        {erroAoSair && (
+          <p
+            role="alert"
+            className="absolute right-0 top-full mt-2 whitespace-nowrap rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300 shadow-lg animate-slide-down"
+          >
+            {erroAoSair}
+          </p>
+        )}
       </div>
     </header>
   );
