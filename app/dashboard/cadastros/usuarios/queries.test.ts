@@ -14,8 +14,12 @@ type Chain = {
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, ordens } = vi.hoisted(() => {
+const { createClientMock, ordens, rpcResultado } = vi.hoisted(() => {
   const ordens: Ordem[] = [];
+  const rpcResultado: { data: unknown; error: { message: string } | null } = {
+    data: null,
+    error: null,
+  };
 
   const createClientMock = vi.fn(async () => ({
     from() {
@@ -32,17 +36,20 @@ const { createClientMock, ordens } = vi.hoisted(() => {
       };
       return chain;
     },
+    rpc: async () => rpcResultado,
   }));
 
-  return { createClientMock, ordens };
+  return { createClientMock, ordens, rpcResultado };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const { getUsuarios, montarSelectDeUsuarios } = await import("./queries");
+const { getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao } = await import("./queries");
 
 beforeEach(() => {
   ordens.length = 0;
+  rpcResultado.data = null;
+  rpcResultado.error = null;
 });
 
 describe("montarSelectDeUsuarios", () => {
@@ -73,5 +80,19 @@ describe("getUsuarios", () => {
       { coluna: "nome_completo", ascending: true },
       { coluna: "id", ascending: true },
     ]);
+  });
+});
+
+describe("podeVerTodaOperacao", () => {
+  it("repassa o resultado do RPC", async () => {
+    rpcResultado.data = true;
+
+    expect(await podeVerTodaOperacao()).toBe(true);
+  });
+
+  it("nega por padrao quando o RPC falha, em vez de liberar", async () => {
+    rpcResultado.error = { message: "conexão perdida" };
+
+    expect(await podeVerTodaOperacao()).toBe(false);
   });
 });

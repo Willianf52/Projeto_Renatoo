@@ -43,28 +43,26 @@ export type UsuarioRow = {
 const rotuloNivel = (cargo: string) =>
   NIVEIS_ACESSO.find((nivel) => nivel.value === cargo)?.label ?? cargo;
 
-/** Nivel do usuario da sessao: define se a lista mostra todos os perfis ou
- * apenas o proprio (policy "Leitura do proprio perfil ou de gestao"). */
-export async function getNivelAcessoAtual(): Promise<string | null> {
+/**
+ * Chama `pode_ver_toda_operacao()` (migration 0006) direto via RPC, em vez de
+ * buscar `cargo` e reimplementar a regra em TS: define se a lista mostra
+ * todos os perfis ou so o proprio (policy "Leitura do proprio perfil ou de
+ * gestao"). Mesma razao do `podeAdministrarCadastros()` em
+ * `grupo-de-sites/queries.ts` -- a funcao e `security definer`, estavel e ja
+ * tem `grant execute` para `authenticated`.
+ */
+export async function podeVerTodaOperacao(): Promise<boolean> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.rpc("pode_ver_toda_operacao");
 
-  if (!user) return null;
+  if (error) {
+    console.error("Falha ao verificar escopo de leitura de usuários:", error.message);
+    return false;
+  }
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("cargo")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return data?.cargo ?? null;
+  return Boolean(data);
 }
-
-export const podeVerTodosOsUsuarios = (cargo: string | null) =>
-  cargo === "GESTOR" || cargo === "SUPERVISOR";
 
 /** Grupos de usuarios para o select de filtro. A policy so libera a leitura
  * para gestao; para os demais a lista volta vazia e o select fica sem opcoes,

@@ -4,9 +4,8 @@ import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterIcon, UserIcon } from "@/components/dashboard/icons";
 import {
   getGruposUsuarios,
-  getNivelAcessoAtual,
   getUsuarios,
-  podeVerTodosOsUsuarios,
+  podeVerTodaOperacao,
   toTableRow,
   NIVEIS_ACESSO,
   PAGE_SIZE,
@@ -49,15 +48,14 @@ export default async function UsuariosPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const [grupos, nivelAtual, resultado] = await Promise.all([
+  const [grupos, vendoTodos, resultado] = await Promise.all([
     getGruposUsuarios(),
-    getNivelAcessoAtual(),
+    podeVerTodaOperacao(),
     getUsuarios(filtros),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
   const rows = resultado.rows.map(toTableRow);
-  const vendoTodos = podeVerTodosOsUsuarios(nivelAtual);
 
   const buildPageHref = (pagina: number) => {
     const query = new URLSearchParams();
