@@ -113,6 +113,7 @@ const CRIAR = {
   email: "maria@exemplo.com",
   senha: SENHA_VALIDA,
   cargo: "OPERADOR",
+  tipo: "PADRAO",
 };
 
 /** Minimos para editar: sem e-mail nem senha. */
@@ -120,6 +121,7 @@ const EDITAR = {
   id: "alvo-id",
   nome_completo: "Maria Silva",
   cargo: "OPERADOR",
+  tipo: "PADRAO",
 };
 
 function formulario(campos: Record<string, string>) {
@@ -187,6 +189,16 @@ describe("validação", () => {
     expect(chamadas).toHaveLength(0);
   });
 
+  it("recusa tipo de usuário fora da lista fechada", async () => {
+    // Mesmo raciocinio do cargo, agora contra `profiles_tipo_check`
+    // (migration 0019): sem a peneira o valor iria cru para o banco e voltaria
+    // como erro de constraint, que nao explica nada.
+    const estado = await salvarUsuario({}, formulario({ ...CRIAR, tipo: "ROOT" }));
+
+    expect(estado.erro).toBe("Selecione um tipo de usuário válido.");
+    expect(chamadas).toHaveLength(0);
+  });
+
   it("recusa nome vazio", async () => {
     const estado = await salvarUsuario({}, formulario({ ...CRIAR, nome_completo: "  " }));
 
@@ -218,6 +230,14 @@ describe("validação", () => {
 });
 
 describe("criação", () => {
+  /** A coluna nao tem grant para `authenticated` (migration 0019): se ela nao
+   * sair daqui, nao ha outro caminho pelo qual sair. */
+  it("aplica o tipo escolhido, e nao o default da coluna", async () => {
+    await salvarUsuario({}, formulario({ ...CRIAR, tipo: "SISTEMA" }));
+
+    expect(primeira("updatePerfil")?.args[0]).toMatchObject({ tipo: "SISTEMA" });
+  });
+
   it("cria a conta já confirmada e aplica o perfil escolhido", async () => {
     await salvarUsuario({}, formulario({ ...CRIAR, cargo: "SUPERVISOR", ativo: "on" }));
 
@@ -235,6 +255,8 @@ describe("criação", () => {
       cargo: "SUPERVISOR",
       ativo: true,
     });
+
+    expect(primeira("updatePerfil")?.args[0]).toMatchObject({ tipo: "PADRAO" });
 
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
     expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);

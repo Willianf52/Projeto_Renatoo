@@ -9,13 +9,17 @@ type Chain = {
   select: () => Chain;
   eq: () => Chain;
   ilike: () => Chain;
+  or: (filtro: string) => Chain;
+  not: () => Chain;
+  limit: () => Chain;
   range: () => Chain;
   order: (coluna: string, opcoes?: { ascending?: boolean }) => Chain;
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, ordens, rpcResultado } = vi.hoisted(() => {
+const { createClientMock, ordens, ors, rpcResultado } = vi.hoisted(() => {
   const ordens: Ordem[] = [];
+  const ors: string[] = [];
   const rpcResultado: { data: unknown; error: { message: string } | null } = {
     data: null,
     error: null,
@@ -27,6 +31,12 @@ const { createClientMock, ordens, rpcResultado } = vi.hoisted(() => {
         select: () => chain,
         eq: () => chain,
         ilike: () => chain,
+        or: (filtro) => {
+          ors.push(filtro);
+          return chain;
+        },
+        not: () => chain,
+        limit: () => chain,
         range: () => chain,
         order: (coluna, opcoes) => {
           ordens.push({ coluna, ascending: opcoes?.ascending });
@@ -39,15 +49,18 @@ const { createClientMock, ordens, rpcResultado } = vi.hoisted(() => {
     rpc: async () => rpcResultado,
   }));
 
-  return { createClientMock, ordens, rpcResultado };
+  return { createClientMock, ordens, ors, rpcResultado };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const { getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao } = await import("./queries");
+const { getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao, toTableRow } = await import(
+  "./queries"
+);
 
 beforeEach(() => {
   ordens.length = 0;
+  ors.length = 0;
   rpcResultado.data = null;
   rpcResultado.error = null;
 });
@@ -80,6 +93,73 @@ describe("getUsuarios", () => {
       { coluna: "nome_completo", ascending: true },
       { coluna: "id", ascending: true },
     ]);
+  });
+
+  it("busca livre alcanca nome, login e e-mail", async () => {
+    await getUsuarios({ pagina: 1, busca: "gilmar" });
+
+    expect(ors).toEqual([
+      'nome_completo.ilike."%gilmar%",login.ilike."%gilmar%",email.ilike."%gilmar%"',
+    ]);
+  });
+
+  /** Sem escape, o "%" digitado casaria com qualquer coisa e a busca
+   * devolveria a lista inteira. Ver `lib/postgrest-escape.ts`. */
+  it("escapa curinga digitado na busca livre", async () => {
+    await getUsuarios({ pagina: 1, busca: "100%" });
+
+    expect(ors[0]).toContain('nome_completo.ilike."%100\\\\%%"');
+  });
+
+  it("sem busca, nao monta filtro or", async () => {
+    await getUsuarios({ pagina: 1 });
+
+    expect(ors).toEqual([]);
+  });
+});
+
+/** A ordem daqui e a de `TABLE_COLUMNS` em `page.tsx` sao o mesmo contrato:
+ * desalinhadas, cada celula aparece embaixo do cabecalho errado -- sem erro
+ * nenhum, so dado trocado na tela. */
+describe("toTableRow", () => {
+  it("devolve as colunas na ordem da tabela", () => {
+    const linha = toTableRow({
+      id: "abc",
+      nome_completo: "Gilmar",
+      login: "Gilmar@servicosup.com.br",
+      email: "operacional010@servicosup.com",
+      funcao: "Líder de limpeza",
+      cargo: "OPERACIONAL",
+      tipo: "PADRAO",
+      ativo: true,
+      superior: { nome_completo: "Gesiel" },
+    });
+
+    expect(linha).toEqual([
+      "Gilmar",
+      "Gilmar@servicosup.com.br",
+      "Gesiel",
+      "operacional010@servicosup.com",
+      "Líder de limpeza",
+      "Operacional",
+      "Ativo",
+    ]);
+  });
+
+  it("celula vazia no lugar do superior quando nao ha", () => {
+    const linha = toTableRow({
+      id: "abc",
+      nome_completo: null,
+      login: null,
+      email: "sem.nome@exemplo.com",
+      funcao: null,
+      cargo: "CLIENTE",
+      tipo: "PADRAO",
+      ativo: false,
+      superior: null,
+    });
+
+    expect(linha).toEqual(["", "", "", "sem.nome@exemplo.com", "", "Cliente", "Inativo"]);
   });
 });
 

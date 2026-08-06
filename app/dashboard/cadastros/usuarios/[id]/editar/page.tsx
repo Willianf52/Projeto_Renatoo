@@ -66,6 +66,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
             login: usuario.login ?? "",
             funcao: usuario.funcao ?? "",
             cargo: usuario.cargo,
+            tipo: usuario.tipo,
             superiorId: usuario.superior_id ?? "",
             ativo: usuario.ativo,
             gruposDoCliente: escopo,

@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { UserIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../UsuarioForm";
+import { TIPO_PADRAO } from "../constantes";
 import { getGruposSitesParaEscopo, getSuperiores } from "../queries";
 
 const VALORES_VAZIOS = {
@@ -14,6 +15,9 @@ const VALORES_VAZIOS = {
   // Mesmo default do trigger `handle_new_user` (migration 0008): o nivel mais
   // baixo, para que conceder mais seja sempre um ato deliberado.
   cargo: "OPERADOR",
+  // Mesmo default da coluna (migration 0019): o caso comum e cadastrar uma
+  // pessoa, e conta de integracao e a excecao que se escolhe.
+  tipo: TIPO_PADRAO,
   superiorId: "",
   // Ja marcado: quem chega aqui e um gestor criando alguem de proposito, e o
   // caso comum e que a pessoa deva conseguir entrar. A 0008 defende contra

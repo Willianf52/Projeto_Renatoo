@@ -8,7 +8,7 @@ import { PasswordRulesList } from "@/components/PasswordRules";
 import { salvarUsuario, type EstadoDoFormulario, type ValoresDoUsuario } from "./actions";
 // De `constantes.ts`, e nao de `queries.ts`: este e um Client Component, e
 // `queries.ts` importa `lib/supabase/server.ts` -- que puxa `next/headers`.
-import { NIVEIS_ACESSO, type FilterOption } from "./constantes";
+import { NIVEIS_ACESSO, TIPOS_USUARIO, type FilterOption } from "./constantes";
 
 const LISTAGEM = "/dashboard/cadastros/usuarios";
 
@@ -160,6 +160,33 @@ export function UsuarioForm({
             defaultValue={valores.funcao}
             className={getInputClasses(false)}
           />
+        </Campo>
+
+        {/* Migration 0019. Não é o nível de acesso: diz o que a conta é, não
+            quanto ela enxerga -- uma conta de integração pode precisar do
+            alcance de um gestor sem ser uma pessoa da operação. */}
+        <Campo
+          id="tipo"
+          rotulo="Tipo de usuário"
+          ajuda="Contas de pessoa são Padrão. As demais marcam integrações."
+          className="sm:col-span-2"
+        >
+          <div className="relative">
+            <select
+              id="tipo"
+              name="tipo"
+              required
+              defaultValue={valores.tipo}
+              className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+            >
+              {TIPOS_USUARIO.map((tipo) => (
+                <option key={tipo.value} value={tipo.value}>
+                  {tipo.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+          </div>
         </Campo>
 
         <Campo id="superior_id" rotulo="Superior" className="sm:col-span-2">

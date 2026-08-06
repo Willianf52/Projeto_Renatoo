@@ -7,7 +7,7 @@ import { isPasswordValid } from "@/lib/password-policy";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { NIVEIS_ACESSO } from "./constantes";
+import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
 
 /**
  * Criacao e edicao de usuarios.
@@ -31,6 +31,7 @@ const LIMITE_NOME = 200;
 const LIMITE_TEXTO = 100;
 
 const CARGOS_VALIDOS = new Set(NIVEIS_ACESSO.map((nivel) => nivel.value));
+const TIPOS_VALIDOS = new Set(TIPOS_USUARIO.map((tipo) => tipo.value));
 
 export type ValoresDoUsuario = {
   nomeCompleto: string;
@@ -39,6 +40,9 @@ export type ValoresDoUsuario = {
   login: string;
   funcao: string;
   cargo: string;
+  /** Migration 0019. Coluna sem grant para `authenticated`, como `cargo`:
+   * so passa por aqui, atras da checagem de permissao. */
+  tipo: string;
   superiorId: string;
   ativo: boolean;
   /** Ids de `grupos_sites` que um CLIENTE enxerga (migration 0014). Ignorado
@@ -67,6 +71,7 @@ function extrairValores(formData: FormData): ValoresDoUsuario {
     login: texto(formData, "login"),
     funcao: texto(formData, "funcao"),
     cargo: texto(formData, "cargo"),
+    tipo: texto(formData, "tipo"),
     superiorId: texto(formData, "superior_id"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     ativo: formData.get("ativo") !== null,
@@ -104,6 +109,9 @@ function validar(valores: ValoresDoUsuario): string | null {
   // constraint, que nao explica nada -- e, pior, o `<select>` da tela nao e
   // garantia nenhuma: o POST pode ser montado a mao.
   if (!CARGOS_VALIDOS.has(valores.cargo)) return "Selecione um nível de acesso válido.";
+
+  // Mesmo raciocinio, agora contra `profiles_tipo_check` (migration 0019).
+  if (!TIPOS_VALIDOS.has(valores.tipo)) return "Selecione um tipo de usuário válido.";
 
   if (valores.cargo === CARGO_CLIENTE && valores.gruposDoCliente.some((id) => !/^\d+$/.test(id))) {
     return "Grupo de sites inválido.";
@@ -230,6 +238,7 @@ export async function salvarUsuario(
     login: valores.login || null,
     funcao: valores.funcao || null,
     cargo: valores.cargo,
+    tipo: valores.tipo,
     ativo: valores.ativo,
     superior_id: valores.superiorId || null,
   };

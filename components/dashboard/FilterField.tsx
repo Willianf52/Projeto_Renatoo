@@ -33,11 +33,19 @@ export function FilterInput({
 
 export function FilterSelect({
   label,
+  placeholder,
   options = [],
   name,
   defaultValue,
 }: {
   label: string;
+  /**
+   * Texto da opcao vazia, quando "nao filtrar" tem nome proprio -- "Todos"
+   * diz mais que repetir o rotulo do campo. So o visivel muda: o `aria-label`
+   * continua sendo `label`, senao o leitor de tela anunciaria "Todos" sem
+   * dizer todos de que.
+   */
+  placeholder?: string;
   options?: { value: string; label: string }[];
   name?: string;
   defaultValue?: string;
@@ -52,7 +60,7 @@ export function FilterSelect({
       >
         {/* Selecionavel de proposito: e a unica forma de o usuario limpar o
             filtro pela propria lista, sem depender de editar a URL. */}
-        <option value="">{label}</option>
+        <option value="">{placeholder ?? label}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value} className="text-white">
             {option.label}

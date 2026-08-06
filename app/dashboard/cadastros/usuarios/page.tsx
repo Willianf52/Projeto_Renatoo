@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import {
+  getFuncoes,
   getGruposUsuarios,
   getUsuarios,
   podeVerTodaOperacao,
@@ -18,16 +19,18 @@ import {
   NIVEIS_ACESSO,
   PAGE_SIZE,
   SITUACOES,
+  TIPOS_USUARIO,
   type UsuarioFiltros,
 } from "./queries";
 
+/** Mesma ordem de `toTableRow` -- ver o comentario de la. */
 const TABLE_COLUMNS = [
   "Nome",
   "Login",
+  "Usuário Superior",
   "E-mail",
   "Função",
   "Nível de Acesso",
-  "Superior",
   "Situação",
   "Ações",
 ];
@@ -40,8 +43,9 @@ function primeiro(valor: string | string[] | undefined): string | undefined {
 
 function extrairFiltros(params: SearchParams): UsuarioFiltros {
   return {
-    nome: primeiro(params.nome),
-    email: primeiro(params.email),
+    busca: primeiro(params.busca),
+    funcao: primeiro(params.funcao),
+    tipo: primeiro(params.tipo),
     nivelAcesso: primeiro(params.nivel_acesso),
     grupoUsuarios: primeiro(params.grupo_usuarios),
     situacao: primeiro(params.situacao) as "ativos" | "inativos" | undefined,
@@ -57,8 +61,9 @@ export default async function UsuariosPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const [grupos, vendoTodos, podeAdministrar, resultado] = await Promise.all([
+  const [grupos, funcoes, vendoTodos, podeAdministrar, resultado] = await Promise.all([
     getGruposUsuarios(),
+    getFuncoes(),
     podeVerTodaOperacao(),
     podeAdministrarUsuarios(),
     getUsuarios(filtros),
@@ -155,20 +160,42 @@ export default async function UsuariosPage({
           method="get"
           className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end"
         >
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <FilterInput label="Nome" name="nome" defaultValue={filtros.nome} />
-            <FilterInput label="E-mail" name="email" defaultValue={filtros.email} />
+          {/* `auto-fit` em vez de um numero fixo de colunas por breakpoint: o
+              numero de campos aqui varia (o select de Grupo de Usuários so
+              aparece quando ha grupos), e um `xl:grid-cols-5` escrito a mao
+              volta a quebrar a linha assim que entrar o sexto. Cada trilha
+              tem no minimo 11rem e divide a sobra por igual; quando nao cabem
+              todas, a linha quebra sozinha. */}
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+            {/* Um campo so para nome, login e e-mail: ver `comBusca` em
+                queries.ts. */}
+            <FilterInput label="Busca Livre..." name="busca" defaultValue={filtros.busca} />
+            <FilterSelect
+              label="Situação"
+              name="situacao"
+              defaultValue={filtros.situacao}
+              options={SITUACOES}
+            />
             <FilterSelect
               label="Nível de Acesso"
               name="nivel_acesso"
               defaultValue={filtros.nivelAcesso}
               options={NIVEIS_ACESSO}
             />
+            {/* Funcoes conhecidas mais o que estiver gravado -- ver
+                `getFuncoes`. Sempre visivel: a lista nunca vem vazia. */}
             <FilterSelect
-              label="Situação"
-              name="situacao"
-              defaultValue={filtros.situacao}
-              options={SITUACOES}
+              label="Função"
+              name="funcao"
+              defaultValue={filtros.funcao}
+              options={funcoes}
+            />
+            <FilterSelect
+              label="Tipo de Usuário"
+              placeholder="Todos"
+              name="tipo"
+              defaultValue={filtros.tipo}
+              options={TIPOS_USUARIO}
             />
             {grupos.length > 0 && (
               <FilterSelect
