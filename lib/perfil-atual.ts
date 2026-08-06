@@ -1,6 +1,12 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
+
+/** Id curto desta requisicao, so para agrupar no log as duas falhas que
+ * `getPerfilAtual` pode registrar -- memoizado com `cache()` pelo mesmo
+ * motivo de `getUsuarioAtual`/`getPerfilAtual` (ver comentario abaixo). */
+const getIdDeRequisicao = cache(() => gerarIdDeRequisicao());
 
 /**
  * Identidade e perfil de quem esta na sessao, resolvidos uma vez por requisicao.
@@ -72,12 +78,12 @@ export const getPerfilAtual = cache(async (): Promise<PerfilAtual | null> => {
     .maybeSingle();
 
   if (error) {
-    console.error("Falha ao carregar o perfil do usuário:", error.message);
+    erro(getIdDeRequisicao(), "Falha ao carregar o perfil do usuário:", error.message);
     return null;
   }
 
   if (!data) {
-    console.error(`Usuário ${user.id} autenticado sem perfil em profiles.`);
+    erro(getIdDeRequisicao(), `Usuário ${user.id} autenticado sem perfil em profiles.`);
     return null;
   }
 

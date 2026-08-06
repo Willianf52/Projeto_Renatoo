@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 
 /** Rotas publicas: acessiveis sem sessao ativa. */
 const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth"];
@@ -11,6 +12,12 @@ const isPublicRoute = (pathname: string) =>
   );
 
 export async function updateSession(request: NextRequest) {
+  // Id curto desta invocacao do middleware, so para agrupar as linhas que ela
+  // mesma loga -- ver lib/log.ts. Nao atravessa para o render da pagina: middleware
+  // e RSC sao invocacoes separadas (o comentario de preservarSessao ja registra
+  // essa fronteira por outro motivo).
+  const idRequisicao = gerarIdDeRequisicao();
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
@@ -84,15 +91,13 @@ export async function updateSession(request: NextRequest) {
 
     if (error) {
       // Falha de leitura nao deve virar acesso liberado: bloqueia e registra.
-      console.error("Middleware: falha ao consultar o perfil.", error.message);
+      erro(idRequisicao, "Middleware: falha ao consultar o perfil.", error.message);
       motivoBloqueio = "perfil-ausente";
     } else if (!profile) {
       // Autenticado em auth.users sem linha correspondente em profiles --
       // trigger que falhou ou conta anterior a migration 0001. Nao e o mesmo
       // que desativacao administrativa, e a mensagem precisa refletir isso.
-      console.error(
-        `Middleware: usuário ${user.id} autenticado sem perfil em profiles.`,
-      );
+      erro(idRequisicao, `Middleware: usuário ${user.id} autenticado sem perfil em profiles.`);
       motivoBloqueio = "perfil-ausente";
     } else if (!profile.ativo) {
       motivoBloqueio = "acesso-indisponivel";

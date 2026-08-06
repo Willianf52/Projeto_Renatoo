@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { enviarAvisoSenhaAlterada } from "@/lib/resend";
 import {
   isEventoRelevante,
@@ -16,9 +17,11 @@ import {
  * lib/webhook-user-updated.ts, com testes proprios.
  */
 export async function POST(request: NextRequest) {
+  const idRequisicao = gerarIdDeRequisicao();
+
   const segredoEsperado = process.env.SUPABASE_WEBHOOK_SECRET;
   if (!segredoEsperado) {
-    console.error("Webhook user-updated: SUPABASE_WEBHOOK_SECRET não configurado no servidor.");
+    erro(idRequisicao, "Webhook user-updated: SUPABASE_WEBHOOK_SECRET não configurado no servidor.");
     return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
   }
 
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     await enviarAvisoSenhaAlterada(payload.record.email);
   } catch (error) {
-    console.error("Webhook user-updated: falha ao enviar aviso de troca de senha.", error);
+    erro(idRequisicao, "Webhook user-updated: falha ao enviar aviso de troca de senha.", error);
     return NextResponse.json({ error: "falha ao enviar e-mail" }, { status: 500 });
   }
 
