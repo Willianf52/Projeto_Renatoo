@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { SitemapIcon } from "@/components/dashboard/icons";
+import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../../GrupoSiteForm";
-import { getGrupoSite, podeAdministrarCadastros } from "../../queries";
+import { getGrupoSite } from "../../queries";
 
 export default async function EditarGrupoDeSitesPage({
   params,

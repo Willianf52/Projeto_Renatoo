@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { SitemapIcon } from "@/components/dashboard/icons";
+import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../GrupoSiteForm";
-import { podeAdministrarCadastros } from "../queries";
 
 export default async function NovoGrupoDeSitesPage() {
   // O RLS ja recusaria o insert, mas seria depois de preencher o formulario

@@ -96,29 +96,6 @@ export async function getGruposSitesParaExportar(
   return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
 }
 
-/**
- * Chama `pode_administrar_cadastros()` (migration 0009) direto via RPC, em vez
- * de reimplementar a regra em TS a partir de `cargo`/`ativo`. Serve so para a
- * interface decidir entre mostrar o botao e mostra-lo desabilitado -- quem
- * autoriza de verdade e o RLS, no banco -- mas antes disto a lista de cargos
- * vivia duplicada em TS e em SQL, sem nada impedindo as duas de divergirem. A
- * funcao e `security definer`, estavel e ja tem `grant execute` para
- * `authenticated`, entao chamar direto e uma fonte so e um round-trip em vez
- * de dois (`getUser()` + `select`).
- */
-export async function podeAdministrarCadastros(): Promise<boolean> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.rpc("pode_administrar_cadastros");
-
-  if (error) {
-    console.error("Falha ao verificar permissão de administrar cadastros:", error.message);
-    return false;
-  }
-
-  return Boolean(data);
-}
-
 export async function getGrupoSite(id: number): Promise<GrupoSiteRow | null> {
   const supabase = await createClient();
 

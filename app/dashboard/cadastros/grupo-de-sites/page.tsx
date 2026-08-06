@@ -12,13 +12,8 @@ import {
   SitemapIcon,
   UploadIcon,
 } from "@/components/dashboard/icons";
-import {
-  getGruposSites,
-  podeAdministrarCadastros,
-  toTableRow,
-  PAGE_SIZE,
-  type GrupoSiteFiltros,
-} from "./queries";
+import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { getGruposSites, toTableRow, PAGE_SIZE, type GrupoSiteFiltros } from "./queries";
 
 const TABLE_COLUMNS = ["ID", "Nome", "Status", "Descrição", "Ações"];
 
