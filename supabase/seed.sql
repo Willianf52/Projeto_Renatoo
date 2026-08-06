@@ -1,0 +1,4 @@
+-- Nenhum dado de semente por enquanto. Os testes pgTAP (supabase/tests/database)
+-- criam os proprios usuarios e perfis de teste dentro de cada arquivo, dentro
+-- de uma transacao com rollback -- para nao depender de estado externo ao
+-- teste nem deixar rastro no banco local.
