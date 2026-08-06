@@ -1,5 +1,5 @@
 import { fileURLToPath } from "url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -10,6 +10,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // e2e/*.spec.ts sao specs do Playwright, nao do vitest -- o include
+    // padrao do vitest casa com *.spec.ts tambem, e os dois usam `test`
+    // e `describe` com assinatura incompativel (test.describe() do
+    // Playwright so pode ser chamado pelo runner dele).
+    exclude: [...configDefaults.exclude, "e2e/**"],
     // lib/env.ts exige essas envs; o vitest nao le .env.local como o Next faz.
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "https://example-test.supabase.co",
