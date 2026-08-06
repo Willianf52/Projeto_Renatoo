@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   BuildingIcon,
+  ChartIcon,
   ChevronDownIcon,
   ClipboardListIcon,
   KeyIcon,
@@ -30,7 +31,14 @@ type NavItem = {
   children: NavChild[];
 };
 
+/** O painel inicial nao tem submenu: e um item folha. Modelado como secao de
+ * um filho so para nao precisar de um segundo tipo de item na navegacao. */
 const NAV_ITEMS: NavItem[] = [
+  {
+    label: "Painel",
+    icon: ChartIcon,
+    children: [{ label: "Visão geral", href: "/dashboard", icon: ChartIcon }],
+  },
   {
     label: "Cadastros",
     icon: PlusCircleIcon,
@@ -65,9 +73,20 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Suporte", icon: UserIcon, children: [] },
 ];
 
+/**
+ * Casamento de rota do item de menu.
+ *
+ * `startsWith` cru nao serve desde que o painel entrou na navegacao: o href
+ * dele e `/dashboard`, prefixo de todas as demais rotas -- e "Painel"
+ * apareceria como ativo em qualquer tela. Exigir o `/` depois do prefixo
+ * separa "a propria rota" de "uma rota que so comeca igual".
+ */
+const rotaAtiva = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
 /** Secao que contem a rota atual, para abrir o menu no lugar certo. */
 const findSectionForPath = (pathname: string) =>
-  NAV_ITEMS.find((item) => item.children.some((child) => pathname.startsWith(child.href)))
+  NAV_ITEMS.find((item) => item.children.some((child) => rotaAtiva(pathname, child.href)))
     ?.label ?? null;
 
 export function DashboardSidebar({
@@ -137,7 +156,7 @@ export function DashboardSidebar({
             const isExpanded = expanded === item.label;
             const hasChildren = item.children.length > 0;
             const containsActive = item.children.some((child) =>
-              pathname.startsWith(child.href),
+              rotaAtiva(pathname, child.href),
             );
             const Icon = item.icon;
 
@@ -171,7 +190,7 @@ export function DashboardSidebar({
                 {hasChildren && isExpanded && (
                   <div className="ml-8 mt-1 space-y-1 overflow-hidden border-l border-slate-700 pl-3">
                     {item.children.map((child, childIndex) => {
-                      const isActive = pathname.startsWith(child.href);
+                      const isActive = rotaAtiva(pathname, child.href);
                       const ChildIcon = child.icon;
 
                       return (

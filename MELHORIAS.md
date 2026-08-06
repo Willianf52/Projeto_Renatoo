@@ -16,22 +16,23 @@ aparece hoje.
 >
 > Esta revisão mudou o ângulo: até aqui a lista media o projeto contra si mesmo
 > (o que está construído está bem construído?). Passou a medi-lo contra o
-> sistema de referência — **o que ainda não existe**. Daí os itens novos de
-> alta prioridade serem todos de ausência, não de defeito.
-
-## Alta prioridade
-
-1. **`/dashboard` não tem tela própria.** `app/dashboard/page.tsx` redireciona
-   para a listagem de coletas. `metas_visitas` existe desde a 0004, tem policy
-   de leitura e **nada a consulta** — a própria migration cita o gráfico
-   "Visitas Realizadas x Não Realizadas" que ela alimentaria. Subiu para alta
-   prioridade porque, com todos os cadastros do menu construídos, é o maior
-   buraco restante entre este projeto e o sistema de referência: entrar num
-   sistema e cair numa listagem não é o que o original faz.
+> sistema de referência — **o que ainda não existe**. Os itens de ausência que
+> isso levantou entraram todos como alta prioridade, e **fecharam todos nesta
+> rodada**: caminho de entrada das coletas, Site / Planta, CRUD de usuários,
+> escopo do CLIENTE, QR-Code, Grupo de Usuários e o painel inicial. Por isso
+> não há mais seção de alta prioridade — todo item do menu tem tela, e o que
+> sobrou é acabamento ou depende de confirmação externa.
+>
+> **A ressalva que atravessa a rodada inteira:** nada disso rodou contra um
+> Postgres de verdade. Não há Docker neste ambiente para `supabase start`,
+> então as migrations 0012 a 0017, o `seed.sql`, a rota de importação e os
+> seis arquivos pgTAP seguem sem uma única execução. `pnpm test:db` e um
+> `curl` contra o ambiente local são o passo que falta antes de confiar em
+> qualquer um deles.
 
 ## Média prioridade
 
-2. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
+1. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
    "Localização" foi interpretado como presença/ausência de coordenadas na
    leitura (`leituras.latitude`), "Tipo" como `tipos_servico` do site e
    "Checkpoint" como `qr_codes`. Se o sistema de referência (UP Serviços) usa
@@ -39,19 +40,19 @@ aparece hoje.
    silêncio. Confirmar com quem conhece a tela original antes de considerar a
    página fechada.
 
-3. **Coluna "Ações" vazia em Coletas Importadas.**
+2. **Coluna "Ações" vazia em Coletas Importadas.**
    `coletas-importadas/page.tsx:49` empurra `""` em toda linha. Cabeçalho sem
    conteúdo é pior que coluna ausente: promete uma ação que não existe. Ou
    ganha o "ver detalhes" da tela original, ou sai da lista de colunas.
 
-4. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
+3. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
    preservar a estrutura de navegação do sistema de referência. Não têm tabela
    nem tela. Ficam aqui para não se perderem de vista.
 
 ## Baixa prioridade / nice-to-have
 
-5. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
+4. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
    não é problema de repositório — mas existe na máquina de desenvolvimento e é
    exatamente a divergência npm/pnpm que a auditoria registra como já tendo
    causado dor. **A nota anterior de que não havia `pnpm` neste ambiente estava
@@ -59,12 +60,12 @@ aparece hoje.
    a bater com o `package.json` nesta revisão. Apagar o `package-lock.json`
    local resolveria o resto.
 
-6. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
+5. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
    custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-7. **`console.error` sem destino de observabilidade.** As linhas de
+6. **`console.error` sem destino de observabilidade.** As linhas de
     `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
     das rotas de API agora carregam um id de correlação (`lib/log.ts` — ver
     "Itens fechados"), mas o destino continua sendo só o stdout do servidor.
@@ -72,13 +73,13 @@ aparece hoje.
     externos que este ambiente não tem. O `TODO` em
     `app/dashboard/error.tsx:13` marca o lugar de plugar isso quando existir.
 
-8. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
+7. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
 
-9. **A tela de QR-Code não gera a imagem do QR.** Cadastra o código, o site e a finalidade, mas quem precisa da etiqueta ainda gera o QR por fora. Exigiria uma biblioteca de codificação nova, e nenhuma foi adicionada nesta rodada. `TabelaImpressao` já dá o caminho da folha de impressão quando isso entrar.
+8. **A tela de QR-Code não gera a imagem do QR.** Cadastra o código, o site e a finalidade, mas quem precisa da etiqueta ainda gera o QR por fora. Exigiria uma biblioteca de codificação nova, e nenhuma foi adicionada nesta rodada. `TabelaImpressao` já dá o caminho da folha de impressão quando isso entrar.
 
-10. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
+9. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
     índice único não considera dois `NULL` iguais, então a constraint
     `unique (visita_id, area_id, data_hora)` da 0004 não segura leitura sem
     área: ela entra de novo a cada reenvio do lote. Resolve com
@@ -95,6 +96,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| `/dashboard` não tinha tela própria | Painel com faixa de indicadores (coletas, visitas, cumprimento da meta, cadastros ativos) e o gráfico “Visitas realizadas x meta, por site” — o que a 0004 antecipou ao criar `metas_visitas`, que existia com policy de leitura e **nenhum leitor**. A agregação mora em duas views da migration 0017, ambas `security_invoker = true`: sem isso uma view roda com as permissões de quem a criou e **contorna o RLS inteiro**, e o dashboard reabriria pela porta dos fundos o que a 0014 acabou de fechar. O mês é cortado em -03:00 no SQL e no rótulo, pela mesma razão de `combinarDataHora`. **O gráfico foi olhado renderizado, não só testado** — e foi o mock que pegou um defeito que teste nenhum pegaria: com o preenchimento travado no trilho, um site a 130% de uma meta pequena desenhava barra mais curta que outro a 88% de uma meta grande, contradizendo o rótulo ao lado. Passou a medir trilho e preenchimento na mesma escala absoluta, com a meta marcada por um sulco de 2px na cor da superfície para o alvo não sumir sob o excedente. Cores validadas com o script do skill contra `#0b0b26`, não escolhidas a olho: o verde da marca (#00e676) tem OKLCH L 0.81 e estoura a banda do modo escuro, então o preenchimento usa `#00a651` — passo mais escuro do mesmo ramo — sobre trilho `#10553a` a 2,19:1 |
 | `Grupo de Usuários` era placeholder — o último do menu | Cadastro completo com seleção de membros (checkboxes com filtro local) + migration 0016. A regra de quem administra **não** é a das 0009/0012/0015, e a diferença é o ponto: `pode_administrar_cadastros()` inclui OPERACIONAL, mas o conteúdo deste cadastro é a lista de pessoas — e a policy da 0006 só devolve a operação inteira para quem `pode_ver_toda_operacao()`. Com apenas o primeiro predicado, um OPERACIONAL criaria um grupo e não veria um único membro para colocar dentro: escrita autorizada sobre dado que ele não alcança. Daí `pode_administrar_grupos_usuarios()` ser a conjunção das duas — colapsa hoje em GESTOR + SUPERVISOR, mas continua correta se qualquer uma das listas mudar. Membros são apagados e recriados a cada salvamento em vez de diferenciados: a tabela é só a chave primária, não há nada a preservar, e o diff custaria um round-trip a mais para chegar no mesmo lugar |
 | `QR-Code` era placeholder | Cadastro completo (listagem com busca e filtros de site/grupo/situação, criar/editar, exportar Excel e PDF) + migration 0015 com o padrão de escrita das 0009/0012. Era o mais urgente dos dois porque a rota de importação resolve `checkpoint` pelo código do QR e recusa o lote quando ele não existe — o cadastro era pré-requisito sem tela. Duas decisões próprias: o código só aceita letras, números, ponto, hífen e sublinhado (ele é lido de etiqueta e casado por texto na importação; espaço no meio sobrevive ao `trim` das bordas e produz um cadastro que parece certo na tela e nunca casa com o lote), e a policy de escrita exige `pode_ver_grupo_site()` além de `pode_administrar_cadastros()` — hoje redundante, mas impede que uma combinação futura de nível com escopo pendure checkpoint num site que nem enxerga |
 | `CLIENTE` era um nível de acesso que não fazia nada | Migration 0014: tabela `grupos_sites_clientes` (N:N — um contato de holding acompanha mais de um grupo, e começar 1:1 obrigaria a migrar dado depois), helpers `e_cliente()`/`pode_ver_grupo_site()`, e as policies de `grupos_sites`, `sites`, `qr_codes`, `visitas` e `leituras` reescritas para recortar por grupo. Antes disso um CLIENTE logava e via a tela de coletas **vazia** — não "restrita": vazia, sem explicar por quê. Era paridade **e** segurança: as policies das três tabelas de cadastro eram `usuario_ativo()` puro, então ativar um CLIENTE pela tela nova de Usuários entregaria a ele os sites de todos os clientes, com coordenadas, mais o código de todo checkpoint — o mesmo vazamento que a 0008 fechou para conta criada de fora. O predicado é "não é cliente OU o grupo está entre os dele", para quem não é CLIENTE manter exatamente a visão anterior sem depender de vínculo nenhum. A atribuição entra pelo formulário de Usuários (checkboxes que aparecem só no nível CLIENTE), gravada com service_role atrás do mesmo portão da 0013. **Efeito colateral que quase passou:** o cache de referências de `coletas-importadas/queries.ts` guardava `sites`/`grupos_sites`/`qr_codes` entre usuários, apoiado no comentário de que as três não tinham recorte — premissa que a 0014 derruba. As três saíram do cache, e o teste que afirmava o contrário foi invertido. pgTAP em `escopo_de_cliente_test.sql` cobre os dois lados e o caso que quebraria calado (quem não é cliente segue vendo tudo) |
