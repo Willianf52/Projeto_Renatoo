@@ -1,22 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { escaparLike } from "@/lib/postgrest-escape";
+import { NIVEIS_ACESSO, type FilterOption } from "./constantes";
 
 export const PAGE_SIZE = 25;
 
-/** Espelha o check constraint profiles_cargo_check (migration 0003). Um valor
- * fora desta lista nao existe no banco e filtraria para lista vazia. */
-export const NIVEIS_ACESSO = [
-  { value: "GESTOR", label: "Gestor" },
-  { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "OPERACIONAL", label: "Operacional" },
-  { value: "OPERADOR", label: "Operador" },
-  { value: "CLIENTE", label: "Cliente" },
-];
-
-export const SITUACOES = [
-  { value: "ativos", label: "Ativos" },
-  { value: "inativos", label: "Inativos" },
-];
+// Reexportadas para as telas que ja consumiam daqui nao terem que saber da
+// divisao. A fonte e `constantes.ts`, que nao importa nada -- ver o cabecalho
+// de la para o motivo.
+export { SITUACOES } from "./constantes";
+export { NIVEIS_ACESSO, type FilterOption };
 
 export type UsuarioFiltros = {
   nome?: string;
@@ -27,8 +19,6 @@ export type UsuarioFiltros = {
   pagina: number;
 };
 
-export type FilterOption = { value: string; label: string };
-
 export type UsuarioRow = {
   id: string;
   nome_completo: string | null;
@@ -38,6 +28,9 @@ export type UsuarioRow = {
   cargo: string;
   ativo: boolean;
   superior: { nome_completo: string | null } | null;
+  /** So vem em `getUsuario`, para preencher o select do formulario -- a
+   * listagem exibe o nome do superior, nao o id. */
+  superior_id?: string | null;
 };
 
 const rotuloNivel = (cargo: string) =>
@@ -131,6 +124,44 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
   if (error) throw error;
 
   return { rows: (data ?? []) as unknown as UsuarioRow[], totalItems: count ?? 0 };
+}
+
+export async function getUsuario(id: string): Promise<UsuarioRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(montarSelectDeUsuarios(false) + ", superior_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as unknown as UsuarioRow | null;
+}
+
+/**
+ * Candidatos ao campo "Superior" do formulario. Exclui o proprio usuario que
+ * esta sendo editado -- ninguem e superior de si mesmo, e a action recusa esse
+ * caso de qualquer forma; tirar da lista evita oferecer a opcao so para
+ * recusa-la depois.
+ */
+export async function getSuperiores(excluirId?: string): Promise<FilterOption[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("profiles")
+    .select("id, nome_completo")
+    .eq("ativo", true)
+    .order("nome_completo");
+
+  if (excluirId) query = query.neq("id", excluirId);
+
+  const { data } = await query;
+
+  return (data ?? []).map((perfil) => ({
+    value: perfil.id,
+    label: perfil.nome_completo || "(sem nome)",
+  }));
 }
 
 export function toTableRow(usuario: UsuarioRow): string[] {

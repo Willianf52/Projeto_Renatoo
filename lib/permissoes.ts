@@ -20,18 +20,32 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
  * um round-trip em vez de dois (`getUser()` + `select`).
  */
 export async function podeAdministrarCadastros(): Promise<boolean> {
+  return consultarPermissao("pode_administrar_cadastros", "administrar cadastros");
+}
+
+/**
+ * Chama `pode_administrar_usuarios()` (migration 0013). Regua mais estreita
+ * que a de cadastros -- so GESTOR -- porque escrever `cargo` e conceder nivel
+ * de acesso; o raciocinio inteiro esta no cabecalho daquela migration.
+ *
+ * Aqui a checagem NAO e so cosmetica, ao contrario das demais desta lista: a
+ * escrita de usuario acontece com service_role, que ignora o RLS. Nao ha
+ * portao no banco atras deste -- ele e o portao. Ver
+ * `usuarios/actions.ts`.
+ */
+export async function podeAdministrarUsuarios(): Promise<boolean> {
+  return consultarPermissao("pode_administrar_usuarios", "administrar usuários");
+}
+
+async function consultarPermissao(funcao: string, descricao: string): Promise<boolean> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.rpc("pode_administrar_cadastros");
+  const { data, error } = await supabase.rpc(funcao);
 
   if (error) {
     // Falha de leitura nao vira acesso liberado: uma queda de rede aqui nega
     // por padrao.
-    erro(
-      gerarIdDeRequisicao(),
-      "Falha ao verificar permissão de administrar cadastros:",
-      error.message,
-    );
+    erro(gerarIdDeRequisicao(), `Falha ao verificar permissão de ${descricao}:`, error.message);
     return false;
   }
 

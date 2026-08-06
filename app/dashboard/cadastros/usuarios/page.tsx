@@ -1,7 +1,15 @@
+import { Acao } from "@/components/dashboard/Acao";
+import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
-import { FilterIcon, UserIcon } from "@/components/dashboard/icons";
+import {
+  FilterIcon,
+  PencilIcon,
+  PlusCircleIcon,
+  UserIcon,
+} from "@/components/dashboard/icons";
+import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import {
   getGruposUsuarios,
   getUsuarios,
@@ -21,6 +29,7 @@ const TABLE_COLUMNS = [
   "Nível de Acesso",
   "Superior",
   "Situação",
+  "Ações",
 ];
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -48,14 +57,40 @@ export default async function UsuariosPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const [grupos, vendoTodos, resultado] = await Promise.all([
+  const [grupos, vendoTodos, podeAdministrar, resultado] = await Promise.all([
     getGruposUsuarios(),
     podeVerTodaOperacao(),
+    podeAdministrarUsuarios(),
     getUsuarios(filtros),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
-  const rows = resultado.rows.map(toTableRow);
+
+  // Quem nao administra continua vendo o botao, desabilitado: escondê-lo faria
+  // a coluna "Ações" aparecer vazia, sem explicar por que. Mesmo criterio das
+  // demais telas de cadastro.
+  const rows = resultado.rows.map((usuario) => [
+    ...toTableRow(usuario),
+    podeAdministrar ? (
+      <Acao
+        key={usuario.id}
+        titulo={`Editar ${usuario.nome_completo || usuario.email}`}
+        href={`/dashboard/cadastros/usuarios/${usuario.id}/editar`}
+        className="bg-white/10"
+      >
+        <PencilIcon className="h-4 w-4" />
+      </Acao>
+    ) : (
+      <AcaoDesabilitada
+        key={usuario.id}
+        titulo="Editar usuário"
+        motivo="apenas Gestor administra usuários"
+        className="bg-white/10"
+      >
+        <PencilIcon className="h-4 w-4" />
+      </AcaoDesabilitada>
+    ),
+  ]);
 
   const buildPageHref = (pagina: number) => {
     const query = new URLSearchParams();
@@ -95,6 +130,23 @@ export default async function UsuariosPage({
             <UserIcon className="h-4 w-4" />
             Usuários
           </h1>
+          {podeAdministrar ? (
+            <Acao
+              titulo="Novo usuário"
+              href="/dashboard/cadastros/usuarios/novo"
+              className="bg-amber-500/80"
+            >
+              <PlusCircleIcon className="h-4 w-4" />
+            </Acao>
+          ) : (
+            <AcaoDesabilitada
+              titulo="Novo usuário"
+              motivo="apenas Gestor administra usuários"
+              className="bg-amber-500/40"
+            >
+              <PlusCircleIcon className="h-4 w-4" />
+            </AcaoDesabilitada>
+          )}
         </div>
 
         {/* Mesmo mecanismo da tela de coletas: form GET, filtros na
@@ -144,7 +196,7 @@ export default async function UsuariosPage({
           totalPages={totalPages}
           totalItems={resultado.totalItems}
           buildPageHref={buildPageHref}
-          minWidth="min-w-[900px]"
+          minWidth="min-w-[1000px]"
           emptyTitle="Nenhum usuário encontrado"
           emptyDescription="Ajuste os filtros acima para localizar cadastros."
         />
