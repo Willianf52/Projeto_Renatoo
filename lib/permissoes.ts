@@ -37,6 +37,16 @@ export async function podeAdministrarUsuarios(): Promise<boolean> {
   return consultarPermissao("pode_administrar_usuarios", "administrar usuários");
 }
 
+/**
+ * Chama `pode_administrar_grupos_usuarios()` (migration 0016): conjuncao de
+ * administrar cadastro com enxergar a operacao inteira. O conteudo desse
+ * cadastro e a lista de pessoas -- o raciocinio completo esta no cabecalho da
+ * migration.
+ */
+export async function podeAdministrarGruposDeUsuarios(): Promise<boolean> {
+  return consultarPermissao("pode_administrar_grupos_usuarios", "administrar grupos de usuários");
+}
+
 async function consultarPermissao(funcao: string, descricao: string): Promise<boolean> {
   const supabase = await createClient();
 
