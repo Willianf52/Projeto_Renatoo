@@ -41,7 +41,12 @@ export type ValoresDoUsuario = {
   cargo: string;
   superiorId: string;
   ativo: boolean;
+  /** Ids de `grupos_sites` que um CLIENTE enxerga (migration 0014). Ignorado
+   * para os demais niveis, que nao tem escopo restrito. */
+  gruposDoCliente: string[];
 };
+
+const CARGO_CLIENTE = "CLIENTE";
 
 export type EstadoDoFormulario = {
   erro?: string;
@@ -65,6 +70,11 @@ function extrairValores(formData: FormData): ValoresDoUsuario {
     superiorId: texto(formData, "superior_id"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     ativo: formData.get("ativo") !== null,
+    // `getAll`: sao varios checkboxes com o mesmo name, um por grupo.
+    gruposDoCliente: formData
+      .getAll("grupos_do_cliente")
+      .map((valor) => String(valor).trim())
+      .filter(Boolean),
   };
 }
 
@@ -95,7 +105,43 @@ function validar(valores: ValoresDoUsuario): string | null {
   // garantia nenhuma: o POST pode ser montado a mao.
   if (!CARGOS_VALIDOS.has(valores.cargo)) return "Selecione um nível de acesso válido.";
 
+  if (valores.cargo === CARGO_CLIENTE && valores.gruposDoCliente.some((id) => !/^\d+$/.test(id))) {
+    return "Grupo de sites inválido.";
+  }
+
   return null;
+}
+
+/**
+ * Sincroniza `grupos_sites_clientes` (migration 0014).
+ *
+ * Nivel diferente de CLIENTE limpa o vinculo em vez de ignora-lo: rebaixar
+ * alguem de CLIENTE para OPERADOR e depois promove-lo de volta reativaria em
+ * silencio um escopo que ninguem reviu. Some junto com o nivel que lhe dava
+ * sentido.
+ */
+async function sincronizarEscopo(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  valores: ValoresDoUsuario,
+): Promise<string | null> {
+  const { error: erroLimpeza } = await admin
+    .from("grupos_sites_clientes")
+    .delete()
+    .eq("profile_id", profileId);
+
+  if (erroLimpeza) return erroLimpeza.message;
+
+  if (valores.cargo !== CARGO_CLIENTE || valores.gruposDoCliente.length === 0) return null;
+
+  const { error } = await admin.from("grupos_sites_clientes").insert(
+    valores.gruposDoCliente.map((grupoId) => ({
+      profile_id: profileId,
+      grupo_site_id: Number(grupoId),
+    })),
+  );
+
+  return error?.message ?? null;
 }
 
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -222,6 +268,15 @@ export async function salvarUsuario(
       erro(idRequisicao, "Administração de usuários: falha ao gravar perfil; conta desfeita.", erroPerfil);
       return recusar(traduzirErro(erroPerfil.message), valores);
     }
+
+    const erroEscopo = await sincronizarEscopo(admin, data.user.id, valores);
+    if (erroEscopo) {
+      // Mesmo raciocinio do bloco acima: um CLIENTE sem o escopo que era para
+      // ter enxerga zero coletas e parece conta quebrada.
+      await admin.auth.admin.deleteUser(data.user.id);
+      erro(idRequisicao, "Administração de usuários: falha ao gravar escopo; conta desfeita.", erroEscopo);
+      return recusar(traduzirErro(erroEscopo), valores);
+    }
   } else {
     const { data: atual, error: erroLeitura } = await admin
       .from("profiles")
@@ -245,6 +300,12 @@ export async function salvarUsuario(
     // no so, que a coluna "Superior" da listagem exibiria como o proprio nome.
     if (valores.superiorId === idAlvo) {
       return recusar("Um usuário não pode ser o próprio superior.", valores);
+    }
+
+    const erroEscopo = await sincronizarEscopo(admin, idAlvo, valores);
+    if (erroEscopo) {
+      erro(idRequisicao, "Administração de usuários: falha ao gravar escopo.", erroEscopo);
+      return recusar(traduzirErro(erroEscopo), valores);
     }
 
     const { error } = await admin.from("profiles").update(perfil).eq("id", idAlvo);

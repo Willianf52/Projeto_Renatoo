@@ -164,6 +164,38 @@ export async function getSuperiores(excluirId?: string): Promise<FilterOption[]>
   }));
 }
 
+/**
+ * Grupos de sites que podem ser atribuidos a um CLIENTE (migration 0014).
+ *
+ * Lida com o token de quem edita, nao com service_role: quem administra
+ * usuarios e GESTOR, e a policy da 0014 devolve todos os grupos para quem nao
+ * e CLIENTE -- entao a lista ja vem completa sem precisar contornar o RLS.
+ */
+export async function getGruposSitesParaEscopo(): Promise<FilterOption[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("grupos_sites")
+    .select("id, nome")
+    .eq("ativo", true)
+    .order("nome");
+
+  return (data ?? []).map((grupo) => ({ value: String(grupo.id), label: grupo.nome }));
+}
+
+/** Ids dos grupos que o perfil ja enxerga. Vazio para quem nao e CLIENTE --
+ * o vinculo so tem efeito nesse nivel. */
+export async function getEscopoDoCliente(profileId: string): Promise<string[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("grupos_sites_clientes")
+    .select("grupo_site_id")
+    .eq("profile_id", profileId);
+
+  return (data ?? []).map((vinculo) => String(vinculo.grupo_site_id));
+}
+
 export function toTableRow(usuario: UsuarioRow): string[] {
   return [
     usuario.nome_completo ?? "",

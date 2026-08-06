@@ -3,7 +3,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { UserIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../UsuarioForm";
-import { getSuperiores } from "../queries";
+import { getGruposSitesParaEscopo, getSuperiores } from "../queries";
 
 const VALORES_VAZIOS = {
   nomeCompleto: "",
@@ -19,6 +19,7 @@ const VALORES_VAZIOS = {
   // caso comum e que a pessoa deva conseguir entrar. A 0008 defende contra
   // cadastro vindo de fora do app, que e outro caminho.
   ativo: true,
+  gruposDoCliente: [] as string[],
 };
 
 export default async function NovoUsuarioPage() {
@@ -29,7 +30,10 @@ export default async function NovoUsuarioPage() {
     redirect("/dashboard/cadastros/usuarios");
   }
 
-  const superiores = await getSuperiores();
+  const [superiores, gruposSites] = await Promise.all([
+    getSuperiores(),
+    getGruposSitesParaEscopo(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -48,7 +52,11 @@ export default async function NovoUsuarioPage() {
           </h1>
         </div>
 
-        <UsuarioForm valoresIniciais={VALORES_VAZIOS} superiores={superiores} />
+        <UsuarioForm
+          valoresIniciais={VALORES_VAZIOS}
+          superiores={superiores}
+          gruposSites={gruposSites}
+        />
       </div>
     </div>
   );

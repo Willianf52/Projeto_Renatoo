@@ -105,13 +105,59 @@ describe("getFilterOptions", () => {
     expect(contar("profiles")).toBe(2);
   });
 
-  it("mantem em cache as tabelas de referencia, iguais para todo usuario ativo", async () => {
+  it("mantem em cache as tabelas de referencia globais", async () => {
     await getFilterOptions();
     await getFilterOptions();
 
-    expect(contar("sites")).toBe(1);
+    // Sem recorte por usuario em policy nenhuma: a lista e a mesma para
+    // qualquer usuario ativo, entao consultar de novo so gastaria round-trip.
     expect(contar("eventos")).toBe(1);
-    expect(contar("qr_codes")).toBe(1);
+    expect(contar("areas")).toBe(1);
+    expect(contar("tipos_servico")).toBe(1);
+  });
+
+  /**
+   * `sites`, `grupos_sites` e `qr_codes` eram cacheadas aqui enquanto a policy
+   * das tres era `usuario_ativo()` puro. A migration 0014 as passou para
+   * `pode_ver_grupo_site(...)`, que recorta por grupo para quem tem nivel
+   * CLIENTE -- e resultado recortado nao pode ser reaproveitado entre
+   * usuarios: o primeiro gestor a abrir a tela deixaria a lista completa no
+   * cache, e o cliente seguinte receberia os sites de todos os outros
+   * clientes. E o vazamento que a 0014 existe para fechar.
+   */
+  it("nao reaproveita sites, grupos nem checkpoints entre usuarios diferentes", async () => {
+    respostas.set("sites", [
+      { id: 1, nome: "Agência Centro" },
+      { id: 2, nome: "Loja Ipiranga" },
+    ]);
+    respostas.set("grupos_sites", [
+      { id: 1, nome: "Cooplivre" },
+      { id: 2, nome: "Bom Preço" },
+    ]);
+    respostas.set("qr_codes", [
+      { id: 1, codigo: "QR-AGC-001" },
+      { id: 2, codigo: "QR-LIP-001" },
+    ]);
+
+    const comoGestor = await getFilterOptions();
+    expect(comoGestor.locais).toHaveLength(2);
+    expect(comoGestor.gruposSites).toHaveLength(2);
+    expect(comoGestor.checkpoints).toHaveLength(2);
+
+    // Mesmo processo, dentro do TTL, mas um CLIENTE: o RLS devolve menos.
+    respostas.set("sites", [{ id: 1, nome: "Agência Centro" }]);
+    respostas.set("grupos_sites", [{ id: 1, nome: "Cooplivre" }]);
+    respostas.set("qr_codes", [{ id: 1, codigo: "QR-AGC-001" }]);
+
+    const comoCliente = await getFilterOptions();
+
+    expect(comoCliente.locais).toEqual([{ value: "1", label: "Agência Centro" }]);
+    expect(comoCliente.gruposSites).toEqual([{ value: "1", label: "Cooplivre" }]);
+    expect(comoCliente.checkpoints).toEqual([{ value: "1", label: "QR-AGC-001" }]);
+
+    expect(contar("sites")).toBe(2);
+    expect(contar("grupos_sites")).toBe(2);
+    expect(contar("qr_codes")).toBe(2);
   });
 });
 

@@ -46,11 +46,13 @@ export function UsuarioForm({
   id,
   valoresIniciais,
   superiores,
+  gruposSites,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: string;
   valoresIniciais: ValoresDoUsuario;
   superiores: FilterOption[];
+  gruposSites: FilterOption[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
     salvarUsuario,
@@ -63,6 +65,12 @@ export function UsuarioForm({
   // senha. Sem o estado ela ficaria estatica e neutra -- uma legenda, nao um
   // retorno.
   const [senha, setSenha] = useState("");
+
+  // O escopo por grupo de sites so tem efeito no nivel CLIENTE (migration
+  // 0014), entao a secao acompanha o select em vez de ficar sempre visivel
+  // pedindo uma escolha que seria descartada.
+  const [cargo, setCargo] = useState(valoresIniciais.cargo);
+  const ehCliente = cargo === "CLIENTE";
 
   // Depois de uma recusa, o formulario volta com o que a pessoa tinha digitado.
   // A senha e a excecao: a action a devolve sempre vazia, para nao trafegar de
@@ -130,7 +138,8 @@ export function UsuarioForm({
               id="cargo"
               name="cargo"
               required
-              defaultValue={valores.cargo}
+              value={cargo}
+              onChange={(evento) => setCargo(evento.target.value)}
               className={`peer ${getInputClasses(false)} appearance-none pr-9`}
             >
               {NIVEIS_ACESSO.map((nivel) => (
@@ -193,6 +202,47 @@ export function UsuarioForm({
           {(criando || senha !== "") && <PasswordRulesList password={senha} />}
         </Campo>
       </div>
+
+      {/* Escopo do cliente (migration 0014). Sem vínculo nenhum um CLIENTE não
+          enxerga operação alguma -- que é o padrão seguro, mas parece conta
+          quebrada se ninguém avisar. Daí o aviso quando a lista está vazia. */}
+      {ehCliente && (
+        <fieldset className="rounded-md border border-slate-800 p-4">
+          <legend className={`${rotuloClasses} mb-0 px-2`}>Grupos de sites visíveis</legend>
+
+          {gruposSites.length === 0 ? (
+            <p className="text-sm text-brand-muted">
+              Nenhum grupo de sites cadastrado ainda. Cadastre um em Cadastros → Grupo de Sites.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-xs text-brand-muted">
+                Um cliente só enxerga as coletas, os sites e os checkpoints dos grupos marcados
+                aqui. Sem nenhum marcado, não vê nada.
+              </p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {gruposSites.map((grupo) => (
+                  <label
+                    key={grupo.value}
+                    htmlFor={`grupo-${grupo.value}`}
+                    className="flex items-center gap-2 text-sm text-white"
+                  >
+                    <input
+                      id={`grupo-${grupo.value}`}
+                      type="checkbox"
+                      name="grupos_do_cliente"
+                      value={grupo.value}
+                      defaultChecked={valores.gruposDoCliente.includes(grupo.value)}
+                      className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+                    />
+                    {grupo.label}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </fieldset>
+      )}
 
       <div className="flex items-center gap-2">
         <input

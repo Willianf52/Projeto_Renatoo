@@ -21,18 +21,7 @@ aparece hoje.
 
 ## Alta prioridade
 
-1. **`CLIENTE` é um nível de acesso que não faz nada.** Está no `check` da 0003
-   e é selecionável no filtro (`usuarios/constantes.ts`), mas não aparece em
-   policy nenhuma. Como `pode_ver_toda_operacao()` é só GESTOR/SUPERVISOR e a
-   policy de `visitas` (0006) cai em `funcionario_id = auth.uid()`, **um
-   CLIENTE loga e vê a tela de coletas vazia** — não "restrita": vazia, sem
-   explicar por quê. No sistema de referência o cliente vê as coletas do
-   próprio grupo de sites. Falta o vínculo: `profiles` não tem
-   `grupo_site_id` nem tabela de escopo. É paridade e é segurança ao mesmo
-   tempo. `OPERACIONAL` tem meia-vida melhor: aparece na 0009, mas em nenhuma
-   policy de leitura.
-
-2. **Dois cadastros ainda são placeholder.** `grupo-de-usuarios` e `qr-code`
+1. **Dois cadastros ainda são placeholder.** `grupo-de-usuarios` e `qr-code`
    são 11 linhas de `TelaEmPreparacao` cada. As tabelas já existem
    (`grupos_usuarios`, `grupos_usuarios_membros`, `qr_codes`) — o modelo está
    pronto, falta a tela. `qr-code` é o mais urgente dos dois: a rota de
@@ -41,7 +30,7 @@ aparece hoje.
 
 ## Média prioridade
 
-3. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
+2. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
    "Localização" foi interpretado como presença/ausência de coordenadas na
    leitura (`leituras.latitude`), "Tipo" como `tipos_servico` do site e
    "Checkpoint" como `qr_codes`. Se o sistema de referência (UP Serviços) usa
@@ -49,25 +38,25 @@ aparece hoje.
    silêncio. Confirmar com quem conhece a tela original antes de considerar a
    página fechada.
 
-4. **`/dashboard` não tem tela própria.** `app/dashboard/page.tsx` redireciona
+3. **`/dashboard` não tem tela própria.** `app/dashboard/page.tsx` redireciona
    para a listagem de coletas. `metas_visitas` existe desde a 0004, tem policy
    de leitura e **nada a consulta** — a própria migration cita o gráfico
    "Visitas Realizadas x Não Realizadas" que ela alimentaria. Um painel
    inicial é o que falta para a tabela deixar de ser peso morto.
 
-5. **Coluna "Ações" vazia em Coletas Importadas.**
+4. **Coluna "Ações" vazia em Coletas Importadas.**
    `coletas-importadas/page.tsx:49` empurra `""` em toda linha. Cabeçalho sem
    conteúdo é pior que coluna ausente: promete uma ação que não existe. Ou
    ganha o "ver detalhes" da tela original, ou sai da lista de colunas.
 
-6. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
+5. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
    preservar a estrutura de navegação do sistema de referência. Não têm tabela
    nem tela. Ficam aqui para não se perderem de vista.
 
 ## Baixa prioridade / nice-to-have
 
-7. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
+6. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
    não é problema de repositório — mas existe na máquina de desenvolvimento e é
    exatamente a divergência npm/pnpm que a auditoria registra como já tendo
    causado dor. **A nota anterior de que não havia `pnpm` neste ambiente estava
@@ -75,12 +64,12 @@ aparece hoje.
    a bater com o `package.json` nesta revisão. Apagar o `package-lock.json`
    local resolveria o resto.
 
-8. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
+7. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
    custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-9. **`console.error` sem destino de observabilidade.** As linhas de
+8. **`console.error` sem destino de observabilidade.** As linhas de
     `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
     das rotas de API agora carregam um id de correlação (`lib/log.ts` — ver
     "Itens fechados"), mas o destino continua sendo só o stdout do servidor.
@@ -88,11 +77,11 @@ aparece hoje.
     externos que este ambiente não tem. O `TODO` em
     `app/dashboard/error.tsx:13` marca o lugar de plugar isso quando existir.
 
-10. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
+9. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
 
-11. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
+10. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
     índice único não considera dois `NULL` iguais, então a constraint
     `unique (visita_id, area_id, data_hora)` da 0004 não segura leitura sem
     área: ela entra de novo a cada reenvio do lote. Resolve com
@@ -109,6 +98,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| `CLIENTE` era um nível de acesso que não fazia nada | Migration 0014: tabela `grupos_sites_clientes` (N:N — um contato de holding acompanha mais de um grupo, e começar 1:1 obrigaria a migrar dado depois), helpers `e_cliente()`/`pode_ver_grupo_site()`, e as policies de `grupos_sites`, `sites`, `qr_codes`, `visitas` e `leituras` reescritas para recortar por grupo. Antes disso um CLIENTE logava e via a tela de coletas **vazia** — não "restrita": vazia, sem explicar por quê. Era paridade **e** segurança: as policies das três tabelas de cadastro eram `usuario_ativo()` puro, então ativar um CLIENTE pela tela nova de Usuários entregaria a ele os sites de todos os clientes, com coordenadas, mais o código de todo checkpoint — o mesmo vazamento que a 0008 fechou para conta criada de fora. O predicado é "não é cliente OU o grupo está entre os dele", para quem não é CLIENTE manter exatamente a visão anterior sem depender de vínculo nenhum. A atribuição entra pelo formulário de Usuários (checkboxes que aparecem só no nível CLIENTE), gravada com service_role atrás do mesmo portão da 0013. **Efeito colateral que quase passou:** o cache de referências de `coletas-importadas/queries.ts` guardava `sites`/`grupos_sites`/`qr_codes` entre usuários, apoiado no comentário de que as três não tinham recorte — premissa que a 0014 derruba. As três saíram do cache, e o teste que afirmava o contrário foi invertido. pgTAP em `escopo_de_cliente_test.sql` cobre os dois lados e o caso que quebraria calado (quem não é cliente segue vendo tudo) |
 | `Usuários` era só leitura — o sistema não admitia ninguém | CRUD completo (`usuarios/actions.ts`, `UsuarioForm.tsx`, `novo/`, `[id]/editar/`), com 24 testes concentrados no portão de permissão. Combinado com a 0008 (conta nova nasce inativa), **ativar um usuário novo só era possível pelo painel do Supabase**. A escrita usa `service_role` porque `cargo` e `ativo` não têm grant para `authenticated` (0002/0007) e **não devem ter** — são as colunas que definem poder. A consequência é que a checagem na action é o único portão: não há RLS atrás dela. Daí a migration 0013 criar `pode_administrar_usuarios()` (só GESTOR, régua mais estreita que `pode_administrar_cadastros()`, que inclui SUPERVISOR e OPERACIONAL — senão quem cadastra site poderia se promover a GESTOR), a checagem rodar com o cliente da sessão antes de qualquer escrita, e o pgTAP `pode_administrar_usuarios_test.sql` cobrir os cinco níveis mais o gestor inativo. Bloqueia ainda desativar a própria conta e alterar o próprio nível — sem isso o único gestor se tranca para fora |
 | `visitas`/`leituras` sem caminho de entrada | `POST /api/importar/coletas` (`app/api/importar/coletas/route.ts` + `lib/importar-coletas.ts`, com 34 testes). As migrations 0003/0004 registravam que a escrita "ocorre no servidor com service_role" — mas a rota nunca existiu, e a tela de Coletas Importadas listava vazio em qualquer ambiente novo: os 14 filtros, a paginação e as duas exportações estavam construídos sobre uma tabela que nada alimentava. Formato achatado (uma linha por leitura, referências por nome), autenticação por segredo compartilhado como o webhook. Contrato em `docs/importacao-de-coletas.md`. **Não exercitado contra banco de verdade** — mesma lacuna do pgTAP |
 | `seed.sql` vazio | Semeia as tabelas de referência que a 0004 não cobre (`eventos`, `acoes`, `qualificadores`, `tipos_servico` — select de filtro vazio parece defeito de tela, não tabela sem cadastro) e um grupo de sites com unidades e QR codes, para a importação ter em que se apoiar. Não semeia `visitas`/`leituras` de propósito: mascararia uma importação quebrada com uma tela cheia |

@@ -3,7 +3,12 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { UserIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../../UsuarioForm";
-import { getSuperiores, getUsuario } from "../../queries";
+import {
+  getEscopoDoCliente,
+  getGruposSitesParaEscopo,
+  getSuperiores,
+  getUsuario,
+} from "../../queries";
 
 const LISTAGEM = "/dashboard/cadastros/usuarios";
 
@@ -17,7 +22,12 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
   // `profiles.id` e uuid: ao contrario das telas de cadastro, nao ha
   // `Number.isInteger` que sirva de peneira. Um id malformado simplesmente nao
   // acha ninguem, e `maybeSingle` devolve null em vez de estourar.
-  const [usuario, superiores] = await Promise.all([getUsuario(id), getSuperiores(id)]);
+  const [usuario, superiores, gruposSites, escopo] = await Promise.all([
+    getUsuario(id),
+    getSuperiores(id),
+    getGruposSitesParaEscopo(),
+    getEscopoDoCliente(id),
+  ]);
   if (!usuario) notFound();
 
   return (
@@ -46,6 +56,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
         <UsuarioForm
           id={usuario.id}
           superiores={superiores}
+          gruposSites={gruposSites}
           valoresIniciais={{
             nomeCompleto: usuario.nome_completo ?? "",
             email: usuario.email,
@@ -57,6 +68,7 @@ export default async function EditarUsuarioPage({ params }: { params: Promise<{ 
             cargo: usuario.cargo,
             superiorId: usuario.superior_id ?? "",
             ativo: usuario.ativo,
+            gruposDoCliente: escopo,
           }}
         />
       </div>

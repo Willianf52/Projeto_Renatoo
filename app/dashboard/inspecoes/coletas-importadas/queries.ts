@@ -100,21 +100,35 @@ function toOptions<T extends Record<string, unknown>>(
   }));
 }
 
-/** Tudo menos `funcionarios` -- ver o comentario do cache logo abaixo. */
-type ReferenciasCompartilhadas = Omit<FilterOptions, "funcionarios">;
+/**
+ * As listas que podem ser cacheadas entre usuarios. Ver o comentario do cache
+ * logo abaixo para o criterio de quem entra e quem fica de fora.
+ */
+type ReferenciasCompartilhadas = Pick<
+  FilterOptions,
+  "tipos" | "coletoresDados" | "qualificadores" | "motivosVisita" | "eventos" | "areas"
+>;
 
 /**
- * Cache de processo para as tabelas de referencia: mudam raramente e a policy
- * de RLS de todas elas e `usuario_ativo()` (migrations 0003/0004/0006), sem
- * recorte por usuario -- qualquer um que chegue aqui ja passou pelo middleware
- * e enxerga exatamente a mesma lista.
+ * Cache de processo para as tabelas de referencia globais: mudam raramente e a
+ * policy de RLS de todas elas e `usuario_ativo()` (migrations 0003/0004/0006),
+ * sem recorte por usuario -- qualquer um que chegue aqui ja passou pelo
+ * middleware e enxerga exatamente a mesma lista.
  *
- * `funcionarios` fica deliberadamente de fora. Vem de `profiles`, cuja policy e
- * `auth.uid() = id or pode_ver_toda_operacao()` (migration 0006): um gestor le
- * a operacao inteira, um operador le so a propria linha. Cacheado junto com o
- * resto, o primeiro gestor a abrir a tela deixaria o quadro de funcionarios
- * inteiro no cache e os operadores seguintes receberiam essa lista pronta --
- * o RLS seria contornado pelo cache, sem erro nenhum aparecendo.
+ * Tres listas ficam deliberadamente de fora, todas pelo mesmo motivo: sao
+ * recortadas por usuario, e cachear resultado recortado entre usuarios
+ * contorna o RLS sem erro nenhum aparecendo.
+ *
+ *   - `funcionarios` vem de `profiles`, cuja policy e
+ *     `auth.uid() = id or pode_ver_toda_operacao()` (0006): um gestor le a
+ *     operacao inteira, um operador le so a propria linha.
+ *   - `locais`, `gruposSites` e `checkpoints` vem de `sites`, `grupos_sites` e
+ *     `qr_codes`, que ate a migration 0013 eram `usuario_ativo()` puro -- e
+ *     eram, por isso, cacheadas aqui. **A 0014 mudou isso**: passaram a
+ *     `pode_ver_grupo_site(...)`, que recorta por grupo para quem tem nivel
+ *     CLIENTE. Cacheadas, o primeiro gestor a abrir a tela deixaria a lista
+ *     completa no cache e o cliente seguinte receberia os sites de todos os
+ *     outros clientes -- justamente o vazamento que a 0014 fechou.
  *
  * unstable_cache do Next nao serve aqui: createClient() chama cookies()
  * internamente, e ler dynamic APIs dentro de uma funcao cacheada por ele nao
@@ -131,39 +145,23 @@ async function getReferenciasCompartilhadas(
   }
 
   const respostas = await Promise.all([
-    supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("tipos_servico").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("coletores_dados").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qualificadores").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("motivos_visita").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("eventos").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("areas").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
   ]);
 
-  const [
-    locais,
-    gruposSites,
-    tipos,
-    coletoresDados,
-    qualificadores,
-    motivosVisita,
-    eventos,
-    areas,
-    checkpoints,
-  ] = respostas;
+  const [tipos, coletoresDados, qualificadores, motivosVisita, eventos, areas] = respostas;
 
   const referencias: ReferenciasCompartilhadas = {
-    locais: toOptions(locais.data, "id", "nome"),
-    gruposSites: toOptions(gruposSites.data, "id", "nome"),
     tipos: toOptions(tipos.data, "id", "nome"),
     coletoresDados: toOptions(coletoresDados.data, "id", "nome"),
     qualificadores: toOptions(qualificadores.data, "id", "nome"),
     motivosVisita: toOptions(motivosVisita.data, "id", "nome"),
     eventos: toOptions(eventos.data, "id", "nome"),
     areas: toOptions(areas.data, "id", "nome"),
-    checkpoints: toOptions(checkpoints.data, "id", "codigo"),
   };
 
   /**
@@ -187,14 +185,24 @@ async function getReferenciasCompartilhadas(
 export async function getFilterOptions(): Promise<FilterOptions> {
   const supabase = await createClient();
 
-  // A lista de funcionarios e resolvida a cada requisicao, com o token de quem
-  // pediu, para que o recorte do RLS sobre `profiles` continue valendo.
-  const [referencias, funcionarios] = await Promise.all([
+  // As quatro listas recortadas por usuario sao resolvidas a cada requisicao,
+  // com o token de quem pediu, para que o RLS continue valendo -- ver o
+  // comentario do cache acima.
+  const [referencias, funcionarios, locais, gruposSites, checkpoints] = await Promise.all([
     getReferenciasCompartilhadas(supabase),
     supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
   ]);
 
-  return { ...referencias, funcionarios: toOptions(funcionarios.data, "id", "nome_completo") };
+  return {
+    ...referencias,
+    funcionarios: toOptions(funcionarios.data, "id", "nome_completo"),
+    locais: toOptions(locais.data, "id", "nome"),
+    gruposSites: toOptions(gruposSites.data, "id", "nome"),
+    checkpoints: toOptions(checkpoints.data, "id", "codigo"),
+  };
 }
 
 /** Apenas para teste: zera o cache entre casos. */

@@ -33,6 +33,8 @@ const {
     },
     trocarSenha: { error: null as Erro },
     sessao: { data: { user: { id: "quem-edita" } } },
+    limparEscopo: { error: null as Erro },
+    inserirEscopo: { error: null as Erro },
   };
 
   type Chamada = { tipo: string; args: unknown[] };
@@ -56,11 +58,23 @@ const {
         },
       },
     },
-    from: () => ({
+    // A tabela importa: `profiles` e `grupos_sites_clientes` passam pelo mesmo
+    // `from`, e os testes de escopo precisam distinguir as duas.
+    from: (tabela: string) => ({
       update: (linha: Record<string, unknown>) => {
         registrar("updatePerfil", linha);
         return { eq: async () => resultados.atualizarPerfil };
       },
+      insert: (linhas: unknown) => {
+        registrar("inserirEscopo", linhas);
+        return Promise.resolve(resultados.inserirEscopo);
+      },
+      delete: () => ({
+        eq: async (coluna: string, valor: unknown) => {
+          registrar("limparEscopo", tabela, coluna, valor);
+          return resultados.limparEscopo;
+        },
+      }),
       select: () => ({
         eq: () => ({ maybeSingle: async () => resultados.lerPerfil }),
       }),
@@ -126,6 +140,8 @@ beforeEach(() => {
   resultados.lerPerfil = { data: { cargo: "OPERADOR", ativo: true }, error: null };
   resultados.trocarSenha = { error: null };
   resultados.sessao = { data: { user: { id: "quem-edita" } } };
+  resultados.limparEscopo = { error: null };
+  resultados.inserirEscopo = { error: null };
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -238,6 +254,7 @@ describe("criação", () => {
     const estado = await salvarUsuario({}, formulario(CRIAR));
 
     expect(tipos()).toEqual(["createUser", "updatePerfil", "deleteUser"]);
+    expect(tipos()).not.toContain("limparEscopo");
     expect(primeira("deleteUser")?.args[0]).toBe("novo-id");
     expect(estado.erro).toBeTruthy();
     expect(redirectMock).not.toHaveBeenCalled();
@@ -275,7 +292,9 @@ describe("edição", () => {
   it("atualiza o perfil sem tocar na senha quando ela vem em branco", async () => {
     await salvarUsuario({}, formulario(EDITAR));
 
-    expect(tipos()).toEqual(["updatePerfil"]);
+    // `limparEscopo` entra em todo salvamento: um nivel diferente de CLIENTE
+    // limpa o vinculo em vez de ignora-lo -- ver a suite "escopo do cliente".
+    expect(tipos()).toEqual(["limparEscopo", "updatePerfil"]);
     expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
   });
 
@@ -360,6 +379,99 @@ describe("proteção contra se trancar para fora", () => {
     await salvarUsuario({}, formulario({ ...EDITAR, cargo: "GESTOR", ativo: "on" }));
 
     expect(primeira("updatePerfil")?.args[0]).toMatchObject({ cargo: "GESTOR" });
+  });
+});
+
+describe("escopo do cliente", () => {
+  /**
+   * Migration 0014. Sem vinculo, um CLIENTE nao enxerga operacao nenhuma --
+   * que e o padrao seguro, e o motivo de o vinculo ser gravado aqui e nao
+   * ficar a cargo de quem cadastra depois.
+   */
+  it("grava os grupos escolhidos para um CLIENTE", async () => {
+    const dados = formulario({ ...EDITAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "1");
+    dados.append("grupos_do_cliente", "3");
+
+    await salvarUsuario({}, dados);
+
+    expect(primeira("inserirEscopo")?.args[0]).toEqual([
+      { profile_id: "alvo-id", grupo_site_id: 1 },
+      { profile_id: "alvo-id", grupo_site_id: 3 },
+    ]);
+  });
+
+  it("limpa o vínculo antes de gravar, para o formulário refletir o estado final", async () => {
+    // Sem a limpeza, desmarcar um grupo nao teria efeito nenhum: o insert so
+    // acrescenta.
+    const dados = formulario({ ...EDITAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "1");
+
+    await salvarUsuario({}, dados);
+
+    expect(tipos().indexOf("limparEscopo")).toBeLessThan(tipos().indexOf("inserirEscopo"));
+    expect(primeira("limparEscopo")?.args).toEqual([
+      "grupos_sites_clientes",
+      "profile_id",
+      "alvo-id",
+    ]);
+  });
+
+  it("limpa o vínculo quando o nível deixa de ser CLIENTE", async () => {
+    // Rebaixar alguem e depois promove-lo de volta a CLIENTE reativaria em
+    // silencio um escopo que ninguem reviu. Some junto com o nivel.
+    const dados = formulario({ ...EDITAR, cargo: "OPERADOR" });
+    dados.append("grupos_do_cliente", "1");
+
+    await salvarUsuario({}, dados);
+
+    expect(tipos()).toContain("limparEscopo");
+    expect(tipos()).not.toContain("inserirEscopo");
+  });
+
+  it("aceita CLIENTE sem grupo nenhum, sem inserir linha vazia", async () => {
+    await salvarUsuario({}, formulario({ ...EDITAR, cargo: "CLIENTE" }));
+
+    expect(tipos()).toContain("limparEscopo");
+    expect(tipos()).not.toContain("inserirEscopo");
+  });
+
+  it("recusa id de grupo que não é número", async () => {
+    // Os checkboxes da tela nao sao garantia: o POST pode ser montado a mao, e
+    // o valor vai para uma FK bigint.
+    const dados = formulario({ ...EDITAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "1; drop table");
+
+    const estado = await salvarUsuario({}, dados);
+
+    expect(estado.erro).toBe("Grupo de sites inválido.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("desfaz a conta nova quando o escopo não grava", async () => {
+    // Um CLIENTE sem o escopo que era para ter enxerga zero coletas e parece
+    // conta quebrada -- mesmo raciocinio da falha ao gravar o perfil.
+    resultados.inserirEscopo = { error: { message: "falha" } };
+
+    const dados = formulario({ ...CRIAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "1");
+
+    const estado = await salvarUsuario({}, dados);
+
+    expect(tipos()).toContain("deleteUser");
+    expect(estado.erro).toBeTruthy();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("não grava o perfil se o escopo falhou na edição", async () => {
+    resultados.inserirEscopo = { error: { message: "falha" } };
+
+    const dados = formulario({ ...EDITAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "1");
+
+    await salvarUsuario({}, dados);
+
+    expect(tipos()).not.toContain("updatePerfil");
   });
 });
 
