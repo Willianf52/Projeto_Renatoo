@@ -27,15 +27,25 @@ export type SiteRow = {
   responsavel_id: string | null;
   grupos_sites: { nome: string } | null;
   tipos_servico: { nome: string } | null;
-  profiles: { nome_completo: string } | null;
+  responsavel: { nome_completo: string } | null;
 };
 
+/**
+ * A FK do responsavel precisa ir nomeada (`!responsavel_id`): `sites` aponta
+ * para `profiles` duas vezes -- por `responsavel_id` e por `criado_por`. Sem
+ * dizer qual, o PostgREST recusa a consulta inteira com PGRST201 em vez de
+ * escolher uma, e a tela cai no error boundary sem renderizar linha nenhuma.
+ * Mesmo padrao de `superior:profiles!superior_id` em usuarios/queries.ts.
+ *
+ * Nada de comentario dentro desta string: ela vai crua na querystring do
+ * PostgREST, que so tolera a remocao de espaco em branco feita pelo client.
+ */
 const COLUNAS = `
   id, nome, sigla, regional, cidade, uf, latitude, longitude, observacao, ativo,
   grupo_site_id, tipo_servico_id, responsavel_id,
   grupos_sites ( nome ),
   tipos_servico ( nome ),
-  profiles ( nome_completo )
+  responsavel:profiles!responsavel_id ( nome_completo )
 `;
 
 export const SITUACOES = [
@@ -234,7 +244,7 @@ export function toTableRow(site: SiteRow): string[] {
     site.tipos_servico?.nome ?? "",
     [site.cidade, site.uf].filter(Boolean).join(" / "),
     site.regional ?? "",
-    site.profiles?.nome_completo ?? "",
+    site.responsavel?.nome_completo ?? "",
     formatarCoordenadas(site),
     site.ativo ? "Ativo" : "Inativo",
   ];

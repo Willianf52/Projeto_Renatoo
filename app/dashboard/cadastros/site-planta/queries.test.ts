@@ -58,7 +58,7 @@ function siteRow(extra: Record<string, unknown> = {}) {
     responsavel_id: null,
     grupos_sites: { nome: "Cooplivre" },
     tipos_servico: { nome: "Portaria" },
-    profiles: { nome_completo: "Maria Silva" },
+    responsavel: { nome_completo: "Maria Silva" },
     ...extra,
   };
 }
@@ -124,7 +124,7 @@ describe("toTableRow", () => {
   });
 
   it("aceita relacao ausente sem quebrar", () => {
-    const linha = toTableRow(siteRow({ tipos_servico: null, profiles: null }));
+    const linha = toTableRow(siteRow({ tipos_servico: null, responsavel: null }));
 
     expect(linha[4]).toBe("");
     expect(linha[7]).toBe("");
