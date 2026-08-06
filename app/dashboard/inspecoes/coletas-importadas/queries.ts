@@ -21,6 +21,40 @@ export type ColetaFiltros = {
   pagina: number;
 };
 
+/** Formato bruto do `searchParams` do Next -- cada chave pode vir repetida na
+ * URL, daí o valor poder ser array. */
+export type SearchParams = Record<string, string | string[] | undefined>;
+
+export function primeiro(valor: string | string[] | undefined): string | undefined {
+  return (Array.isArray(valor) ? valor[0] : valor) || undefined;
+}
+
+/**
+ * Le os filtros da querystring. Exportada (nao so usada por `page.tsx`) para
+ * as rotas de exportar em Excel/PDF lerem exatamente os mesmos filtros da
+ * listagem, sem duplicar o mapeamento campo a campo.
+ */
+export function extrairFiltros(params: SearchParams): ColetaFiltros {
+  return {
+    dataInicial: primeiro(params.data_inicial),
+    dataFinal: primeiro(params.data_final),
+    horaInicial: primeiro(params.hora_inicial),
+    horaFinal: primeiro(params.hora_final),
+    localizacao: primeiro(params.localizacao) as "com" | "sem" | undefined,
+    coletorDados: primeiro(params.coletor_dados),
+    qualificador: primeiro(params.qualificador),
+    motivoVisita: primeiro(params.motivo_visita),
+    funcionario: primeiro(params.funcionario),
+    local: primeiro(params.local),
+    grupoSite: primeiro(params.grupo_site),
+    evento: primeiro(params.evento),
+    tipo: primeiro(params.tipo),
+    area: primeiro(params.area),
+    checkpoint: primeiro(params.checkpoint),
+    pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
+  };
+}
+
 export type FilterOption = { value: string; label: string };
 
 export type FilterOptions = {
@@ -36,7 +70,7 @@ export type FilterOptions = {
   checkpoints: FilterOption[];
 };
 
-type ColetaRow = {
+export type ColetaRow = {
   id: number;
   data_hora: string;
   observacao: string | null;
@@ -222,6 +256,51 @@ export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boole
       `;
 }
 
+type ColetaFiltrosSemPagina = Omit<ColetaFiltros, "pagina">;
+
+function precisaJoins(filtros: ColetaFiltrosSemPagina) {
+  const precisaSite = Boolean(filtros.local || filtros.grupoSite || filtros.tipo);
+  const precisaVisita =
+    precisaSite || Boolean(filtros.funcionario || filtros.motivoVisita || filtros.coletorDados);
+  return { precisaSite, precisaVisita };
+}
+
+/**
+ * Aplica os filtros de `ColetaFiltros` (exceto paginacao) num builder ja
+ * criado por `.from("leituras").select(...)`. Extraida para ser reaproveitada
+ * por `getColetasParaExportar`, que precisa dos mesmos filtros sem a
+ * paginacao.
+ *
+ * `query: any`: o cliente do Supabase aqui nao carrega o generic `Database`
+ * (nenhum arquivo em `lib/supabase/` declara um), entao o builder do
+ * PostgREST nao tem um tipo proprio para expor "o mesmo builder de volta" a
+ * cada `.eq()`/`.not()`/`.is()`/`.gte()`/`.lte()` encadeado -- reencadear
+ * tipado exigiria repetir cada metodo na assinatura da funcao so para isto.
+ */
+function aplicarFiltrosDeColeta(query: any, filtros: ColetaFiltrosSemPagina) {
+  let q = query;
+
+  if (filtros.local) q = q.eq("visitas.sites.id", filtros.local);
+  if (filtros.grupoSite) q = q.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
+  if (filtros.tipo) q = q.eq("visitas.sites.tipo_servico_id", filtros.tipo);
+  if (filtros.funcionario) q = q.eq("visitas.funcionario_id", filtros.funcionario);
+  if (filtros.motivoVisita) q = q.eq("visitas.motivo_visita_id", filtros.motivoVisita);
+  if (filtros.coletorDados) q = q.eq("visitas.coletor_dados_id", filtros.coletorDados);
+  if (filtros.area) q = q.eq("area_id", filtros.area);
+  if (filtros.evento) q = q.eq("evento_id", filtros.evento);
+  if (filtros.qualificador) q = q.eq("qualificador_id", filtros.qualificador);
+  if (filtros.checkpoint) q = q.eq("qr_code_id", filtros.checkpoint);
+  if (filtros.localizacao === "com") q = q.not("latitude", "is", null);
+  if (filtros.localizacao === "sem") q = q.is("latitude", null);
+
+  const inicio = combinarDataHora(filtros.dataInicial, filtros.horaInicial, "00:00:00");
+  const fim = combinarDataHora(filtros.dataFinal, filtros.horaFinal, "23:59:59");
+  if (inicio) q = q.gte("data_hora", inicio);
+  if (fim) q = q.lte("data_hora", fim);
+
+  return q;
+}
+
 export async function getColetas(filtros: ColetaFiltros): Promise<{
   rows: ColetaRow[];
   totalItems: number;
@@ -232,52 +311,35 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
   const from = (pagina - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const precisaSite = Boolean(filtros.local || filtros.grupoSite || filtros.tipo);
-  const precisaVisita =
-    precisaSite ||
-    Boolean(filtros.funcionario || filtros.motivoVisita || filtros.coletorDados);
+  const { precisaSite, precisaVisita } = precisaJoins(filtros);
 
   // Site e visita sao filtrados dentro da propria consulta. Resolver antes
   // para uma lista de ids e passa-la num `.in(...)` -- como era feito aqui --
   // esbarra no teto de linhas por resposta do PostgREST: acima dele a lista de
   // ids volta truncada e a pagina de coletas fica incompleta sem erro nenhum.
-  let query = supabase
-    .from("leituras")
-    /**
-     * `estimated` e nao `exact`: o total exato custa uma varredura da tabela
-     * inteira com os filtros aplicados, a cada troca de pagina, e `leituras` e
-     * a tabela que mais cresce aqui. O PostgREST devolve a contagem exata
-     * enquanto ela e pequena e passa a usar a estimativa do planejador quando
-     * fica grande -- ou seja, o numero so vira aproximacao justamente onde a
-     * precisao deixa de importar. Ver `totalAproximado` na DataTable: a tela
-     * marca o valor com "~" para nao apresentar palpite como contagem.
-     */
-    .select(montarSelectDeColetas(precisaVisita, precisaSite), { count: "estimated" })
-    .order("data_hora", { ascending: false })
-    // Desempate obrigatorio: varias leituras da mesma visita compartilham o
-    // mesmo data_hora. Sem um segundo criterio o Postgres nao garante ordem
-    // entre elas, e cada pagina e uma consulta nova -- a mesma linha pode
-    // aparecer na pagina 2 e na 3, enquanto outra nao aparece em nenhuma.
-    .order("id", { ascending: false })
-    .range(from, to);
-
-  if (filtros.local) query = query.eq("visitas.sites.id", filtros.local);
-  if (filtros.grupoSite) query = query.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
-  if (filtros.tipo) query = query.eq("visitas.sites.tipo_servico_id", filtros.tipo);
-  if (filtros.funcionario) query = query.eq("visitas.funcionario_id", filtros.funcionario);
-  if (filtros.motivoVisita) query = query.eq("visitas.motivo_visita_id", filtros.motivoVisita);
-  if (filtros.coletorDados) query = query.eq("visitas.coletor_dados_id", filtros.coletorDados);
-  if (filtros.area) query = query.eq("area_id", filtros.area);
-  if (filtros.evento) query = query.eq("evento_id", filtros.evento);
-  if (filtros.qualificador) query = query.eq("qualificador_id", filtros.qualificador);
-  if (filtros.checkpoint) query = query.eq("qr_code_id", filtros.checkpoint);
-  if (filtros.localizacao === "com") query = query.not("latitude", "is", null);
-  if (filtros.localizacao === "sem") query = query.is("latitude", null);
-
-  const inicio = combinarDataHora(filtros.dataInicial, filtros.horaInicial, "00:00:00");
-  const fim = combinarDataHora(filtros.dataFinal, filtros.horaFinal, "23:59:59");
-  if (inicio) query = query.gte("data_hora", inicio);
-  if (fim) query = query.lte("data_hora", fim);
+  const query = aplicarFiltrosDeColeta(
+    supabase
+      .from("leituras")
+      /**
+       * `estimated` e nao `exact`: o total exato custa uma varredura da
+       * tabela inteira com os filtros aplicados, a cada troca de pagina, e
+       * `leituras` e a tabela que mais cresce aqui. O PostgREST devolve a
+       * contagem exata enquanto ela e pequena e passa a usar a estimativa do
+       * planejador quando fica grande -- ou seja, o numero so vira
+       * aproximacao justamente onde a precisao deixa de importar. Ver
+       * `totalAproximado` na DataTable: a tela marca o valor com "~" para
+       * nao apresentar palpite como contagem.
+       */
+      .select(montarSelectDeColetas(precisaVisita, precisaSite), { count: "estimated" })
+      .order("data_hora", { ascending: false })
+      // Desempate obrigatorio: varias leituras da mesma visita compartilham o
+      // mesmo data_hora. Sem um segundo criterio o Postgres nao garante ordem
+      // entre elas, e cada pagina e uma consulta nova -- a mesma linha pode
+      // aparecer na pagina 2 e na 3, enquanto outra nao aparece em nenhuma.
+      .order("id", { ascending: false })
+      .range(from, to),
+    filtros,
+  );
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -285,9 +347,65 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
   return { rows: (data ?? []) as unknown as ColetaRow[], totalItems: count ?? 0 };
 }
 
+/** Teto de linhas nas exportacoes: evita devolver uma tabela sem fim, e
+ * particularmente importante aqui -- `leituras` e a tabela que mais cresce. */
+export const LIMITE_EXPORTACAO = 2000;
+
+/**
+ * Mesma consulta de `getColetas`, sem paginacao -- para os botoes de
+ * exportar, que precisam do resultado inteiro dentro do filtro, nao so a
+ * pagina atual. Pede um a mais que o limite para saber, sem uma segunda
+ * consulta de `count`, se o resultado foi cortado.
+ */
+export async function getColetasParaExportar(
+  filtros: ColetaFiltrosSemPagina,
+): Promise<{ rows: ColetaRow[]; truncado: boolean }> {
+  const supabase = await createClient();
+
+  const { precisaSite, precisaVisita } = precisaJoins(filtros);
+
+  const query = aplicarFiltrosDeColeta(
+    supabase
+      .from("leituras")
+      .select(montarSelectDeColetas(precisaVisita, precisaSite))
+      .order("data_hora", { ascending: false })
+      .order("id", { ascending: false })
+      .range(0, LIMITE_EXPORTACAO),
+    filtros,
+  );
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as ColetaRow[];
+  return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
+}
+
 export function formatarDataHora(valor: string | null): string {
   if (!valor) return "";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
     new Date(valor),
   );
+}
+
+/**
+ * Colunas de texto da linha, na mesma ordem de `TABLE_COLUMNS` em
+ * `page.tsx` (menos "Ações", que so existe na tela -- a pagina acrescenta a
+ * coluna vazia por conta propria). Reaproveitada pelas exportacoes de
+ * Excel/PDF para nao duplicar o mapeamento campo a campo.
+ */
+export function toTableRow(leitura: ColetaRow): string[] {
+  return [
+    leitura.visitas ? String(leitura.visitas.numero_coleta) : "",
+    formatarDataHora(leitura.data_hora),
+    leitura.visitas?.coletores_dados?.nome ?? "",
+    leitura.visitas?.profiles?.nome_completo ?? "",
+    leitura.visitas?.sites?.nome ?? "",
+    leitura.areas?.nome ?? "",
+    leitura.eventos?.nome ?? "",
+    leitura.observacao ?? "",
+    leitura.acoes?.nome ?? "",
+    leitura.qualificadores?.nome ?? "",
+    formatarDataHora(leitura.data_integracao),
+  ];
 }

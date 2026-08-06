@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
@@ -33,30 +33,6 @@ function extrairFiltros(params: SearchParams): GrupoSiteFiltros {
     busca: primeiro(params.busca),
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
-}
-
-/** Mesma caixa da AcaoDesabilitada, com destino. */
-function Acao({
-  titulo,
-  href,
-  className,
-  children,
-}: {
-  titulo: string;
-  href: string;
-  className: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      title={titulo}
-      aria-label={titulo}
-      className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-90 ${className}`}
-    >
-      {children}
-    </Link>
-  );
 }
 
 export default async function GrupoDeSitesPage({
@@ -109,6 +85,10 @@ export default async function GrupoDeSitesPage({
     return `?${query.toString()}`;
   };
 
+  // Mesmo filtro de busca da listagem, sem a paginacao -- getGruposSitesParaExportar
+  // ignora pagina de proposito (ver queries.ts).
+  const queryExportacao = filtros.busca ? `?busca=${encodeURIComponent(filtros.busca)}` : "";
+
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
@@ -129,12 +109,22 @@ export default async function GrupoDeSitesPage({
             <AcaoDesabilitada titulo="Importar grupos" className="bg-sky-600/40">
               <UploadIcon className="h-4 w-4" />
             </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para Excel" className="bg-emerald-600/40">
+            <Acao
+              titulo="Exportar para Excel"
+              href={`/dashboard/cadastros/grupo-de-sites/export/excel${queryExportacao}`}
+              className="bg-emerald-600/40"
+              target="_blank"
+            >
               <ExcelIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
+            </Acao>
+            <Acao
+              titulo="Exportar para PDF"
+              href={`/dashboard/cadastros/grupo-de-sites/export/pdf${queryExportacao}`}
+              className="bg-red-600/40"
+              target="_blank"
+            >
               <PdfIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
+            </Acao>
             {podeAdministrar ? (
               <Acao
                 titulo="Novo grupo"

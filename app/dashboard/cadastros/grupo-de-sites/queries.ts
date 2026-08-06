@@ -15,6 +15,28 @@ export type GrupoSiteRow = {
   ativo: boolean;
 };
 
+/**
+ * Busca livre: um campo so, procurando em nome e descricao, como na tela
+ * antiga. Quem digita "portaria" espera achar tambem o grupo cuja descricao
+ * menciona portaria.
+ *
+ * Extraida para ser reaproveitada por `getGruposSitesParaExportar`: mesma
+ * consulta de `getGruposSites`, sem a paginacao. O cliente do Supabase aqui
+ * nao carrega o generic `Database` (nenhum arquivo em `lib/supabase/`
+ * declara um), entao o builder do PostgREST nao expoe um tipo generico
+ * proprio para "o mesmo builder de volta" -- o cast de volta para `Q` depois
+ * do `.or()` e o preco de aceitar o builder de qualquer uma das duas
+ * consultas nesta funcao so.
+ */
+function comBusca<Q extends { or(filtro: string): unknown }>(
+  query: Q,
+  busca: string | undefined,
+): Q {
+  if (!busca) return query;
+  const termo = termoParaOr(busca);
+  return query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`) as Q;
+}
+
 export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   rows: GrupoSiteRow[];
   totalItems: number;
@@ -25,28 +47,53 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   const from = (pagina - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  let query = supabase
-    .from("grupos_sites")
-    .select("id, nome, descricao, ativo", { count: "exact" })
-    // Sem desempate de proposito: `grupos_sites.nome` e `not null unique`
-    // (migration 0003), entao esta ordenacao ja e total e a paginacao nao
-    // repete nem pula linha. Se a restricao de unicidade cair, um
-    // `.order("id")` passa a ser necessario aqui.
-    .order("nome", { ascending: true })
-    .range(from, to);
-
-  // Busca livre: um campo so, procurando em nome e descricao, como na tela
-  // antiga. Quem digita "portaria" espera achar tambem o grupo cuja descricao
-  // menciona portaria.
-  if (filtros.busca) {
-    const termo = termoParaOr(filtros.busca);
-    query = query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`);
-  }
+  const query = comBusca(
+    supabase
+      .from("grupos_sites")
+      .select("id, nome, descricao, ativo", { count: "exact" })
+      // Sem desempate de proposito: `grupos_sites.nome` e `not null unique`
+      // (migration 0003), entao esta ordenacao ja e total e a paginacao nao
+      // repete nem pula linha. Se a restricao de unicidade cair, um
+      // `.order("id")` passa a ser necessario aqui.
+      .order("nome", { ascending: true })
+      .range(from, to),
+    filtros.busca,
+  );
 
   const { data, error, count } = await query;
   if (error) throw error;
 
   return { rows: (data ?? []) as GrupoSiteRow[], totalItems: count ?? 0 };
+}
+
+/** Teto de linhas nas exportacoes: evita devolver uma tabela sem fim. */
+export const LIMITE_EXPORTACAO = 2000;
+
+/**
+ * Mesma consulta de `getGruposSites`, sem paginacao -- para os botoes de
+ * exportar, que precisam do resultado inteiro dentro do filtro, nao so a
+ * pagina atual. Pede um a mais que o limite para saber, sem uma segunda
+ * consulta de `count`, se o resultado foi cortado.
+ */
+export async function getGruposSitesParaExportar(
+  busca: string | undefined,
+): Promise<{ rows: GrupoSiteRow[]; truncado: boolean }> {
+  const supabase = await createClient();
+
+  const query = comBusca(
+    supabase
+      .from("grupos_sites")
+      .select("id, nome, descricao, ativo")
+      .order("nome", { ascending: true })
+      .range(0, LIMITE_EXPORTACAO),
+    busca,
+  );
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const rows = (data ?? []) as GrupoSiteRow[];
+  return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
 }
 
 /**

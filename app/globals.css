@@ -72,6 +72,17 @@ body {
   color: #ffffff;
 }
 
+/* O tema escuro imprime mal: sem isto, "Exportar para PDF" (window.print())
+   sairia com fundo navy cobrindo a folha inteira. Vale para qualquer tela, nao
+   so as de exportar -- imprimir a aplicacao, de onde for, deve sair legivel
+   no papel. */
+@media print {
+  body {
+    background-color: #ffffff;
+    color: #000000;
+  }
+}
+
 /* O tema e escuro por padrao. Sem isto, os seletores nativos e os campos de
    data/hora renderizam com a paleta clara do sistema operacional, destoando
    do restante da interface. */

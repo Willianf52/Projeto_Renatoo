@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Resultado = { data: unknown[]; error: null; count: number };
 type Ordem = { tabela: string; coluna: string; ascending?: boolean };
+type Range = { tabela: string; from: number; to: number };
 
 /** Encadeamento minimo do query builder do Supabase: todo metodo devolve a si
  * mesmo e o objeto e "thenable", entao `await query` resolve o resultado. */
@@ -12,52 +13,61 @@ type Chain = {
   is: () => Chain;
   gte: () => Chain;
   lte: () => Chain;
-  range: () => Chain;
+  range: (from: number, to: number) => Chain;
   order: (coluna: string, opcoes?: { ascending?: boolean }) => Chain;
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, respostas, tabelasConsultadas, ordens, contagens } = vi.hoisted(() => {
-  const respostas = new Map<string, unknown[]>();
-  const tabelasConsultadas: string[] = [];
-  const ordens: Ordem[] = [];
-  const contagens = new Map<string, string | undefined>();
+const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges } = vi.hoisted(
+  () => {
+    const respostas = new Map<string, unknown[]>();
+    const tabelasConsultadas: string[] = [];
+    const ordens: Ordem[] = [];
+    const contagens = new Map<string, string | undefined>();
+    const ranges: Range[] = [];
 
-  const createClientMock = vi.fn(async () => ({
-    from(tabela: string) {
-      tabelasConsultadas.push(tabela);
-      const chain: Chain = {
-        select: (_colunas, opcoes) => {
-          contagens.set(tabela, opcoes?.count);
-          return chain;
-        },
-        eq: () => chain,
-        not: () => chain,
-        is: () => chain,
-        gte: () => chain,
-        lte: () => chain,
-        range: () => chain,
-        order: (coluna, opcoes) => {
-          ordens.push({ tabela, coluna, ascending: opcoes?.ascending });
-          return chain;
-        },
-        then: (resolve) =>
-          resolve({ data: respostas.get(tabela) ?? [], error: null, count: 0 }),
-      };
-      return chain;
-    },
-  }));
+    const createClientMock = vi.fn(async () => ({
+      from(tabela: string) {
+        tabelasConsultadas.push(tabela);
+        const chain: Chain = {
+          select: (_colunas, opcoes) => {
+            contagens.set(tabela, opcoes?.count);
+            return chain;
+          },
+          eq: () => chain,
+          not: () => chain,
+          is: () => chain,
+          gte: () => chain,
+          lte: () => chain,
+          range: (from, to) => {
+            ranges.push({ tabela, from, to });
+            return chain;
+          },
+          order: (coluna, opcoes) => {
+            ordens.push({ tabela, coluna, ascending: opcoes?.ascending });
+            return chain;
+          },
+          then: (resolve) =>
+            resolve({ data: respostas.get(tabela) ?? [], error: null, count: 0 }),
+        };
+        return chain;
+      },
+    }));
 
-  return { createClientMock, respostas, tabelasConsultadas, ordens, contagens };
-});
+    return { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges };
+  },
+);
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
 const {
   combinarDataHora,
   getColetas,
+  getColetasParaExportar,
   getFilterOptions,
   montarSelectDeColetas,
+  toTableRow,
+  LIMITE_EXPORTACAO,
   __limparCacheDeReferencias,
 } = await import("./queries");
 
@@ -69,6 +79,7 @@ beforeEach(() => {
   tabelasConsultadas.length = 0;
   ordens.length = 0;
   contagens.clear();
+  ranges.length = 0;
 });
 
 describe("getFilterOptions", () => {
@@ -175,5 +186,96 @@ describe("combinarDataHora", () => {
 
   it("sem data, nao ha limite para aplicar", () => {
     expect(combinarDataHora(undefined, "14:30", "00:00:00")).toBeNull();
+  });
+});
+
+describe("getColetasParaExportar", () => {
+  it("pede LIMITE_EXPORTACAO + 1 linhas, para detectar truncamento sem um count a mais", async () => {
+    await getColetasParaExportar({});
+
+    expect(ranges).toContainEqual({ tabela: "leituras", from: 0, to: LIMITE_EXPORTACAO });
+  });
+
+  it("mantem o mesmo desempate por id da listagem paginada", async () => {
+    await getColetasParaExportar({});
+
+    expect(ordens).toEqual([
+      { tabela: "leituras", coluna: "data_hora", ascending: false },
+      { tabela: "leituras", coluna: "id", ascending: false },
+    ]);
+  });
+
+  it("nao truncado quando o resultado cabe no limite", async () => {
+    respostas.set("leituras", [{ id: 1, data_hora: "2026-01-01T00:00:00Z", visitas: null }]);
+
+    const { rows, truncado } = await getColetasParaExportar({});
+
+    expect(rows).toHaveLength(1);
+    expect(truncado).toBe(false);
+  });
+
+  it("truncado quando a consulta devolve um a mais que o limite", async () => {
+    respostas.set(
+      "leituras",
+      Array.from({ length: LIMITE_EXPORTACAO + 1 }, (_, i) => ({
+        id: i,
+        data_hora: "2026-01-01T00:00:00Z",
+        visitas: null,
+      })),
+    );
+
+    const { rows, truncado } = await getColetasParaExportar({});
+
+    expect(rows).toHaveLength(LIMITE_EXPORTACAO);
+    expect(truncado).toBe(true);
+  });
+});
+
+describe("toTableRow", () => {
+  it("mapeia campos ausentes para string vazia, na ordem de TABLE_COLUMNS", () => {
+    const linha = toTableRow({
+      id: 1,
+      data_hora: "2026-08-05T14:30:00-03:00",
+      observacao: null,
+      latitude: null,
+      data_integracao: null,
+      areas: null,
+      eventos: null,
+      acoes: null,
+      qualificadores: null,
+      qr_codes: null,
+      visitas: null,
+    });
+
+    expect(linha).toHaveLength(11);
+    expect(linha.every((campo) => campo === "" || typeof campo === "string")).toBe(true);
+  });
+
+  it("preenche a partir dos relacionamentos quando presentes", () => {
+    const linha = toTableRow({
+      id: 1,
+      data_hora: "2026-08-05T14:30:00-03:00",
+      observacao: "Portão trancado",
+      latitude: -23.5,
+      data_integracao: null,
+      areas: { nome: "Início" },
+      eventos: null,
+      acoes: null,
+      qualificadores: null,
+      qr_codes: null,
+      visitas: {
+        numero_coleta: 42,
+        profiles: { nome_completo: "Ana" },
+        coletores_dados: { nome: "Dispositivo Móvel" },
+        sites: { nome: "Cooplivre" },
+      },
+    });
+
+    expect(linha[0]).toBe("42");
+    expect(linha[2]).toBe("Dispositivo Móvel");
+    expect(linha[3]).toBe("Ana");
+    expect(linha[4]).toBe("Cooplivre");
+    expect(linha[5]).toBe("Início");
+    expect(linha[7]).toBe("Portão trancado");
   });
 });

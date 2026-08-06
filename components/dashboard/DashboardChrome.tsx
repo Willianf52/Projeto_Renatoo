@@ -18,24 +18,31 @@ export function DashboardChrome({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-brand-navy">
-      <DashboardNavbar
-        userName={userName}
-        cargo={cargo}
-        organization={organization}
-        onToggleSidebar={() => setSidebarOpen((open) => !open)}
-      />
+    <div className="min-h-screen bg-brand-navy print:bg-white">
+      {/* print:hidden nos tres: navbar, sidebar e rodape nao servem a quem
+          imprime ou salva como PDF (ver ImprimirAoAbrir) -- so o conteudo da
+          pagina importa na folha. */}
+      <div className="print:hidden">
+        <DashboardNavbar
+          userName={userName}
+          cargo={cargo}
+          organization={organization}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        />
+      </div>
 
       <div className="flex">
-        <DashboardSidebar
-          userName={userName}
-          mobileOpen={sidebarOpen}
-          onCloseMobile={() => setSidebarOpen(false)}
-        />
+        <div className="print:hidden">
+          <DashboardSidebar
+            userName={userName}
+            mobileOpen={sidebarOpen}
+            onCloseMobile={() => setSidebarOpen(false)}
+          />
+        </div>
 
-        <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8">
+        <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8 print:p-0">
           <div className="flex-1">{children}</div>
-          <footer className="mt-8 text-center text-xs text-brand-muted">
+          <footer className="mt-8 text-center text-xs text-brand-muted print:hidden">
             © {new Date().getFullYear()} Up Serviços
           </footer>
         </main>

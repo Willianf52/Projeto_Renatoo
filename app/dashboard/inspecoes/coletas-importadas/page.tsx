@@ -1,9 +1,17 @@
-import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
+import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
-import { getColetas, getFilterOptions, formatarDataHora, PAGE_SIZE, type ColetaFiltros } from "./queries";
+import {
+  getColetas,
+  getFilterOptions,
+  toTableRow,
+  extrairFiltros,
+  primeiro,
+  PAGE_SIZE,
+  type SearchParams,
+} from "./queries";
 
 const TABLE_COLUMNS = [
   "Coleta",
@@ -25,33 +33,6 @@ const LOCALIZACAO_OPTIONS = [
   { value: "sem", label: "Sem Localização" },
 ];
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
-function primeiro(valor: string | string[] | undefined): string | undefined {
-  return (Array.isArray(valor) ? valor[0] : valor) || undefined;
-}
-
-function extrairFiltros(params: SearchParams): ColetaFiltros {
-  return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
-    horaInicial: primeiro(params.hora_inicial),
-    horaFinal: primeiro(params.hora_final),
-    localizacao: primeiro(params.localizacao) as "com" | "sem" | undefined,
-    coletorDados: primeiro(params.coletor_dados),
-    qualificador: primeiro(params.qualificador),
-    motivoVisita: primeiro(params.motivo_visita),
-    funcionario: primeiro(params.funcionario),
-    local: primeiro(params.local),
-    grupoSite: primeiro(params.grupo_site),
-    evento: primeiro(params.evento),
-    tipo: primeiro(params.tipo),
-    area: primeiro(params.area),
-    checkpoint: primeiro(params.checkpoint),
-    pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
-  };
-}
-
 export default async function ColetasImportadasPage({
   searchParams,
 }: {
@@ -64,20 +45,8 @@ export default async function ColetasImportadasPage({
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
 
-  const rows = resultado.rows.map((leitura) => [
-    leitura.visitas ? String(leitura.visitas.numero_coleta) : "",
-    formatarDataHora(leitura.data_hora),
-    leitura.visitas?.coletores_dados?.nome ?? "",
-    leitura.visitas?.profiles?.nome_completo ?? "",
-    leitura.visitas?.sites?.nome ?? "",
-    leitura.areas?.nome ?? "",
-    leitura.eventos?.nome ?? "",
-    leitura.observacao ?? "",
-    leitura.acoes?.nome ?? "",
-    leitura.qualificadores?.nome ?? "",
-    formatarDataHora(leitura.data_integracao),
-    "",
-  ]);
+  // Ultima coluna ("Ações") e so da tela: a exportacao (toTableRow) nao a tem.
+  const rows = resultado.rows.map((leitura) => [...toTableRow(leitura), ""]);
 
   const buildPageHref = (pagina: number) => {
     const query = new URLSearchParams();
@@ -88,6 +57,19 @@ export default async function ColetasImportadasPage({
     query.set("pagina", String(pagina));
     return `?${query.toString()}`;
   };
+
+  // Mesmos filtros da listagem, sem a paginacao -- getColetasParaExportar
+  // ignora pagina de proposito (ver queries.ts).
+  const queryExportacao = (() => {
+    const query = new URLSearchParams();
+    for (const [chave, valor] of Object.entries(params)) {
+      if (chave === "pagina") continue;
+      const v = primeiro(valor);
+      if (v) query.set(chave, v);
+    }
+    const texto = query.toString();
+    return texto ? `?${texto}` : "";
+  })();
 
   return (
     <div className="space-y-4">
@@ -105,14 +87,22 @@ export default async function ColetasImportadasPage({
             Coletas Importadas
           </h1>
           <div className="flex items-center gap-2">
-            {/* Exportacao ainda nao implementada: desabilitado em vez de
-                clicavel sem efeito, para nao parecer quebrado. */}
-            <AcaoDesabilitada titulo="Exportar para Excel" className="bg-emerald-600/40">
+            <Acao
+              titulo="Exportar para Excel"
+              href={`/dashboard/inspecoes/coletas-importadas/export/excel${queryExportacao}`}
+              className="bg-emerald-600/40"
+              target="_blank"
+            >
               <ExcelIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
+            </Acao>
+            <Acao
+              titulo="Exportar para PDF"
+              href={`/dashboard/inspecoes/coletas-importadas/export/pdf${queryExportacao}`}
+              className="bg-red-600/40"
+              target="_blank"
+            >
               <PdfIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
+            </Acao>
           </div>
         </div>
 
