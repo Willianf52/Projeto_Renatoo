@@ -21,12 +21,11 @@ aparece hoje.
 
 ## Alta prioridade
 
-1. **Dois cadastros ainda são placeholder.** `grupo-de-usuarios` e `qr-code`
-   são 11 linhas de `TelaEmPreparacao` cada. As tabelas já existem
-   (`grupos_usuarios`, `grupos_usuarios_membros`, `qr_codes`) — o modelo está
-   pronto, falta a tela. `qr-code` é o mais urgente dos dois: a rota de
-   importação resolve `checkpoint` por código, e hoje o QR só entra por SQL ou
-   pelo `seed.sql`.
+1. **`grupo-de-usuarios` ainda é placeholder.** 11 linhas de
+   `TelaEmPreparacao`. As tabelas existem desde a 0003 (`grupos_usuarios`,
+   `grupos_usuarios_membros`) e o filtro da tela de Usuários já consulta a
+   primeira — o modelo está pronto, falta a tela. É o último cadastro do menu
+   sem funcionalidade.
 
 ## Média prioridade
 
@@ -81,7 +80,9 @@ aparece hoje.
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
 
-10. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
+10. **A tela de QR-Code não gera a imagem do QR.** Cadastra o código, o site e a finalidade, mas quem precisa da etiqueta ainda gera o QR por fora. Exigiria uma biblioteca de codificação nova, e nenhuma foi adicionada nesta rodada. `TabelaImpressao` já dá o caminho da folha de impressão quando isso entrar.
+
+11. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
     índice único não considera dois `NULL` iguais, então a constraint
     `unique (visita_id, area_id, data_hora)` da 0004 não segura leitura sem
     área: ela entra de novo a cada reenvio do lote. Resolve com
@@ -98,6 +99,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| `QR-Code` era placeholder | Cadastro completo (listagem com busca e filtros de site/grupo/situação, criar/editar, exportar Excel e PDF) + migration 0015 com o padrão de escrita das 0009/0012. Era o mais urgente dos dois porque a rota de importação resolve `checkpoint` pelo código do QR e recusa o lote quando ele não existe — o cadastro era pré-requisito sem tela. Duas decisões próprias: o código só aceita letras, números, ponto, hífen e sublinhado (ele é lido de etiqueta e casado por texto na importação; espaço no meio sobrevive ao `trim` das bordas e produz um cadastro que parece certo na tela e nunca casa com o lote), e a policy de escrita exige `pode_ver_grupo_site()` além de `pode_administrar_cadastros()` — hoje redundante, mas impede que uma combinação futura de nível com escopo pendure checkpoint num site que nem enxerga |
 | `CLIENTE` era um nível de acesso que não fazia nada | Migration 0014: tabela `grupos_sites_clientes` (N:N — um contato de holding acompanha mais de um grupo, e começar 1:1 obrigaria a migrar dado depois), helpers `e_cliente()`/`pode_ver_grupo_site()`, e as policies de `grupos_sites`, `sites`, `qr_codes`, `visitas` e `leituras` reescritas para recortar por grupo. Antes disso um CLIENTE logava e via a tela de coletas **vazia** — não "restrita": vazia, sem explicar por quê. Era paridade **e** segurança: as policies das três tabelas de cadastro eram `usuario_ativo()` puro, então ativar um CLIENTE pela tela nova de Usuários entregaria a ele os sites de todos os clientes, com coordenadas, mais o código de todo checkpoint — o mesmo vazamento que a 0008 fechou para conta criada de fora. O predicado é "não é cliente OU o grupo está entre os dele", para quem não é CLIENTE manter exatamente a visão anterior sem depender de vínculo nenhum. A atribuição entra pelo formulário de Usuários (checkboxes que aparecem só no nível CLIENTE), gravada com service_role atrás do mesmo portão da 0013. **Efeito colateral que quase passou:** o cache de referências de `coletas-importadas/queries.ts` guardava `sites`/`grupos_sites`/`qr_codes` entre usuários, apoiado no comentário de que as três não tinham recorte — premissa que a 0014 derruba. As três saíram do cache, e o teste que afirmava o contrário foi invertido. pgTAP em `escopo_de_cliente_test.sql` cobre os dois lados e o caso que quebraria calado (quem não é cliente segue vendo tudo) |
 | `Usuários` era só leitura — o sistema não admitia ninguém | CRUD completo (`usuarios/actions.ts`, `UsuarioForm.tsx`, `novo/`, `[id]/editar/`), com 24 testes concentrados no portão de permissão. Combinado com a 0008 (conta nova nasce inativa), **ativar um usuário novo só era possível pelo painel do Supabase**. A escrita usa `service_role` porque `cargo` e `ativo` não têm grant para `authenticated` (0002/0007) e **não devem ter** — são as colunas que definem poder. A consequência é que a checagem na action é o único portão: não há RLS atrás dela. Daí a migration 0013 criar `pode_administrar_usuarios()` (só GESTOR, régua mais estreita que `pode_administrar_cadastros()`, que inclui SUPERVISOR e OPERACIONAL — senão quem cadastra site poderia se promover a GESTOR), a checagem rodar com o cliente da sessão antes de qualquer escrita, e o pgTAP `pode_administrar_usuarios_test.sql` cobrir os cinco níveis mais o gestor inativo. Bloqueia ainda desativar a própria conta e alterar o próprio nível — sem isso o único gestor se tranca para fora |
 | `visitas`/`leituras` sem caminho de entrada | `POST /api/importar/coletas` (`app/api/importar/coletas/route.ts` + `lib/importar-coletas.ts`, com 34 testes). As migrations 0003/0004 registravam que a escrita "ocorre no servidor com service_role" — mas a rota nunca existiu, e a tela de Coletas Importadas listava vazio em qualquer ambiente novo: os 14 filtros, a paginação e as duas exportações estavam construídos sobre uma tabela que nada alimentava. Formato achatado (uma linha por leitura, referências por nome), autenticação por segredo compartilhado como o webhook. Contrato em `docs/importacao-de-coletas.md`. **Não exercitado contra banco de verdade** — mesma lacuna do pgTAP |
