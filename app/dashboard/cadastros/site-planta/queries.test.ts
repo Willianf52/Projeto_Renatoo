@@ -62,8 +62,6 @@ function siteRow(extra: Record<string, unknown> = {}) {
     regional: "Sul",
     cidade: "Porto Alegre",
     uf: "RS",
-    latitude: -30.0346,
-    longitude: -51.2177,
     observacao: null,
     ativo: true,
     criado_em: "2026-03-17T18:09:00.000Z",
@@ -154,17 +152,6 @@ describe("toTableRow", () => {
 
     expect(linha[COL["Cidade"]]).toBe("Porto Alegre");
     expect(linha[COL["UF"]]).toBe("RS");
-  });
-
-  it("deixa as coordenadas em branco quando nao foram cadastradas", () => {
-    // Nula quer dizer "ainda nao cadastrada" (migration 0003), nao zero.
-    const linha = toTableRow(siteRow({ latitude: null, longitude: null }));
-
-    expect(linha[COL["Lat/Long"]]).toBe("");
-  });
-
-  it("nao inventa meia coordenada", () => {
-    expect(toTableRow(siteRow({ longitude: null }))[COL["Lat/Long"]]).toBe("");
   });
 
   it("traduz o booleano de situacao", () => {

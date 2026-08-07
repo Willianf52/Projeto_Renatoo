@@ -39,8 +39,6 @@ visita): é o mesmo formato achatado que a tela de Coletas Importadas exporta.
       "funcionario_email": "operador@exemplo.com",
       "motivo_visita": "Inspeção",
       "coletor_dados": "Dispositivo Móvel",
-      "latitude": -30.0346,
-      "longitude": -51.2177,
       "evento": null,
       "acao": null,
       "qualificador": "Conforme",
@@ -78,9 +76,16 @@ registro, e aí dois cadastros legítimos colidiriam em silêncio.
 duas unidades homônimas em grupos diferentes são cadastro legítimo, e escolher
 uma pela ordem que o banco devolveu penduraria a visita no site errado.
 
-**`latitude`/`longitude` nulos têm significado.** Querem dizer "o aparelho não
-obteve sinal", e são o que alimenta o filtro Com/Sem Localização. Não confunda
-com zero.
+**`latitude`/`longitude` viram apenas uma flag.** As colunas saíram do banco
+na migration 0022; o valor não é mais guardado. Mas a **presença** do par
+ainda importa: ela grava `leituras.tem_localizacao` (migration 0023), que é o
+que alimenta o filtro Com/Sem Localização da tela — esse filtro sempre
+perguntou se o aparelho obteve sinal, nunca exibiu a coordenada.
+
+Continue enviando os dois campos quando houver sinal. O par tem que estar
+completo: só latitude, ou só longitude, conta como sem localização. O valor
+não é mais validado — uma latitude 91 não recusa o lote, porque nada é
+gravado a partir dela.
 
 **Ou entra tudo, ou não entra nada.** O lote inteiro é resolvido antes da
 primeira escrita. Importar as linhas válidas e listar as inválidas deixaria o

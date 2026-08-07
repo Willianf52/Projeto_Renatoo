@@ -8,7 +8,6 @@ export type ColetaFiltros = {
   dataFinal?: string;
   horaInicial?: string;
   horaFinal?: string;
-  localizacao?: "com" | "sem";
   coletorDados?: string;
   qualificador?: string;
   motivoVisita?: string;
@@ -18,6 +17,7 @@ export type ColetaFiltros = {
   evento?: string;
   tipo?: string;
   area?: string;
+  localizacao?: "com" | "sem";
   checkpoint?: string;
   pagina: number;
 };
@@ -41,7 +41,6 @@ export function extrairFiltros(params: SearchParams): ColetaFiltros {
     dataFinal: primeiro(params.data_final),
     horaInicial: primeiro(params.hora_inicial),
     horaFinal: primeiro(params.hora_final),
-    localizacao: primeiro(params.localizacao) as "com" | "sem" | undefined,
     coletorDados: primeiro(params.coletor_dados),
     qualificador: primeiro(params.qualificador),
     motivoVisita: primeiro(params.motivo_visita),
@@ -51,6 +50,7 @@ export function extrairFiltros(params: SearchParams): ColetaFiltros {
     evento: primeiro(params.evento),
     tipo: primeiro(params.tipo),
     area: primeiro(params.area),
+    localizacao: primeiro(params.localizacao) as "com" | "sem" | undefined,
     checkpoint: primeiro(params.checkpoint),
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
@@ -75,7 +75,6 @@ export type ColetaRow = {
   id: number;
   data_hora: string;
   observacao: string | null;
-  latitude: number | null;
   data_integracao: string | null;
   areas: { nome: string } | null;
   eventos: { nome: string } | null;
@@ -249,7 +248,6 @@ export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boole
       id,
       data_hora,
       observacao,
-      latitude,
       data_integracao,
       areas ( nome ),
       eventos ( nome ),
@@ -298,9 +296,11 @@ function aplicarFiltrosDeColeta(query: any, filtros: ColetaFiltrosSemPagina) {
   if (filtros.area) q = q.eq("area_id", filtros.area);
   if (filtros.evento) q = q.eq("evento_id", filtros.evento);
   if (filtros.qualificador) q = q.eq("qualificador_id", filtros.qualificador);
+  // Booleano desde a 0023: antes era `latitude is not null`. O filtro sempre
+  // perguntou pela presenca, nunca pelo valor.
+  if (filtros.localizacao === "com") q = q.eq("tem_localizacao", true);
+  if (filtros.localizacao === "sem") q = q.eq("tem_localizacao", false);
   if (filtros.checkpoint) q = q.eq("qr_code_id", filtros.checkpoint);
-  if (filtros.localizacao === "com") q = q.not("latitude", "is", null);
-  if (filtros.localizacao === "sem") q = q.is("latitude", null);
 
   const inicio = combinarDataHora(filtros.dataInicial, filtros.horaInicial, "00:00:00");
   const fim = combinarDataHora(filtros.dataFinal, filtros.horaFinal, "23:59:59");

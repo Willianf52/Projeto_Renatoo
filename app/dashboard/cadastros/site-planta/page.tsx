@@ -7,7 +7,6 @@ import {
   BuildingIcon,
   ExcelIcon,
   FilterIcon,
-  MapPinIcon,
   PdfIcon,
   PencilIcon,
   PlusCircleIcon,
@@ -15,7 +14,6 @@ import {
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import {
   extrairFiltros,
-  formatarCoordenadas,
   getOpcoes,
   getSites,
   montarHierarquia,
@@ -23,46 +21,11 @@ import {
   toTableRow,
   COLUNAS_EXPORTACAO,
   INDICE_HIERARQUIA,
-  INDICE_LAT_LONG,
   PAGE_SIZE,
   SITUACOES,
   type SearchParams,
   type SiteRow,
 } from "./queries";
-
-/**
- * Pino da coluna Lat/Long, como na referencia. Com coordenada, abre o ponto no
- * mapa; sem, fica apagado e inerte -- a ausencia e informacao (migration 0003:
- * nulo quer dizer "ainda nao cadastrada", nao zero).
- *
- * As coordenadas seguem no `title`, entao quem precisa do numero nao perde
- * nada em relacao a coluna de texto que havia antes -- e a exportacao continua
- * levando o texto, nao o pino.
- */
-function PinoCoordenadas({ site }: { site: SiteRow }) {
-  const coordenadas = formatarCoordenadas(site);
-
-  if (!coordenadas) {
-    return (
-      <span title="Sem coordenadas cadastradas" className="text-brand-muted/40">
-        <MapPinIcon className="h-4 w-4" />
-      </span>
-    );
-  }
-
-  return (
-    <a
-      href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={`Abrir no mapa: ${coordenadas}`}
-      aria-label={`Abrir ${site.nome} no mapa`}
-      className="inline-flex text-red-400 transition-colors duration-200 hover:text-red-300"
-    >
-      <MapPinIcon className="h-4 w-4" />
-    </a>
-  );
-}
 
 /** Cadeia organizacao > grupo > site, com o ultimo nivel destacado: e o
  * registro da linha, os anteriores sao contexto. */
@@ -108,10 +71,9 @@ export default async function SitePlantaPage({
   // tela de Grupo de Sites.
   const rows = resultado.rows.map((site) => [
     // A linha de texto e a mesma que a exportacao usa; a tela troca so a celula
-    // de Lat/Long pelo pino e a de Hierarquia pela cadeia formatada. Manter a
-    // base compartilhada evita as duas ordens divergirem em silencio.
+    // de Hierarquia pela cadeia formatada. Manter a base compartilhada evita as
+    // duas ordens divergirem em silencio.
     ...toTableRow(site).map((celula, indice) => {
-      if (indice === INDICE_LAT_LONG) return <PinoCoordenadas key="latlong" site={site} />;
       if (indice === INDICE_HIERARQUIA) return <Hierarquia key="hierarquia" site={site} />;
       return celula;
     }),

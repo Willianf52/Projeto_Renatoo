@@ -22,8 +22,6 @@ export type SiteRow = {
   regional: string | null;
   cidade: string | null;
   uf: string | null;
-  latitude: number | null;
-  longitude: number | null;
   observacao: string | null;
   ativo: boolean;
   criado_em: string;
@@ -66,7 +64,7 @@ export type SiteRow = {
  * PostgREST, que so tolera a remocao de espaco em branco feita pelo client.
  */
 const COLUNAS = `
-  id, nome, sigla, regional, cidade, uf, latitude, longitude, observacao, ativo, criado_em,
+  id, nome, sigla, regional, cidade, uf, observacao, ativo, criado_em,
   site_superior_id, cep, endereco, numero, bairro, complemento, pais, raio_metros,
   cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2,
   recebe_visita, gerar_qrcode_automatico, gerar_registro_coletas,
@@ -130,7 +128,6 @@ export const COLUNAS_EXPORTACAO = [
   "Regional",
   "Nome",
   "Sigla",
-  "Lat/Long",
   "Hierarquia",
   "Observação",
   "Cidade",
@@ -141,17 +138,13 @@ export const COLUNAS_EXPORTACAO = [
 ];
 
 /**
- * Posicao da celula de Lat/Long dentro da linha.
+ * Posicao da celula de Hierarquia dentro da linha.
  *
- * A tela troca essa celula por um pino clicavel; a exportacao mantem o texto
- * das coordenadas, que e o que serve numa planilha. Constante exportada, e nao
- * numero solto em `page.tsx`, porque ela so faz sentido junto da lista acima --
- * mexer na ordem sem mexer aqui poria o pino na coluna errada.
+ * A tela renderiza a cadeia com separadores e destaque no ultimo nivel; a
+ * exportacao leva o texto simples. Constante exportada, e nao numero solto em
+ * `page.tsx`, porque ela so faz sentido junto da lista acima -- mexer na ordem
+ * sem mexer aqui poria a cadeia na coluna errada.
  */
-export const INDICE_LAT_LONG = COLUNAS_EXPORTACAO.indexOf("Lat/Long");
-
-/** Mesma razao do `INDICE_LAT_LONG`: a tela renderiza a cadeia com separadores
- * e destaque no ultimo nivel; a exportacao leva o texto simples. */
 export const INDICE_HIERARQUIA = COLUNAS_EXPORTACAO.indexOf("Hierarquia");
 
 /**
@@ -398,13 +391,6 @@ export async function getSitesParaSuperior(excluirId?: number): Promise<Opcao[]>
   return (data ?? []).map((site) => ({ value: String(site.id), label: site.nome }));
 }
 
-/** Coordenada formatada para a tabela. Nula quer dizer "ainda nao cadastrada"
- * (migration 0003), nao zero -- daí o campo vazio em vez de "0". */
-export function formatarCoordenadas(site: SiteRow): string {
-  if (site.latitude === null || site.longitude === null) return "";
-  return `${site.latitude}, ${site.longitude}`;
-}
-
 /**
  * Cadeia organizacao > grupo de sites > site, como na coluna "Hierarquia" do
  * sistema de referencia.
@@ -426,7 +412,6 @@ export function toTableRow(site: SiteRow): string[] {
     site.regional ?? "",
     site.nome,
     site.sigla ?? "",
-    formatarCoordenadas(site),
     montarHierarquia(site).join(" > "),
     site.observacao ?? "",
     site.cidade ?? "",

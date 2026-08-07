@@ -30,13 +30,15 @@ export type ColetaImportada = {
   area: string | null;
   qrCode: string | null;
   dataHora: string;
-  latitude: number | null;
-  longitude: number | null;
   evento: string | null;
   acao: string | null;
   qualificador: string | null;
   observacao: string | null;
   dataIntegracao: string | null;
+  /** O aparelho obteve sinal ao registrar a leitura (migration 0023).
+   * Derivado da presenca de `latitude`/`longitude` no lote -- a coordenada
+   * em si nao e guardada desde a 0022. */
+  temLocalizacao: boolean;
 };
 
 export type ResultadoDaLeitura =
@@ -61,26 +63,12 @@ function textoOpcional(
 }
 
 /**
- * Coordenada. `null` e um valor legitimo e carregado de significado: e o que
- * alimenta o filtro "Com Localizacao" / "Sem Localizacao" da tela, e quer
- * dizer que o aparelho nao obteve sinal (migration 0004).
+ * Presenca de coordenada no lote. Nao le o valor -- so responde se veio
+ * alguma coisa. `null`, ausente e string vazia sao "o aparelho nao obteve
+ * sinal", que era o significado de `latitude is null` antes da 0022.
  */
-function coordenada(
-  valor: unknown,
-  campo: string,
-  maximo: number,
-): { ok: true; valor: number | null } | { ok: false; erro: string } {
-  if (valor === undefined || valor === null || valor === "") return { ok: true, valor: null };
-
-  const numero = typeof valor === "string" ? Number(valor) : valor;
-  if (typeof numero !== "number" || !Number.isFinite(numero)) {
-    return { ok: false, erro: `"${campo}" deve ser um número` };
-  }
-  if (Math.abs(numero) > maximo) {
-    return { ok: false, erro: `"${campo}" fora do intervalo válido (±${maximo})` };
-  }
-
-  return { ok: true, valor: numero };
+function temCoordenada(valor: unknown): boolean {
+  return valor !== undefined && valor !== null && valor !== "";
 }
 
 /**
@@ -143,11 +131,16 @@ function lerColeta(valor: unknown): { ok: true; coleta: ColetaImportada } | { ok
   const dataIntegracao = instante(bruto.data_integracao, "data_integracao", false);
   if (!dataIntegracao.ok) return dataIntegracao;
 
-  const latitude = coordenada(bruto.latitude, "latitude", 90);
-  if (!latitude.ok) return latitude;
-
-  const longitude = coordenada(bruto.longitude, "longitude", 180);
-  if (!longitude.ok) return longitude;
+  // `latitude` e `longitude` continuam sendo ACEITAS no corpo do lote (0022):
+  // recusar quebraria quem ja integra. A coordenada nao e guardada, mas a
+  // PRESENCA dela vira `tem_localizacao` (0023), que e o que o filtro
+  // Com/Sem Localizacao da tela sempre precisou -- ele nunca mostrou o
+  // numero. Ver docs/importacao-de-coletas.md.
+  //
+  // Sem validar intervalo: nao guardamos o valor, entao uma latitude 91 nao
+  // corrompe nada -- e recusar o lote por causa dela seria rigor sobre um
+  // campo que o sistema declarou nao usar.
+  const temLocalizacao = temCoordenada(bruto.latitude) && temCoordenada(bruto.longitude);
 
   const opcionais = {
     funcionarioEmail: textoOpcional(bruto.funcionario_email, "funcionario_email", 254),
@@ -176,8 +169,6 @@ function lerColeta(valor: unknown): { ok: true; coleta: ColetaImportada } | { ok
       site: site.valor,
       dataHora: dataHora.valor as string,
       dataIntegracao: dataIntegracao.valor,
-      latitude: latitude.valor,
-      longitude: longitude.valor,
       funcionarioEmail: valores.funcionarioEmail.valor,
       motivoVisita: valores.motivoVisita.valor,
       coletorDados: valores.coletorDados.valor,
@@ -187,6 +178,7 @@ function lerColeta(valor: unknown): { ok: true; coleta: ColetaImportada } | { ok
       acao: valores.acao.valor,
       qualificador: valores.qualificador.valor,
       observacao: valores.observacao.valor,
+      temLocalizacao,
     },
   };
 }

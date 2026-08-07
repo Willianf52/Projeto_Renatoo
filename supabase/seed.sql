@@ -84,15 +84,15 @@ on conflict (nome) do nothing;
 -- `not exists` em vez de `on conflict`: `sites.nome` nao e unique (so o par
 -- com o grupo faria sentido, e a 0003 nao declarou nem esse), entao nao ha
 -- constraint em que o `on conflict` pudesse se apoiar.
-insert into public.sites (grupo_site_id, nome, sigla, regional, cidade, uf, tipo_servico_id, latitude, longitude)
-select g.id, v.nome, v.sigla, v.regional, v.cidade, v.uf, t.id, v.latitude, v.longitude
+insert into public.sites (grupo_site_id, nome, sigla, regional, cidade, uf, tipo_servico_id)
+select g.id, v.nome, v.sigla, v.regional, v.cidade, v.uf, t.id
 from (values
-  ('Cooperativa de Crédito Cooplivre', 'Agência Centro',         'AGC', 'Sul',     'Porto Alegre', 'RS', 'Portaria',   -30.0346, -51.2177),
-  ('Cooperativa de Crédito Cooplivre', 'Agência Zona Norte',     'AZN', 'Sul',     'Porto Alegre', 'RS', 'Portaria',   -29.9880, -51.1800),
-  ('Cooperativa de Crédito Cooplivre', 'Posto Universitário',    'PUN', 'Sul',     'Canoas',       'RS', 'Ronda',      -29.9177, -51.1836),
-  ('Rede Bom Preço',                   'Loja Ipiranga',          'LIP', 'Sudeste', 'São Paulo',    'SP', 'Limpeza',    -23.5880, -46.6100),
-  ('Rede Bom Preço',                   'Centro de Distribuição', 'CDI', 'Sudeste', 'Guarulhos',    'SP', 'Manutenção', -23.4540, -46.5330)
-) as v(grupo, nome, sigla, regional, cidade, uf, tipo_servico, latitude, longitude)
+  ('Cooperativa de Crédito Cooplivre', 'Agência Centro',         'AGC', 'Sul',     'Porto Alegre', 'RS', 'Portaria'),
+  ('Cooperativa de Crédito Cooplivre', 'Agência Zona Norte',     'AZN', 'Sul',     'Porto Alegre', 'RS', 'Portaria'),
+  ('Cooperativa de Crédito Cooplivre', 'Posto Universitário',    'PUN', 'Sul',     'Canoas',       'RS', 'Ronda'),
+  ('Rede Bom Preço',                   'Loja Ipiranga',          'LIP', 'Sudeste', 'São Paulo',    'SP', 'Limpeza'),
+  ('Rede Bom Preço',                   'Centro de Distribuição', 'CDI', 'Sudeste', 'Guarulhos',    'SP', 'Manutenção')
+) as v(grupo, nome, sigla, regional, cidade, uf, tipo_servico)
 join public.grupos_sites g on g.nome = v.grupo
 join public.tipos_servico t on t.nome = v.tipo_servico
 where not exists (

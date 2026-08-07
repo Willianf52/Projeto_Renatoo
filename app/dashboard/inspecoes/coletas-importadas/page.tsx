@@ -13,6 +13,11 @@ import {
   type SearchParams,
 } from "./queries";
 
+const LOCALIZACAO_OPTIONS = [
+  { value: "com", label: "Com Localização" },
+  { value: "sem", label: "Sem Localização" },
+];
+
 const TABLE_COLUMNS = [
   "Coleta",
   "Data / Hora",
@@ -25,11 +30,6 @@ const TABLE_COLUMNS = [
   "Ação",
   "Qualificador",
   "Data Integração",
-];
-
-const LOCALIZACAO_OPTIONS = [
-  { value: "com", label: "Com Localização" },
-  { value: "sem", label: "Sem Localização" },
 ];
 
 export default async function ColetasImportadasPage({
@@ -133,7 +133,16 @@ export default async function ColetasImportadasPage({
               options={opcoes.qualificadores}
             />
 
-            <div className="flex min-w-0 gap-3 xl:col-span-2">
+            {/* Uma celula so, sem `col-span`. Item que ocupa duas colunas nao
+                cabe na ultima coluna de uma linha e pula para a seguinte,
+                deixando um buraco -- foi o que aconteceu quando o filtro de
+                Localizacao saiu (0022) e a contagem deixou de fechar. Com todo
+                filtro valendo uma celula, o arranjo nao depende de quantos sao.
+
+                Os dois `time` cabem juntos porque `FilterInput` tem `min-w-0`:
+                sem isso a largura intrinseca imposta pelo navegador (~98px cada)
+                os faria vazar por cima do campo vizinho. */}
+            <div className="flex min-w-0 gap-3">
               <FilterInput label="Hora Inicial" type="time" name="hora_inicial" defaultValue={filtros.horaInicial} />
               <FilterInput label="Hora Final" type="time" name="hora_final" defaultValue={filtros.horaFinal} />
             </div>
@@ -160,7 +169,11 @@ export default async function ColetasImportadasPage({
             <FilterSelect label="Eventos" name="evento" defaultValue={filtros.evento} options={opcoes.eventos} />
             <FilterSelect label="Tipo" name="tipo" defaultValue={filtros.tipo} options={opcoes.tipos} />
             <FilterSelect label="Áreas" name="area" defaultValue={filtros.area} options={opcoes.areas} />
-            <div className="lg:col-span-2 2xl:col-span-1">
+            {/* Largo, como na referencia. Aqui o `col-span` e seguro porque
+                este e o ULTIMO item: se nao couber na linha, ele desce inteiro
+                em vez de deixar buraco atras de si -- que era o defeito do par
+                de horas quando ele ocupava duas colunas no meio da lista. */}
+            <div className="lg:col-span-2">
               <FilterSelect
                 label="Checkpoint"
                 name="checkpoint"

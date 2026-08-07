@@ -291,24 +291,6 @@ export function SiteForm({
           valor={valores.raioMetros}
           inputMode="numeric"
         />
-
-        {/* Coordenadas vazias sao validas e querem dizer "ainda nao
-            cadastradas" (migration 0003). A action exige as duas juntas: uma
-            sozinha nao localiza nada. */}
-        <Texto
-          id="latitude"
-          rotulo="Latitude"
-          valor={valores.latitude}
-          inputMode="decimal"
-          placeholder="-30.0346"
-        />
-        <Texto
-          id="longitude"
-          rotulo="Longitude"
-          valor={valores.longitude}
-          inputMode="decimal"
-          placeholder="-51.2177"
-        />
       </Secao>
 
       <Secao titulo="Códigos e informações adicionais">

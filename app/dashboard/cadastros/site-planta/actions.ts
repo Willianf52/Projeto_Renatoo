@@ -61,8 +61,6 @@ export type ValoresDoSite = {
   regional: string;
   cidade: string;
   uf: string;
-  latitude: string;
-  longitude: string;
   observacao: string;
   cep: string;
   endereco: string;
@@ -103,8 +101,6 @@ function extrairValores(formData: FormData): ValoresDoSite {
     regional: texto(formData, "regional"),
     cidade: texto(formData, "cidade"),
     uf: texto(formData, "uf").toUpperCase(),
-    latitude: texto(formData, "latitude"),
-    longitude: texto(formData, "longitude"),
     observacao: texto(formData, "observacao"),
     cep: texto(formData, "cep"),
     endereco: texto(formData, "endereco"),
@@ -126,27 +122,6 @@ function extrairValores(formData: FormData): ValoresDoSite {
   };
 }
 
-/**
- * Coordenada: vazia e valida e significa "ainda nao cadastrada" (migration
- * 0003), nao zero. Aceita virgula como separador decimal -- e o que sai de um
- * teclado em pt-BR, e recusar seria pedantismo.
- */
-function lerCoordenada(
-  valor: string,
-  rotulo: string,
-  maximo: number,
-): { ok: true; valor: number | null } | { ok: false; erro: string } {
-  if (valor === "") return { ok: true, valor: null };
-
-  const numero = Number(valor.replace(",", "."));
-  if (!Number.isFinite(numero)) return { ok: false, erro: `${rotulo} deve ser um número.` };
-  if (Math.abs(numero) > maximo) {
-    return { ok: false, erro: `${rotulo} deve estar entre -${maximo} e ${maximo}.` };
-  }
-
-  return { ok: true, valor: numero };
-}
-
 type LinhaDoSite = {
   nome: string;
   sigla: string | null;
@@ -157,8 +132,6 @@ type LinhaDoSite = {
   regional: string | null;
   cidade: string | null;
   uf: string | null;
-  latitude: number | null;
-  longitude: number | null;
   observacao: string | null;
   cep: string | null;
   endereco: string | null;
@@ -268,17 +241,6 @@ function validar(
   const raio = lerRaio(valores.raioMetros);
   if (!raio.ok) return raio;
 
-  const latitude = lerCoordenada(valores.latitude, "A latitude", 90);
-  if (!latitude.ok) return latitude;
-
-  const longitude = lerCoordenada(valores.longitude, "A longitude", 180);
-  if (!longitude.ok) return longitude;
-
-  // Uma coordenada sozinha nao localiza nada, e a tela de coletas mostra o par.
-  if ((latitude.valor === null) !== (longitude.valor === null)) {
-    return { ok: false, erro: "Informe latitude e longitude juntas, ou deixe as duas em branco." };
-  }
-
   return {
     ok: true,
     linha: {
@@ -291,8 +253,6 @@ function validar(
       regional: valores.regional || null,
       cidade: valores.cidade || null,
       uf: valores.uf || null,
-      latitude: latitude.valor,
-      longitude: longitude.valor,
       observacao: valores.observacao || null,
       cep: valores.cep || null,
       endereco: valores.endereco || null,

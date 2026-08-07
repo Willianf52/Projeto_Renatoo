@@ -89,30 +89,6 @@ describe("salvarSite", () => {
       expect(chamadas).toHaveLength(0);
     });
 
-    it("recusa coordenada fora do intervalo", async () => {
-      const latitude = await salvarSite(
-        {},
-        formulario({ ...MINIMO, latitude: "91", longitude: "0" }),
-      );
-      expect(latitude.erro).toContain("A latitude deve estar entre");
-
-      const longitude = await salvarSite(
-        {},
-        formulario({ ...MINIMO, latitude: "0", longitude: "181" }),
-      );
-      expect(longitude.erro).toContain("A longitude deve estar entre");
-
-      expect(chamadas).toHaveLength(0);
-    });
-
-    it("recusa uma coordenada sem a outra", async () => {
-      // Latitude sozinha nao localiza nada, e a tela de coletas mostra o par.
-      const estado = await salvarSite({}, formulario({ ...MINIMO, latitude: "-30.03" }));
-
-      expect(estado.erro).toContain("juntas");
-      expect(chamadas).toHaveLength(0);
-    });
-
     it("devolve o que a pessoa digitou junto do erro", async () => {
       // Sem isto o formulario recarrega vazio e a pessoa redigita tudo.
       const estado = await salvarSite({}, formulario({ ...MINIMO, nome: "", cidade: "Canoas" }));
@@ -150,19 +126,6 @@ describe("salvarSite", () => {
       const linha = chamadas[0].linha;
       expect(linha.sigla).toBeNull();
       expect(linha.regional).toBeNull();
-      expect(linha.latitude).toBeNull();
-      expect(linha.longitude).toBeNull();
-    });
-
-    it("aceita virgula como separador decimal", async () => {
-      // E o que sai de um teclado em pt-BR; recusar seria pedantismo.
-      await salvarSite(
-        {},
-        formulario({ ...MINIMO, latitude: "-30,0346", longitude: "-51,2177" }),
-      );
-
-      expect(chamadas[0].linha.latitude).toBe(-30.0346);
-      expect(chamadas[0].linha.longitude).toBe(-51.2177);
     });
 
     it("marca ativo quando o checkbox vem no formulario", async () => {

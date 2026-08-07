@@ -60,10 +60,6 @@ export default async function EditarSitePage({ params }: { params: Promise<{ id:
             regional: site.regional ?? "",
             cidade: site.cidade ?? "",
             uf: site.uf ?? "",
-            // Coordenada nula e "ainda nao cadastrada" (migration 0003): vira
-            // campo vazio, nao "null" nem "0".
-            latitude: site.latitude === null ? "" : String(site.latitude),
-            longitude: site.longitude === null ? "" : String(site.longitude),
             observacao: site.observacao ?? "",
             cep: site.cep ?? "",
             endereco: site.endereco ?? "",

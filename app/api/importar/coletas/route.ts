@@ -94,8 +94,7 @@ type LinhaResolvida = {
     area_id: number | null;
     qr_code_id: number | null;
     data_hora: string;
-    latitude: number | null;
-    longitude: number | null;
+    tem_localizacao: boolean;
     evento_id: number | null;
     acao_id: number | null;
     qualificador_id: number | null;
@@ -158,8 +157,7 @@ function resolverLinha(
         area_id: area.id,
         qr_code_id: qrCode.id,
         data_hora: coleta.dataHora,
-        latitude: coleta.latitude,
-        longitude: coleta.longitude,
+        tem_localizacao: coleta.temLocalizacao,
         evento_id: evento.id,
         acao_id: acao.id,
         qualificador_id: qualificador.id,

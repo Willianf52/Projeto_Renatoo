@@ -131,35 +131,46 @@ describe("lerLoteDeColetas", () => {
     });
   });
 
-  describe("coordenadas", () => {
-    it("preserva ausencia como null", () => {
-      // Nao e o mesmo que zero: null quer dizer "o aparelho nao obteve sinal",
-      // e e o que alimenta o filtro Com/Sem Localizacao.
-      const resultado = lerLoteDeColetas([coletaValida()]);
-
-      expect(resultado.ok && resultado.coletas[0].latitude).toBeNull();
-      expect(resultado.ok && resultado.coletas[0].longitude).toBeNull();
-    });
-
-    it("aceita coordenada em texto", () => {
+  /**
+   * A coordenada saiu do banco na 0022, mas o filtro Com/Sem Localizacao
+   * voltou na 0023 apoiado num booleano: ele sempre perguntou pela presenca,
+   * nunca pelo valor. O contrato com quem envia os lotes nao mudou.
+   */
+  describe("presença de localização", () => {
+    it("marca temLocalizacao quando o lote traz o par de coordenadas", () => {
       const resultado = lerLoteDeColetas([
         coletaValida({ latitude: "-30.0346", longitude: "-51.2177" }),
       ]);
 
-      expect(resultado.ok && resultado.coletas[0].latitude).toBe(-30.0346);
-      expect(resultado.ok && resultado.coletas[0].longitude).toBe(-51.2177);
+      expect(resultado.ok && resultado.coletas[0].temLocalizacao).toBe(true);
     });
 
-    it("recusa latitude fora de ±90 e longitude fora de ±180", () => {
-      expect(lerLoteDeColetas([coletaValida({ latitude: 91 })]).ok).toBe(false);
-      expect(lerLoteDeColetas([coletaValida({ longitude: 181 })]).ok).toBe(false);
-      // O limite da latitude nao pode ser aplicado a longitude.
-      expect(lerLoteDeColetas([coletaValida({ longitude: 120 })]).ok).toBe(true);
+    it("nao guarda a coordenada, so a presenca", () => {
+      const resultado = lerLoteDeColetas([
+        coletaValida({ latitude: "-30.0346", longitude: "-51.2177" }),
+      ]);
+
+      expect(resultado.ok && "latitude" in resultado.coletas[0]).toBe(false);
+      expect(resultado.ok && "longitude" in resultado.coletas[0]).toBe(false);
     });
 
-    it("recusa texto que nao e numero", () => {
-      const resultado = lerLoteDeColetas([coletaValida({ latitude: "sul" })]);
-      expect(resultado).toEqual({ ok: false, erro: 'linha 1: "latitude" deve ser um número' });
+    it("ausencia de sinal vira false", () => {
+      const resultado = lerLoteDeColetas([coletaValida()]);
+
+      expect(resultado.ok && resultado.coletas[0].temLocalizacao).toBe(false);
+    });
+
+    /** Meia coordenada nao localiza nada: o par tem que estar completo. */
+    it("so uma das duas nao conta como localizacao", () => {
+      const resultado = lerLoteDeColetas([coletaValida({ latitude: "-30.0346" })]);
+
+      expect(resultado.ok && resultado.coletas[0].temLocalizacao).toBe(false);
+    });
+
+    /** Nao guardamos o valor, entao rigor de intervalo seria rigor sobre um
+     * campo que o sistema declarou nao usar. */
+    it("nao recusa coordenada fora de intervalo, porque nao le o valor", () => {
+      expect(lerLoteDeColetas([coletaValida({ latitude: 91, longitude: 181 })]).ok).toBe(true);
     });
   });
 
