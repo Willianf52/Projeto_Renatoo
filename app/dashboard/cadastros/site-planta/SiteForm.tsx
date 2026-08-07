@@ -74,15 +74,88 @@ function Select({
   );
 }
 
+/** Campo de texto simples -- o formulario tem 14 deles depois da 0021, e
+ * repetir a marcacao inteira em cada um so espalha oportunidade de divergir. */
+function Texto({
+  id,
+  rotulo,
+  valor,
+  className = "",
+  ...resto
+}: {
+  id: string;
+  rotulo: string;
+  valor: string;
+  className?: string;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <Campo id={id} rotulo={rotulo} className={className}>
+      <input
+        id={id}
+        name={id}
+        type="text"
+        defaultValue={valor}
+        className={getInputClasses(false)}
+        {...resto}
+      />
+    </Campo>
+  );
+}
+
+function Checkbox({
+  id,
+  rotulo,
+  marcado,
+  ajuda,
+}: {
+  id: string;
+  rotulo: string;
+  marcado: boolean;
+  ajuda?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <input
+        id={id}
+        name={id}
+        type="checkbox"
+        defaultChecked={marcado}
+        className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+      />
+      <div>
+        <label htmlFor={id} className="text-sm text-white">
+          {rotulo}
+        </label>
+        {ajuda && <p className="text-xs text-brand-muted">{ajuda}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Agrupa os campos por assunto. Com 25 campos numa coluna so, achar um vira
+ * garimpo -- e a referencia tambem separa em blocos. */
+function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="rounded-md border border-slate-800 p-4">
+      <legend className={`${rotuloClasses} mb-0 px-2`}>{titulo}</legend>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
+    </fieldset>
+  );
+}
+
 export function SiteForm({
   id,
   valoresIniciais,
   opcoes,
+  sitesSuperiores,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
   valoresIniciais: ValoresDoSite;
   opcoes: { gruposSites: Opcao[]; tiposServico: Opcao[]; responsaveis: Opcao[] };
+  /** Migration 0021. Ja vem sem o proprio site em edicao -- ver
+   * `getSitesParaSuperior`. */
+  sitesSuperiores: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
     salvarSite,
@@ -106,8 +179,20 @@ export function SiteForm({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Campo id="nome" rotulo="Nome" className="sm:col-span-2">
+      <Secao titulo="Identificação">
+        <Texto id="regional" rotulo="Regional" valor={valores.regional} />
+
+        <Campo id="site_superior_id" rotulo="Site Superior">
+          <Select
+            id="site_superior_id"
+            name="site_superior_id"
+            options={sitesSuperiores}
+            defaultValue={valores.siteSuperiorId}
+            vazio="Raiz"
+          />
+        </Campo>
+
+        <Campo id="nome" rotulo="Nome do Site" className="sm:col-span-2">
           <input
             id="nome"
             name="nome"
@@ -116,6 +201,28 @@ export function SiteForm({
             defaultValue={valores.nome}
             aria-invalid={Boolean(estado.erro)}
             className={getInputClasses(Boolean(estado.erro))}
+          />
+        </Campo>
+
+        <Texto id="sigla" rotulo="Nome abreviado do site" valor={valores.sigla} />
+
+        <Campo id="responsavel_id" rotulo="Responsável">
+          <Select
+            id="responsavel_id"
+            name="responsavel_id"
+            options={opcoes.responsaveis}
+            defaultValue={valores.responsavelId}
+            vazio="Nenhum"
+          />
+        </Campo>
+
+        <Campo id="tipo_servico_id" rotulo="Tipo de Serviço">
+          <Select
+            id="tipo_servico_id"
+            name="tipo_servico_id"
+            options={opcoes.tiposServico}
+            defaultValue={valores.tipoServicoId}
+            vazio="Nenhum"
           />
         </Campo>
 
@@ -130,45 +237,27 @@ export function SiteForm({
           />
         </Campo>
 
-        <Campo id="sigla" rotulo="Sigla">
-          <input
-            id="sigla"
-            name="sigla"
-            type="text"
-            defaultValue={valores.sigla}
-            className={getInputClasses(false)}
+        <Campo id="observacao" rotulo="Observação" className="sm:col-span-2">
+          <textarea
+            id="observacao"
+            name="observacao"
+            rows={3}
+            defaultValue={valores.observacao}
+            className={`${getInputClasses(false)} resize-y`}
           />
         </Campo>
+      </Secao>
 
-        <Campo id="tipo_servico_id" rotulo="Tipo de Serviço">
-          <Select
-            id="tipo_servico_id"
-            name="tipo_servico_id"
-            options={opcoes.tiposServico}
-            defaultValue={valores.tipoServicoId}
-            vazio="Nenhum"
-          />
-        </Campo>
+      <Secao titulo="Endereço">
+        <Texto id="cep" rotulo="CEP" valor={valores.cep} inputMode="numeric" />
+        <Texto id="endereco" rotulo="Endereço" valor={valores.endereco} />
 
-        <Campo id="responsavel_id" rotulo="Responsável">
-          <Select
-            id="responsavel_id"
-            name="responsavel_id"
-            options={opcoes.responsaveis}
-            defaultValue={valores.responsavelId}
-            vazio="Nenhum"
-          />
-        </Campo>
-
-        <Campo id="regional" rotulo="Regional">
-          <input
-            id="regional"
-            name="regional"
-            type="text"
-            defaultValue={valores.regional}
-            className={getInputClasses(false)}
-          />
-        </Campo>
+        {/* Texto e nao number: "123-A", "s/n" e "km 12" sao numeros de porta
+            legitimos, e nenhum deles cabe num campo numerico. */}
+        <Texto id="numero" rotulo="Número" valor={valores.numero} />
+        <Texto id="bairro" rotulo="Bairro" valor={valores.bairro} />
+        <Texto id="complemento" rotulo="Complemento" valor={valores.complemento} />
+        <Texto id="pais" rotulo="País" valor={valores.pais} />
 
         <div className="grid grid-cols-3 gap-3">
           <Campo id="cidade" rotulo="Cidade" className="col-span-2">
@@ -196,55 +285,64 @@ export function SiteForm({
           </Campo>
         </div>
 
+        <Texto
+          id="raio_metros"
+          rotulo="Raio (metros)"
+          valor={valores.raioMetros}
+          inputMode="numeric"
+        />
+
         {/* Coordenadas vazias sao validas e querem dizer "ainda nao
             cadastradas" (migration 0003). A action exige as duas juntas: uma
             sozinha nao localiza nada. */}
-        <Campo id="latitude" rotulo="Latitude">
-          <input
-            id="latitude"
-            name="latitude"
-            type="text"
-            inputMode="decimal"
-            placeholder="-30.0346"
-            defaultValue={valores.latitude}
-            className={getInputClasses(false)}
-          />
-        </Campo>
-
-        <Campo id="longitude" rotulo="Longitude">
-          <input
-            id="longitude"
-            name="longitude"
-            type="text"
-            inputMode="decimal"
-            placeholder="-51.2177"
-            defaultValue={valores.longitude}
-            className={getInputClasses(false)}
-          />
-        </Campo>
-
-        <Campo id="observacao" rotulo="Observação" className="sm:col-span-2">
-          <textarea
-            id="observacao"
-            name="observacao"
-            rows={3}
-            defaultValue={valores.observacao}
-            className={`${getInputClasses(false)} resize-y`}
-          />
-        </Campo>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          id="ativo"
-          name="ativo"
-          type="checkbox"
-          defaultChecked={valores.ativo}
-          className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+        <Texto
+          id="latitude"
+          rotulo="Latitude"
+          valor={valores.latitude}
+          inputMode="decimal"
+          placeholder="-30.0346"
         />
-        <label htmlFor="ativo" className="text-sm text-white">
-          Ativo
-        </label>
+        <Texto
+          id="longitude"
+          rotulo="Longitude"
+          valor={valores.longitude}
+          inputMode="decimal"
+          placeholder="-51.2177"
+        />
+      </Secao>
+
+      <Secao titulo="Códigos e informações adicionais">
+        <Texto id="cod_cliente" rotulo="Cód. Cliente" valor={valores.codCliente} />
+        <Texto id="cod_posto" rotulo="Cód. Posto" valor={valores.codPosto} />
+        <Texto id="filial" rotulo="Filial" valor={valores.filial} />
+        <Texto
+          id="info_adicional_1"
+          rotulo="Informações Adicionais 1"
+          valor={valores.infoAdicional1}
+          className="sm:col-span-2"
+        />
+        <Texto
+          id="info_adicional_2"
+          rotulo="Informações Adicionais 2"
+          valor={valores.infoAdicional2}
+          className="sm:col-span-2"
+        />
+      </Secao>
+
+      <div className="space-y-3">
+        <Checkbox id="recebe_visita" rotulo="Recebe visita" marcado={valores.recebeVisita} />
+        <Checkbox
+          id="gerar_qrcode_automatico"
+          rotulo="Gerar QR-Code automático"
+          marcado={valores.gerarQrcodeAutomatico}
+        />
+        <Checkbox
+          id="gerar_registro_coletas"
+          rotulo="Gerar registro em Coletas Importadas"
+          marcado={valores.gerarRegistroColetas}
+          ajuda="Desmarcado por padrão: marcar faz o site criar registro de coleta."
+        />
+        <Checkbox id="ativo" rotulo="Ativo" marcado={valores.ativo} />
       </div>
 
       <div className="flex items-center gap-3 pt-2">

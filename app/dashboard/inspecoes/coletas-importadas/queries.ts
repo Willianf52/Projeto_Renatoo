@@ -1,3 +1,4 @@
+import { formatarDataHora } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 
 export const PAGE_SIZE = 25;
@@ -389,12 +390,10 @@ export async function getColetasParaExportar(
   return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
 }
 
-export function formatarDataHora(valor: string | null): string {
-  if (!valor) return "";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(valor),
-  );
-}
+// Reexportada para as telas e rotas que ja consumiam daqui nao terem que saber
+// da mudanca. A implementacao mora em `lib/data-hora.ts` -- ver o cabecalho de
+// la para o motivo.
+export { formatarDataHora };
 
 /**
  * Colunas de texto da linha, na mesma ordem de `TABLE_COLUMNS` em

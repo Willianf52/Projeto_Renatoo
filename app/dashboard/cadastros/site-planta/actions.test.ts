@@ -232,3 +232,115 @@ describe("salvarSite", () => {
     });
   });
 });
+
+/** Campos da migration 0021. */
+describe("endereço, hierarquia e códigos", () => {
+  it("grava os campos novos", async () => {
+    await salvarSite(
+      {},
+      formulario({
+        ...MINIMO,
+        cep: "90000-000",
+        endereco: "Av. Ipiranga",
+        numero: "s/n",
+        bairro: "Centro",
+        complemento: "Sala 2",
+        pais: "Brasil",
+        raio_metros: "150",
+        cod_cliente: "C-1",
+        cod_posto: "P-9",
+        filial: "F-3",
+        info_adicional_1: "um",
+        info_adicional_2: "dois",
+      }),
+    );
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      cep: "90000-000",
+      endereco: "Av. Ipiranga",
+      // Texto e nao inteiro: "s/n" e numero de porta legitimo.
+      numero: "s/n",
+      bairro: "Centro",
+      complemento: "Sala 2",
+      raio_metros: 150,
+      cod_cliente: "C-1",
+      cod_posto: "P-9",
+      filial: "F-3",
+      info_adicional_1: "um",
+      info_adicional_2: "dois",
+    });
+  });
+
+  it("campo em branco vira null, e nao string vazia", async () => {
+    await salvarSite({}, formulario(MINIMO));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      cep: null,
+      endereco: null,
+      site_superior_id: null,
+      raio_metros: null,
+    });
+  });
+
+  /** `pais` e `not null default 'Brasil'`: em branco cai no default em vez de
+   * virar erro por algo que ninguem digitou. */
+  it("país em branco cai em Brasil", async () => {
+    await salvarSite({}, formulario({ ...MINIMO, pais: "" }));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({ pais: "Brasil" });
+  });
+
+  it("recusa raio negativo, que o banco aceitaria", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, raio_metros: "-5" }));
+
+    expect(estado.erro).toBe("O raio não pode ser negativo.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("recusa raio que não é inteiro", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, raio_metros: "12,5" }));
+
+    expect(estado.erro).toContain("número inteiro");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  /**
+   * A constraint da 0021 tambem barra, mas la a mensagem seria o texto cru do
+   * Postgres. O select da tela ja exclui o proprio site; isto cobre o POST
+   * montado a mao.
+   */
+  it("recusa o site apontar para si mesmo como superior", async () => {
+    const estado = await salvarSite(
+      {},
+      formulario({ ...MINIMO, id: "42", site_superior_id: "42" }),
+    );
+
+    expect(estado.erro).toBe("Um site não pode ser superior de si mesmo.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("aceita outro site como superior", async () => {
+    await salvarSite({}, formulario({ ...MINIMO, id: "42", site_superior_id: "7" }));
+
+    expect(chamadas.find((c) => c.tipo === "update")?.linha).toMatchObject({
+      site_superior_id: 7,
+    });
+  });
+
+  it("recusa texto longo demais nos campos de endereço", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, bairro: "x".repeat(101) }));
+
+    expect(estado.erro).toBe("O bairro deve ter no máximo 100 caracteres.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("checkbox ausente vira false; presente vira true", async () => {
+    await salvarSite({}, formulario({ ...MINIMO, recebe_visita: "on" }));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      recebe_visita: true,
+      gerar_qrcode_automatico: false,
+      gerar_registro_coletas: false,
+    });
+  });
+});

@@ -24,16 +24,15 @@ aparece hoje.
 > itens 3, 5, 9 e 10 entraram em "Itens fechados". O item 2 segue aberto por
 > depender de confirmação externa (quem conhece a tela original) que este
 > ambiente não tem como obter sozinho.
+>
+> 2026-08-07: confirmado com o dono do produto que `/dashboard` cair direto em
+> Coletas Importadas **é o comportamento esperado**, não uma lacuna — o item
+> "painel inicial" saiu de "Alta prioridade" e foi para "Itens fechados" como
+> decisão de produto, não pendência técnica.
 
 ## Alta prioridade
 
-1. **`/dashboard` não tem tela própria.** `app/dashboard/page.tsx` redireciona
-   para a listagem de coletas. `metas_visitas` existe desde a 0004, tem policy
-   de leitura e **nada a consulta** — a própria migration cita o gráfico
-   "Visitas Realizadas x Não Realizadas" que ela alimentaria. Subiu para alta
-   prioridade porque, com todos os cadastros do menu construídos, é o maior
-   buraco restante entre este projeto e o sistema de referência: entrar num
-   sistema e cair numa listagem não é o que o original faz.
+Nenhum item aberto nesta categoria no momento.
 
 ## Média prioridade
 
@@ -79,6 +78,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| `/dashboard` sem tela própria (painel inicial) | Confirmado com o dono do produto em 2026-08-07: cair direto em Coletas Importadas ao entrar no sistema **é o comportamento esperado**, não uma ausência a preencher. `metas_visitas` segue sem consulta nenhuma, mas deixa de ser tratado como pendência — só volta à lista se o critério de produto mudar |
 | Coluna "Ações" vazia em Coletas Importadas | Não havia ação real para colocar nela — a única candidata (mostrar a coordenada exata da leitura, hoje só usada como presença/ausência no filtro "Localização") foi descartada por decisão de produto. A coluna saiu de `TABLE_COLUMNS`, e `toTableRow` passou a ser a lista completa de campos da linha, sem mais precisar de tratamento especial na página |
 | `package-lock.json` local | Apagado da máquina de desenvolvimento — estava fora do controle de versão (`.gitignore`), então a divergência com `pnpm-lock.yaml` não afetava o repositório, só o ambiente local |
 | QR-Code não gerava a imagem do QR | Biblioteca `qrcode` adicionada (`lib/qrcode.ts`, PNG em data URL — mais simples e mais seguro que embutir SVG cru). A tela de editar QR-Code mostra o código renderizado para conferência, e o botão "Imprimir Etiquetas" (`export/etiquetas`, componente `FolhaDeEtiquetas`) gera uma folha para impressão com todos os QR do filtro atual — mesmo mecanismo de `ImprimirAoAbrir` que "Exportar para PDF" já usava, mas em grade de cartões em vez de tabela |

@@ -15,18 +15,70 @@ const LIMITE_REGIONAL = 100;
 const LIMITE_CIDADE = 100;
 const LIMITE_OBSERVACAO = 1000;
 
+/**
+ * Limites dos campos da migration 0021. Todos sao text no banco, sem tamanho:
+ * estes numeros sao da aplicacao, para recusar colagem acidental de texto
+ * enorme -- nao regra de negocio.
+ *
+ * `cod_cliente`, `cod_posto` e `filial` sao chaves de sistemas de terceiros;
+ * folgados de proposito, porque nao temos como saber o formato deles.
+ */
+const LIMITES_ENDERECO: Record<string, number> = {
+  cep: 20,
+  endereco: 200,
+  numero: 20,
+  bairro: 100,
+  complemento: 100,
+  pais: 60,
+  codCliente: 50,
+  codPosto: 50,
+  filial: 50,
+  infoAdicional1: 200,
+  infoAdicional2: 200,
+};
+
+const ROTULOS: Record<string, string> = {
+  cep: "O CEP",
+  endereco: "O endereço",
+  numero: "O número",
+  bairro: "O bairro",
+  complemento: "O complemento",
+  pais: "O país",
+  codCliente: "O código do cliente",
+  codPosto: "O código do posto",
+  filial: "A filial",
+  infoAdicional1: "A informação adicional 1",
+  infoAdicional2: "A informação adicional 2",
+};
+
 export type ValoresDoSite = {
   nome: string;
   sigla: string;
   grupoSiteId: string;
   tipoServicoId: string;
   responsavelId: string;
+  siteSuperiorId: string;
   regional: string;
   cidade: string;
   uf: string;
   latitude: string;
   longitude: string;
   observacao: string;
+  cep: string;
+  endereco: string;
+  numero: string;
+  bairro: string;
+  complemento: string;
+  pais: string;
+  raioMetros: string;
+  codCliente: string;
+  codPosto: string;
+  filial: string;
+  infoAdicional1: string;
+  infoAdicional2: string;
+  recebeVisita: boolean;
+  gerarQrcodeAutomatico: boolean;
+  gerarRegistroColetas: boolean;
   ativo: boolean;
 };
 
@@ -47,13 +99,29 @@ function extrairValores(formData: FormData): ValoresDoSite {
     grupoSiteId: texto(formData, "grupo_site_id"),
     tipoServicoId: texto(formData, "tipo_servico_id"),
     responsavelId: texto(formData, "responsavel_id"),
+    siteSuperiorId: texto(formData, "site_superior_id"),
     regional: texto(formData, "regional"),
     cidade: texto(formData, "cidade"),
     uf: texto(formData, "uf").toUpperCase(),
     latitude: texto(formData, "latitude"),
     longitude: texto(formData, "longitude"),
     observacao: texto(formData, "observacao"),
+    cep: texto(formData, "cep"),
+    endereco: texto(formData, "endereco"),
+    numero: texto(formData, "numero"),
+    bairro: texto(formData, "bairro"),
+    complemento: texto(formData, "complemento"),
+    pais: texto(formData, "pais"),
+    raioMetros: texto(formData, "raio_metros"),
+    codCliente: texto(formData, "cod_cliente"),
+    codPosto: texto(formData, "cod_posto"),
+    filial: texto(formData, "filial"),
+    infoAdicional1: texto(formData, "info_adicional_1"),
+    infoAdicional2: texto(formData, "info_adicional_2"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
+    recebeVisita: formData.get("recebe_visita") !== null,
+    gerarQrcodeAutomatico: formData.get("gerar_qrcode_automatico") !== null,
+    gerarRegistroColetas: formData.get("gerar_registro_coletas") !== null,
     ativo: formData.get("ativo") !== null,
   };
 }
@@ -85,17 +153,55 @@ type LinhaDoSite = {
   grupo_site_id: number;
   tipo_servico_id: number | null;
   responsavel_id: string | null;
+  site_superior_id: number | null;
   regional: string | null;
   cidade: string | null;
   uf: string | null;
   latitude: number | null;
   longitude: number | null;
   observacao: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  bairro: string | null;
+  complemento: string | null;
+  pais: string;
+  raio_metros: number | null;
+  cod_cliente: string | null;
+  cod_posto: string | null;
+  filial: string | null;
+  info_adicional_1: string | null;
+  info_adicional_2: string | null;
+  recebe_visita: boolean;
+  gerar_qrcode_automatico: boolean;
+  gerar_registro_coletas: boolean;
   ativo: boolean;
 };
 
+/**
+ * Raio de tolerancia em metros. Vazio e valido (sem raio definido); negativo
+ * nao e -- raio negativo nao quer dizer nada, e o banco aceitaria.
+ */
+function lerRaio(valor: string): { ok: true; valor: number | null } | { ok: false; erro: string } {
+  if (valor === "") return { ok: true, valor: null };
+
+  const numero = Number(valor);
+  if (!Number.isInteger(numero)) {
+    return { ok: false, erro: "O raio deve ser um número inteiro de metros." };
+  }
+  if (numero < 0) return { ok: false, erro: "O raio não pode ser negativo." };
+
+  return { ok: true, valor: numero };
+}
+
+/**
+ * `id` do site em edicao, para barrar o site apontar para si mesmo como
+ * superior. O banco tambem barra (constraint da 0021), mas la a mensagem seria
+ * o texto cru do Postgres.
+ */
 function validar(
   valores: ValoresDoSite,
+  idEmEdicao: number | null,
 ): { ok: true; linha: LinhaDoSite } | { ok: false; erro: string } {
   if (!valores.nome) return { ok: false, erro: "Informe o nome do site." };
   if (valores.nome.length > LIMITE_NOME) {
@@ -138,6 +244,30 @@ function validar(
     }
   }
 
+  // Campos da 0021: so limite de tamanho, sem formato imposto. CEP fica text
+  // livre de proposito -- o cadastro tambem atende endereco fora do Brasil, e
+  // uma mascara de 8 digitos recusaria um codigo postal legitimo.
+  for (const [campo, limite] of Object.entries(LIMITES_ENDERECO)) {
+    const valor = valores[campo as keyof ValoresDoSite];
+    if (typeof valor === "string" && valor.length > limite) {
+      return { ok: false, erro: `${ROTULOS[campo]} deve ter no máximo ${limite} caracteres.` };
+    }
+  }
+
+  let siteSuperiorId: number | null = null;
+  if (valores.siteSuperiorId) {
+    siteSuperiorId = Number(valores.siteSuperiorId);
+    if (!Number.isInteger(siteSuperiorId)) {
+      return { ok: false, erro: "Site superior inválido." };
+    }
+    if (idEmEdicao !== null && siteSuperiorId === idEmEdicao) {
+      return { ok: false, erro: "Um site não pode ser superior de si mesmo." };
+    }
+  }
+
+  const raio = lerRaio(valores.raioMetros);
+  if (!raio.ok) return raio;
+
   const latitude = lerCoordenada(valores.latitude, "A latitude", 90);
   if (!latitude.ok) return latitude;
 
@@ -157,12 +287,30 @@ function validar(
       grupo_site_id: grupoSiteId,
       tipo_servico_id: tipoServicoId,
       responsavel_id: valores.responsavelId || null,
+      site_superior_id: siteSuperiorId,
       regional: valores.regional || null,
       cidade: valores.cidade || null,
       uf: valores.uf || null,
       latitude: latitude.valor,
       longitude: longitude.valor,
       observacao: valores.observacao || null,
+      cep: valores.cep || null,
+      endereco: valores.endereco || null,
+      numero: valores.numero || null,
+      bairro: valores.bairro || null,
+      complemento: valores.complemento || null,
+      // `pais` e `not null default 'Brasil'` no banco: campo em branco cai no
+      // mesmo default, em vez de virar erro por algo que ninguem digitou.
+      pais: valores.pais || "Brasil",
+      raio_metros: raio.valor,
+      cod_cliente: valores.codCliente || null,
+      cod_posto: valores.codPosto || null,
+      filial: valores.filial || null,
+      info_adicional_1: valores.infoAdicional1 || null,
+      info_adicional_2: valores.infoAdicional2 || null,
+      recebe_visita: valores.recebeVisita,
+      gerar_qrcode_automatico: valores.gerarQrcodeAutomatico,
+      gerar_registro_coletas: valores.gerarRegistroColetas,
       ativo: valores.ativo,
     },
   };
@@ -201,14 +349,16 @@ export async function salvarSite(
 ): Promise<EstadoDoFormulario> {
   const valores = extrairValores(formData);
 
-  const validacao = validar(valores);
-  if (!validacao.ok) return { erro: validacao.erro, valores };
-
+  // O id vem antes da validacao porque ela precisa dele: um site nao pode
+  // apontar para si mesmo como superior.
   const idBruto = formData.get("id");
   const id = idBruto ? Number(idBruto) : null;
   if (idBruto && !Number.isInteger(id)) {
     return { erro: "Registro inválido.", valores };
   }
+
+  const validacao = validar(valores, id);
+  if (!validacao.ok) return { erro: validacao.erro, valores };
 
   const supabase = await createClient();
 

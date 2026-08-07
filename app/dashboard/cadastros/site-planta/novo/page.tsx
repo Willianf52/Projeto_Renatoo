@@ -3,7 +3,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { BuildingIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { SiteForm } from "../SiteForm";
-import { getOpcoes } from "../queries";
+import { getOpcoes, getSitesParaSuperior } from "../queries";
 
 const VALORES_VAZIOS = {
   nome: "",
@@ -11,12 +11,33 @@ const VALORES_VAZIOS = {
   grupoSiteId: "",
   tipoServicoId: "",
   responsavelId: "",
+  siteSuperiorId: "",
   regional: "",
   cidade: "",
   uf: "",
   latitude: "",
   longitude: "",
   observacao: "",
+  cep: "",
+  endereco: "",
+  numero: "",
+  bairro: "",
+  complemento: "",
+  // Mesmo default da coluna (migration 0021), para o campo abrir preenchido em
+  // vez de exigir que se digite o obvio.
+  pais: "Brasil",
+  raioMetros: "",
+  codCliente: "",
+  codPosto: "",
+  filial: "",
+  infoAdicional1: "",
+  infoAdicional2: "",
+  // Os tres seguem os defaults da 0021: site novo recebe visita e gera QR-Code,
+  // e nao gera registro em coletas -- este ultimo cria dado, entao o padrao
+  // seguro e nao criar.
+  recebeVisita: true,
+  gerarQrcodeAutomatico: true,
+  gerarRegistroColetas: false,
   ativo: true,
 };
 
@@ -27,7 +48,7 @@ export default async function NovoSitePage() {
     redirect("/dashboard/cadastros/site-planta");
   }
 
-  const opcoes = await getOpcoes();
+  const [opcoes, sitesSuperiores] = await Promise.all([getOpcoes(), getSitesParaSuperior()]);
 
   return (
     <div className="space-y-4">
@@ -48,7 +69,11 @@ export default async function NovoSitePage() {
           </h1>
         </div>
 
-        <SiteForm valoresIniciais={VALORES_VAZIOS} opcoes={opcoes} />
+        <SiteForm
+          valoresIniciais={VALORES_VAZIOS}
+          opcoes={opcoes}
+          sitesSuperiores={sitesSuperiores}
+        />
       </div>
     </div>
   );

@@ -34,6 +34,7 @@ export function FilterInput({
 export function FilterSelect({
   label,
   placeholder,
+  semOpcaoVazia = false,
   options = [],
   name,
   defaultValue,
@@ -46,6 +47,13 @@ export function FilterSelect({
    * dizer todos de que.
    */
   placeholder?: string;
+  /**
+   * Some com a opcao vazia. Para filtros em que "nao filtrar" ja tem opcao
+   * propria na lista -- como o "Todos" da Situacao em Site / Planta. Sem isto
+   * a lista teria duas entradas com o mesmo efeito e nenhuma explicando a
+   * diferenca.
+   */
+  semOpcaoVazia?: boolean;
   options?: { value: string; label: string }[];
   name?: string;
   defaultValue?: string;
@@ -60,7 +68,7 @@ export function FilterSelect({
       >
         {/* Selecionavel de proposito: e a unica forma de o usuario limpar o
             filtro pela propria lista, sem depender de editar a URL. */}
-        <option value="">{placeholder ?? label}</option>
+        {!semOpcaoVazia && <option value="">{placeholder ?? label}</option>}
         {options.map((option) => (
           <option key={option.value} value={option.value} className="text-white">
             {option.label}

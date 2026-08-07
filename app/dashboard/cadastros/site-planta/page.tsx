@@ -7,6 +7,7 @@ import {
   BuildingIcon,
   ExcelIcon,
   FilterIcon,
+  MapPinIcon,
   PdfIcon,
   PencilIcon,
   PlusCircleIcon,
@@ -14,15 +15,73 @@ import {
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import {
   extrairFiltros,
+  formatarCoordenadas,
   getOpcoes,
   getSites,
+  montarHierarquia,
   primeiro,
   toTableRow,
   COLUNAS_EXPORTACAO,
+  INDICE_HIERARQUIA,
+  INDICE_LAT_LONG,
   PAGE_SIZE,
   SITUACOES,
   type SearchParams,
+  type SiteRow,
 } from "./queries";
+
+/**
+ * Pino da coluna Lat/Long, como na referencia. Com coordenada, abre o ponto no
+ * mapa; sem, fica apagado e inerte -- a ausencia e informacao (migration 0003:
+ * nulo quer dizer "ainda nao cadastrada", nao zero).
+ *
+ * As coordenadas seguem no `title`, entao quem precisa do numero nao perde
+ * nada em relacao a coluna de texto que havia antes -- e a exportacao continua
+ * levando o texto, nao o pino.
+ */
+function PinoCoordenadas({ site }: { site: SiteRow }) {
+  const coordenadas = formatarCoordenadas(site);
+
+  if (!coordenadas) {
+    return (
+      <span title="Sem coordenadas cadastradas" className="text-brand-muted/40">
+        <MapPinIcon className="h-4 w-4" />
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={`https://www.google.com/maps?q=${site.latitude},${site.longitude}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Abrir no mapa: ${coordenadas}`}
+      aria-label={`Abrir ${site.nome} no mapa`}
+      className="inline-flex text-red-400 transition-colors duration-200 hover:text-red-300"
+    >
+      <MapPinIcon className="h-4 w-4" />
+    </a>
+  );
+}
+
+/** Cadeia organizacao > grupo > site, com o ultimo nivel destacado: e o
+ * registro da linha, os anteriores sao contexto. */
+function Hierarquia({ site }: { site: SiteRow }) {
+  const niveis = montarHierarquia(site);
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {niveis.map((nivel, indice) => (
+        <span key={indice} className="inline-flex items-center gap-1">
+          {indice > 0 && <span className="text-brand-muted">›</span>}
+          <span className={indice === niveis.length - 1 ? "text-white" : "text-brand-muted"}>
+            {nivel}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
 
 // A ultima coluna so existe na tela: a exportacao (COLUNAS_EXPORTACAO) nao a
 // tem, pelo mesmo motivo que a de coletas nao tem.
@@ -48,7 +107,14 @@ export default async function SitePlantaPage({
   // a coluna "Ações" aparecer vazia, sem explicar por que. Mesmo criterio da
   // tela de Grupo de Sites.
   const rows = resultado.rows.map((site) => [
-    ...toTableRow(site),
+    // A linha de texto e a mesma que a exportacao usa; a tela troca so a celula
+    // de Lat/Long pelo pino e a de Hierarquia pela cadeia formatada. Manter a
+    // base compartilhada evita as duas ordens divergirem em silencio.
+    ...toTableRow(site).map((celula, indice) => {
+      if (indice === INDICE_LAT_LONG) return <PinoCoordenadas key="latlong" site={site} />;
+      if (indice === INDICE_HIERARQUIA) return <Hierarquia key="hierarquia" site={site} />;
+      return celula;
+    }),
     podeAdministrar ? (
       <Acao
         key={site.id}
@@ -104,9 +170,12 @@ export default async function SitePlantaPage({
         style={{ animationDelay: "80ms" }}
       >
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
+          {/* Contador no titulo, como na referencia -- mas so o total. O
+              "(223/500)" de la e teto de plano, que aqui nao existe: inventar
+              um denominador seria numero falso na tela. */}
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <BuildingIcon className="h-4 w-4" />
-            Site / Planta
+            Site / Planta ({resultado.totalItems})
           </h1>
           <div className="flex items-center gap-2">
             <Acao
@@ -151,9 +220,32 @@ export default async function SitePlantaPage({
           method="get"
           className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end"
         >
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* `auto-fit` pelo mesmo motivo da tela de Usuarios: sao cinco campos
+              e um numero fixo de colunas por breakpoint quebraria a linha. */}
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+            <FilterSelect
+              label="Responsável"
+              name="responsavel"
+              defaultValue={filtros.responsavel}
+              options={opcoes.responsaveis}
+            />
+            <FilterSelect
+              label="Tipo de Serviços"
+              name="tipo_servico"
+              defaultValue={filtros.tipoServico}
+              options={opcoes.tiposServico}
+            />
+            {/* Sem placeholder vazio: "Todos" ja e a opcao de nao filtrar, e o
+                padrao e "Ativos" -- ver SITUACAO_PADRAO em queries.ts. */}
+            <FilterSelect
+              label="Situação"
+              name="situacao"
+              defaultValue={filtros.situacao}
+              options={SITUACOES}
+              semOpcaoVazia
+            />
             <FilterInput
-              label="Nome, sigla ou cidade..."
+              label="Busca Livre (ID, Regional, Nome)"
               name="busca"
               defaultValue={filtros.busca}
             />
@@ -162,18 +254,6 @@ export default async function SitePlantaPage({
               name="grupo_site"
               defaultValue={filtros.grupoSite}
               options={opcoes.gruposSites}
-            />
-            <FilterSelect
-              label="Tipo de Serviço"
-              name="tipo_servico"
-              defaultValue={filtros.tipoServico}
-              options={opcoes.tiposServico}
-            />
-            <FilterSelect
-              label="Situação"
-              name="situacao"
-              defaultValue={filtros.situacao}
-              options={SITUACOES}
             />
           </div>
 
