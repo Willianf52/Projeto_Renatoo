@@ -1,7 +1,16 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+/**
+ * Chamava-se `middleware.ts` ate o Next 16, que renomeou a convencao para
+ * `proxy` -- o nome antigo segue funcionando, mas depreciado.
+ *
+ * A troca nao e so de nome: `proxy` roda no runtime `nodejs`, e isso nao e
+ * configuravel (o `middleware` rodava no `edge`). Aqui nao muda nada, porque
+ * `updateSession` so mexe em cookie e fala com o Supabase por HTTP -- nada que
+ * dependesse do runtime anterior.
+ */
+export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }
 

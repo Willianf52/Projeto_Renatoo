@@ -21,8 +21,8 @@ const origensDaRedeLocal = Object.values(networkInterfaces())
 /**
  * Unico ponto que emite cabecalho de seguranca -- CSP inclusive.
  *
- * O middleware nao emite nenhum, de proposito. Ele nao roda em /api nem em
- * arquivos estaticos (ver o matcher em middleware.ts), e essas respostas
+ * O proxy nao emite nenhum, de proposito. Ele nao roda em /api nem em
+ * arquivos estaticos (ver o matcher em proxy.ts), e essas respostas
  * tambem precisam de nosniff, frame-ancestors e CSP. Aqui o `source` casa com
  * tudo, entao nada fica descoberto e a politica mora num lugar so.
  *
