@@ -10,6 +10,7 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
       updateGrupo: { data: { id: 4 } as { id: number } | null, error: null as ErroSupabase },
       apagarMembros: { error: null as ErroSupabase },
       inserirMembros: { error: null as ErroSupabase },
+      excluirGrupo: { data: { id: 4 } as { id: number } | null, error: null as ErroSupabase },
     };
     const chamadas: Chamada[] = [];
     const registrar = (tipo: string, ...args: unknown[]) => chamadas.push({ tipo, args });
@@ -37,9 +38,18 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
           };
         },
         delete: () => ({
-          eq: async (coluna: string, valor: unknown) => {
+          // Duas formas atras do mesmo `delete().eq()`: a limpeza de membros e
+          // aguardada direto, e a exclusao do grupo encadeia `.select()` para
+          // detectar recusa do RLS (zero linhas).
+          eq: (coluna: string, valor: unknown) => {
+            if (tabela === "grupos_usuarios") {
+              registrar("excluirGrupo", tabela, coluna, valor);
+              return {
+                select: () => ({ maybeSingle: () => Promise.resolve(resultados.excluirGrupo) }),
+              };
+            }
             registrar("apagarMembros", tabela, coluna, valor);
-            return resultados.apagarMembros;
+            return Promise.resolve(resultados.apagarMembros);
           },
         }),
       }),
@@ -59,7 +69,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-const { salvarGrupoUsuarios } = await import("./actions");
+const { salvarGrupoUsuarios, excluirGrupoUsuarios } = await import("./actions");
 
 const LISTAGEM = "/dashboard/cadastros/grupo-de-usuarios";
 const UUID_A = "11111111-1111-4111-8111-111111111111";
@@ -82,6 +92,54 @@ beforeEach(() => {
   resultados.updateGrupo = { data: { id: 4 }, error: null };
   resultados.apagarMembros = { error: null };
   resultados.inserirMembros = { error: null };
+  resultados.excluirGrupo = { data: { id: 4 }, error: null };
+});
+
+describe("exclusão", () => {
+  it("apaga o grupo e revalida a listagem", async () => {
+    const estado = await excluirGrupoUsuarios({}, formulario({ id: "4" }));
+
+    expect(estado.erro).toBeUndefined();
+    expect(primeira("excluirGrupo")?.args).toEqual(["grupos_usuarios", "id", 4]);
+    expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
+  });
+
+  /** O cascade da 0003 leva os vinculos junto; apagar `grupos_usuarios_membros`
+   * aqui seria um round-trip a mais para repetir o que o banco ja faz. */
+  it("não apaga os membros por fora: quem faz isso é o cascade", async () => {
+    await excluirGrupoUsuarios({}, formulario({ id: "4" }));
+
+    expect(tipos()).not.toContain("apagarMembros");
+  });
+
+  it("recusa id que não é inteiro sem chegar ao banco", async () => {
+    const estado = await excluirGrupoUsuarios({}, formulario({ id: "4x" }));
+
+    expect(estado.erro).toBe("Registro inválido.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  /**
+   * O caso que justifica o `.select()` na action: DELETE barrado pelo RLS nao
+   * devolve erro, devolve zero linhas. Sem isto a tela diria que apagou.
+   */
+  it("trata zero linhas como recusa, e não como sucesso", async () => {
+    resultados.excluirGrupo = { data: null, error: null };
+
+    const estado = await excluirGrupoUsuarios({}, formulario({ id: "4" }));
+
+    expect(estado.erro).toContain("não tem permissão");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("traduz o erro de permissão do banco", async () => {
+    resultados.excluirGrupo = { data: null, error: { code: "42501" } };
+
+    const estado = await excluirGrupoUsuarios({}, formulario({ id: "4" }));
+
+    expect(estado.erro).toBe("Você não tem permissão para administrar grupos de usuários.");
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("validação", () => {

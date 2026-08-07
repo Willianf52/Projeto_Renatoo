@@ -69,6 +69,53 @@ function traduzirErro(codigo: string | undefined): string {
   return "Não foi possível salvar o grupo. Tente novamente.";
 }
 
+export type EstadoDaExclusao = { erro?: string };
+
+/**
+ * Exclusao de grupo (migration 0020).
+ *
+ * Os vinculos em `grupos_usuarios_membros` nao precisam ser apagados antes: a
+ * FK da 0003 e `on delete cascade`. Fazer a limpeza aqui tambem funcionaria,
+ * mas seria um round-trip a mais para repetir o que o banco ja garante -- e
+ * garante melhor, porque o cascade e atomico com o delete e isto nao seria.
+ *
+ * O `.select()` existe pelo mesmo motivo do update em `salvarGrupoUsuarios`:
+ * um DELETE barrado pelo RLS nao devolve erro, devolve zero linhas apagadas.
+ * Sem ele, uma exclusao recusada pela policy voltaria como sucesso silencioso
+ * e a linha continuaria na tela ate o proximo carregamento.
+ */
+export async function excluirGrupoUsuarios(
+  _estado: EstadoDaExclusao,
+  formData: FormData,
+): Promise<EstadoDaExclusao> {
+  const idBruto = formData.get("id");
+  const id = Number(idBruto);
+  if (!idBruto || !Number.isInteger(id)) return { erro: "Registro inválido." };
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("grupos_usuarios")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === SEM_PERMISSAO) return { erro: traduzirErro(SEM_PERMISSAO) };
+    return { erro: "Não foi possível excluir o grupo. Tente novamente." };
+  }
+
+  // Zero linhas: ou a policy recusou, ou alguem ja apagou. Os dois casos dizem
+  // a mesma coisa a quem esta na tela -- o grupo nao saiu por sua mao.
+  if (!data) {
+    return { erro: "Você não tem permissão para excluir este grupo, ou ele já não existe." };
+  }
+
+  revalidatePath(LISTAGEM);
+  return {};
+}
+
 /**
  * Sincroniza os membros: apaga os vinculos atuais e recria os marcados.
  *

@@ -9,9 +9,11 @@ import {
   PdfIcon,
   PencilIcon,
   PlusCircleIcon,
+  TrashIcon,
   UsersIcon,
 } from "@/components/dashboard/icons";
 import { podeAdministrarGruposDeUsuarios } from "@/lib/permissoes";
+import { ExcluirGrupo } from "./ExcluirGrupo";
 import {
   extrairFiltros,
   getGruposUsuarios,
@@ -45,23 +47,35 @@ export default async function GrupoDeUsuariosPage({
   const rows = resultado.rows.map((grupo) => [
     ...toTableRow(grupo),
     podeAdministrar ? (
-      <Acao
-        key={grupo.id}
-        titulo={`Editar ${grupo.nome}`}
-        href={`/dashboard/cadastros/grupo-de-usuarios/${grupo.id}/editar`}
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </Acao>
+      <div key={grupo.id} className="flex items-center gap-2">
+        <Acao
+          titulo={`Editar ${grupo.nome}`}
+          href={`/dashboard/cadastros/grupo-de-usuarios/${grupo.id}/editar`}
+          className="bg-white/10"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </Acao>
+        {/* Migration 0020. Exclusao de verdade, e nao desativacao: este
+            cadastro nao tem coluna `ativo` -- ver o cabecalho da migration. */}
+        <ExcluirGrupo id={grupo.id} nome={grupo.nome} />
+      </div>
     ) : (
-      <AcaoDesabilitada
-        key={grupo.id}
-        titulo="Editar grupo"
-        motivo="você não tem permissão"
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
+      <div key={grupo.id} className="flex items-center gap-2">
+        <AcaoDesabilitada
+          titulo="Editar grupo"
+          motivo="você não tem permissão"
+          className="bg-white/10"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+        <AcaoDesabilitada
+          titulo="Excluir grupo"
+          motivo="você não tem permissão"
+          className="bg-red-600/20"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      </div>
     ),
   ]);
 
