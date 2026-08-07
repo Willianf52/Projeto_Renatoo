@@ -123,6 +123,14 @@ export default async function QrCodePage({
             >
               <PdfIcon className="h-4 w-4" />
             </Acao>
+            <Acao
+              titulo="Imprimir Etiquetas"
+              href={`/dashboard/cadastros/qr-code/export/etiquetas${queryExportacao}`}
+              className="bg-sky-600/40"
+              target="_blank"
+            >
+              <QrCodeIcon className="h-4 w-4" />
+            </Acao>
             {podeAdministrar ? (
               <Acao
                 titulo="Novo QR-Code"

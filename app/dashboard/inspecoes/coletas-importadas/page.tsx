@@ -25,7 +25,6 @@ const TABLE_COLUMNS = [
   "Ação",
   "Qualificador",
   "Data Integração",
-  "Ações",
 ];
 
 const LOCALIZACAO_OPTIONS = [
@@ -45,8 +44,7 @@ export default async function ColetasImportadasPage({
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
 
-  // Ultima coluna ("Ações") e so da tela: a exportacao (toTableRow) nao a tem.
-  const rows = resultado.rows.map((leitura) => [...toTableRow(leitura), ""]);
+  const rows = resultado.rows.map(toTableRow);
 
   const buildPageHref = (pagina: number) => {
     const query = new URLSearchParams();

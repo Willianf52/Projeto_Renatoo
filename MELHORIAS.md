@@ -18,6 +18,12 @@ aparece hoje.
 > (o que está construído está bem construído?). Passou a medi-lo contra o
 > sistema de referência — **o que ainda não existe**. Daí os itens novos de
 > alta prioridade serem todos de ausência, não de defeito.
+>
+> Rodada seguinte: o painel inicial (item 1) foi construído e depois retirado
+> a pedido nesta mesma sessão — fica registrado como estava, não fechado. Os
+> itens 3, 5, 9 e 10 entraram em "Itens fechados". O item 2 segue aberto por
+> depender de confirmação externa (quem conhece a tela original) que este
+> ambiente não tem como obter sozinho.
 
 ## Alta prioridade
 
@@ -39,32 +45,19 @@ aparece hoje.
    silêncio. Confirmar com quem conhece a tela original antes de considerar a
    página fechada.
 
-3. **Coluna "Ações" vazia em Coletas Importadas.**
-   `coletas-importadas/page.tsx:49` empurra `""` em toda linha. Cabeçalho sem
-   conteúdo é pior que coluna ausente: promete uma ação que não existe. Ou
-   ganha o "ver detalhes" da tela original, ou sai da lista de colunas.
-
-4. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
+3. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
    preservar a estrutura de navegação do sistema de referência. Não têm tabela
    nem tela. Ficam aqui para não se perderem de vista.
 
 ## Baixa prioridade / nice-to-have
 
-5. **`package-lock.json` local.** Está no `.gitignore` e não é rastreado, então
-   não é problema de repositório — mas existe na máquina de desenvolvimento e é
-   exatamente a divergência npm/pnpm que a auditoria registra como já tendo
-   causado dor. **A nota anterior de que não havia `pnpm` neste ambiente estava
-   errada**: `npx pnpm@11.18.0` funciona, e foi como o `pnpm-lock.yaml` voltou
-   a bater com o `package.json` nesta revisão. Apagar o `package-lock.json`
-   local resolveria o resto.
-
-6. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
+4. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
    custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-7. **`console.error` sem destino de observabilidade.** As linhas de
+5. **`console.error` sem destino de observabilidade.** As linhas de
     `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
     das rotas de API agora carregam um id de correlação (`lib/log.ts` — ver
     "Itens fechados"), mas o destino continua sendo só o stdout do servidor.
@@ -72,18 +65,9 @@ aparece hoje.
     externos que este ambiente não tem. O `TODO` em
     `app/dashboard/error.tsx:13` marca o lugar de plugar isso quando existir.
 
-8. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
+6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
-
-9. **A tela de QR-Code não gera a imagem do QR.** Cadastra o código, o site e a finalidade, mas quem precisa da etiqueta ainda gera o QR por fora. Exigiria uma biblioteca de codificação nova, e nenhuma foi adicionada nesta rodada. `TabelaImpressao` já dá o caminho da folha de impressão quando isso entrar.
-
-10. **Leitura sem `area` escapa da deduplicação da importação.** No Postgres,
-    índice único não considera dois `NULL` iguais, então a constraint
-    `unique (visita_id, area_id, data_hora)` da 0004 não segura leitura sem
-    área: ela entra de novo a cada reenvio do lote. Resolve com
-    `nulls not distinct` na constraint. Registrado em
-    `docs/importacao-de-coletas.md` e no comentário da própria rota.
 
 ---
 
@@ -95,6 +79,10 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Coluna "Ações" vazia em Coletas Importadas | Não havia ação real para colocar nela — a única candidata (mostrar a coordenada exata da leitura, hoje só usada como presença/ausência no filtro "Localização") foi descartada por decisão de produto. A coluna saiu de `TABLE_COLUMNS`, e `toTableRow` passou a ser a lista completa de campos da linha, sem mais precisar de tratamento especial na página |
+| `package-lock.json` local | Apagado da máquina de desenvolvimento — estava fora do controle de versão (`.gitignore`), então a divergência com `pnpm-lock.yaml` não afetava o repositório, só o ambiente local |
+| QR-Code não gerava a imagem do QR | Biblioteca `qrcode` adicionada (`lib/qrcode.ts`, PNG em data URL — mais simples e mais seguro que embutir SVG cru). A tela de editar QR-Code mostra o código renderizado para conferência, e o botão "Imprimir Etiquetas" (`export/etiquetas`, componente `FolhaDeEtiquetas`) gera uma folha para impressão com todos os QR do filtro atual — mesmo mecanismo de `ImprimirAoAbrir` que "Exportar para PDF" já usava, mas em grade de cartões em vez de tabela |
+| Leitura sem `area` escapava da deduplicação da importação | Migration 0017: a constraint `unique (visita_id, area_id, data_hora)` da 0004 recriada com `nulls not distinct`, para que dois `NULL` em `area_id` colidam como duplicata igual já acontecia com o campo preenchido. `onConflict` da rota de importação não mudou — mesmas colunas, mesmo nome de constraint. pgTAP em `leitura_sem_area_dedup_test.sql` cobre a colisão e o caso que não deveria colidir (instantes diferentes) |
 | `Grupo de Usuários` era placeholder — o último do menu | Cadastro completo com seleção de membros (checkboxes com filtro local) + migration 0016. A regra de quem administra **não** é a das 0009/0012/0015, e a diferença é o ponto: `pode_administrar_cadastros()` inclui OPERACIONAL, mas o conteúdo deste cadastro é a lista de pessoas — e a policy da 0006 só devolve a operação inteira para quem `pode_ver_toda_operacao()`. Com apenas o primeiro predicado, um OPERACIONAL criaria um grupo e não veria um único membro para colocar dentro: escrita autorizada sobre dado que ele não alcança. Daí `pode_administrar_grupos_usuarios()` ser a conjunção das duas — colapsa hoje em GESTOR + SUPERVISOR, mas continua correta se qualquer uma das listas mudar. Membros são apagados e recriados a cada salvamento em vez de diferenciados: a tabela é só a chave primária, não há nada a preservar, e o diff custaria um round-trip a mais para chegar no mesmo lugar |
 | `QR-Code` era placeholder | Cadastro completo (listagem com busca e filtros de site/grupo/situação, criar/editar, exportar Excel e PDF) + migration 0015 com o padrão de escrita das 0009/0012. Era o mais urgente dos dois porque a rota de importação resolve `checkpoint` pelo código do QR e recusa o lote quando ele não existe — o cadastro era pré-requisito sem tela. Duas decisões próprias: o código só aceita letras, números, ponto, hífen e sublinhado (ele é lido de etiqueta e casado por texto na importação; espaço no meio sobrevive ao `trim` das bordas e produz um cadastro que parece certo na tela e nunca casa com o lote), e a policy de escrita exige `pode_ver_grupo_site()` além de `pode_administrar_cadastros()` — hoje redundante, mas impede que uma combinação futura de nível com escopo pendure checkpoint num site que nem enxerga |
 | `CLIENTE` era um nível de acesso que não fazia nada | Migration 0014: tabela `grupos_sites_clientes` (N:N — um contato de holding acompanha mais de um grupo, e começar 1:1 obrigaria a migrar dado depois), helpers `e_cliente()`/`pode_ver_grupo_site()`, e as policies de `grupos_sites`, `sites`, `qr_codes`, `visitas` e `leituras` reescritas para recortar por grupo. Antes disso um CLIENTE logava e via a tela de coletas **vazia** — não "restrita": vazia, sem explicar por quê. Era paridade **e** segurança: as policies das três tabelas de cadastro eram `usuario_ativo()` puro, então ativar um CLIENTE pela tela nova de Usuários entregaria a ele os sites de todos os clientes, com coordenadas, mais o código de todo checkpoint — o mesmo vazamento que a 0008 fechou para conta criada de fora. O predicado é "não é cliente OU o grupo está entre os dele", para quem não é CLIENTE manter exatamente a visão anterior sem depender de vínculo nenhum. A atribuição entra pelo formulário de Usuários (checkboxes que aparecem só no nível CLIENTE), gravada com service_role atrás do mesmo portão da 0013. **Efeito colateral que quase passou:** o cache de referências de `coletas-importadas/queries.ts` guardava `sites`/`grupos_sites`/`qr_codes` entre usuários, apoiado no comentário de que as três não tinham recorte — premissa que a 0014 derruba. As três saíram do cache, e o teste que afirmava o contrário foi invertido. pgTAP em `escopo_de_cliente_test.sql` cobre os dois lados e o caso que quebraria calado (quem não é cliente segue vendo tudo) |

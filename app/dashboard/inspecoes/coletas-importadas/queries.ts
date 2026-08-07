@@ -398,9 +398,8 @@ export function formatarDataHora(valor: string | null): string {
 
 /**
  * Colunas de texto da linha, na mesma ordem de `TABLE_COLUMNS` em
- * `page.tsx` (menos "Ações", que so existe na tela -- a pagina acrescenta a
- * coluna vazia por conta propria). Reaproveitada pelas exportacoes de
- * Excel/PDF para nao duplicar o mapeamento campo a campo.
+ * `page.tsx`. Reaproveitada pelas exportacoes de Excel/PDF para nao duplicar
+ * o mapeamento campo a campo.
  */
 export function toTableRow(leitura: ColetaRow): string[] {
   return [

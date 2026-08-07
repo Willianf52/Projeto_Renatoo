@@ -89,11 +89,10 @@ saber o que já entrou.
 
 **Reenviar o mesmo arquivo é seguro.** Visita repetida é atualizada
 (`unique (numero_coleta, site_id)`); leitura repetida é ignorada
-(`unique (visita_id, area_id, data_hora)`).
-
-> Ressalva: no Postgres, índice único não considera dois `NULL` iguais — uma
-> leitura **sem `area`** escapa dessa deduplicação e entra de novo a cada
-> reenvio. Vale até a constraint da 0004 ganhar um `nulls not distinct`.
+(`unique (visita_id, area_id, data_hora) nulls not distinct`, migration
+0017 — sem o `nulls not distinct`, uma leitura sem `area` escaparia da
+deduplicação e entraria de novo a cada reenvio, porque índice único comum não
+considera dois `NULL` iguais).
 
 ## Respostas
 

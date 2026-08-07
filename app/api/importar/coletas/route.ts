@@ -285,10 +285,9 @@ export async function POST(request: NextRequest) {
       // Diferente das visitas: leitura repetida e o mesmo evento chegando duas
       // vezes, nao uma correcao. Ignorar mantem a reimportacao idempotente.
       //
-      // Ressalva conhecida: no Postgres, indice unico nao considera dois NULL
-      // iguais -- leitura sem `area_id` escapa desta deduplicacao e entra de
-      // novo a cada reenvio. Como `area` e opcional no formato, vale ate que a
-      // constraint da 0004 ganhe um `nulls not distinct`.
+      // A constraint e `nulls not distinct` desde a migration 0017: sem isso,
+      // leitura sem `area_id` (campo opcional no formato) escaparia da
+      // deduplicacao, porque indice unico comum nao considera dois NULL iguais.
       ignoreDuplicates: true,
     })
     .select("id");
