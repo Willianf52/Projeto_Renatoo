@@ -55,7 +55,7 @@ export function DashboardNavbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-800 bg-brand-surface px-4 sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-800 bg-brand-surface px-4 print:hidden sm:px-6">
       <button
         type="button"
         onClick={onToggleSidebar}

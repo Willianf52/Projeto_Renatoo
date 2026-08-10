@@ -90,6 +90,31 @@ body {
   color-scheme: dark;
 }
 
+/* Scrollbar fina e visivel sobre o fundo escuro do menu lateral -- a padrao
+   do navegador e cinza-clara ou "overlay" quase invisivel em cima do navy.
+   Escopada ao menu (nao ao app inteiro) via esta classe. */
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.65);
+}
+
 /* Acessibilidade: respeita quem desativou animacoes no sistema operacional.
    Sem isso, movimento pode causar desconforto vestibular. */
 @media (prefers-reduced-motion: reduce) {

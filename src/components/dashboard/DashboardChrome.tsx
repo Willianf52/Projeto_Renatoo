@@ -19,17 +19,19 @@ export function DashboardChrome({
 
   return (
     <div className="min-h-screen bg-brand-navy print:bg-white">
-      {/* print:hidden nos tres: navbar, sidebar e rodape nao servem a quem
-          imprime ou salva como PDF (ver ImprimirAoAbrir) -- so o conteudo da
-          pagina importa na folha. */}
-      <div className="print:hidden">
-        <DashboardNavbar
-          userName={userName}
-          cargo={cargo}
-          organization={organization}
-          onToggleSidebar={() => setSidebarOpen((open) => !open)}
-        />
-      </div>
+      {/* print:hidden direto no <header>, nao num <div> em volta: um wrapper
+          sem altura propria fica do tamanho exato do header (h-16) -- e um
+          elemento sticky so tem folga pra "grudar" dentro dos limites do
+          proprio container. Com o container do tamanho exato do header, essa
+          folga e zero: ele se comporta como static desde o primeiro pixel de
+          rolagem. A sidebar abaixo nao tem este problema porque o wrapper
+          dela e filho de um `flex` e estica para a altura da linha inteira. */}
+      <DashboardNavbar
+        userName={userName}
+        cargo={cargo}
+        organization={organization}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+      />
 
       <div className="flex">
         <div className="print:hidden">

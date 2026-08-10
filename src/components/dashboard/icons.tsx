@@ -230,3 +230,32 @@ export function XIcon({ className = "h-5 w-5" }: IconProps) {
     </svg>
   );
 }
+
+export function PrinterIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9V3h12v6" />
+      <rect x="3" y="9" width="18" height="8" rx="1.5" />
+      <path d="M6 14h12v7H6z" />
+    </svg>
+  );
+}
+
+export function PieChartIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.2 15.2A10 10 0 1 1 12 2v10.2z" />
+    </svg>
+  );
+}
+
+export function BarChartIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18" />
+      <rect x="6" y="12" width="3" height="9" />
+      <rect x="14" y="7" width="3" height="14" />
+      <rect x="10" y="16" width="3" height="5" />
+    </svg>
+  );
+}
