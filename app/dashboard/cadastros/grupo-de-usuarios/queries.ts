@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { montarHierarquiaDePerfis } from "@/lib/hierarquia-de-perfis";
 import { termoParaOr } from "@/lib/postgrest-escape";
 
 export const PAGE_SIZE = 25;
@@ -122,27 +123,35 @@ export async function getGrupoUsuarios(
 export type Opcao = { value: string; label: string };
 
 /**
- * Candidatos a membro. Recortado pelo RLS de `profiles` (migration 0006), o
- * que aqui nao restringe nada na pratica: quem alcanca esta tela ja passou
- * por `pode_administrar_grupos_usuarios()`, que exige
- * `pode_ver_toda_operacao()` -- e o motivo de a migration 0016 usar a
- * conjuncao em vez de so `pode_administrar_cadastros()`.
+ * Candidatos a membro, indentados por hierarquia de chefia
+ * (`profiles.superior_id`, migration 0003) como no sistema de referencia --
+ * mesmo algoritmo do campo "Responsável" de Site / Planta, em
+ * `lib/hierarquia-de-perfis.ts`.
+ *
+ * Recortado pelo RLS de `profiles` (migration 0006), o que aqui nao
+ * restringe nada na pratica: quem alcanca esta tela ja passou por
+ * `pode_administrar_grupos_usuarios()`, que exige `pode_ver_toda_operacao()`
+ * -- e o motivo de a migration 0016 usar a conjuncao em vez de so
+ * `pode_administrar_cadastros()`.
  *
  * Inclui inativos: um grupo montado antes de alguem ser desativado nao deve
  * perder o membro em silencio no proximo salvamento, que e o que aconteceria
- * se a pessoa sumisse da lista de checkboxes.
+ * se a pessoa sumisse da lista de checkboxes. `montarHierarquiaDePerfis` nao
+ * sabe de `ativo`, entao o sufixo entra depois, sobre o rotulo ja indentado.
  */
 export async function getCandidatosAMembro(): Promise<Opcao[]> {
   const supabase = await createClient();
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, nome_completo, email, ativo")
+    .select("id, nome_completo, superior_id, ativo")
     .order("nome_completo");
 
-  return (data ?? []).map((perfil) => ({
-    value: perfil.id,
-    label: `${perfil.nome_completo || perfil.email}${perfil.ativo ? "" : " (inativo)"}`,
+  const ativoPorId = new Map((data ?? []).map((perfil) => [perfil.id, perfil.ativo]));
+
+  return montarHierarquiaDePerfis(data ?? []).map((opcao) => ({
+    ...opcao,
+    label: ativoPorId.get(opcao.value) ? opcao.label : `${opcao.label} (inativo)`,
   }));
 }
 

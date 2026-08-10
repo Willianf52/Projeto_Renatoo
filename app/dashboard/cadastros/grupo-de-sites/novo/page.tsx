@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { SitemapIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../GrupoSiteForm";
+import { getGruposSitesParaPai, getSitesParaSelecao } from "../queries";
 
 export default async function NovoGrupoDeSitesPage() {
   // O RLS ja recusaria o insert, mas seria depois de preencher o formulario
@@ -10,6 +11,8 @@ export default async function NovoGrupoDeSitesPage() {
   if (!(await podeAdministrarCadastros())) {
     redirect("/dashboard/cadastros/grupo-de-sites");
   }
+
+  const [gruposPai, sites] = await Promise.all([getGruposSitesParaPai(), getSitesParaSelecao()]);
 
   return (
     <div className="space-y-4">
@@ -30,7 +33,11 @@ export default async function NovoGrupoDeSitesPage() {
           </h1>
         </div>
 
-        <GrupoSiteForm valoresIniciais={{ nome: "", descricao: "", ativo: true }} />
+        <GrupoSiteForm
+          gruposPai={gruposPai}
+          sites={sites}
+          valoresIniciais={{ nome: "", descricao: "", ativo: true, grupoPaiId: "", siteIds: [] }}
+        />
       </div>
     </div>
   );

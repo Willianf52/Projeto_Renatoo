@@ -3,7 +3,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { SitemapIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../../GrupoSiteForm";
-import { getGrupoSite } from "../../queries";
+import { getGrupoSite, getGruposSitesParaPai, getSitesParaSelecao } from "../../queries";
 
 export default async function EditarGrupoDeSitesPage({
   params,
@@ -23,6 +23,11 @@ export default async function EditarGrupoDeSitesPage({
 
   const grupo = await getGrupoSite(idNumerico);
   if (!grupo) notFound();
+
+  const [gruposPai, sites] = await Promise.all([
+    getGruposSitesParaPai(idNumerico),
+    getSitesParaSelecao(),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -45,10 +50,14 @@ export default async function EditarGrupoDeSitesPage({
 
         <GrupoSiteForm
           id={grupo.id}
+          gruposPai={gruposPai}
+          sites={sites}
           valoresIniciais={{
             nome: grupo.nome,
             descricao: grupo.descricao ?? "",
             ativo: grupo.ativo,
+            grupoPaiId: grupo.grupo_pai_id ? String(grupo.grupo_pai_id) : "",
+            siteIds: sites.filter((s) => s.grupoSiteId === grupo.id).map((s) => String(s.id)),
           }}
         />
       </div>

@@ -31,6 +31,10 @@ const { createClientMock, rpcResultado, fromResultado, chamadas } = vi.hoisted((
           chamadas.push({ metodo: "or", args });
           return chain;
         },
+        neq: (...args: unknown[]) => {
+          chamadas.push({ metodo: "neq", args });
+          return chain;
+        },
         then: (resolve: (resultado: Resultado) => void) => resolve(fromResultado),
       };
       return chain;
@@ -45,7 +49,8 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 // `podeAdministrarCadastros` saiu daqui para `lib/permissoes.ts` quando a tela
 // de Site / Planta passou a precisar da mesma regra -- os testes dela foram
 // junto, para `lib/permissoes.test.ts`.
-const { getGruposSitesParaExportar, LIMITE_EXPORTACAO } = await import("./queries");
+const { getGruposSitesParaExportar, getGruposSitesParaPai, montarHierarquiaDeSites, LIMITE_EXPORTACAO } =
+  await import("./queries");
 
 beforeEach(() => {
   rpcResultado.data = null;
@@ -98,5 +103,64 @@ describe("getGruposSitesParaExportar", () => {
 
     expect(rows).toHaveLength(LIMITE_EXPORTACAO);
     expect(truncado).toBe(true);
+  });
+});
+
+describe("getGruposSitesParaPai", () => {
+  it("sem id em edicao, nao aplica neq()", async () => {
+    await getGruposSitesParaPai();
+
+    expect(chamadas.some((c) => c.metodo === "neq")).toBe(false);
+  });
+
+  it("com id em edicao, exclui o proprio grupo da lista", async () => {
+    await getGruposSitesParaPai(7);
+
+    const neq = chamadas.find((c) => c.metodo === "neq");
+    expect(neq?.args).toEqual(["id", 7]);
+  });
+});
+
+describe("montarHierarquiaDeSites", () => {
+  const grupo = 1;
+
+  it("mantem raizes na profundidade 0, sem pai", () => {
+    const opcoes = montarHierarquiaDeSites([
+      { id: 1, nome: "Matriz", site_superior_id: null, grupo_site_id: grupo },
+    ]);
+
+    expect(opcoes).toEqual([
+      { id: 1, nome: "Matriz", profundidade: 0, paiId: null, grupoSiteId: grupo },
+    ]);
+  });
+
+  it("poe filho depois do pai, com profundidade maior e paiId marcado", () => {
+    const opcoes = montarHierarquiaDeSites([
+      { id: 2, nome: "Filial", site_superior_id: 1, grupo_site_id: grupo },
+      { id: 1, nome: "Matriz", site_superior_id: null, grupo_site_id: grupo },
+    ]);
+
+    expect(opcoes.map((o) => o.id)).toEqual([1, 2]);
+    expect(opcoes[1]).toMatchObject({ profundidade: 1, paiId: 1 });
+  });
+
+  it("trata pai fora da lista como raiz, em vez de sumir com o site", () => {
+    const opcoes = montarHierarquiaDeSites([
+      { id: 2, nome: "Filial", site_superior_id: 999, grupo_site_id: grupo },
+    ]);
+
+    expect(opcoes).toEqual([
+      { id: 2, nome: "Filial", profundidade: 0, paiId: null, grupoSiteId: grupo },
+    ]);
+  });
+
+  it("nao entra em loop com ciclo, e nao deixa nenhum site de fora", () => {
+    const opcoes = montarHierarquiaDeSites([
+      { id: 1, nome: "A", site_superior_id: 2, grupo_site_id: grupo },
+      { id: 2, nome: "B", site_superior_id: 1, grupo_site_id: grupo },
+    ]);
+
+    expect(opcoes).toHaveLength(2);
+    expect(opcoes.map((o) => o.id).sort()).toEqual([1, 2]);
   });
 });

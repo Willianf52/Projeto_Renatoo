@@ -26,14 +26,8 @@ const { createClientMock, fromResultado, chamadas } = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const {
-  extrairFiltros,
-  getSitesParaExportar,
-  montarHierarquiaDeResponsaveis,
-  toTableRow,
-  COLUNAS_EXPORTACAO,
-  LIMITE_EXPORTACAO,
-} = await import("./queries");
+const { extrairFiltros, getSitesParaExportar, toTableRow, COLUNAS_EXPORTACAO, LIMITE_EXPORTACAO } =
+  await import("./queries");
 
 /** Filtros minimos para as consultas; `situacao` e obrigatoria desde que
  * ganhou "todos" e passou a ter padrao. */
@@ -182,52 +176,10 @@ describe("toTableRow", () => {
   });
 });
 
-describe("montarHierarquiaDeResponsaveis", () => {
-  const perfil = (id: string, nome: string, superior: string | null = null) => ({
-    id,
-    nome_completo: nome,
-    superior_id: superior,
-  });
-
-  it("indenta por profundidade, como na referencia", () => {
-    const opcoes = montarHierarquiaDeResponsaveis([
-      perfil("a", "Gesiel"),
-      perfil("b", "Gilmar", "a"),
-    ]);
-
-    expect(opcoes).toEqual([
-      { value: "a", label: "->Gesiel" },
-      { value: "b", label: "--->Gilmar" },
-    ]);
-  });
-
-  /**
-   * O RLS de `profiles` (migration 0006) recorta a lista. Sem tratar o superior
-   * ausente como raiz, quem tem chefe fora do recorte sumiria da lista inteira.
-   */
-  it("promove a raiz quem tem superior fora do recorte do RLS", () => {
-    const opcoes = montarHierarquiaDeResponsaveis([perfil("b", "Gilmar", "desaparecido")]);
-
-    expect(opcoes).toEqual([{ value: "b", label: "->Gilmar" }]);
-  });
-
-  /** `superior_id` nao tem trava contra ciclo no banco; sem o conjunto de
-   * visitados a recursao nao terminaria e a tela travaria no servidor. */
-  it("nao entra em loop quando dois perfis chefiam um ao outro", () => {
-    const opcoes = montarHierarquiaDeResponsaveis([
-      perfil("a", "Ana", "b"),
-      perfil("b", "Bruno", "a"),
-    ]);
-
-    expect(opcoes).toHaveLength(2);
-  });
-
-  it("nao quebra com perfil sem nome preenchido", () => {
-    expect(montarHierarquiaDeResponsaveis([perfil("a", null as unknown as string)])).toEqual([
-      { value: "a", label: "->(sem nome)" },
-    ]);
-  });
-});
+// `montarHierarquiaDeResponsaveis` (renomeada `montarHierarquiaDePerfis`) saiu
+// daqui para `lib/hierarquia-de-perfis.ts` quando Grupo de Usuarios passou a
+// precisar do mesmo algoritmo -- os testes dela foram junto, para
+// `lib/hierarquia-de-perfis.test.ts`.
 
 describe("getSitesParaExportar", () => {
   it("sem busca, nao aplica o filtro or()", async () => {

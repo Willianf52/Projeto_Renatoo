@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
 import { salvarGrupoUsuarios, type EstadoDoFormulario, type ValoresDoGrupo } from "./actions";
 import type { Opcao } from "./queries";
@@ -18,6 +19,7 @@ export function GrupoUsuariosForm({
   /** Ausente na criacao; presente na edicao. */
   id?: number;
   valoresIniciais: ValoresDoGrupo;
+  /** Ja vem indentado por hierarquia de chefia -- ver `getCandidatosAMembro`. */
   candidatos: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
@@ -29,14 +31,48 @@ export function GrupoUsuariosForm({
   // e nao com o valor original do banco.
   const valores = estado.valores ?? valoresIniciais;
 
-  /**
-   * Filtro local da lista de membros. Puramente visual: os checkboxes ficam
-   * todos no DOM e so os que nao casam sao escondidos, para que filtrar nao
-   * desmarque ninguem -- um `<input>` removido da arvore nao e enviado no
-   * submit, e a pessoa perderia a selecao ao digitar na busca.
-   */
-  const [filtro, setFiltro] = useState("");
-  const termo = filtro.trim().toLowerCase();
+  const [marcados, setMarcados] = useState<Set<string>>(() => new Set(valores.membros));
+  const [busca, setBusca] = useState("");
+  const termo = busca.trim().toLowerCase();
+
+  // Fechado por padrao, como qualquer combobox: a lista so aparece ao clicar
+  // no campo ou na seta, e fecha ao clicar fora -- a seta antes era so um
+  // icone decorativo, sem clique nenhum por tras, e por isso parecia travada.
+  const [aberto, setAberto] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+
+    function aoClicarFora(evento: MouseEvent) {
+      if (!containerRef.current?.contains(evento.target as Node)) setAberto(false);
+    }
+
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, [aberto]);
+
+  // Estado proprio, independente de `marcados`: e um botao de acao ("marque
+  // todo mundo agora"), nao um indicador de "todos estao marcados". Ligar essa
+  // checkbox a `marcados.size === candidatos.length` fazia ela acender sozinha
+  // sempre que a selecao manual coincidia com o total -- inclusive com um so
+  // candidato na lista, bastava marcar ele.
+  const [todosSelecionados, setTodosSelecionados] = useState(false);
+
+  function alternar(value: string) {
+    setTodosSelecionados(false);
+    setMarcados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(value)) novo.delete(value);
+      else novo.add(value);
+      return novo;
+    });
+  }
+
+  function selecionarTudo(marcar: boolean) {
+    setTodosSelecionados(marcar);
+    setMarcados(marcar ? new Set(candidatos.map((c) => c.value)) : new Set());
+  }
 
   return (
     <form action={formAction} className="space-y-4 p-4">
@@ -60,6 +96,7 @@ export function GrupoUsuariosForm({
           name="nome"
           type="text"
           required
+          placeholder="Digite o nome do Grupo de Usuários"
           defaultValue={valores.nome}
           aria-invalid={Boolean(estado.erro)}
           className={getInputClasses(Boolean(estado.erro))}
@@ -79,48 +116,94 @@ export function GrupoUsuariosForm({
         />
       </div>
 
-      <fieldset className="rounded-md border border-slate-800 p-4">
-        <legend className={`${rotuloClasses} mb-0 px-2`}>Membros</legend>
+      <div>
+        <span className={rotuloClasses}>Usuários</span>
 
-        {candidatos.length === 0 ? (
-          <p className="text-sm text-brand-muted">Nenhum usuário cadastrado ainda.</p>
-        ) : (
-          <>
-            <input
-              type="search"
-              value={filtro}
-              onChange={(evento) => setFiltro(evento.target.value)}
-              placeholder="Filtrar por nome ou e-mail..."
-              aria-label="Filtrar membros"
-              className={`${getInputClasses(false)} mb-3`}
-            />
-
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {candidatos.map((candidato) => {
-                const visivel = candidato.label.toLowerCase().includes(termo);
-
-                return (
-                  <label
-                    key={candidato.value}
-                    htmlFor={`membro-${candidato.value}`}
-                    className={`flex items-center gap-2 text-sm text-white ${visivel ? "" : "hidden"}`}
-                  >
-                    <input
-                      id={`membro-${candidato.value}`}
-                      type="checkbox"
-                      name="membros"
-                      value={candidato.value}
-                      defaultChecked={valores.membros.includes(candidato.value)}
-                      className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
-                    />
-                    {candidato.label}
-                  </label>
-                );
-              })}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div
+            ref={containerRef}
+            className="min-w-0 flex-1 overflow-hidden rounded-md border border-slate-800 bg-brand-navy"
+          >
+            <div className={`relative ${aberto ? "border-b border-slate-800" : ""}`}>
+              <input
+                type="text"
+                value={busca}
+                onChange={(evento) => setBusca(evento.target.value)}
+                onFocus={() => setAberto(true)}
+                placeholder="Buscar usuário..."
+                aria-label="Buscar usuário"
+                className="w-full bg-transparent px-4 py-3 pr-9 text-white outline-none placeholder:text-brand-muted"
+              />
+              <button
+                type="button"
+                onClick={() => setAberto((atual) => !atual)}
+                aria-label={aberto ? "Fechar lista de usuários" : "Abrir lista de usuários"}
+                aria-expanded={aberto}
+                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-surface hover:text-white"
+              >
+                <ChevronDownIcon
+                  className={`h-4 w-4 transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
+                />
+              </button>
             </div>
-          </>
-        )}
-      </fieldset>
+
+            {aberto && (
+              <div role="listbox" aria-multiselectable="true" className="max-h-52 overflow-y-auto p-1">
+                {candidatos.length === 0 ? (
+                  <p className="px-3 py-1.5 text-sm text-brand-muted">Nenhum usuário cadastrado ainda.</p>
+                ) : (
+                  candidatos
+                    .filter((candidato) => candidato.label.toLowerCase().includes(termo))
+                    .map((candidato) => {
+                      const selecionado = marcados.has(candidato.value);
+                      return (
+                        <button
+                          key={candidato.value}
+                          type="button"
+                          role="option"
+                          aria-selected={selecionado}
+                          onClick={() => alternar(candidato.value)}
+                          className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                            selecionado
+                              ? "bg-brand-green/15 text-brand-green"
+                              : "text-white hover:bg-brand-surface"
+                          }`}
+                        >
+                          {candidato.label}
+                        </button>
+                      );
+                    })
+                )}
+              </div>
+            )}
+
+            {/* Checkboxes escondidos: carregam a selecao no FormData no lugar dos
+                botoes do listbox, que so existem para a interacao visual do
+                combobox e nao existem no DOM enquanto a lista esta fechada. */}
+            {candidatos.map((candidato) => (
+              <input
+                key={candidato.value}
+                type="checkbox"
+                name="membros"
+                value={candidato.value}
+                checked={marcados.has(candidato.value)}
+                readOnly
+                className="sr-only"
+              />
+            ))}
+          </div>
+
+          <label className="flex shrink-0 items-center gap-2 text-sm text-white sm:pt-2">
+            <input
+              type="checkbox"
+              checked={todosSelecionados}
+              onChange={(evento) => selecionarTudo(evento.target.checked)}
+              className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+            />
+            Selecionar Tudo
+          </label>
+        </div>
+      </div>
 
       <div className="flex items-center gap-3 pt-2">
         <button
