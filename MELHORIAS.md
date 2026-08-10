@@ -49,6 +49,14 @@ Nenhum item aberto nesta categoria no momento.
    preservar a estrutura de navegação do sistema de referência. Não têm tabela
    nem tela. Ficam aqui para não se perderem de vista.
 
+7. **Site / Planta não tem `Perda`/`Prevenção` (e-mails de classificação),
+   `Notificações Eventos` nem `Tipo de Curva`.** O formulário de referência
+   traz os quatro campos; nenhum tem tabela ou coluna correspondente hoje, e
+   por decisão explícita (2026-08-10) ficaram de fora do formulário — nem como
+   placeholder, diferente do que "Grupo de Inspeção" recebeu em Grupo de
+   Sites. Voltam a esta lista de propósito, para não se perderem: entram
+   quando alguém decidir o que cada um representa e criar o schema por trás.
+
 ## Baixa prioridade / nice-to-have
 
 4. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o

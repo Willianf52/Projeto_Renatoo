@@ -15,6 +15,8 @@ const VALORES_VAZIOS = {
   regional: "",
   cidade: "",
   uf: "",
+  latitude: "",
+  longitude: "",
   observacao: "",
   cep: "",
   endereco: "",

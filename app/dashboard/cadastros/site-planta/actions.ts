@@ -61,6 +61,9 @@ export type ValoresDoSite = {
   regional: string;
   cidade: string;
   uf: string;
+  // Migration 0025 -- de volta apos a remocao da 0022, so em `sites`.
+  latitude: string;
+  longitude: string;
   observacao: string;
   cep: string;
   endereco: string;
@@ -101,6 +104,8 @@ function extrairValores(formData: FormData): ValoresDoSite {
     regional: texto(formData, "regional"),
     cidade: texto(formData, "cidade"),
     uf: texto(formData, "uf").toUpperCase(),
+    latitude: texto(formData, "latitude"),
+    longitude: texto(formData, "longitude"),
     observacao: texto(formData, "observacao"),
     cep: texto(formData, "cep"),
     endereco: texto(formData, "endereco"),
@@ -132,6 +137,8 @@ type LinhaDoSite = {
   regional: string | null;
   cidade: string | null;
   uf: string | null;
+  latitude: number | null;
+  longitude: number | null;
   observacao: string | null;
   cep: string | null;
   endereco: string | null;
@@ -163,6 +170,33 @@ function lerRaio(valor: string): { ok: true; valor: number | null } | { ok: fals
     return { ok: false, erro: "O raio deve ser um número inteiro de metros." };
   }
   if (numero < 0) return { ok: false, erro: "O raio não pode ser negativo." };
+
+  return { ok: true, valor: numero };
+}
+
+/**
+ * Coordenada opcional (migration 0025). Vazio e "nao informada"; preenchido
+ * precisa estar dentro do intervalo valido -- o banco (`numeric(10,7)`)
+ * aceitaria qualquer numero de ate 3 digitos antes da virgula, mas 91 de
+ * latitude nao significa nada.
+ */
+function lerCoordenada(
+  valor: string,
+  limite: number,
+  rotulo: string,
+): { ok: true; valor: number | null } | { ok: false; erro: string } {
+  if (valor === "") return { ok: true, valor: null };
+
+  // Aceita virgula decimal: e o separador que o teclado numerico do celular
+  // produz em pt-BR, e o "GPS" do formulario grava com ponto -- os dois
+  // precisam entrar.
+  const numero = Number(valor.replace(",", "."));
+  if (!Number.isFinite(numero)) {
+    return { ok: false, erro: `${rotulo} deve ser um número.` };
+  }
+  if (numero < -limite || numero > limite) {
+    return { ok: false, erro: `${rotulo} deve estar entre -${limite} e ${limite}.` };
+  }
 
   return { ok: true, valor: numero };
 }
@@ -241,6 +275,12 @@ function validar(
   const raio = lerRaio(valores.raioMetros);
   if (!raio.ok) return raio;
 
+  const latitude = lerCoordenada(valores.latitude, 90, "A latitude");
+  if (!latitude.ok) return latitude;
+
+  const longitude = lerCoordenada(valores.longitude, 180, "A longitude");
+  if (!longitude.ok) return longitude;
+
   return {
     ok: true,
     linha: {
@@ -253,6 +293,8 @@ function validar(
       regional: valores.regional || null,
       cidade: valores.cidade || null,
       uf: valores.uf || null,
+      latitude: latitude.valor,
+      longitude: longitude.valor,
       observacao: valores.observacao || null,
       cep: valores.cep || null,
       endereco: valores.endereco || null,

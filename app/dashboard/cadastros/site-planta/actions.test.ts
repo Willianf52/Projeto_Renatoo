@@ -307,3 +307,54 @@ describe("endereço, hierarquia e códigos", () => {
     });
   });
 });
+
+/** Coordenadas (migration 0025) -- de volta apos a remocao da 0022. */
+describe("latitude e longitude", () => {
+  it("em branco vira null", async () => {
+    await salvarSite({}, formulario(MINIMO));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      latitude: null,
+      longitude: null,
+    });
+  });
+
+  it("grava valores validos", async () => {
+    await salvarSite(
+      {},
+      formulario({ ...MINIMO, latitude: "-30.0346", longitude: "-51.2177" }),
+    );
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      latitude: -30.0346,
+      longitude: -51.2177,
+    });
+  });
+
+  it("aceita virgula decimal, como o teclado numerico em pt-BR produz", async () => {
+    await salvarSite({}, formulario({ ...MINIMO, latitude: "-30,0346" }));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({ latitude: -30.0346 });
+  });
+
+  it("recusa latitude fora do intervalo -90..90", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, latitude: "91" }));
+
+    expect(estado.erro).toBe("A latitude deve estar entre -90 e 90.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("recusa longitude fora do intervalo -180..180", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, longitude: "181" }));
+
+    expect(estado.erro).toBe("A longitude deve estar entre -180 e 180.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("recusa texto que nao e numero", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, latitude: "abc" }));
+
+    expect(estado.erro).toBe("A latitude deve ser um número.");
+    expect(chamadas).toHaveLength(0);
+  });
+});

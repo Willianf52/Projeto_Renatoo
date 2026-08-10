@@ -60,6 +60,8 @@ export default async function EditarSitePage({ params }: { params: Promise<{ id:
             regional: site.regional ?? "",
             cidade: site.cidade ?? "",
             uf: site.uf ?? "",
+            latitude: site.latitude === null ? "" : String(site.latitude),
+            longitude: site.longitude === null ? "" : String(site.longitude),
             observacao: site.observacao ?? "",
             cep: site.cep ?? "",
             endereco: site.endereco ?? "",

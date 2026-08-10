@@ -23,6 +23,9 @@ export type SiteRow = {
   regional: string | null;
   cidade: string | null;
   uf: string | null;
+  // Migration 0025 -- de volta apos a remocao da 0022, so em `sites`.
+  latitude: number | null;
+  longitude: number | null;
   observacao: string | null;
   ativo: boolean;
   criado_em: string;
@@ -65,7 +68,7 @@ export type SiteRow = {
  * PostgREST, que so tolera a remocao de espaco em branco feita pelo client.
  */
 const COLUNAS = `
-  id, nome, sigla, regional, cidade, uf, observacao, ativo, criado_em,
+  id, nome, sigla, regional, cidade, uf, latitude, longitude, observacao, ativo, criado_em,
   site_superior_id, cep, endereco, numero, bairro, complemento, pais, raio_metros,
   cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2,
   recebe_visita, gerar_qrcode_automatico, gerar_registro_coletas,

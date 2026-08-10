@@ -56,6 +56,8 @@ function siteRow(extra: Record<string, unknown> = {}) {
     regional: "Sul",
     cidade: "Porto Alegre",
     uf: "RS",
+    latitude: null,
+    longitude: null,
     observacao: null,
     ativo: true,
     criado_em: "2026-03-17T18:09:00.000Z",
