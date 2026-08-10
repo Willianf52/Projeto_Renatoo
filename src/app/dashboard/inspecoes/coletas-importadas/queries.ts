@@ -1,5 +1,8 @@
 import { formatarDataHora } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
+import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+
+export { LIMITE_EXPORTACAO };
 
 export const PAGE_SIZE = 25;
 
@@ -316,9 +319,7 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
 }> {
   const supabase = await createClient();
 
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
 
   const { precisaSite, precisaVisita } = precisaJoins(filtros);
 
@@ -356,15 +357,14 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
   return { rows: (data ?? []) as unknown as ColetaRow[], totalItems: count ?? 0 };
 }
 
-/** Teto de linhas nas exportacoes: evita devolver uma tabela sem fim, e
- * particularmente importante aqui -- `leituras` e a tabela que mais cresce. */
-export const LIMITE_EXPORTACAO = 2000;
-
 /**
  * Mesma consulta de `getColetas`, sem paginacao -- para os botoes de
  * exportar, que precisam do resultado inteiro dentro do filtro, nao so a
  * pagina atual. Pede um a mais que o limite para saber, sem uma segunda
  * consulta de `count`, se o resultado foi cortado.
+ *
+ * `LIMITE_EXPORTACAO` (`lib/supabase/query-helpers.ts`) e particularmente
+ * importante aqui -- `leituras` e a tabela que mais cresce.
  */
 export async function getColetasParaExportar(
   filtros: ColetaFiltrosSemPagina,
@@ -386,8 +386,7 @@ export async function getColetasParaExportar(
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []) as unknown as ColetaRow[];
-  return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
+  return resultadoExportacao((data ?? []) as unknown as ColetaRow[]);
 }
 
 // Reexportada para as telas e rotas que ja consumiam daqui nao terem que saber

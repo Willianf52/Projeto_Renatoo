@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { montarHierarquiaDePerfis } from "@/lib/hierarquia-de-perfis";
 import { termoParaOr } from "@/lib/postgrest-escape";
+import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+
+export { LIMITE_EXPORTACAO };
 
 export const PAGE_SIZE = 25;
 
@@ -58,9 +61,7 @@ export async function getGruposUsuarios(filtros: GrupoUsuariosFiltros): Promise<
 }> {
   const supabase = await createClient();
 
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
 
   const query = comBusca(
     supabase
@@ -78,9 +79,6 @@ export async function getGruposUsuarios(filtros: GrupoUsuariosFiltros): Promise<
 
   return { rows: (data ?? []) as unknown as GrupoUsuariosRow[], totalItems: count ?? 0 };
 }
-
-/** Teto de linhas nas exportacoes: evita devolver uma tabela sem fim. */
-export const LIMITE_EXPORTACAO = 2000;
 
 /** Mesma consulta de `getGruposUsuarios`, sem paginacao. Pede um a mais que o
  * limite para saber, sem uma segunda consulta de `count`, se foi cortado. */
@@ -101,8 +99,7 @@ export async function getGruposUsuariosParaExportar(
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []) as unknown as GrupoUsuariosRow[];
-  return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
+  return resultadoExportacao((data ?? []) as unknown as GrupoUsuariosRow[]);
 }
 
 export async function getGrupoUsuarios(

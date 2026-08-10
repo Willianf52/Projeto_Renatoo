@@ -34,6 +34,12 @@ const {
   LIMITE_EXPORTACAO,
 } = await import("./queries");
 
+/** Filtros minimos para as consultas; `situacao` e obrigatoria desde que
+ * ganhou "todos" e passou a ter padrao -- mesmo padrao de site-planta. */
+function filtros(extra: Record<string, unknown> = {}) {
+  return { situacao: "todos" as const, ...extra };
+}
+
 beforeEach(() => {
   fromResultado.data = [];
   fromResultado.error = null;
@@ -51,6 +57,7 @@ function qrRow(extra: Record<string, unknown> = {}) {
     sites: {
       nome: "Agência Centro",
       grupo_site_id: 1,
+      tipo_servico_id: 2,
       grupos_sites: { nome: "Cooplivre" },
     },
     ...extra,
@@ -62,12 +69,18 @@ const select = () => chamadas.find((c) => c.metodo === "select")?.args[0] as str
 describe("extrairFiltros", () => {
   it("mapeia os nomes da querystring para o filtro", () => {
     expect(
-      extrairFiltros({ busca: "AGC", site: "7", grupo_site: "1", situacao: "ativos", pagina: "2" }),
+      extrairFiltros({
+        busca: "AGC",
+        tipo_servico: "7",
+        grupo_site: "1",
+        situacao: "inativos",
+        pagina: "2",
+      }),
     ).toEqual({
       busca: "AGC",
-      site: "7",
+      tipoServico: "7",
       grupoSite: "1",
-      situacao: "ativos",
+      situacao: "inativos",
       pagina: 2,
     });
   });
@@ -76,6 +89,15 @@ describe("extrairFiltros", () => {
     expect(extrairFiltros({}).pagina).toBe(1);
     expect(extrairFiltros({ pagina: "0" }).pagina).toBe(1);
     expect(extrairFiltros({ pagina: "abc" }).pagina).toBe(1);
+  });
+
+  it("cai no padrão (ativos) para situação ausente ou fora da lista", () => {
+    expect(extrairFiltros({}).situacao).toBe("ativos");
+    expect(extrairFiltros({ situacao: "xyz" }).situacao).toBe("ativos");
+  });
+
+  it("aceita 'todos' como situação explícita", () => {
+    expect(extrairFiltros({ situacao: "todos" }).situacao).toBe("todos");
   });
 });
 
@@ -114,34 +136,33 @@ describe("toTableRow", () => {
 
 describe("getQrCodesParaExportar", () => {
   it("sem busca, não aplica o filtro or()", async () => {
-    await getQrCodesParaExportar({});
+    await getQrCodesParaExportar(filtros());
 
     expect(chamadas.some((c) => c.metodo === "or")).toBe(false);
   });
 
   it("com busca, procura em código e finalidade", async () => {
-    await getQrCodesParaExportar({ busca: "AGC" });
+    await getQrCodesParaExportar(filtros({ busca: "AGC" }));
 
     const or = chamadas.find((c) => c.metodo === "or");
     expect(or?.args[0]).toContain("codigo.ilike");
     expect(or?.args[0]).toContain("finalidade.ilike");
   });
 
-  it("filtra por site sem precisar de join", async () => {
-    // `site_id` esta na propria linha: transformar o embed em inner aqui
-    // excluiria QR cujo site o RLS nao devolveu, sem ganho nenhum.
-    await getQrCodesParaExportar({ site: "7" });
+  it("filtra por tipo de serviço com join inner, senão o filtro não restringe", async () => {
+    // Filtrar dentro de um embed opcional nao restringe a consulta de cima.
+    await getQrCodesParaExportar(filtros({ tipoServico: "7" }));
 
-    expect(select()).not.toContain("!inner");
+    expect(select()).toContain("sites!inner");
     expect(chamadas.filter((c) => c.metodo === "eq").map((c) => c.args)).toContainEqual([
-      "site_id",
+      "sites.tipo_servico_id",
       "7",
     ]);
   });
 
   it("filtra por grupo com join inner, senão o filtro não restringe", async () => {
     // Filtrar dentro de um embed opcional nao restringe a consulta de cima.
-    await getQrCodesParaExportar({ grupoSite: "1" });
+    await getQrCodesParaExportar(filtros({ grupoSite: "1" }));
 
     expect(select()).toContain("sites!inner");
     expect(chamadas.filter((c) => c.metodo === "eq").map((c) => c.args)).toContainEqual([
@@ -152,13 +173,13 @@ describe("getQrCodesParaExportar", () => {
 
   it("ordena por código, sem desempate", async () => {
     // `codigo` e unique (migration 0003), entao a ordenacao ja e total.
-    await getQrCodesParaExportar({});
+    await getQrCodesParaExportar(filtros());
 
     expect(chamadas.filter((c) => c.metodo === "order").map((c) => c.args[0])).toEqual(["codigo"]);
   });
 
   it("pede LIMITE_EXPORTACAO + 1 linhas, para detectar truncamento sem um count a mais", async () => {
-    await getQrCodesParaExportar({});
+    await getQrCodesParaExportar(filtros());
 
     expect(chamadas.find((c) => c.metodo === "range")?.args).toEqual([0, LIMITE_EXPORTACAO]);
   });
@@ -166,7 +187,7 @@ describe("getQrCodesParaExportar", () => {
   it("truncado quando a consulta devolve um a mais que o limite", async () => {
     fromResultado.data = Array.from({ length: LIMITE_EXPORTACAO + 1 }, (_, i) => qrRow({ id: i }));
 
-    const { rows, truncado } = await getQrCodesParaExportar({});
+    const { rows, truncado } = await getQrCodesParaExportar(filtros());
 
     expect(rows).toHaveLength(LIMITE_EXPORTACAO);
     expect(truncado).toBe(true);
@@ -175,7 +196,7 @@ describe("getQrCodesParaExportar", () => {
   it("não truncado quando o resultado cabe no limite", async () => {
     fromResultado.data = [qrRow()];
 
-    const { rows, truncado } = await getQrCodesParaExportar({});
+    const { rows, truncado } = await getQrCodesParaExportar(filtros());
 
     expect(rows).toHaveLength(1);
     expect(truncado).toBe(false);

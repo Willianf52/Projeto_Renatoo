@@ -164,10 +164,10 @@ export default async function QrCodePage({
               defaultValue={filtros.busca}
             />
             <FilterSelect
-              label="Site / Planta"
-              name="site"
-              defaultValue={filtros.site}
-              options={opcoes.sites}
+              label="Tipos de Serviço"
+              name="tipo_servico"
+              defaultValue={filtros.tipoServico}
+              options={opcoes.tiposServico}
             />
             <FilterSelect
               label="Grupo de Sites"
@@ -175,11 +175,14 @@ export default async function QrCodePage({
               defaultValue={filtros.grupoSite}
               options={opcoes.gruposSites}
             />
+            {/* Sem placeholder vazio: "Todos" ja e a opcao de nao filtrar, e o
+                padrao e "Ativos" -- ver SITUACAO_PADRAO em queries.ts. */}
             <FilterSelect
               label="Situação"
               name="situacao"
               defaultValue={filtros.situacao}
               options={SITUACOES}
+              semOpcaoVazia
             />
           </div>
 

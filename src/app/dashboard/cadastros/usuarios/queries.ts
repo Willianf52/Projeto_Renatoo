@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike, termoParaOr } from "@/lib/postgrest-escape";
+import { paginar } from "@/lib/supabase/query-helpers";
 import { FUNCOES_CONHECIDAS, NIVEIS_ACESSO, type FilterOption } from "./constantes";
 
 export const PAGE_SIZE = 25;
@@ -53,7 +55,7 @@ export async function podeVerTodaOperacao(): Promise<boolean> {
   const { data, error } = await supabase.rpc("pode_ver_toda_operacao");
 
   if (error) {
-    console.error("Falha ao verificar escopo de leitura de usuários:", error.message);
+    erro(gerarIdDeRequisicao(), "Falha ao verificar escopo de leitura de usuários:", error.message);
     return false;
   }
 
@@ -66,7 +68,10 @@ export async function podeVerTodaOperacao(): Promise<boolean> {
 export async function getGruposUsuarios(): Promise<FilterOption[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase.from("grupos_usuarios").select("id, nome").order("nome");
+  const { data, error } = await supabase.from("grupos_usuarios").select("id, nome").order("nome");
+  if (error) {
+    erro(gerarIdDeRequisicao(), "Falha ao carregar grupos de usuários para o filtro:", error.message);
+  }
 
   return (data ?? []).map((grupo) => ({ value: String(grupo.id), label: grupo.nome }));
 }
@@ -173,9 +178,7 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
 }> {
   const supabase = await createClient();
 
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
 
   let query = supabase
     .from("profiles")
@@ -240,7 +243,10 @@ export async function getSuperiores(excluirId?: string): Promise<FilterOption[]>
 
   if (excluirId) query = query.neq("id", excluirId);
 
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) {
+    erro(gerarIdDeRequisicao(), "Falha ao carregar candidatos a superior:", error.message);
+  }
 
   return (data ?? []).map((perfil) => ({
     value: perfil.id,
@@ -258,11 +264,14 @@ export async function getSuperiores(excluirId?: string): Promise<FilterOption[]>
 export async function getGruposSitesParaEscopo(): Promise<FilterOption[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("grupos_sites")
     .select("id, nome")
     .eq("ativo", true)
     .order("nome");
+  if (error) {
+    erro(gerarIdDeRequisicao(), "Falha ao carregar grupos de sites para escopo:", error.message);
+  }
 
   return (data ?? []).map((grupo) => ({ value: String(grupo.id), label: grupo.nome }));
 }
@@ -272,10 +281,13 @@ export async function getGruposSitesParaEscopo(): Promise<FilterOption[]> {
 export async function getEscopoDoCliente(profileId: string): Promise<string[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("grupos_sites_clientes")
     .select("grupo_site_id")
     .eq("profile_id", profileId);
+  if (error) {
+    erro(gerarIdDeRequisicao(), "Falha ao carregar escopo do cliente:", error.message);
+  }
 
   return (data ?? []).map((vinculo) => String(vinculo.grupo_site_id));
 }

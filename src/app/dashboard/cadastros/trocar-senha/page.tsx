@@ -9,9 +9,11 @@ import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 
 export default function TrocarSenhaPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState({
+    currentPassword: "",
     password: "",
     confirmation: "",
   });
@@ -22,6 +24,7 @@ export default function TrocarSenhaPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const currentPasswordError = currentPassword === "" ? "Campo obrigatório" : "";
     const passwordError =
       password === ""
         ? "Campo obrigatório"
@@ -35,19 +38,51 @@ export default function TrocarSenhaPage() {
           ? "As senhas não coincidem"
           : "";
 
-    if (passwordError || confirmationError) {
+    if (currentPasswordError || passwordError || confirmationError) {
       setErrors({
+        currentPassword: currentPasswordError,
         password: passwordError,
         confirmation: confirmationError,
       });
       return;
     }
 
-    setErrors({ password: "", confirmation: "" });
+    setErrors({ currentPassword: "", password: "", confirmation: "" });
     setFormError("");
     setLoading(true);
 
     const supabase = createClient();
+
+    /**
+     * Reautentica com a senha atual antes de trocar.
+     *
+     * `updateUser({ password })` sozinho troca a senha de quem estiver com a
+     * sessão aberta, sem pedir a senha antiga -- quem pegasse o dispositivo
+     * destravado trocaria a senha e trancaria o dono para fora sem precisar
+     * saber a senha que está substituindo. `getUser()` traz o e-mail da
+     * própria sessão (não um campo digitável) para o `signInWithPassword`
+     * conferir a senha atual antes de qualquer troca ser tentada.
+     */
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.email) {
+      setLoading(false);
+      setFormError("Não foi possível confirmar sua sessão. Saia e entre novamente.");
+      return;
+    }
+
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (reauthError) {
+      setLoading(false);
+      setErrors((prev) => ({ ...prev, currentPassword: "Senha atual incorreta" }));
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({ password });
 
@@ -65,6 +100,7 @@ export default function TrocarSenhaPage() {
       return;
     }
 
+    setCurrentPassword("");
     setPassword("");
     setConfirmation("");
     setSuccess(true);
@@ -94,6 +130,24 @@ export default function TrocarSenhaPage() {
             </div>
           ) : (
             <form className="max-w-xl space-y-6" onSubmit={handleSubmit} noValidate>
+              <FormField
+                id="senha-atual"
+                label="Senha atual"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                error={errors.currentPassword}
+                onChange={(value) => {
+                  setCurrentPassword(value);
+                  if (errors.currentPassword) {
+                    setErrors((prev) => ({ ...prev, currentPassword: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+
               <div>
                 <FormField
                   id="nova-senha"

@@ -1,13 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { termoParaOr } from "@/lib/postgrest-escape";
+import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+
+export { LIMITE_EXPORTACAO };
 
 export const PAGE_SIZE = 25;
 
+export type Situacao = "ativos" | "todos" | "inativos";
+
 export type QrCodeFiltros = {
   busca?: string;
-  site?: string;
+  tipoServico?: string;
   grupoSite?: string;
-  situacao?: "ativos" | "inativos";
+  situacao: Situacao;
   pagina: number;
 };
 
@@ -20,6 +25,7 @@ export type QrCodeRow = {
   sites: {
     nome: string;
     grupo_site_id: number;
+    tipo_servico_id: number | null;
     grupos_sites: { nome: string } | null;
   } | null;
 };
@@ -39,13 +45,21 @@ function montarSelect(precisaSite: boolean): string {
     ${precisaSite ? "sites!inner" : "sites"} (
       nome,
       grupo_site_id,
+      tipo_servico_id,
       grupos_sites ( nome )
     )
   `;
 }
 
+/**
+ * "Todos" e opcao explicita, e "Ativos" e o default -- como no sistema de
+ * referencia e em Site / Planta (`SITUACAO_PADRAO` la).
+ */
+export const SITUACAO_PADRAO: Situacao = "ativos";
+
 export const SITUACOES = [
   { value: "ativos", label: "Ativos" },
+  { value: "todos", label: "Todos" },
   { value: "inativos", label: "Inativos" },
 ];
 
@@ -60,11 +74,17 @@ export function primeiro(valor: string | string[] | undefined): string | undefin
 /** Exportada para as rotas de Excel/PDF lerem exatamente os mesmos filtros da
  * listagem, sem duplicar o mapeamento campo a campo. */
 export function extrairFiltros(params: SearchParams): QrCodeFiltros {
+  const situacao = primeiro(params.situacao);
+
   return {
     busca: primeiro(params.busca),
-    site: primeiro(params.site),
+    tipoServico: primeiro(params.tipo_servico),
     grupoSite: primeiro(params.grupo_site),
-    situacao: primeiro(params.situacao) as "ativos" | "inativos" | undefined,
+    // Valor fora da lista cai no padrao em vez de virar filtro vazio: a URL e
+    // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
+    situacao: SITUACOES.some((s) => s.value === situacao)
+      ? (situacao as Situacao)
+      : SITUACAO_PADRAO,
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
 }
@@ -92,19 +112,20 @@ function comBusca<Q extends { or(filtro: string): unknown }>(query: Q, busca: st
 function aplicarFiltros(query: any, filtros: Omit<QrCodeFiltros, "pagina">) {
   let q = comBusca(query, filtros.busca);
 
-  if (filtros.site) q = q.eq("site_id", filtros.site);
+  if (filtros.tipoServico) q = q.eq("sites.tipo_servico_id", filtros.tipoServico);
   if (filtros.grupoSite) q = q.eq("sites.grupo_site_id", filtros.grupoSite);
+  // "todos" nao filtra -- e a unica das tres opcoes que nao vira clausula.
   if (filtros.situacao === "ativos") q = q.eq("ativo", true);
   if (filtros.situacao === "inativos") q = q.eq("ativo", false);
 
   return q;
 }
 
-/** O join com `sites` so precisa ser inner quando o filtro e por grupo: filtrar
- * dentro de um embed opcional nao restringe a consulta de cima. Filtrar por
- * site usa `site_id`, que esta na propria linha -- nao precisa de join. */
+/** O join com `sites` vira inner quando o filtro e por grupo ou por tipo de
+ * servico: filtrar dentro de um embed opcional nao restringe a consulta de
+ * cima. */
 function precisaSite(filtros: Omit<QrCodeFiltros, "pagina">): boolean {
-  return Boolean(filtros.grupoSite);
+  return Boolean(filtros.grupoSite || filtros.tipoServico);
 }
 
 export async function getQrCodes(filtros: QrCodeFiltros): Promise<{
@@ -113,9 +134,7 @@ export async function getQrCodes(filtros: QrCodeFiltros): Promise<{
 }> {
   const supabase = await createClient();
 
-  const pagina = Math.max(1, filtros.pagina);
-  const from = (pagina - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
 
   const query = aplicarFiltros(
     supabase
@@ -134,9 +153,6 @@ export async function getQrCodes(filtros: QrCodeFiltros): Promise<{
 
   return { rows: (data ?? []) as unknown as QrCodeRow[], totalItems: count ?? 0 };
 }
-
-/** Teto de linhas nas exportacoes: evita devolver uma tabela sem fim. */
-export const LIMITE_EXPORTACAO = 2000;
 
 /** Mesma consulta de `getQrCodes`, sem paginacao. Pede um a mais que o limite
  * para saber, sem uma segunda consulta de `count`, se o resultado foi cortado. */
@@ -157,8 +173,7 @@ export async function getQrCodesParaExportar(
   const { data, error } = await query;
   if (error) throw error;
 
-  const rows = (data ?? []) as unknown as QrCodeRow[];
-  return { rows: rows.slice(0, LIMITE_EXPORTACAO), truncado: rows.length > LIMITE_EXPORTACAO };
+  return resultadoExportacao((data ?? []) as unknown as QrCodeRow[]);
 }
 
 export async function getQrCode(id: number): Promise<QrCodeRow | null> {
@@ -184,12 +199,17 @@ export type Opcao = { value: string; label: string };
  * Site / Planta: um QR pode estar sendo corrigido justamente para sair de um
  * site desativado, e esconder a opcao impediria a correcao.
  */
-export async function getOpcoes(): Promise<{ sites: Opcao[]; gruposSites: Opcao[] }> {
+export async function getOpcoes(): Promise<{
+  sites: Opcao[];
+  gruposSites: Opcao[];
+  tiposServico: Opcao[];
+}> {
   const supabase = await createClient();
 
-  const [sites, grupos] = await Promise.all([
+  const [sites, grupos, tipos] = await Promise.all([
     supabase.from("sites").select("id, nome").order("nome"),
     supabase.from("grupos_sites").select("id, nome").order("nome"),
+    supabase.from("tipos_servico").select("id, nome").order("nome"),
   ]);
 
   return {
@@ -198,6 +218,7 @@ export async function getOpcoes(): Promise<{ sites: Opcao[]; gruposSites: Opcao[
       value: String(grupo.id),
       label: grupo.nome,
     })),
+    tiposServico: (tipos.data ?? []).map((tipo) => ({ value: String(tipo.id), label: tipo.nome })),
   };
 }
 
