@@ -1,6 +1,6 @@
 import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
-import { HEADERS_ESTATICOS } from "./lib/security-headers";
+import { HEADERS_ESTATICOS } from "./src/lib/security-headers";
 
 /**
  * IPs desta maquina na rede local, liberados como origem do `next dev`.

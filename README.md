@@ -1,6 +1,6 @@
 # performance-lab-login
 
-Portal operacional da **Up Serviços** (VeloxLab) — login, cadastros (sites,
+Portal operacional da **Up Serviços** — login, cadastros (sites,
 grupos de sites, QR-Codes, usuários, grupos de usuários) e inspeção das
 coletas importadas de campo.
 
@@ -79,16 +79,18 @@ Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 ## Estrutura
 
 ```
-app/                    App Router — páginas e rotas
-  dashboard/cadastros/   5 módulos (sites, grupos de sites, QR-Codes,
+src/
+  app/                   App Router — páginas e rotas
+    dashboard/cadastros/ 5 módulos (sites, grupos de sites, QR-Codes,
                          usuários, grupos de usuários), todos no mesmo
                          formato: page · novo · [id]/editar · actions ·
                          queries · Form · export/excel · export/pdf
-  dashboard/inspecoes/   Coletas importadas — listagem, filtros, exportação
-  api/                   Rotas de servidor (importação de coletas, webhook)
-components/              Componentes de UI — raiz é a tela de login,
+    dashboard/inspecoes/ Coletas importadas — listagem, filtros, exportação
+    api/                 Rotas de servidor (importação de coletas, webhook)
+  components/            Componentes de UI — raiz é a tela de login,
                          dashboard/ é o resto
-lib/                     Sessão, permissões, segurança, formato de dados
+  lib/                   Sessão, permissões, segurança, formato de dados
+  proxy.ts               Middleware de sessão (roda em toda rota, exceto API)
 supabase/
   migrations/            Schema, uma migration por mudança
   tests/database/        Testes pgTAP das políticas de RLS
