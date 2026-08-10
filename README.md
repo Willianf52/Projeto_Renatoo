@@ -97,6 +97,6 @@ docs/                    Documentação de contratos (ex.: importação de colet
 
 ## Documentação adicional
 
-- [`AUDITORIA-SEGURANCA.md`](./AUDITORIA-SEGURANCA.md) — levantamento de segurança
-- [`MELHORIAS.md`](./MELHORIAS.md) — backlog priorizado
+- [`docs/auditoria-seguranca.md`](./docs/auditoria-seguranca.md) — levantamento de segurança
+- [`docs/melhorias.md`](./docs/melhorias.md) — backlog priorizado
 - [`docs/importacao-de-coletas.md`](./docs/importacao-de-coletas.md) — contrato da rota `POST /api/importar/coletas`
