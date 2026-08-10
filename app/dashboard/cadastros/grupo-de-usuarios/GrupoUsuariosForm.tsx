@@ -125,21 +125,47 @@ export function GrupoUsuariosForm({
             className="min-w-0 flex-1 overflow-hidden rounded-md border border-slate-800 bg-brand-navy"
           >
             <div className={`relative ${aberto ? "border-b border-slate-800" : ""}`}>
-              <input
-                type="text"
-                value={busca}
-                onChange={(evento) => setBusca(evento.target.value)}
-                onFocus={() => setAberto(true)}
-                placeholder="Buscar usuário..."
-                aria-label="Buscar usuário"
-                className="w-full bg-transparent px-4 py-3 pr-9 text-white outline-none placeholder:text-brand-muted"
-              />
+              {/* Cada selecionado vira uma etiqueta removivel dentro da propria
+                  caixa, como na referencia -- a selecao fica visivel sem
+                  precisar abrir a lista, e o "x" tira da selecao sem precisar
+                  achar a linha de novo la embaixo. */}
+              <div className="flex flex-wrap items-center gap-1.5 py-2 pl-3 pr-9">
+                {candidatos
+                  .filter((candidato) => marcados.has(candidato.value))
+                  .map((candidato) => (
+                    <span
+                      key={candidato.value}
+                      className="inline-flex max-w-full items-center gap-1 rounded border border-slate-700 bg-brand-surface px-1.5 py-0.5 text-xs text-white"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => alternar(candidato.value)}
+                        aria-label={`Remover ${candidato.label}`}
+                        className="text-brand-muted hover:text-red-400"
+                      >
+                        ×
+                      </button>
+                      <span className="truncate">{candidato.label}</span>
+                    </span>
+                  ))}
+
+                <input
+                  type="text"
+                  value={busca}
+                  onChange={(evento) => setBusca(evento.target.value)}
+                  onFocus={() => setAberto(true)}
+                  placeholder={marcados.size === 0 ? "Buscar usuário..." : ""}
+                  aria-label="Buscar usuário"
+                  className="min-w-[80px] flex-1 bg-transparent py-0.5 text-white outline-none placeholder:text-brand-muted"
+                />
+              </div>
+
               <button
                 type="button"
                 onClick={() => setAberto((atual) => !atual)}
                 aria-label={aberto ? "Fechar lista de usuários" : "Abrir lista de usuários"}
                 aria-expanded={aberto}
-                className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-surface hover:text-white"
+                className="absolute right-2 top-3 flex h-6 w-6 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-surface hover:text-white"
               >
                 <ChevronDownIcon
                   className={`h-4 w-4 transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
@@ -165,8 +191,8 @@ export function GrupoUsuariosForm({
                           onClick={() => alternar(candidato.value)}
                           className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
                             selecionado
-                              ? "bg-brand-green/15 text-brand-green"
-                              : "text-white hover:bg-brand-surface"
+                              ? "bg-white/5 text-brand-muted"
+                              : "text-white hover:bg-brand-green/10"
                           }`}
                         >
                           {candidato.label}
