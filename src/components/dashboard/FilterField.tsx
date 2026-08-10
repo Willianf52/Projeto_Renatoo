@@ -13,11 +13,13 @@ export function FilterInput({
   type = "text",
   name,
   defaultValue,
+  className,
 }: {
   label: string;
   type?: "text" | "date" | "time";
   name?: string;
   defaultValue?: string;
+  className?: string;
 }) {
   return (
     <input
@@ -26,7 +28,7 @@ export function FilterInput({
       defaultValue={defaultValue}
       placeholder={label}
       aria-label={label}
-      className={fieldBaseClasses}
+      className={className ? `${fieldBaseClasses} ${className}` : fieldBaseClasses}
     />
   );
 }

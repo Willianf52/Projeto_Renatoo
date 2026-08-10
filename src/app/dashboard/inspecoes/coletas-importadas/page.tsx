@@ -1,6 +1,7 @@
 import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
+import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
 import {
@@ -106,86 +107,92 @@ export default async function ColetasImportadasPage({
 
         {/* GET nativo: recarrega a pagina com os filtros na querystring, sem
             JS no cliente. Os campos ja levam name/defaultValue combinando com
-            os parametros lidos em extrairFiltros. */}
+            os parametros lidos em extrairFiltros.
+
+            Grade de 6 colunas (a partir de xl), como na referencia: 16 celulas
+            no total (15 campos + Filtrar), Checkpoint vale 2 -- 17 -- mais o
+            buraco proposital depois de Qualificador fecham exatas 18 = 3
+            linhas x 6 colunas, sem sobra nem furo indesejado. Em telas
+            menores nao ha spans nem furos: 16 celulas dividem certo em 4, 2
+            ou 1 coluna. */}
         <form
           method="get"
-          className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end"
+          className="grid grid-cols-1 gap-3 border-b border-slate-800 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6"
         >
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            <FilterInput label="Data Inicial" type="date" name="data_inicial" defaultValue={filtros.dataInicial} />
-            <FilterInput label="Data Final" type="date" name="data_final" defaultValue={filtros.dataFinal} />
-            <FilterSelect
-              label="Localização"
-              name="localizacao"
-              defaultValue={filtros.localizacao}
-              options={LOCALIZACAO_OPTIONS}
-            />
-            <FilterSelect
-              label="Coletor de Dados"
-              name="coletor_dados"
-              defaultValue={filtros.coletorDados}
-              options={opcoes.coletoresDados}
-            />
-            <FilterSelect
-              label="Qualificador"
-              name="qualificador"
-              defaultValue={filtros.qualificador}
-              options={opcoes.qualificadores}
-            />
+          <FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue={filtros.dataInicial} />
+          <FilterDatePicker label="Data Final" name="data_final" defaultValue={filtros.dataFinal} />
+          <FilterSelect
+            label="Localização"
+            name="localizacao"
+            defaultValue={filtros.localizacao}
+            options={LOCALIZACAO_OPTIONS}
+          />
+          <FilterSelect
+            label="Coletor de Dados"
+            name="coletor_dados"
+            defaultValue={filtros.coletorDados}
+            options={opcoes.coletoresDados}
+          />
+          <FilterSelect
+            label="Qualificador"
+            name="qualificador"
+            defaultValue={filtros.qualificador}
+            options={opcoes.qualificadores}
+          />
 
-            {/* Uma celula so, sem `col-span`. Item que ocupa duas colunas nao
-                cabe na ultima coluna de uma linha e pula para a seguinte,
-                deixando um buraco -- foi o que aconteceu quando o filtro de
-                Localizacao saiu (0022) e a contagem deixou de fechar. Com todo
-                filtro valendo uma celula, o arranjo nao depende de quantos sao.
+          {/* col-start-1 forca a quebra pra linha 2 na grade de 6 colunas,
+              deixando a 6a celula da linha 1 vazia -- exatamente como na
+              referencia. Sem isso o auto-flow do grid preencheria aquela
+              celula com Hora Inicial em vez de pular a linha. */}
+          <FilterInput
+            label="Hora Inicial"
+            type="time"
+            name="hora_inicial"
+            defaultValue={filtros.horaInicial}
+            className="xl:col-start-1"
+          />
+          <FilterInput label="Hora Final" type="time" name="hora_final" defaultValue={filtros.horaFinal} />
+          <FilterSelect
+            label="Motivo Visita"
+            name="motivo_visita"
+            defaultValue={filtros.motivoVisita}
+            options={opcoes.motivosVisita}
+          />
+          <FilterSelect
+            label="Funcionários"
+            name="funcionario"
+            defaultValue={filtros.funcionario}
+            options={opcoes.funcionarios}
+          />
+          <FilterSelect label="Locais" name="local" defaultValue={filtros.local} options={opcoes.locais} />
+          <FilterSelect
+            label="Grupos de Sites"
+            name="grupo_site"
+            defaultValue={filtros.grupoSite}
+            options={opcoes.gruposSites}
+          />
 
-                Os dois `time` cabem juntos porque `FilterInput` tem `min-w-0`:
-                sem isso a largura intrinseca imposta pelo navegador (~98px cada)
-                os faria vazar por cima do campo vizinho. */}
-            <div className="flex min-w-0 gap-3">
-              <FilterInput label="Hora Inicial" type="time" name="hora_inicial" defaultValue={filtros.horaInicial} />
-              <FilterInput label="Hora Final" type="time" name="hora_final" defaultValue={filtros.horaFinal} />
-            </div>
+          <FilterSelect label="Eventos" name="evento" defaultValue={filtros.evento} options={opcoes.eventos} />
+          <FilterSelect label="Tipo" name="tipo" defaultValue={filtros.tipo} options={opcoes.tipos} />
+          <FilterSelect label="Áreas" name="area" defaultValue={filtros.area} options={opcoes.areas} />
+          {/* Span so a partir de xl: nas colunas menores Checkpoint e uma
+              celula normal (16 campos dividem certo em 4/2/1 coluna), entao
+              nao ha risco do span sobrar sem a proxima linha pra descer
+              inteiro -- o defeito que o comentario antigo evitava. */}
+          <div className="xl:col-span-2">
             <FilterSelect
-              label="Motivo Visita"
-              name="motivo_visita"
-              defaultValue={filtros.motivoVisita}
-              options={opcoes.motivosVisita}
+              label="Checkpoint"
+              name="checkpoint"
+              defaultValue={filtros.checkpoint}
+              options={opcoes.checkpoints}
             />
-            <FilterSelect
-              label="Funcionários"
-              name="funcionario"
-              defaultValue={filtros.funcionario}
-              options={opcoes.funcionarios}
-            />
-            <FilterSelect label="Locais" name="local" defaultValue={filtros.local} options={opcoes.locais} />
-            <FilterSelect
-              label="Grupos de Sites"
-              name="grupo_site"
-              defaultValue={filtros.grupoSite}
-              options={opcoes.gruposSites}
-            />
-
-            <FilterSelect label="Eventos" name="evento" defaultValue={filtros.evento} options={opcoes.eventos} />
-            <FilterSelect label="Tipo" name="tipo" defaultValue={filtros.tipo} options={opcoes.tipos} />
-            <FilterSelect label="Áreas" name="area" defaultValue={filtros.area} options={opcoes.areas} />
-            {/* Largo, como na referencia. Aqui o `col-span` e seguro porque
-                este e o ULTIMO item: se nao couber na linha, ele desce inteiro
-                em vez de deixar buraco atras de si -- que era o defeito do par
-                de horas quando ele ocupava duas colunas no meio da lista. */}
-            <div className="lg:col-span-2">
-              <FilterSelect
-                label="Checkpoint"
-                name="checkpoint"
-                defaultValue={filtros.checkpoint}
-                options={opcoes.checkpoints}
-              />
-            </div>
           </div>
 
+          {/* Ultima celula do grid, nao mais um irmao fora dele -- cai
+              naturalmente no canto inferior direito, como na referencia. */}
           <button
             type="submit"
-            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] xl:w-52"
+            className="group flex h-10 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97]"
           >
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar
