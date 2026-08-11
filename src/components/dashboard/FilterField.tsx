@@ -1,29 +1,32 @@
 import { ChevronDownIcon } from "./icons";
 
 /**
- * min-w-0 e essencial: inputs date/time tem largura minima intrinseca imposta
- * pelo navegador (~150px e ~98px). Sem isso eles se recusam a encolher e
- * vazam por cima do campo vizinho quando a coluna da grade e mais estreita.
+ * min-w-0 evita que o input se recuse a encolher e vaze por cima do campo
+ * vizinho quando a coluna da grade e mais estreita que a largura de conteudo.
  */
 const fieldBaseClasses =
   "h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green";
 
+/**
+ * So texto livre -- date e time viraram `FilterDatePicker`/`FilterTimePicker`
+ * (o `<input type="date/time">` nativo nao da pra estilizar, e no de time
+ * ignora `placeholder`: mostrava "--:--" identico em Hora Inicial e Hora
+ * Final, sem jeito de distinguir os dois campos a olho).
+ */
 export function FilterInput({
   label,
-  type = "text",
   name,
   defaultValue,
   className,
 }: {
   label: string;
-  type?: "text" | "date" | "time";
   name?: string;
   defaultValue?: string;
   className?: string;
 }) {
   return (
     <input
-      type={type}
+      type="text"
       name={name}
       defaultValue={defaultValue}
       placeholder={label}

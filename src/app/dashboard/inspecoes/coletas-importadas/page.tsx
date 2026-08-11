@@ -2,7 +2,8 @@ import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
-import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
+import { FilterSelect } from "@/components/dashboard/FilterField";
+import { FilterTimePicker } from "@/components/dashboard/FilterTimePicker";
 import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
 import {
   getColetas,
@@ -144,14 +145,13 @@ export default async function ColetasImportadasPage({
               deixando a 6a celula da linha 1 vazia -- exatamente como na
               referencia. Sem isso o auto-flow do grid preencheria aquela
               celula com Hora Inicial em vez de pular a linha. */}
-          <FilterInput
+          <FilterTimePicker
             label="Hora Inicial"
-            type="time"
             name="hora_inicial"
             defaultValue={filtros.horaInicial}
             className="xl:col-start-1"
           />
-          <FilterInput label="Hora Final" type="time" name="hora_final" defaultValue={filtros.horaFinal} />
+          <FilterTimePicker label="Hora Final" name="hora_final" defaultValue={filtros.horaFinal} />
           <FilterSelect
             label="Motivo Visita"
             name="motivo_visita"
