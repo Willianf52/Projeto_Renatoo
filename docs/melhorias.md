@@ -64,17 +64,67 @@ Nenhum item aberto nesta categoria no momento.
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-5. **`console.error` sem destino de observabilidade.** As linhas de
-    `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
-    das rotas de API agora carregam um id de correlação (`lib/log.ts` — ver
-    "Itens fechados"), mas o destino continua sendo só o stdout do servidor.
-    Mandar para um serviço (Sentry, Datadog etc.) exige credencial e serviço
-    externos que este ambiente não tem. O `TODO` em
-    `app/dashboard/error.tsx:13` marca o lugar de plugar isso quando existir.
+5. **Sentry ligado no código (2026-08-11), inerte até existir um DSN.**
+   `@sentry/nextjs` instalado; `src/instrumentation.ts` (servidor/edge) e
+   `src/instrumentation-client.ts` (navegador) chamam `Sentry.init` com
+   `dsn: process.env.SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — sem essas
+   variáveis (não configuradas em nenhum ambiente ainda) o SDK não envia nada,
+   é a forma documentada de ficar inerte. `lib/log.ts` (usado por
+   `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
+   pelas rotas de API) e os dois `error.tsx` (`app/error.tsx`,
+   `app/dashboard/error.tsx`) chamam `Sentry.captureException`/
+   `captureMessage` além do `console.error` de sempre. Falta só criar a conta
+   Sentry e colar o DSN em `.env.local`/no ambiente de produção — ver
+   `.env.example`.
 
 6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
+
+8. **Proteção contra senha vazada desligada no Supabase Auth.** Achado pelo
+   `get_advisors` (2026-08-11): a checagem contra HaveIBeenPwned.org não está
+   ativada. É um único toggle em Authentication → Policies no painel do
+   Supabase, sem custo — não dá para ligar por aqui, precisa ser feito
+   manualmente.
+
+9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
+   `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
+   recomendado é um schema próprio para extensões — mover exige uma migration
+   que recria os índices GIN que dependem dela (`grupos_sites`, `profiles`,
+   `sites`), então não é mudança de baixo risco o suficiente para fazer sem
+   revisão.
+
+10. **`salvarSite`/`salvarGrupoSite`/`salvarGrupoUsuarios`/`salvarQrCode`/`salvarUsuario` reimplementavam,
+    cada um, o mesmo extrator de `FormData` e a mesma tabela de tradução de
+    erro do Postgres.** Fechado (2026-08-11): `texto()` foi para
+    `lib/form-data.ts`, e `traduzirErroPostgres()`/`CODIGO_POSTGRES` para
+    `lib/postgrest-errors.ts` — cada `actions.ts` agora só declara as
+    mensagens específicas da própria tela. Os limites de tamanho por campo
+    (que viviam em mapas paralelos tipo `LIMITES_ENDERECO`/`ROTULOS`,
+    percorridos por um `for`) viraram schemas `zod` — limite e mensagem no
+    mesmo lugar, por campo, em vez de dois mapas que precisavam ser mantidos
+    em sincronia à mão. Regra de negócio cruzada entre campos (auto-referência
+    de site/grupo, raio, coordenadas, nível de acesso válido) continua
+    imperativa de propósito — não é duplicação, é lógica específica de cada
+    tela.
+
+    A decisão pós-escrita também se repetia igual nas quatro telas que
+    escrevem com o token da sessão (RLS ativo): `if (error) traduz; if
+    (!data) "sem permissão"` depois de todo UPDATE/DELETE/INSERT-com-select —
+    o UPDATE/DELETE barrado pelo RLS não devolve erro, devolve zero linhas, e
+    sem essa checagem a tela mostraria sucesso com o registro intacto.
+    Extraído para `lib/escrita-rls.ts` (`verificarEscritaComRls`), usado em
+    `site-planta`, `grupo-de-sites`, `grupo-de-usuarios` (insert, update e
+    exclusão) e `qr-code`. `usuarios/actions.ts` fica de fora de propósito —
+    escreve com `service_role`, que ignora RLS inteiro, mecanismo diferente.
+    Só a decisão foi compartilhada; a consulta em si (tabela, colunas,
+    mensagens) continua em cada `actions.ts`, então nenhum `.insert()`/
+    `.update()`/`.delete()` existente mudou de forma — os mocks dos testes não
+    precisaram mudar.
+
+    Cobertura: os 325 testes existentes passaram inalterados em cada etapa,
+    mais 3 novos para `escrita-rls.ts`, com lint/typecheck/build de produção
+    limpos ao final.
 
 ---
 
@@ -113,7 +163,7 @@ renumera.
 | Cliente Supabase do browser recriado a cada chamada | Singleton de módulo em `lib/supabase/client.ts`: `createClient()` memoiza a instância entre chamadas |
 | Botão desabilitado não alcança quem usa teclado | Componente único `components/dashboard/AcaoDesabilitada.tsx`, com `aria-disabled` + `onClick` no-op no lugar do atributo `disabled`, que preserva o foco por teclado. Precisou de `"use client"`: o `onClick` é uma função, e função não atravessa o limite servidor/cliente sem a diretiva |
 | `escaparLike` duplicado nas duas telas | Virou `lib/postgrest-escape.ts`, com teste próprio. `escaparPostgrest` foi junto, e a composição dos dois virou `termoParaOr` — a ordem entre eles não é intercambiável e agora está fixada num lugar só |
-| As policies de RLS não tinham um teste sequer | `supabase/config.toml` criado (via `supabase init`) e quatro suites pgTAP em `supabase/tests/database/`: conta nova nasce inativa/OPERADOR mesmo forjando `raw_user_meta_data` (0005/0008), OPERADOR não lê perfil alheio e GESTOR/SUPERVISOR ativos leem (0006), `anon` não escreve em `grupos_sites` (0010), UPDATE em `cargo`/`ativo` negado para `authenticated` (0007). **Não executado neste ambiente** — sem Docker para `supabase start`. Rodar com `pnpm test:db` antes de confiar |
+| As policies de RLS não tinham um teste sequer | `supabase/config.toml` criado (via `supabase init`) e sete suites pgTAP em `supabase/tests/database/`: conta nova nasce inativa/OPERADOR mesmo forjando `raw_user_meta_data` (0005/0008), OPERADOR não lê perfil alheio e GESTOR/SUPERVISOR ativos leem (0006), `anon` não escreve em `grupos_sites` (0010), UPDATE em `cargo`/`ativo` negado para `authenticated` (0007), dedup de leitura sem área (0017), `pode_administrar_usuarios()` (0013) e escopo de CLIENTE (0014). **Executadas (2026-08-11)** direto contra o projeto de produção, cada uma dentro de `begin;...rollback;` própria — branch de desenvolvimento não está disponível no plano atual do Supabase, e é o caminho que fica pendente para quando houver. 32/32 asserts passaram, nada persistiu. Achado no processo: `escopo_de_cliente_test.sql` tinha um bug de sintaxe nunca detectado (`id like` contra coluna `uuid` sem cast) — corrigido para `id::text like`. `pnpm test:db` continua sendo o caminho de verdade quando houver Docker ou branch |
 | Nenhum teste de ponta a ponta do fluxo de auth | Playwright instalado (`e2e/`, `playwright.config.ts`, `pnpm test:e2e`). Seis specs rodam sem credencial nenhuma e passam. Login → dashboard e conta inativa barrada estão escritos mas pulam sozinhos sem `E2E_EMAIL`/`E2E_PASSWORD`/`E2E_INACTIVE_EMAIL`/`E2E_INACTIVE_PASSWORD`. Fora do CI de propósito: rodar contra o Supabase real consome o rate limit de auth dele a cada push |
 | Botões de exportar Excel/PDF sem handler | "Exportar para Excel" virou CSV (`lib/csv.ts` — ponto e vírgula como separador e BOM UTF-8, para abrir certo no Excel em pt-BR); "Exportar para PDF" é uma tela de impressão (`components/dashboard/TabelaImpressao.tsx` + `ImprimirAoAbrir`) que dispara `window.print()`. As rotas respeitam o mesmo filtro da listagem, com teto de 2000 linhas e aviso de truncamento. Site / Planta nasceu já com as duas |
 | `console.error` sem correlação | `lib/log.ts`: cada log do middleware, `perfil-atual.ts` e das rotas de API carrega um id curto por requisição/invocação. O destino (mandar para um serviço externo) segue em aberto — linha própria na lista acima |

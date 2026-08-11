@@ -2,14 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import { verificarEscritaComRls } from "@/lib/escrita-rls";
+import { texto } from "@/lib/form-data";
+import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
 
 const LISTAGEM = "/dashboard/cadastros/qr-code";
 
 /** Limites de aplicacao, nao do banco -- mesmo criterio das demais telas de
  * cadastro: recusam colagem acidental de texto enorme, nao regra de negocio. */
-const LIMITE_CODIGO = 100;
-const LIMITE_FINALIDADE = 200;
+const esquemaDeTexto = z.object({
+  codigo: z
+    .string()
+    .min(1, "Informe o código do QR.")
+    .max(100, "O código deve ter no máximo 100 caracteres.")
+    /**
+     * O codigo e lido de uma etiqueta por um leitor e depois casado por nome
+     * na importacao. Espaco em branco no meio e caractere invisivel
+     * sobrevivem ao `trim` das bordas e produzem um cadastro que parece certo
+     * na tela e nunca casa com o lote -- o tipo de defeito que ninguem liga
+     * ao cadastro. Lista fechada de caracteres resolve sem inventar formato.
+     */
+    .regex(/^[A-Za-z0-9._-]+$/, "O código aceita apenas letras, números, ponto, hífen e sublinhado — sem espaços."),
+  finalidade: z.string().max(200, "A finalidade deve ter no máximo 200 caracteres."),
+});
 
 export type ValoresDoQrCode = {
   codigo: string;
@@ -26,9 +43,9 @@ export type EstadoDoFormulario = {
 
 function extrairValores(formData: FormData): ValoresDoQrCode {
   return {
-    codigo: String(formData.get("codigo") ?? "").trim(),
-    siteId: String(formData.get("site_id") ?? "").trim(),
-    finalidade: String(formData.get("finalidade") ?? "").trim(),
+    codigo: texto(formData, "codigo"),
+    siteId: texto(formData, "site_id"),
+    finalidade: texto(formData, "finalidade"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     ativo: formData.get("ativo") !== null,
   };
@@ -44,30 +61,9 @@ type LinhaDoQrCode = {
 function validar(
   valores: ValoresDoQrCode,
 ): { ok: true; linha: LinhaDoQrCode } | { ok: false; erro: string } {
-  if (!valores.codigo) return { ok: false, erro: "Informe o código do QR." };
-  if (valores.codigo.length > LIMITE_CODIGO) {
-    return { ok: false, erro: `O código deve ter no máximo ${LIMITE_CODIGO} caracteres.` };
-  }
-
-  /**
-   * O codigo e lido de uma etiqueta por um leitor e depois casado por nome na
-   * importacao. Espaco em branco no meio e caractere invisivel sobrevivem ao
-   * `trim` das bordas e produzem um cadastro que parece certo na tela e nunca
-   * casa com o lote -- o tipo de defeito que ninguem liga ao cadastro. Lista
-   * fechada de caracteres resolve sem inventar formato.
-   */
-  if (!/^[A-Za-z0-9._-]+$/.test(valores.codigo)) {
-    return {
-      ok: false,
-      erro: "O código aceita apenas letras, números, ponto, hífen e sublinhado — sem espaços.",
-    };
-  }
-
-  if (valores.finalidade.length > LIMITE_FINALIDADE) {
-    return {
-      ok: false,
-      erro: `A finalidade deve ter no máximo ${LIMITE_FINALIDADE} caracteres.`,
-    };
+  const textoValidado = esquemaDeTexto.safeParse(valores);
+  if (!textoValidado.success) {
+    return { ok: false, erro: textoValidado.error.issues[0].message };
   }
 
   const siteId = Number(valores.siteId);
@@ -86,25 +82,13 @@ function validar(
   };
 }
 
-/** `codigo` e unique (migration 0003). Sem esta traducao o usuario receberia o
- * texto cru do Postgres, que cita o nome da constraint e nao explica nada. */
-const CODIGO_DUPLICADO = "23505";
-
-/** INSERT barrado pelo RLS. Diferente do UPDATE, que passa em silencio, o
- * insert falha alto -- e a mensagem generica faria a pessoa repetir a acao
- * para sempre, porque tentar de novo nao resolve. */
-const SEM_PERMISSAO = "42501";
-
-/** FK apontando para site que sumiu entre o carregamento do formulario e o
- * envio. */
-const FK_INVALIDA = "23503";
-
-function traduzirErro(codigo: string | undefined): string {
-  if (codigo === CODIGO_DUPLICADO) return "Já existe um QR-Code com esse código.";
-  if (codigo === SEM_PERMISSAO) return "Você não tem permissão para cadastrar QR-Codes.";
-  if (codigo === FK_INVALIDA) return "O site selecionado não existe mais. Recarregue a página.";
-  return "Não foi possível salvar o QR-Code. Tente novamente.";
-}
+/** `codigo` e unique (migration 0003). */
+const MENSAGENS_DE_ERRO = {
+  duplicado: "Já existe um QR-Code com esse código.",
+  semPermissao: "Você não tem permissão para cadastrar QR-Codes.",
+  fkInvalida: "O site selecionado não existe mais. Recarregue a página.",
+  generico: "Não foi possível salvar o QR-Code. Tente novamente.",
+};
 
 export async function salvarQrCode(
   _estado: EstadoDoFormulario,
@@ -126,29 +110,23 @@ export async function salvarQrCode(
   if (id === null) {
     const { error } = await supabase.from("qr_codes").insert(validacao.linha);
 
-    if (error) return { erro: traduzirErro(error.code), valores };
+    if (error) return { erro: traduzirErroPostgres(error.code, MENSAGENS_DE_ERRO), valores };
   } else {
-    /**
-     * O `.select()` nao e enfeite, mesmo motivo das demais telas: um UPDATE
-     * barrado pelo RLS nao devolve erro, devolve zero linhas alteradas. Sem
-     * conferir isso, quem nao tem permissao veria a mensagem de sucesso e
-     * voltaria para a listagem com o registro intacto.
-     */
-    const { data, error } = await supabase
+    // Ver `lib/escrita-rls.ts`: um UPDATE barrado pelo RLS nao devolve erro,
+    // devolve zero linhas alteradas.
+    const resultado = await supabase
       .from("qr_codes")
       .update(validacao.linha)
       .eq("id", id)
       .select("id")
       .maybeSingle();
 
-    if (error) return { erro: traduzirErro(error.code), valores };
-
-    if (!data) {
-      return {
-        erro: "Você não tem permissão para editar este QR-Code, ou ele não existe mais.",
-        valores,
-      };
-    }
+    const verificacao = verificarEscritaComRls(
+      resultado,
+      MENSAGENS_DE_ERRO,
+      "Você não tem permissão para editar este QR-Code, ou ele não existe mais.",
+    );
+    if (!verificacao.ok) return { erro: verificacao.erro, valores };
   }
 
   revalidatePath(LISTAGEM);

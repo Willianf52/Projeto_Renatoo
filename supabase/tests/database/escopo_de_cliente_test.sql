@@ -15,8 +15,12 @@
 -- E verifica a terceira, que e a que quebraria calado: quem NAO e cliente
 -- continua vendo tudo, sem depender de vinculo nenhum.
 --
--- NAO EXECUTADO NESTE AMBIENTE: sem Docker aqui para `supabase start`. Rodar
--- com `supabase test db --local supabase/tests/database` antes de confiar.
+-- Executado (2026-08-11) direto contra o projeto Supabase de producao, dentro
+-- de uma transacao com rollback -- branch de desenvolvimento nao esta
+-- disponivel no plano atual. 10/10 asserts passaram; nada persistiu. Achado
+-- na primeira tentativa: `where id like` nao compila contra uma coluna uuid
+-- sem cast -- corrigido para `id::text like` abaixo. `pnpm test:db` continua
+-- sendo o caminho de verdade quando houver Docker.
 -- ============================================================================
 
 begin;
@@ -31,7 +35,7 @@ values
   ('c0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'gestor.escopo@teste.local'),
   ('c0000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'operador.escopo@teste.local');
 
-update public.profiles set ativo = true where id like 'c0000000%';
+update public.profiles set ativo = true where id::text like 'c0000000%';
 update public.profiles set cargo = 'CLIENTE'  where id in (
   'c0000000-0000-0000-0000-000000000001',
   'c0000000-0000-0000-0000-000000000002'

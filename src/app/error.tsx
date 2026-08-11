@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { BrandLogo } from "@/components/HeroPanel";
 
 /**
@@ -22,8 +23,9 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: encaminhar para um servico de observabilidade quando existir um.
     console.error("Erro na aplicação:", error);
+    // Sem SENTRY_DSN configurado isto e um no-op -- ver instrumentation-client.ts.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

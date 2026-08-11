@@ -2,13 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import { verificarEscritaComRls } from "@/lib/escrita-rls";
+import { texto } from "@/lib/form-data";
+import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
 
 const LISTAGEM = "/dashboard/cadastros/grupo-de-usuarios";
 
 /** Limites de aplicacao, nao do banco -- mesmo criterio das demais telas. */
-const LIMITE_NOME = 200;
-const LIMITE_DESCRICAO = 500;
+const esquemaDeTexto = z.object({
+  nome: z.string().min(1, "Informe o nome do grupo.").max(200, "O nome deve ter no máximo 200 caracteres."),
+  descricao: z.string().max(500, "A descrição deve ter no máximo 500 caracteres."),
+});
 
 export type ValoresDoGrupo = {
   nome: string;
@@ -28,8 +34,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function extrairValores(formData: FormData): ValoresDoGrupo {
   return {
-    nome: String(formData.get("nome") ?? "").trim(),
-    descricao: String(formData.get("descricao") ?? "").trim(),
+    nome: texto(formData, "nome"),
+    descricao: texto(formData, "descricao"),
     // `getAll`: sao varios checkboxes com o mesmo name, um por pessoa.
     membros: formData
       .getAll("membros")
@@ -39,13 +45,9 @@ function extrairValores(formData: FormData): ValoresDoGrupo {
 }
 
 function validar(valores: ValoresDoGrupo): string | null {
-  if (!valores.nome) return "Informe o nome do grupo.";
-  if (valores.nome.length > LIMITE_NOME) {
-    return `O nome deve ter no máximo ${LIMITE_NOME} caracteres.`;
-  }
-  if (valores.descricao.length > LIMITE_DESCRICAO) {
-    return `A descrição deve ter no máximo ${LIMITE_DESCRICAO} caracteres.`;
-  }
+  const textoValidado = esquemaDeTexto.safeParse(valores);
+  if (!textoValidado.success) return textoValidado.error.issues[0].message;
+
   if (valores.membros.some((id) => !UUID.test(id))) return "Membro inválido.";
 
   // Dois checkboxes com o mesmo valor violariam a PK (grupo_id, profile_id) e
@@ -58,16 +60,13 @@ function validar(valores: ValoresDoGrupo): string | null {
   return null;
 }
 
-/** `nome` e unique (migration 0003). */
-const NOME_DUPLICADO = "23505";
-/** Escrita barrada pelo RLS. */
-const SEM_PERMISSAO = "42501";
-
-function traduzirErro(codigo: string | undefined): string {
-  if (codigo === NOME_DUPLICADO) return "Já existe um grupo de usuários com esse nome.";
-  if (codigo === SEM_PERMISSAO) return "Você não tem permissão para administrar grupos de usuários.";
-  return "Não foi possível salvar o grupo. Tente novamente.";
-}
+/** `nome` e unique (migration 0003). Sem FK que a pessoa possa provocar aqui:
+ * `mensagens` fica sem `fkInvalida` de proposito, e o generico cobre o caso. */
+const MENSAGENS_DE_ERRO = {
+  duplicado: "Já existe um grupo de usuários com esse nome.",
+  semPermissao: "Você não tem permissão para administrar grupos de usuários.",
+  generico: "Não foi possível salvar o grupo. Tente novamente.",
+};
 
 export type EstadoDaExclusao = { erro?: string };
 
@@ -94,23 +93,20 @@ export async function excluirGrupoUsuarios(
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("grupos_usuarios")
-    .delete()
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    if (error.code === SEM_PERMISSAO) return { erro: traduzirErro(SEM_PERMISSAO) };
-    return { erro: "Não foi possível excluir o grupo. Tente novamente." };
-  }
+  const resultado = await supabase.from("grupos_usuarios").delete().eq("id", id).select("id").maybeSingle();
 
   // Zero linhas: ou a policy recusou, ou alguem ja apagou. Os dois casos dizem
   // a mesma coisa a quem esta na tela -- o grupo nao saiu por sua mao.
-  if (!data) {
-    return { erro: "Você não tem permissão para excluir este grupo, ou ele já não existe." };
-  }
+  const verificacao = verificarEscritaComRls(
+    resultado,
+    {
+      duplicado: "Não foi possível excluir o grupo. Tente novamente.",
+      semPermissao: MENSAGENS_DE_ERRO.semPermissao,
+      generico: "Não foi possível excluir o grupo. Tente novamente.",
+    },
+    "Você não tem permissão para excluir este grupo, ou ele já não existe.",
+  );
+  if (!verificacao.ok) return { erro: verificacao.erro };
 
   revalidatePath(LISTAGEM);
   return {};
@@ -173,47 +169,32 @@ export async function salvarGrupoUsuarios(
 
   if (id === null) {
     // `.select()` para recuperar o id gerado: os membros precisam dele, e sem
-    // isto seria uma segunda consulta buscando o grupo pelo nome.
-    const { data, error } = await supabase
-      .from("grupos_usuarios")
-      .insert(linha)
-      .select("id")
-      .maybeSingle();
+    // isto seria uma segunda consulta buscando o grupo pelo nome. Tambem cobre
+    // o caso raro de INSERT aceito mas cuja policy de leitura recusa o
+    // `select` de volta -- prosseguir dali gravaria membros num grupo que nao
+    // da para confirmar que existe.
+    const resultado = await supabase.from("grupos_usuarios").insert(linha).select("id").maybeSingle();
 
-    if (error) return { erro: traduzirErro(error.code), valores };
-    if (!data) {
-      // INSERT barrado pelo RLS devolve erro, mas um `select` pos-insert que
-      // a policy de leitura recuse voltaria vazio -- e prosseguir daqui
-      // gravaria membros num grupo que nao da para confirmar que existe.
-      return { erro: traduzirErro(SEM_PERMISSAO), valores };
-    }
-
-    grupoId = data.id;
+    const verificacao = verificarEscritaComRls(resultado, MENSAGENS_DE_ERRO, MENSAGENS_DE_ERRO.semPermissao);
+    if (!verificacao.ok) return { erro: verificacao.erro, valores };
+    grupoId = verificacao.data.id;
   } else {
-    /**
-     * O `.select()` nao e enfeite, mesmo motivo das demais telas: um UPDATE
-     * barrado pelo RLS nao devolve erro, devolve zero linhas alteradas.
-     */
-    const { data, error } = await supabase
-      .from("grupos_usuarios")
-      .update(linha)
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
+    // Ver `lib/escrita-rls.ts`: um UPDATE barrado pelo RLS nao devolve erro,
+    // devolve zero linhas alteradas.
+    const resultado = await supabase.from("grupos_usuarios").update(linha).eq("id", id).select("id").maybeSingle();
 
-    if (error) return { erro: traduzirErro(error.code), valores };
-    if (!data) {
-      return {
-        erro: "Você não tem permissão para editar este grupo, ou ele não existe mais.",
-        valores,
-      };
-    }
+    const verificacao = verificarEscritaComRls(
+      resultado,
+      MENSAGENS_DE_ERRO,
+      "Você não tem permissão para editar este grupo, ou ele não existe mais.",
+    );
+    if (!verificacao.ok) return { erro: verificacao.erro, valores };
 
     grupoId = id;
   }
 
   const erroDeMembros = await sincronizarMembros(supabase, grupoId, valores.membros);
-  if (erroDeMembros) return { erro: traduzirErro(erroDeMembros), valores };
+  if (erroDeMembros) return { erro: traduzirErroPostgres(erroDeMembros, MENSAGENS_DE_ERRO), valores };
 
   revalidatePath(LISTAGEM);
   redirect(LISTAGEM);

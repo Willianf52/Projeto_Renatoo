@@ -9,8 +9,9 @@
 -- `request.jwt.claims` -- e como `auth.uid()` le a sessao de verdade, e o
 -- padrao documentado pela Supabase para testar RLS com pgTAP.
 --
--- NAO EXECUTADO NESTE AMBIENTE: sem Docker aqui para `supabase start`. Rodar
--- com `supabase test db --local supabase/tests/database` antes de confiar.
+-- Executado (2026-08-11) direto contra o projeto Supabase de producao, dentro
+-- de uma transacao com rollback -- branch de desenvolvimento nao esta
+-- disponivel no plano atual. 4/4 asserts passaram; nada persistiu.
 -- ============================================================================
 
 begin;

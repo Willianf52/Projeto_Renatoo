@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import { texto } from "@/lib/form-data";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { isPasswordValid } from "@/lib/password-policy";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
@@ -27,8 +29,18 @@ import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
 
 const LISTAGEM = "/dashboard/cadastros/usuarios";
 
-const LIMITE_NOME = 200;
-const LIMITE_TEXTO = 100;
+/** `login`/`funcao` compartilham mensagem de proposito -- a tela nunca disse
+ * qual dos dois passou do limite, so que algum passou. */
+const MENSAGEM_LOGIN_FUNCAO = "Login e função devem ter no máximo 100 caracteres.";
+
+const esquemaDeTexto = z.object({
+  nomeCompleto: z
+    .string()
+    .min(1, "Informe o nome completo.")
+    .max(200, "O nome deve ter no máximo 200 caracteres."),
+  login: z.string().max(100, MENSAGEM_LOGIN_FUNCAO),
+  funcao: z.string().max(100, MENSAGEM_LOGIN_FUNCAO),
+});
 
 const CARGOS_VALIDOS = new Set(NIVEIS_ACESSO.map((nivel) => nivel.value));
 const TIPOS_VALIDOS = new Set(TIPOS_USUARIO.map((tipo) => tipo.value));
@@ -57,10 +69,6 @@ export type EstadoDoFormulario = {
   /** Devolvido para o formulario nao perder o que a pessoa digitou. */
   valores?: ValoresDoUsuario;
 };
-
-function texto(formData: FormData, campo: string): string {
-  return String(formData.get(campo) ?? "").trim();
-}
 
 function extrairValores(formData: FormData): ValoresDoUsuario {
   return {
@@ -96,13 +104,8 @@ function recusar(erroDeValidacao: string, valores: ValoresDoUsuario): EstadoDoFo
 /** Validacao comum a criar e editar. A senha e checada a parte: obrigatoria na
  * criacao, opcional na edicao. */
 function validar(valores: ValoresDoUsuario): string | null {
-  if (!valores.nomeCompleto) return "Informe o nome completo.";
-  if (valores.nomeCompleto.length > LIMITE_NOME) {
-    return `O nome deve ter no máximo ${LIMITE_NOME} caracteres.`;
-  }
-  if (valores.login.length > LIMITE_TEXTO || valores.funcao.length > LIMITE_TEXTO) {
-    return `Login e função devem ter no máximo ${LIMITE_TEXTO} caracteres.`;
-  }
+  const textoValidado = esquemaDeTexto.safeParse(valores);
+  if (!textoValidado.success) return textoValidado.error.issues[0].message;
 
   // Lista fechada, espelhando `profiles_cargo_check` (migration 0003). Sem
   // esta checagem o valor iria cru para o banco e voltaria como erro de

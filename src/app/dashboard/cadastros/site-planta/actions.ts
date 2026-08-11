@@ -2,54 +2,47 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import { verificarEscritaComRls } from "@/lib/escrita-rls";
+import { texto } from "@/lib/form-data";
+import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
 
 const LISTAGEM = "/dashboard/cadastros/site-planta";
 
-/** Limites de aplicacao, nao do banco -- mesmo criterio de
- * `grupo-de-sites/actions.ts`: recusam colagem acidental de texto enorme, nao
- * regra de negocio. `uf` e a excecao: e `char(2)` no banco (migration 0003). */
-const LIMITE_NOME = 200;
-const LIMITE_SIGLA = 20;
-const LIMITE_REGIONAL = 100;
-const LIMITE_CIDADE = 100;
-const LIMITE_OBSERVACAO = 1000;
-
 /**
- * Limites dos campos da migration 0021. Todos sao text no banco, sem tamanho:
- * estes numeros sao da aplicacao, para recusar colagem acidental de texto
- * enorme -- nao regra de negocio.
+ * Limites de aplicacao, nao do banco -- recusam colagem acidental de texto
+ * enorme, nao regra de negocio. `uf` e a excecao: e `char(2)` no banco
+ * (migration 0003), validada a parte por regex.
  *
- * `cod_cliente`, `cod_posto` e `filial` sao chaves de sistemas de terceiros;
- * folgados de proposito, porque nao temos como saber o formato deles.
+ * Limite e mensagem vivem juntos, campo a campo, em vez de dois mapas
+ * paralelos (limites + rotulos) percorridos por um loop -- era exatamente o
+ * formato onde "esqueci de adicionar o campo novo em um dos dois mapas"
+ * virava um bug silencioso (campo sem limite, ou limite sem mensagem).
+ *
+ * `codCliente`/`codPosto`/`filial` (migration 0021) ficam folgados de
+ * proposito: sao chaves de sistemas de terceiros, formato desconhecido.
  */
-const LIMITES_ENDERECO: Record<string, number> = {
-  cep: 20,
-  endereco: 200,
-  numero: 20,
-  bairro: 100,
-  complemento: 100,
-  pais: 60,
-  codCliente: 50,
-  codPosto: 50,
-  filial: 50,
-  infoAdicional1: 200,
-  infoAdicional2: 200,
-};
-
-const ROTULOS: Record<string, string> = {
-  cep: "O CEP",
-  endereco: "O endereço",
-  numero: "O número",
-  bairro: "O bairro",
-  complemento: "O complemento",
-  pais: "O país",
-  codCliente: "O código do cliente",
-  codPosto: "O código do posto",
-  filial: "A filial",
-  infoAdicional1: "A informação adicional 1",
-  infoAdicional2: "A informação adicional 2",
-};
+const esquemaDeTexto = z.object({
+  nome: z.string().min(1, "Informe o nome do site.").max(200, "O nome deve ter no máximo 200 caracteres."),
+  sigla: z.string().max(20, "A sigla deve ter no máximo 20 caracteres."),
+  regional: z.string().max(100, "A regional deve ter no máximo 100 caracteres."),
+  cidade: z.string().max(100, "A cidade deve ter no máximo 100 caracteres."),
+  observacao: z.string().max(1000, "A observação deve ter no máximo 1000 caracteres."),
+  // Sem mascara de formato de proposito: o cadastro tambem atende endereco
+  // fora do Brasil, e um padrao de 8 digitos recusaria um CEP legitimo.
+  cep: z.string().max(20, "O CEP deve ter no máximo 20 caracteres."),
+  endereco: z.string().max(200, "O endereço deve ter no máximo 200 caracteres."),
+  numero: z.string().max(20, "O número deve ter no máximo 20 caracteres."),
+  bairro: z.string().max(100, "O bairro deve ter no máximo 100 caracteres."),
+  complemento: z.string().max(100, "O complemento deve ter no máximo 100 caracteres."),
+  pais: z.string().max(60, "O país deve ter no máximo 60 caracteres."),
+  codCliente: z.string().max(50, "O código do cliente deve ter no máximo 50 caracteres."),
+  codPosto: z.string().max(50, "O código do posto deve ter no máximo 50 caracteres."),
+  filial: z.string().max(50, "A filial deve ter no máximo 50 caracteres."),
+  infoAdicional1: z.string().max(200, "A informação adicional 1 deve ter no máximo 200 caracteres."),
+  infoAdicional2: z.string().max(200, "A informação adicional 2 deve ter no máximo 200 caracteres."),
+});
 
 export type ValoresDoSite = {
   nome: string;
@@ -88,10 +81,6 @@ export type EstadoDoFormulario = {
   /** Devolvido para o formulario nao perder o que a pessoa digitou. */
   valores?: ValoresDoSite;
 };
-
-function texto(formData: FormData, campo: string): string {
-  return String(formData.get(campo) ?? "").trim();
-}
 
 function extrairValores(formData: FormData): ValoresDoSite {
   return {
@@ -210,24 +199,9 @@ function validar(
   valores: ValoresDoSite,
   idEmEdicao: number | null,
 ): { ok: true; linha: LinhaDoSite } | { ok: false; erro: string } {
-  if (!valores.nome) return { ok: false, erro: "Informe o nome do site." };
-  if (valores.nome.length > LIMITE_NOME) {
-    return { ok: false, erro: `O nome deve ter no máximo ${LIMITE_NOME} caracteres.` };
-  }
-  if (valores.sigla.length > LIMITE_SIGLA) {
-    return { ok: false, erro: `A sigla deve ter no máximo ${LIMITE_SIGLA} caracteres.` };
-  }
-  if (valores.regional.length > LIMITE_REGIONAL) {
-    return { ok: false, erro: `A regional deve ter no máximo ${LIMITE_REGIONAL} caracteres.` };
-  }
-  if (valores.cidade.length > LIMITE_CIDADE) {
-    return { ok: false, erro: `A cidade deve ter no máximo ${LIMITE_CIDADE} caracteres.` };
-  }
-  if (valores.observacao.length > LIMITE_OBSERVACAO) {
-    return {
-      ok: false,
-      erro: `A observação deve ter no máximo ${LIMITE_OBSERVACAO} caracteres.`,
-    };
+  const textoValidado = esquemaDeTexto.safeParse(valores);
+  if (!textoValidado.success) {
+    return { ok: false, erro: textoValidado.error.issues[0].message };
   }
 
   // `uf` e char(2) no banco: um valor maior seria truncado em silencio pelo
@@ -248,16 +222,6 @@ function validar(
     tipoServicoId = Number(valores.tipoServicoId);
     if (!Number.isInteger(tipoServicoId)) {
       return { ok: false, erro: "Tipo de serviço inválido." };
-    }
-  }
-
-  // Campos da 0021: so limite de tamanho, sem formato imposto. CEP fica text
-  // livre de proposito -- o cadastro tambem atende endereco fora do Brasil, e
-  // uma mascara de 8 digitos recusaria um codigo postal legitimo.
-  for (const [campo, limite] of Object.entries(LIMITES_ENDERECO)) {
-    const valor = valores[campo as keyof ValoresDoSite];
-    if (typeof valor === "string" && valor.length > limite) {
-      return { ok: false, erro: `${ROTULOS[campo]} deve ter no máximo ${limite} caracteres.` };
     }
   }
 
@@ -318,32 +282,13 @@ function validar(
   };
 }
 
-/** `(grupo_site_id, nome)` e unique (migration 0012). Sem esta traducao o
- * usuario receberia o texto cru do Postgres, que cita o nome da constraint e
- * nao explica nada. */
-const CODIGO_NOME_DUPLICADO = "23505";
-
-/** INSERT barrado pelo RLS. Diferente do UPDATE, que passa em silencio, o
- * insert falha alto -- e a mensagem generica ("tente novamente") faria a
- * pessoa repetir a acao para sempre, porque tentar de novo nao resolve. */
-const CODIGO_SEM_PERMISSAO = "42501";
-
-/** FK apontando para registro inexistente: grupo ou tipo de servico apagado
- * entre o carregamento do formulario e o envio. */
-const CODIGO_FK_INVALIDA = "23503";
-
-function traduzirErro(codigo: string | undefined): string {
-  if (codigo === CODIGO_NOME_DUPLICADO) {
-    return "Já existe um site com esse nome neste grupo.";
-  }
-  if (codigo === CODIGO_SEM_PERMISSAO) {
-    return "Você não tem permissão para cadastrar sites.";
-  }
-  if (codigo === CODIGO_FK_INVALIDA) {
-    return "Grupo, tipo de serviço ou responsável não existe mais. Recarregue a página.";
-  }
-  return "Não foi possível salvar o site. Tente novamente.";
-}
+/** `(grupo_site_id, nome)` e unique (migration 0012). */
+const MENSAGENS_DE_ERRO = {
+  duplicado: "Já existe um site com esse nome neste grupo.",
+  semPermissao: "Você não tem permissão para cadastrar sites.",
+  fkInvalida: "Grupo, tipo de serviço ou responsável não existe mais. Recarregue a página.",
+  generico: "Não foi possível salvar o site. Tente novamente.",
+};
 
 export async function salvarSite(
   _estado: EstadoDoFormulario,
@@ -367,29 +312,18 @@ export async function salvarSite(
   if (id === null) {
     const { error } = await supabase.from("sites").insert(validacao.linha);
 
-    if (error) return { erro: traduzirErro(error.code), valores };
+    if (error) return { erro: traduzirErroPostgres(error.code, MENSAGENS_DE_ERRO), valores };
   } else {
-    /**
-     * O `.select()` nao e enfeite, mesmo motivo de `grupo-de-sites/actions.ts`:
-     * um UPDATE barrado pelo RLS nao devolve erro, devolve zero linhas
-     * alteradas. Sem conferir isso, quem nao tem permissao veria a mensagem de
-     * sucesso e voltaria para a listagem com o registro intacto.
-     */
-    const { data, error } = await supabase
-      .from("sites")
-      .update(validacao.linha)
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
+    // `.select()` nao e enfeite -- ver `lib/escrita-rls.ts`: um UPDATE barrado
+    // pelo RLS nao devolve erro, devolve zero linhas alteradas.
+    const resultado = await supabase.from("sites").update(validacao.linha).eq("id", id).select("id").maybeSingle();
 
-    if (error) return { erro: traduzirErro(error.code), valores };
-
-    if (!data) {
-      return {
-        erro: "Você não tem permissão para editar este site, ou ele não existe mais.",
-        valores,
-      };
-    }
+    const verificacao = verificarEscritaComRls(
+      resultado,
+      MENSAGENS_DE_ERRO,
+      "Você não tem permissão para editar este site, ou ele não existe mais.",
+    );
+    if (!verificacao.ok) return { erro: verificacao.erro, valores };
   }
 
   revalidatePath(LISTAGEM);

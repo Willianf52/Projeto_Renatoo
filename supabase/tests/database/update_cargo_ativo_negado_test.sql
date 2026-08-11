@@ -7,8 +7,9 @@
 -- -- e um bloqueio de GRANT, evolucao da RLS: o UPDATE lanca erro de
 -- privilegio (42501) antes da policy ser avaliada.
 --
--- NAO EXECUTADO NESTE AMBIENTE: sem Docker aqui para `supabase start`. Rodar
--- com `supabase test db --local supabase/tests/database` antes de confiar.
+-- Executado (2026-08-11) direto contra o projeto Supabase de producao, dentro
+-- de uma transacao com rollback -- branch de desenvolvimento nao esta
+-- disponivel no plano atual. 3/3 asserts passaram; nada persistiu.
 -- ============================================================================
 
 begin;

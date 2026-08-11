@@ -1,5 +1,6 @@
 import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 import { HEADERS_ESTATICOS } from "./src/lib/security-headers";
 
 /**
@@ -42,4 +43,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Sem SENTRY_AUTH_TOKEN (nao configurado neste projeto ainda), o plugin nao
+ * tenta subir source map nenhum -- so registra os hooks de instrumentation.
+ * `org`/`project` ficam de fora pelo mesmo motivo: so importam para o passo
+ * de upload, que nao roda sem o token.
+ */
+export default withSentryConfig(nextConfig, {
+  silent: true,
+});

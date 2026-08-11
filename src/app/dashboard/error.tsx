@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 
 export default function DashboardError({
   error,
@@ -10,8 +11,9 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // TODO: encaminhar para um servico de observabilidade quando existir um.
     console.error("Erro na area do dashboard:", error);
+    // Sem SENTRY_DSN configurado isto e um no-op -- ver instrumentation-client.ts.
+    Sentry.captureException(error);
   }, [error]);
 
   return (

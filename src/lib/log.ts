@@ -9,11 +9,11 @@
  * `erro()` daquele fluxo, para que as linhas relacionadas apareçam juntas ao
  * ler o log depois.
  *
- * O destino continua sendo so o stdout. Mandar para um servico de
- * observabilidade (Sentry, Datadog, etc.) exige credencial e servico
- * externos que este ambiente nao tem -- o `TODO` em `app/dashboard/error.tsx`
- * marca o lugar de plugar isso quando existir.
+ * Tambem manda para o Sentry (`instrumentation.ts`), com o id de correlacao
+ * como tag -- sem SENTRY_DSN configurado isto e um no-op silencioso, entao o
+ * stdout continua sendo o destino garantido mesmo sem a credencial.
  */
+import * as Sentry from "@sentry/nextjs";
 
 /** Id curto por requisicao. Nao e um UUID inteiro no log de proposito: o que
  * importa e conseguir apontar "essas linhas sao da mesma requisicao" lendo o
@@ -28,4 +28,13 @@ export function erro(idRequisicao: string, mensagem: string, detalhe?: unknown):
   } else {
     console.error(`[${idRequisicao}] ${mensagem}`, detalhe);
   }
+
+  Sentry.withScope((escopo) => {
+    escopo.setTag("id_requisicao", idRequisicao);
+    if (detalhe instanceof Error) {
+      Sentry.captureException(detalhe, { extra: { mensagem } });
+    } else {
+      Sentry.captureMessage(mensagem, "error");
+    }
+  });
 }
