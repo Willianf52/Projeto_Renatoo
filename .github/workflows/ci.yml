@@ -5,14 +5,16 @@ on:
   # entra. E o gatilho que roda no dia a dia.
   pull_request:
   push:
-    # Branch padrao do repositorio. O push aqui e a ultima rede: pega o que
-    # entrar sem passar por PR e deixa o historico de main com status proprio,
-    # em vez de depender do resultado do PR que originou cada merge.
+    # Push aqui e a ultima rede: pega o que entrar sem passar por PR e deixa
+    # o historico de cada branch com status proprio, em vez de depender do
+    # resultado do PR que originou cada merge.
     #
-    # Apontava para cursor/login-page-performance-lab, com um comentario
-    # afirmando que main nao existia. Existe (origin/HEAD -> origin/main), e o
-    # efeito era o inverso do descrito: main ficava sem cobertura nenhuma.
-    branches: [main]
+    # `main` existe mas esta parada. O `default_branch` real do repositorio
+    # (confirmado via API, 2026-08-12) e cursor/login-page-performance-lab --
+    # e nela que os pushes diretos acontecem hoje. Sem essa entrada, push
+    # direto (fora de PR) ficava sem cobertura de CI nenhuma, e a protecao de
+    # branch (required status check "build") nunca tinha o que checar.
+    branches: [main, cursor/login-page-performance-lab]
 
 permissions:
   contents: read
