@@ -49,3 +49,7 @@ next-env.d.ts
 # agent skills (conteudo baixado e symlink local; skills-lock.json e versionado)
 /.agents/
 /.claude/skills/
+
+# gerados automaticamente pelo Next.js (agentRules) a cada dev/build
+/AGENTS.md
+/CLAUDE.md
