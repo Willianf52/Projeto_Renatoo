@@ -184,7 +184,7 @@ describe("criação", () => {
     // buscando o grupo pelo nome.
     expect(primeira("inserirMembros")?.args[0]).toEqual([{ grupo_id: 9, profile_id: UUID_A }]);
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("converte descrição vazia em null, e não em string vazia", async () => {
@@ -197,7 +197,7 @@ describe("criação", () => {
     await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }));
 
     expect(tipos()).not.toContain("inserirMembros");
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   /**

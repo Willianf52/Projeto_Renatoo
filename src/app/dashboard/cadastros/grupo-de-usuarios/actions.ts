@@ -197,5 +197,5 @@ export async function salvarGrupoUsuarios(
   if (erroDeMembros) return { erro: traduzirErroPostgres(erroDeMembros, MENSAGENS_DE_ERRO), valores };
 
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }

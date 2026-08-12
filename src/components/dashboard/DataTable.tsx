@@ -58,7 +58,11 @@ export function DataTable({
             <TableSkeleton columns={columns} />
           ) : rows.length > 0 ? (
             rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="border-b border-slate-800/60 hover:bg-white/5">
+              <tr
+                key={rowIndex}
+                className="border-b border-slate-800/60 animate-fade-in-up hover:bg-white/5"
+                style={{ animationDelay: `${Math.min(rowIndex, 12) * 30}ms` }}
+              >
                 {row.map((cell, cellIndex) => (
                   <td key={cellIndex} className="whitespace-nowrap px-4 py-3 text-white">
                     {cell || "—"}

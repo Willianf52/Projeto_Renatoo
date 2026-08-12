@@ -1,5 +1,6 @@
 import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
@@ -190,13 +191,10 @@ export default async function ColetasImportadasPage({
 
           {/* Ultima celula do grid, nao mais um irmao fora dele -- cai
               naturalmente no canto inferior direito, como na referencia. */}
-          <button
-            type="submit"
-            className="group flex h-10 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97]"
-          >
+          <Button type="submit" className="group">
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar
-          </button>
+          </Button>
         </form>
 
         <DataTable

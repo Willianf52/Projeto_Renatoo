@@ -1,8 +1,10 @@
 import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput } from "@/components/dashboard/FilterField";
+import { ToastOnMount } from "@/components/dashboard/ToastOnMount";
 import {
   ExcelIcon,
   FilterIcon,
@@ -91,8 +93,28 @@ export default async function GrupoDeUsuariosPage({
 
   const queryExportacao = filtros.busca ? `?busca=${encodeURIComponent(filtros.busca)}` : "";
 
+  // `?salvo=1` sobrevive ao redirect da Server Action depois de criar/editar
+  // (ver actions.ts) -- e o unico jeito de um evento do servidor acionar um
+  // toast, que e estado de cliente. `cleanHref` reaproveita os demais
+  // parametros (busca, pagina) e so tira o `salvo`.
+  const acabouDeSalvar = primeiro(params.salvo) === "1";
+  const cleanHref = (() => {
+    const query = new URLSearchParams();
+    for (const [chave, valor] of Object.entries(params)) {
+      if (chave === "salvo") continue;
+      const v = primeiro(valor);
+      if (v) query.set(chave, v);
+    }
+    const texto = query.toString();
+    return texto ? `?${texto}` : "/dashboard/cadastros/grupo-de-usuarios";
+  })();
+
   return (
     <div className="space-y-4">
+      {acabouDeSalvar && (
+        <ToastOnMount message="Grupo de usuários salvo com sucesso." cleanHref={cleanHref} />
+      )}
+
       <div className="animate-fade-in">
         <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Grupo de Usuários" }]} />
       </div>
@@ -166,13 +188,10 @@ export default async function GrupoDeUsuariosPage({
             <FilterInput label="Busca Livre..." name="busca" defaultValue={filtros.busca} />
           </div>
 
-          <button
-            type="submit"
-            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] xl:w-52"
-          >
+          <Button type="submit" className="group shrink-0 xl:w-52">
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar
-          </button>
+          </Button>
         </form>
 
         <DataTable

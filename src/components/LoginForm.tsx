@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { Button } from "./Button";
 import { EMAIL_REGEX, FormField } from "./FormField";
-import { Spinner } from "./Spinner";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 
@@ -44,6 +44,9 @@ export function LoginForm() {
   const [tentativasFalhas, setTentativasFalhas] = useState(0);
   const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(null);
   const [segundosRestantes, setSegundosRestantes] = useState(0);
+  // Reiniciado a cada tentativa falha (nao "true" fixo): reaplicar a mesma
+  // classe sem passar por false antes nao reinicia a animacao no navegador.
+  const [shaking, setShaking] = useState(false);
 
   useEffect(() => {
     if (!bloqueadoAte) return;
@@ -111,6 +114,7 @@ export function LoginForm() {
           ? "E-mail ou senha incorretos."
           : "Não foi possível entrar. Tente novamente.",
       );
+      setShaking(true);
 
       const proximaContagem = tentativasFalhas + 1;
       if (proximaContagem >= MAX_TENTATIVAS) {
@@ -129,7 +133,17 @@ export function LoginForm() {
   };
 
   return (
-    <form className="mx-auto w-full max-w-xs space-y-8" onSubmit={handleSubmit} noValidate>
+    <form
+      className={`mx-auto w-full max-w-xs space-y-8 ${shaking ? "animate-shake" : ""}`}
+      onSubmit={handleSubmit}
+      // Filtra pelo nome: sem isso, o fim das animacoes dos campos
+      // (fade-in-up) e do banner de erro (slide-down) borbulha ate aqui e
+      // desliga o shake antes dele proprio terminar (250ms < 400ms).
+      onAnimationEnd={(event) => {
+        if (event.animationName === "shake") setShaking(false);
+      }}
+      noValidate
+    >
       <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <FormField
           id="email"
@@ -203,15 +217,17 @@ export function LoginForm() {
         </Link>
       </div>
 
-      <button
+      <Button
         type="submit"
+        size="lg"
+        fullWidth
+        loading={loading}
         disabled={loading || bloqueado}
         style={{ animationDelay: "340ms" }}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 animate-fade-in-up hover:bg-brand-green-hover hover:shadow-xl hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+        className="animate-fade-in-up"
       >
-        {loading && <Spinner />}
         {bloqueado ? `Aguarde ${segundosRestantes}s` : loading ? "Entrando..." : "Entrar"}
-      </button>
+      </Button>
     </form>
   );
 }

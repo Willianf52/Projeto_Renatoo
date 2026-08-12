@@ -1,6 +1,7 @@
 import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import {
@@ -219,13 +220,10 @@ export default async function SitePlantaPage({
             />
           </div>
 
-          <button
-            type="submit"
-            className="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] xl:w-52"
-          >
+          <Button type="submit" className="group shrink-0 xl:w-52">
             <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
             Filtrar
-          </button>
+          </Button>
         </form>
 
         <DataTable
