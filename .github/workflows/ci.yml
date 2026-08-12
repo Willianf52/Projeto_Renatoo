@@ -39,6 +39,10 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+      # Falha o build em vulnerabilidade alta/critica de dependencia.
+      # audit-level=high para nao travar CI por achado low/moderate que
+      # nao tem fix disponivel ainda.
+      - run: pnpm audit --audit-level=high
       - run: pnpm run lint
       - run: pnpm exec tsc --noEmit
       - run: pnpm test

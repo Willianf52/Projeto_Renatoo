@@ -1,0 +1,14 @@
+# Arquivos onde o historico do projeto ja mostra duas correcoes de escalada
+# de privilegio (migrations 0002 e 0005) e onde a checagem de permissao e o
+# unico portao, sem RLS atras (ver docs/melhorias.md). Merecem um segundo
+# olhar sempre que houver mais de um mantenedor com acesso de escrita.
+#
+# Hoje o repositorio tem um unico colaborador, entao "Require review from
+# Code Owners" nao esta ativado na protecao de branch (bloquearia o proprio
+# autor de mergear). Ativar esse requisito quando um segundo mantenedor
+# entrar no projeto.
+
+/supabase/migrations/ @Willianf52
+/src/lib/supabase/ @Willianf52
+/src/proxy.ts @Willianf52
+/src/app/dashboard/cadastros/usuarios/ @Willianf52
