@@ -123,23 +123,6 @@ const childContainsPath = (child: NavChild, pathname: string): boolean =>
     ? child.items.some((item) => pathname.startsWith(item.href))
     : pathname.startsWith(child.href);
 
-/** Secao que contem a rota atual, para abrir o menu no lugar certo. */
-const findSectionForPath = (pathname: string) =>
-  NAV_ITEMS.find((item) => item.children.some((child) => childContainsPath(child, pathname)))
-    ?.label ?? null;
-
-/** Grupo (segundo nivel, como "Relatorios") que contem a rota atual. */
-const findGroupForPath = (pathname: string): string | null => {
-  for (const item of NAV_ITEMS) {
-    for (const child of item.children) {
-      if (isGroup(child) && child.items.some((groupItem) => pathname.startsWith(groupItem.href))) {
-        return child.label;
-      }
-    }
-  }
-  return null;
-};
-
 export function DashboardSidebar({
   userName,
   mobileOpen,
@@ -150,29 +133,10 @@ export function DashboardSidebar({
   onCloseMobile: () => void;
 }) {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<string | null>(() =>
-    findSectionForPath(pathname),
-  );
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(() =>
-    findGroupForPath(pathname),
-  );
-  const [syncedPath, setSyncedPath] = useState(pathname);
-
-  // Reabre a secao (e o grupo dentro dela) correta quando a navegacao parte
-  // de outro lugar, como um link no conteudo ou o botao voltar do navegador.
-  // Ajustar o estado durante a renderizacao -- e nao num efeito -- evita o
-  // render em cascata: o React reinicia a renderizacao antes de pintar a tela.
-  if (syncedPath !== pathname) {
-    setSyncedPath(pathname);
-    const section = findSectionForPath(pathname);
-    if (section) {
-      setExpanded(section);
-    }
-    const group = findGroupForPath(pathname);
-    if (group) {
-      setExpandedGroup(group);
-    }
-  }
+  // Comeca sempre fechado, como no sistema de referencia -- nao abre sozinho
+  // so porque a rota atual mora dentro daquela secao. So abre com o clique.
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   return (
     <>
