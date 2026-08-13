@@ -120,29 +120,23 @@ export async function excluirGrupoUsuarios(
  * e outro -- e o diff exigiria ler os vinculos atuais para comparar, um
  * round-trip a mais para chegar no mesmo lugar.
  *
- * A janela entre o delete e o insert existe e nao e protegida por transacao: o
- * PostgREST nao expoe uma. O efeito de uma leitura concorrente cair no meio e
- * ver o grupo momentaneamente sem membros -- e `grupos_usuarios_membros` hoje
- * so alimenta um filtro da tela de Usuarios, nao decide acesso a nada. Se um
- * dia decidir, isto vira uma funcao `security definer` no banco.
+ * As duas operacoes rodam dentro de `sincronizar_membros_grupo_usuarios`
+ * (migration 0026), nao como dois `.from()` separados: um INSERT que falhe
+ * depois do DELETE ter tido sucesso desfaz os dois juntos, porque a funcao
+ * inteira e uma unica transacao. A chamada direta deixava essa janela sem
+ * protecao -- se o INSERT falhasse (ex.: FK para um profile que sumiu entre o
+ * carregamento do formulario e o envio), o grupo ficava sem membro nenhum, e
+ * a pessoa via o erro sem saber que o estado anterior tambem tinha ido junto.
  */
 async function sincronizarMembros(
   supabase: Awaited<ReturnType<typeof createClient>>,
   grupoId: number,
   membros: string[],
 ): Promise<string | undefined> {
-  const { error: erroLimpeza } = await supabase
-    .from("grupos_usuarios_membros")
-    .delete()
-    .eq("grupo_id", grupoId);
-
-  if (erroLimpeza) return erroLimpeza.code;
-
-  if (membros.length === 0) return undefined;
-
-  const { error } = await supabase
-    .from("grupos_usuarios_membros")
-    .insert(membros.map((profileId) => ({ grupo_id: grupoId, profile_id: profileId })));
+  const { error } = await supabase.rpc("sincronizar_membros_grupo_usuarios", {
+    p_grupo_id: grupoId,
+    p_membros: membros,
+  });
 
   return error?.code;
 }

@@ -8,8 +8,17 @@ import {
   type IndicePorNome,
 } from "@/lib/importar-coletas";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { segredoConfere } from "@/lib/webhook-user-updated";
+
+/**
+ * 20 lotes por minuto: folgado para reimportacao manual apos corrigir um
+ * arquivo (varias tentativas seguidas legitimas), apertado o suficiente para
+ * um segredo vazado nao conseguir inundar `visitas`/`leituras` sem limite.
+ */
+const LIMITE_DE_REQUISICOES = 20;
+const JANELA_MS = 60_000;
 
 /**
  * Entrada dos lotes de coleta vindos do sistema de origem.
@@ -179,6 +188,16 @@ export async function POST(request: NextRequest) {
 
   if (!segredoConfere(request.headers.get("x-importacao-secret"), segredoEsperado)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Depois do segredo, nao antes: o alvo e quem tem o segredo (vazado ou nao)
+  // e decide inundar a rota, nao ruido de quem nunca passou da autenticacao.
+  const limite = limitarTaxa(`importar-coletas:${identificarChamador(request)}`, LIMITE_DE_REQUISICOES, JANELA_MS);
+  if (!limite.permitido) {
+    return NextResponse.json(
+      { error: "muitas requisições, tente novamente mais tarde" },
+      { status: 429, headers: { "Retry-After": String(limite.tenteNovamenteEmSegundos) } },
+    );
   }
 
   let corpo: unknown;

@@ -8,22 +8,17 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
     const resultados = {
       insertGrupo: { data: { id: 9 } as { id: number } | null, error: null as ErroSupabase },
       updateGrupo: { data: { id: 4 } as { id: number } | null, error: null as ErroSupabase },
-      apagarMembros: { error: null as ErroSupabase },
-      inserirMembros: { error: null as ErroSupabase },
+      // Migration 0026: delete+insert de membros viraram uma unica funcao
+      // transacional, chamada por RPC -- nao mais dois `.from()` separados.
+      sincronizarMembros: { error: null as ErroSupabase },
       excluirGrupo: { data: { id: 4 } as { id: number } | null, error: null as ErroSupabase },
     };
     const chamadas: Chamada[] = [];
     const registrar = (tipo: string, ...args: unknown[]) => chamadas.push({ tipo, args });
 
     const createClientMock = vi.fn(async () => ({
-      // A tabela importa: `grupos_usuarios` e `grupos_usuarios_membros` passam
-      // pelo mesmo `from`.
       from: (tabela: string) => ({
         insert: (linha: unknown) => {
-          if (tabela === "grupos_usuarios_membros") {
-            registrar("inserirMembros", linha);
-            return Promise.resolve(resultados.inserirMembros);
-          }
           registrar("insertGrupo", linha);
           return {
             select: () => ({ maybeSingle: () => Promise.resolve(resultados.insertGrupo) }),
@@ -38,21 +33,20 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
           };
         },
         delete: () => ({
-          // Duas formas atras do mesmo `delete().eq()`: a limpeza de membros e
-          // aguardada direto, e a exclusao do grupo encadeia `.select()` para
-          // detectar recusa do RLS (zero linhas).
+          // Exclusao do grupo encadeia `.select()` para detectar recusa do
+          // RLS (zero linhas) -- membros nao passam mais por `.from()`.
           eq: (coluna: string, valor: unknown) => {
-            if (tabela === "grupos_usuarios") {
-              registrar("excluirGrupo", tabela, coluna, valor);
-              return {
-                select: () => ({ maybeSingle: () => Promise.resolve(resultados.excluirGrupo) }),
-              };
-            }
-            registrar("apagarMembros", tabela, coluna, valor);
-            return Promise.resolve(resultados.apagarMembros);
+            registrar("excluirGrupo", tabela, coluna, valor);
+            return {
+              select: () => ({ maybeSingle: () => Promise.resolve(resultados.excluirGrupo) }),
+            };
           },
         }),
       }),
+      rpc: (nome: string, params: unknown) => {
+        registrar(nome, params);
+        return Promise.resolve(resultados.sincronizarMembros);
+      },
     }));
 
     return {
@@ -90,8 +84,7 @@ beforeEach(() => {
   chamadas.length = 0;
   resultados.insertGrupo = { data: { id: 9 }, error: null };
   resultados.updateGrupo = { data: { id: 4 }, error: null };
-  resultados.apagarMembros = { error: null };
-  resultados.inserirMembros = { error: null };
+  resultados.sincronizarMembros = { error: null };
   resultados.excluirGrupo = { data: { id: 4 }, error: null };
 });
 
@@ -109,7 +102,7 @@ describe("exclusão", () => {
   it("não apaga os membros por fora: quem faz isso é o cascade", async () => {
     await excluirGrupoUsuarios({}, formulario({ id: "4" }));
 
-    expect(tipos()).not.toContain("apagarMembros");
+    expect(tipos()).not.toContain("sincronizar_membros_grupo_usuarios");
   });
 
   it("recusa id que não é inteiro sem chegar ao banco", async () => {
@@ -182,7 +175,10 @@ describe("criação", () => {
     expect(primeira("insertGrupo")?.args[0]).toEqual({ nome: "Ronda", descricao: "Turno A" });
     // O id vem do `.select()` pos-insert: sem ele seria uma segunda consulta
     // buscando o grupo pelo nome.
-    expect(primeira("inserirMembros")?.args[0]).toEqual([{ grupo_id: 9, profile_id: UUID_A }]);
+    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
+      p_grupo_id: 9,
+      p_membros: [UUID_A],
+    });
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
@@ -193,10 +189,15 @@ describe("criação", () => {
     expect(primeira("insertGrupo")?.args[0]).toEqual({ nome: "Ronda", descricao: null });
   });
 
-  it("aceita grupo sem membro, sem inserir linha vazia", async () => {
+  it("aceita grupo sem membro, sincronizando com lista vazia", async () => {
     await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }));
 
-    expect(tipos()).not.toContain("inserirMembros");
+    // A funcao do banco (migration 0026) e quem decide nao inserir nada
+    // quando o array vem vazio -- o cliente so manda a lista.
+    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
+      p_grupo_id: 9,
+      p_membros: [],
+    });
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
@@ -211,7 +212,7 @@ describe("criação", () => {
     const estado = await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }, [UUID_A]));
 
     expect(estado.erro).toContain("não tem permissão");
-    expect(tipos()).not.toContain("inserirMembros");
+    expect(tipos()).not.toContain("sincronizar_membros_grupo_usuarios");
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
@@ -228,8 +229,11 @@ describe("edição", () => {
   it("atualiza o grupo quando o id vem no formulário", async () => {
     await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }, [UUID_B]));
 
-    expect(tipos()).toEqual(["updateGrupo", "apagarMembros", "inserirMembros"]);
-    expect(primeira("inserirMembros")?.args[0]).toEqual([{ grupo_id: 4, profile_id: UUID_B }]);
+    expect(tipos()).toEqual(["updateGrupo", "sincronizar_membros_grupo_usuarios"]);
+    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
+      p_grupo_id: 4,
+      p_membros: [UUID_B],
+    });
   });
 
   /**
@@ -237,17 +241,21 @@ describe("edição", () => {
    * primaria -- nao ha coluna para preservar entre um estado e outro -- e o
    * diff exigiria ler os vinculos atuais, um round-trip a mais para chegar no
    * mesmo lugar.
+   *
+   * O apagar-e-recriar em si (e a atomicidade entre os dois) agora e
+   * responsabilidade de `sincronizar_membros_grupo_usuarios` (migration
+   * 0026) -- coberto por pgTAP em
+   * `supabase/tests/database/sincroniza_membros_grupo_usuarios_atomico_test.sql`.
+   * Aqui so cabe verificar que o cliente manda a lista marcada (vazia,
+   * quando nada foi marcado) para a funcao decidir.
    */
-  it("apaga os vínculos atuais antes de recriar, para desmarcar ter efeito", async () => {
+  it("pede a sincronizacao com lista vazia quando nenhum membro esta marcado", async () => {
     await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }));
 
-    expect(primeira("apagarMembros")?.args).toEqual([
-      "grupos_usuarios_membros",
-      "grupo_id",
-      4,
-    ]);
-    // Sem nenhum marcado, o resultado e o grupo ficar sem membros.
-    expect(tipos()).not.toContain("inserirMembros");
+    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
+      p_grupo_id: 4,
+      p_membros: [],
+    });
   });
 
   it("recusa id que não é inteiro", async () => {
@@ -268,12 +276,12 @@ describe("edição", () => {
     const estado = await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }, [UUID_A]));
 
     expect(estado.erro).toContain("não tem permissão para editar este grupo");
-    expect(tipos()).not.toContain("apagarMembros");
+    expect(tipos()).not.toContain("sincronizar_membros_grupo_usuarios");
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("não redireciona quando a gravação dos membros falha", async () => {
-    resultados.inserirMembros = { error: { code: "42501" } };
+    resultados.sincronizarMembros = { error: { code: "42501" } };
 
     const estado = await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }, [UUID_A]));
 

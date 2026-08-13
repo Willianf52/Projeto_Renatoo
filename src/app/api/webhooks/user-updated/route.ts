@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
 import { enviarAvisoSenhaAlterada } from "@/lib/resend";
 import {
   isEventoRelevante,
@@ -7,6 +8,13 @@ import {
   lerPayload,
   segredoConfere,
 } from "@/lib/webhook-user-updated";
+
+/** Mesmo raciocinio do limite em `/api/importar/coletas`: o Database Webhook
+ * do Supabase nao dispara isto com frequencia alta em uso normal, entao um
+ * limite generoso ja barra um segredo vazado sendo usado para estourar a
+ * cota do Resend com e-mail. */
+const LIMITE_DE_REQUISICOES = 30;
+const JANELA_MS = 60_000;
 
 /**
  * Alvo de um Database Webhook do Supabase (Database > Webhooks) escutando
@@ -29,6 +37,14 @@ export async function POST(request: NextRequest) {
   // sem isso, qualquer POST forjado dispararia e-mail pra qualquer endereco.
   if (!segredoConfere(request.headers.get("x-webhook-secret"), segredoEsperado)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const limite = limitarTaxa(`webhook-user-updated:${identificarChamador(request)}`, LIMITE_DE_REQUISICOES, JANELA_MS);
+  if (!limite.permitido) {
+    return NextResponse.json(
+      { error: "muitas requisições, tente novamente mais tarde" },
+      { status: 429, headers: { "Retry-After": String(limite.tenteNovamenteEmSegundos) } },
+    );
   }
 
   let corpo: unknown;

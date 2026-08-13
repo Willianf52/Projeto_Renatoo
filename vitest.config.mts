@@ -9,7 +9,13 @@ export default defineConfig({
     },
   },
   test: {
+    // node, nao jsdom: a maior parte da suite e lib/ e Server Action, sem
+    // DOM nenhum -- jsdom global deixaria a suite inteira mais lenta para
+    // um ganho que so os testes de componente usam. Os poucos arquivos que
+    // precisam de DOM (FilterDatePicker, FilterTimePicker) pedem jsdom por
+    // conta propria via `// @vitest-environment jsdom` no topo do arquivo.
     environment: "node",
+    setupFiles: ["./vitest.setup.ts"],
     // e2e/*.spec.ts sao specs do Playwright, nao do vitest -- o include
     // padrao do vitest casa com *.spec.ts tambem, e os dois usam `test`
     // e `describe` com assinatura incompativel (test.describe() do
