@@ -159,7 +159,7 @@ describe("getHistoricoDeSupervisao", () => {
     await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     const chamadas = chamadasPorTabela.get("leituras") ?? [];
-    expect(chamadas).toContainEqual({ metodo: "eq", args: ["visitas.site_id", "3"] });
+    expect(chamadas).toContainEqual({ metodo: "eq", args: ["visitas.site_id", 3] });
 
     const gte = chamadas.find((c) => c.metodo === "gte");
     const lt = chamadas.find((c) => c.metodo === "lt");
@@ -175,7 +175,7 @@ describe("getHistoricoDeSupervisao", () => {
     await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     const chamadas = chamadasPorTabela.get("metas_visitas") ?? [];
-    expect(chamadas).toContainEqual({ metodo: "eq", args: ["site_id", "3"] });
+    expect(chamadas).toContainEqual({ metodo: "eq", args: ["site_id", 3] });
     expect(chamadas).toContainEqual({ metodo: "eq", args: ["competencia", "2026-08-01"] });
   });
 });

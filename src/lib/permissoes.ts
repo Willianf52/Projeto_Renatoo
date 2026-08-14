@@ -47,7 +47,12 @@ export async function podeAdministrarGruposDeUsuarios(): Promise<boolean> {
   return consultarPermissao("pode_administrar_grupos_usuarios", "administrar grupos de usuários");
 }
 
-async function consultarPermissao(funcao: string, descricao: string): Promise<boolean> {
+type FuncaoDePermissao =
+  | "pode_administrar_cadastros"
+  | "pode_administrar_usuarios"
+  | "pode_administrar_grupos_usuarios";
+
+async function consultarPermissao(funcao: FuncaoDePermissao, descricao: string): Promise<boolean> {
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc(funcao);

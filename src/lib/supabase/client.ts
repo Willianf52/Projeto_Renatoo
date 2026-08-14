@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
+import type { Database } from "./database.types";
 
 /**
  * Singleton de modulo. `createClient()` era chamado de novo a cada
@@ -8,11 +9,11 @@ import { env } from "@/lib/env";
  * dele -- sem necessidade a cada submit. Memoizar um por sessao do navegador
  * e o padrao comum para o client do browser.
  */
-let client: ReturnType<typeof createBrowserClient> | undefined;
+let client: ReturnType<typeof createBrowserClient<Database>> | undefined;
 
 export function createClient() {
   if (!client) {
-    client = createBrowserClient(env.supabaseUrl, env.supabaseAnonKey);
+    client = createBrowserClient<Database>(env.supabaseUrl, env.supabaseAnonKey);
   }
   return client;
 }

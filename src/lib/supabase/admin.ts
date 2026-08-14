@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import type { Database } from "./database.types";
 
 /**
  * Cliente com a service_role: ignora todas as policies de RLS.
@@ -28,7 +29,7 @@ export function createAdminClient() {
     );
   }
 
-  return createSupabaseClient(env.supabaseUrl, chave, {
+  return createSupabaseClient<Database>(env.supabaseUrl, chave, {
     auth: {
       // Nao ha usuario nem navegador aqui: sem sessao para persistir e sem
       // token para renovar. Ligado, o cliente tentaria gravar sessao num

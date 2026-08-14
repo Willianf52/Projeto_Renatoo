@@ -192,7 +192,7 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
     .range(from, to);
 
   if (filtros.grupoUsuarios) {
-    query = query.eq("grupos_usuarios_membros.grupo_id", filtros.grupoUsuarios);
+    query = query.eq("grupos_usuarios_membros.grupo_id", Number(filtros.grupoUsuarios));
   }
   if (filtros.nivelAcesso) query = query.eq("cargo", filtros.nivelAcesso);
   if (filtros.tipo) query = query.eq("tipo", filtros.tipo);

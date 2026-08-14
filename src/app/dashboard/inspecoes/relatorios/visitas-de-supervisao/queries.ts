@@ -173,7 +173,7 @@ export async function getHistoricoDeSupervisao(filtros: Filtros): Promise<Histor
           )
         `,
       )
-      .eq("visitas.site_id", filtros.site)
+      .eq("visitas.site_id", Number(filtros.site))
       .gte("data_hora", inicio)
       .lt("data_hora", fim),
     // Visivel so para gestao (RLS da 0014): um CLIENTE simplesmente nao
@@ -182,7 +182,7 @@ export async function getHistoricoDeSupervisao(filtros: Filtros): Promise<Histor
     supabase
       .from("metas_visitas")
       .select("quantidade_esperada")
-      .eq("site_id", filtros.site)
+      .eq("site_id", Number(filtros.site))
       .eq("competencia", competencia)
       .maybeSingle(),
   ]);
