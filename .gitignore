@@ -48,7 +48,16 @@ next-env.d.ts
 
 # agent skills (conteudo baixado e symlink local; skills-lock.json e versionado)
 /.agents/
-/.claude/skills/
+# `/*` (nao `/`) de proposito: um ignore de diretorio com barra bloqueia git
+# de recursar nele, e nenhuma negacao depois resgata algo dentro de um pai
+# assim excluido. Como glob do conteudo, cada item vira um alvo negavel.
+/.claude/skills/*
+# excecao: skills autorais deste projeto (nao baixadas de plugin), versionadas
+# de proposito para todo mundo que abrir o repo com Claude Code ganhar o
+# mesmo contexto de arquitetura/seguranca/testes.
+!/.claude/skills/nextjs-architecture-patterns/
+!/.claude/skills/supabase-rls-security/
+!/.claude/skills/testing-vitest-pgtap-playwright/
 
 # gerados automaticamente pelo Next.js (agentRules) a cada dev/build
 /AGENTS.md
