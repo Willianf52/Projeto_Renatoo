@@ -26,7 +26,7 @@ test.describe("Login com conta ativa", () => {
     await page.goto("/");
 
     await page.getByLabel("E-mail").fill(EMAIL!);
-    await page.getByLabel("Senha").fill(PASSWORD!);
+    await page.getByRole("textbox", { name: "Senha" }).fill(PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
@@ -39,7 +39,7 @@ test.describe("Login com conta ativa", () => {
     await expect(page).toHaveURL(/redirectTo=/);
 
     await page.getByLabel("E-mail").fill(EMAIL!);
-    await page.getByLabel("Senha").fill(PASSWORD!);
+    await page.getByRole("textbox", { name: "Senha" }).fill(PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 
     await expect(page).toHaveURL("/dashboard/inspecoes/coletas-importadas");
@@ -53,7 +53,7 @@ test.describe("Login com conta desativada", () => {
     await page.goto("/");
 
     await page.getByLabel("E-mail").fill(INATIVO_EMAIL!);
-    await page.getByLabel("Senha").fill(INATIVO_PASSWORD!);
+    await page.getByRole("textbox", { name: "Senha" }).fill(INATIVO_PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 
     // O login em si sucede (auth.users aceita a senha); quem barra é o
