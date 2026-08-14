@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronsLeftIcon, ChevronsRightIcon, XIcon } from "./icons";
+import { useClickOutside } from "./useClickOutside";
 
 const DIAS_DA_SEMANA = ["Do", "Se", "Te", "Qu", "Qu", "Se", "Sa"];
 const MESES = [
@@ -86,17 +87,7 @@ export function FilterDatePicker({
   const [aberto, setAberto] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Mesmo padrao de clique-fora do combobox de Usuarios em Grupo de Usuarios.
-  useEffect(() => {
-    if (!aberto) return;
-
-    function aoClicarFora(evento: MouseEvent) {
-      if (!containerRef.current?.contains(evento.target as Node)) setAberto(false);
-    }
-
-    document.addEventListener("mousedown", aoClicarFora);
-    return () => document.removeEventListener("mousedown", aoClicarFora);
-  }, [aberto]);
+  useClickOutside(containerRef, aberto, () => setAberto(false));
 
   function escolher(data: Date) {
     setSelecionado(data);

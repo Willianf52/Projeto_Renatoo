@@ -136,6 +136,15 @@ function agruparPorVisita(leituras: LeituraBruta[]): VisitaDeSupervisao[] {
 }
 
 /**
+ * Fuso da operacao (Brasilia), mesmo criterio de FUSO_OPERACIONAL em
+ * coletas-importadas/queries.ts: fixo em -03:00 porque o Brasil nao observa
+ * mais horario de verao desde 2019. Sem o deslocamento explicito, o limite
+ * do mes seria calculado em UTC e uma visita no fim do dia (horario local)
+ * cairia no mes seguinte do relatorio.
+ */
+const FUSO_OPERACIONAL = "-03:00";
+
+/**
  * `site` obrigatorio: Meta e Realizado sao por site (metas_visitas.site_id),
  * entao sem site escolhido nao ha o que calcular -- ver a checagem em
  * page.tsx antes de chamar isto.
@@ -144,8 +153,10 @@ export async function getHistoricoDeSupervisao(filtros: Filtros): Promise<Histor
   const supabase = await createClient();
 
   const [ano, mes] = filtros.mes.split("-").map(Number);
-  const inicio = new Date(Date.UTC(ano, mes - 1, 1)).toISOString();
-  const fim = new Date(Date.UTC(ano, mes, 1)).toISOString();
+  const anoFim = mes === 12 ? ano + 1 : ano;
+  const mesFim = mes === 12 ? 1 : mes + 1;
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01T00:00:00${FUSO_OPERACIONAL}`;
+  const fim = `${anoFim}-${String(mesFim).padStart(2, "0")}-01T00:00:00${FUSO_OPERACIONAL}`;
   const competencia = `${ano}-${String(mes).padStart(2, "0")}-01`;
 
   const [leiturasResultado, metaResultado] = await Promise.all([

@@ -36,8 +36,10 @@ export default async function VisitasDeSupervisaoPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const opcoesSites = await getOpcoesSites();
-  const historico = filtros.site ? await getHistoricoDeSupervisao(filtros) : null;
+  const [opcoesSites, historico] = await Promise.all([
+    getOpcoesSites(),
+    filtros.site ? getHistoricoDeSupervisao(filtros) : Promise.resolve(null),
+  ]);
 
   const percentualRealizado = (() => {
     if (!historico) return 0;
@@ -144,6 +146,13 @@ export default async function VisitasDeSupervisaoPage({
                 visita.motivoVisita,
                 visita.observacao,
               ])}
+              // Sem paginacao real (volume por mes/site e pequeno, ver
+              // comentario de agruparPorVisita em queries.ts): page/totalPages
+              // fixos refletem "uma pagina so", so pra rodape nao mostrar
+              // "0 de 0" com linhas visiveis na tabela.
+              page={1}
+              totalPages={historico.visitas.length > 0 ? 1 : 0}
+              totalItems={historico.visitas.length}
               emptyTitle="Nenhuma visita encontrada"
               emptyDescription="Ajuste o período ou o local acima para localizar registros."
             />

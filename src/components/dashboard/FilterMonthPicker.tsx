@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronsLeftIcon, ChevronsRightIcon } from "./icons";
+import { useClickOutside } from "./useClickOutside";
 
 const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -41,16 +42,7 @@ export function FilterMonthPicker({
   const [aberto, setAberto] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!aberto) return;
-
-    function aoClicarFora(evento: MouseEvent) {
-      if (!containerRef.current?.contains(evento.target as Node)) setAberto(false);
-    }
-
-    document.addEventListener("mousedown", aoClicarFora);
-    return () => document.removeEventListener("mousedown", aoClicarFora);
-  }, [aberto]);
+  useClickOutside(containerRef, aberto, () => setAberto(false));
 
   function escolher(mes: number) {
     setSelecionado({ ano: anoVisivel, mes });
