@@ -1,3 +1,4 @@
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -49,11 +50,15 @@ type SiteBruto = {
 export async function getOpcoesSites(): Promise<Opcao[]> {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sites")
     .select("id, nome, grupos_sites ( nome )")
     .eq("ativo", true)
     .order("nome");
+
+  if (error) {
+    erro(gerarIdDeRequisicao(), "Falha ao carregar sites para o filtro de visitas de supervisão:", error.message);
+  }
 
   return ((data ?? []) as unknown as SiteBruto[]).map((site) => ({
     value: String(site.id),
@@ -186,6 +191,17 @@ export async function getHistoricoDeSupervisao(filtros: Filtros): Promise<Histor
       .eq("competencia", competencia)
       .maybeSingle(),
   ]);
+
+  // Sem isto, uma falha de consulta (RLS inesperado, instabilidade de rede)
+  // e indistinguivel de "realmente nao ha visita" -- a tela mostraria
+  // "Nenhuma visita encontrada" nos dois casos, sem ninguem saber qual foi.
+  const idRequisicao = gerarIdDeRequisicao();
+  if (leiturasResultado.error) {
+    erro(idRequisicao, "Falha ao carregar leituras para o histórico de visitas de supervisão:", leiturasResultado.error.message);
+  }
+  if (metaResultado.error) {
+    erro(idRequisicao, "Falha ao carregar meta de visitas:", metaResultado.error.message);
+  }
 
   const visitas = agruparPorVisita((leiturasResultado.data ?? []) as unknown as LeituraBruta[]);
 

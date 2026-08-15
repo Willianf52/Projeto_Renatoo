@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 type Chamada = { metodo: string; args: unknown[] };
+type Resposta = { data: unknown; error: { message: string } | null };
 
 /** Uma tabela mockada por `.from(tabela)`, cada uma com sua propria resposta
  * e lista de chamadas -- a query real faz `leituras` e `metas_visitas` em
  * paralelo (Promise.all), entao um mock generico de tabela unica nao serve. */
-const { createClientMock, respostas, chamadasPorTabela } = vi.hoisted(() => {
-  const respostas = new Map<string, { data: unknown; error: null }>();
+const { createClientMock, erroMock, respostas, chamadasPorTabela } = vi.hoisted(() => {
+  const respostas = new Map<string, Resposta>();
   const chamadasPorTabela = new Map<string, Chamada[]>();
+  const erroMock = vi.fn();
 
   const createClientMock = vi.fn(async () => ({
     from(tabela: string) {
@@ -25,23 +27,25 @@ const { createClientMock, respostas, chamadasPorTabela } = vi.hoisted(() => {
         chamadas.push({ metodo: "maybeSingle", args });
         return Promise.resolve(respostas.get(tabela) ?? { data: null, error: null });
       };
-      chain.then = (resolve: (resultado: { data: unknown; error: null }) => void) =>
+      chain.then = (resolve: (resultado: Resposta) => void) =>
         resolve(respostas.get(tabela) ?? { data: [], error: null });
 
       return chain;
     },
   }));
 
-  return { createClientMock, respostas, chamadasPorTabela };
+  return { createClientMock, erroMock, respostas, chamadasPorTabela };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
+vi.mock("@/lib/log", () => ({ erro: erroMock, gerarIdDeRequisicao: () => "id-teste" }));
 
 const { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites } = await import("./queries");
 
 beforeEach(() => {
   respostas.clear();
   chamadasPorTabela.clear();
+  erroMock.mockClear();
 });
 
 function leitura(
@@ -97,6 +101,19 @@ describe("getOpcoesSites", () => {
       { value: "1", label: "UP Serviços - ACE Limpeza" },
       { value: "2", label: "Sem Grupo" },
     ]);
+  });
+
+  it("loga a falha e devolve lista vazia em vez de estourar, quando a consulta falha", async () => {
+    respostas.set("sites", { data: null, error: { message: "conexão recusada" } });
+
+    const opcoes = await getOpcoesSites();
+
+    expect(opcoes).toEqual([]);
+    expect(erroMock).toHaveBeenCalledWith(
+      "id-teste",
+      "Falha ao carregar sites para o filtro de visitas de supervisão:",
+      "conexão recusada",
+    );
   });
 });
 
@@ -177,5 +194,36 @@ describe("getHistoricoDeSupervisao", () => {
     const chamadas = chamadasPorTabela.get("metas_visitas") ?? [];
     expect(chamadas).toContainEqual({ metodo: "eq", args: ["site_id", "3"] });
     expect(chamadas).toContainEqual({ metodo: "eq", args: ["competencia", "2026-08-01"] });
+  });
+
+  it("loga a falha de leituras e segue com lista vazia, em vez de confundir com 'sem visita'", async () => {
+    respostas.set("leituras", { data: null, error: { message: "RLS inesperado" } });
+
+    const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
+
+    expect(historico.visitas).toEqual([]);
+    expect(erroMock).toHaveBeenCalledWith(
+      "id-teste",
+      "Falha ao carregar leituras para o histórico de visitas de supervisão:",
+      "RLS inesperado",
+    );
+  });
+
+  it("loga a falha de metas_visitas e segue com meta null", async () => {
+    respostas.set("leituras", { data: [], error: null });
+    respostas.set("metas_visitas", { data: null, error: { message: "timeout" } });
+
+    const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
+
+    expect(historico.meta).toBeNull();
+    expect(erroMock).toHaveBeenCalledWith("id-teste", "Falha ao carregar meta de visitas:", "timeout");
+  });
+
+  it("nao loga nada quando as duas consultas tem sucesso", async () => {
+    respostas.set("leituras", { data: [], error: null });
+
+    await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
+
+    expect(erroMock).not.toHaveBeenCalled();
   });
 });
