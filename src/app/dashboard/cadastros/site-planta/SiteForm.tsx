@@ -173,9 +173,12 @@ export function SiteForm({
   const [erroGps, setErroGps] = useState<string | null>(null);
 
   /**
-   * Preenche Endereço/Bairro/Cidade/UF a partir do CEP, via ViaCEP (API
-   * pública, sem chave). Só ajuda a digitar -- quem preenche os campos manda
-   * o que quiser no submit, a busca não valida nada sozinha.
+   * Preenche Endereço/Bairro/Cidade/UF a partir do CEP, via `/api/cep` --
+   * proxy nosso para o ViaCEP, não o ViaCEP direto (ver o comentário em
+   * `app/api/cep/route.ts`: a CSP deste app restringe `connect-src` ao
+   * Supabase de propósito, e chamar um domínio externo direto do navegador
+   * cairia bloqueado nela). Só ajuda a digitar -- quem preenche os campos
+   * manda o que quiser no submit, a busca não valida nada sozinha.
    */
   async function buscarCep() {
     const digitos = (cepRef.current?.value ?? "").replace(/\D/g, "");
@@ -187,11 +190,11 @@ export function SiteForm({
     setErroCep(null);
     setBuscandoCep(true);
     try {
-      const resposta = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+      const resposta = await fetch(`/api/cep?cep=${digitos}`);
       const dados = await resposta.json();
 
-      if (dados.erro) {
-        setErroCep("CEP não encontrado.");
+      if (!resposta.ok) {
+        setErroCep(resposta.status === 404 ? "CEP não encontrado." : "Não foi possível buscar o CEP agora. Tente novamente.");
         return;
       }
 
