@@ -45,6 +45,11 @@ aparece hoje.
 > em duas migrations — a segunda (0028) corrigindo um resíduo que a
 > primeira (0027) deixou aberto por engano de sessão anterior. Direto em
 > "Itens fechados", nunca esteve nesta lista como item aberto.
+>
+> 2026-08-16: tentativa de ligar a proteção contra senha vazada (item 8)
+> pelo painel do Supabase recusada pelo próprio Supabase — exige plano Pro.
+> Item permanece aberto, mas a causa mudou de "toggle manual pendente" para
+> "depende de decisão de upgrade de plano".
 
 ## Alta prioridade
 
@@ -91,9 +96,13 @@ Nenhum item aberto nesta categoria no momento.
 
 8. **Proteção contra senha vazada desligada no Supabase Auth.** Achado pelo
    `get_advisors` (2026-08-11): a checagem contra HaveIBeenPwned.org não está
-   ativada. É um único toggle em Authentication → Policies no painel do
-   Supabase, sem custo — não dá para ligar por aqui, precisa ser feito
-   manualmente.
+   ativada. O toggle fica em Authentication → Sign In / Providers → Email →
+   "Prevent use of leaked passwords". Tentativa de ativação em 2026-08-16
+   (via navegador, direto no painel) recusada pelo próprio Supabase: **"Configuring
+   leaked password protection via HaveIBeenPwned.org is available on Pro
+   Plans and up"** — o projeto UpServiços está no plano Free hoje. Não é mais
+   "sem custo": depende de upgrade de plano, decisão do dono do produto, não
+   passo técnico pendente.
 
 9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
    `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
