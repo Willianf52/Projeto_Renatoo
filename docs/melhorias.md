@@ -53,7 +53,8 @@ aparece hoje.
 >
 > 2026-08-16: primeira rodada do advisor `performance` do Supabase (nunca
 > conferido antes nesta lista, só o de `security`). Achados de baixa
-> prioridade viram item 9.
+> prioridade viram item 9. Um dos três grupos (RLS reavaliando `auth.uid()`
+> por linha) fechado no mesmo dia — migration 0029.
 
 ## Alta prioridade
 
@@ -108,16 +109,11 @@ Nenhum item aberto nesta categoria no momento.
    "sem custo": depende de upgrade de plano, decisão do dono do produto, não
    passo técnico pendente.
 
-9. **Achados do advisor `performance` do Supabase (RLS reavalia `auth.uid()`
-   por linha, FKs sem índice, índices nunca usados).** Primeira vez que este
-   advisor foi conferido (2026-08-16) — até aqui só o de `security` era
-   rodado. Três grupos, nenhum urgente:
-   - Seis policies de RLS chamam `auth.uid()`/`auth.<função>()` direto na
-     cláusula em vez de `(select auth.<função>())`: `profiles` (duas
-     policies), `grupos_usuarios_membros`, `grupos_sites_clientes`,
-     `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a função a
-     cada linha em vez de uma vez por query — puramente mecânico, não muda
-     quem vê o quê.
+9. **Achados do advisor `performance` do Supabase (FKs sem índice, índices
+   nunca usados).** Primeira vez que este advisor foi conferido
+   (2026-08-16) — até aqui só o de `security` era rodado. Dois grupos
+   restantes, nenhum urgente (o terceiro, RLS reavaliando `auth.uid()` por
+   linha, foi fechado no mesmo dia — ver "Itens fechados"):
    - Nove foreign keys sem índice cobrindo:
      `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`,
      `profiles.superior_id`,
@@ -176,6 +172,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Policies de RLS reavaliavam `auth.uid()` por linha (`auth_rls_initplan`) | Achado do advisor de performance do Supabase. Seis policies chamavam `auth.uid()` direto na cláusula em vez de `(select auth.uid())`: `profiles` (leitura e a de update), `grupos_usuarios_membros`, `grupos_sites_clientes`, `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a chamada a cada linha varrida em vez de uma vez por query. Migration 0029 recria as seis com a mesma regra de autorização, só essa troca mecânica — nenhuma decisão de acesso mudou. Validado rodando os pgTAP existentes que cobrem essas policies (`leitura_de_perfis_test`, `escopo_de_cliente_test`, `update_cargo_ativo_negado_test`): 17/17 asserts passaram, mesmo comportamento de antes. Advisor confirma que os seis `auth_rls_initplan` sumiram |
 | Funções `SECURITY DEFINER` de RLS chamáveis por `anon`/`authenticated` via RPC | Achado do advisor de segurança do Supabase. Migration 0027 revogou `EXECUTE` de `anon` em oito funções auxiliares (`e_cliente`, `nivel_acesso_atual`, `pode_administrar_cadastros`, `pode_administrar_grupos_usuarios`, `pode_administrar_usuarios`, `pode_ver_grupo_site`, `pode_ver_toda_operacao`, `usuario_ativo`) — `authenticated` fica de fora de propósito, as policies de RLS chamam essas funções com o privilégio de quem roda a query, não do dono. Nenhuma vazava dado: todas leem só a partir de `auth.uid()`, nulo para `anon`. A 0027 ficou aplicada no banco mas o arquivo não foi commitado na sessão em que foi criada (2026-08-16, 00:03) — detectado e commitado na sessão seguinte. Ao revisar, `handle_new_user()` (trigger de `auth.users`) continuava executável por `anon` **e** `authenticated` mesmo revogada nominalmente: diferente das outras oito, nunca teve `revoke all from public` na criação (migration 0008), então mantinha o grant implícito de `PUBLIC` — e os dois papéis são membros de `PUBLIC`. Migration 0028 revogou de `PUBLIC` diretamente. Confirmado nos grants reais (`proacl`/`has_function_privilege`) antes e depois, não só no advisor. Detalhe técnico completo em `docs/auditoria-seguranca.md` |
 | Filtros de `coletas-importadas` com semântica assumida, não confirmada | Confirmado com o dono do produto em 2026-08-15: as três interpretações já implementadas em `queries.ts` (`aplicarFiltrosDeColeta`) estão corretas. "Localização" é presença/ausência de coordenada GPS na própria leitura (`leituras.tem_localizacao`), não um filtro de local; "Tipo" é o `tipo_servico` cadastrado no site da visita (`visitas.sites.tipo_servico_id`), não um tipo da coleta em si; "Checkpoint" é o QR-Code específico onde a leitura foi escaneada (`leituras.qr_code_id`). Nenhum código mudou — o item só saiu de "assumido" para "confirmado" |
 | `salvarSite` gravava todo Site / Planta como inativo, sempre | `site-planta/actions.ts:115` lia `formData.get("ativo")`, um campo que não existe no formulário — o Status da tela (`SiteForm.tsx`) é um `<select name="status">` com valores `"ativo"`/`"inativo"`, não um checkbox. Resultado: `ativo` era sempre `false`, em criação **e** edição, e o site sumia em silêncio da listagem (filtro padrão "Ativos"), parecendo que o cadastro tinha falhado. Achado testando a tela com dado real e confirmado direto no banco (site criado com Status = Ativo na tela, gravado com `ativo: false`). Corrigido para ler `status` como `grupo-de-sites/actions.ts` já fazia (`!== "inativo"`); dois testes que atestavam o comportamento errado foram corrigidos, mais um novo cobrindo os três casos (ausente/ativo/inativo) |
