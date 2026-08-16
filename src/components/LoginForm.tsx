@@ -30,6 +30,32 @@ const URL_ERRORS: Record<string, string> = {
 const MAX_TENTATIVAS = 5;
 const BLOQUEIO_MS = 30_000;
 
+// Sem isto, tentativasFalhas e bloqueadoAte moram so no estado do componente
+// e um F5 no meio do bloqueio zera o contador -- a "camada extra" acima de
+// nada serve se um reload a contorna. sessionStorage (nao localStorage):
+// o bloqueio e por sessao de aba, nao deve sobreviver ao navegador fechar.
+const CHAVE_BLOQUEIO = "login-bloqueio";
+
+/**
+ * Le o bloqueio salvo antes de um reload anterior. Chamada de dentro de
+ * inicializador preguicoso do useState (nao de um useEffect): e leitura
+ * sincrona de fonte externa na montagem, exatamente o caso que o
+ * eslint-plugin-react-hooks (`set-state-in-effect`) recusa fazer via
+ * setState dentro de efeito -- e tambem evita o flash de um render com o
+ * estado default antes do efeito rodar.
+ */
+function lerBloqueioSalvo(): { tentativas?: number; ate?: number } {
+  try {
+    const salvo = sessionStorage.getItem(CHAVE_BLOQUEIO);
+    if (!salvo) return {};
+    return JSON.parse(salvo) as { tentativas?: number; ate?: number };
+  } catch {
+    // sessionStorage indisponivel (modo privado, iframe restrito) ou
+    // conteudo corrompido -- degrada para o comportamento soh em memoria.
+    return {};
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -41,12 +67,39 @@ export function LoginForm() {
   });
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tentativasFalhas, setTentativasFalhas] = useState(0);
-  const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(null);
+  // Inicializadores preguicosos (nao 0/null fixos): restauram o que foi
+  // salvo antes de um reload anterior ja no primeiro render, sem depender de
+  // um efeito rodar depois -- ver o comentario em lerBloqueioSalvo().
+  const [tentativasFalhas, setTentativasFalhas] = useState(() => {
+    const { tentativas, ate } = lerBloqueioSalvo();
+    if (typeof ate === "number" && ate > Date.now()) return 0;
+    return typeof tentativas === "number" ? tentativas : 0;
+  });
+  const [bloqueadoAte, setBloqueadoAte] = useState<number | null>(() => {
+    const { ate } = lerBloqueioSalvo();
+    return typeof ate === "number" && ate > Date.now() ? ate : null;
+  });
   const [segundosRestantes, setSegundosRestantes] = useState(0);
   // Reiniciado a cada tentativa falha (nao "true" fixo): reaplicar a mesma
   // classe sem passar por false antes nao reinicia a animacao no navegador.
   const [shaking, setShaking] = useState(false);
+
+  // Mantem o sessionStorage em sincronia a cada mudanca, para um reload no
+  // meio do bloqueio (ou entre tentativas) nao zerar o que foi restaurado
+  // acima.
+  useEffect(() => {
+    try {
+      if (bloqueadoAte) {
+        sessionStorage.setItem(CHAVE_BLOQUEIO, JSON.stringify({ ate: bloqueadoAte }));
+      } else if (tentativasFalhas > 0) {
+        sessionStorage.setItem(CHAVE_BLOQUEIO, JSON.stringify({ tentativas: tentativasFalhas }));
+      } else {
+        sessionStorage.removeItem(CHAVE_BLOQUEIO);
+      }
+    } catch {
+      // sessionStorage indisponivel -- comportamento soh em memoria continua valendo.
+    }
+  }, [tentativasFalhas, bloqueadoAte]);
 
   useEffect(() => {
     if (!bloqueadoAte) return;
