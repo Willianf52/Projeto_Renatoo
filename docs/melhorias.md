@@ -33,20 +33,18 @@ aparece hoje.
 > 2026-08-15: teste funcional de ponta a ponta (telas de escrita, com conta
 > real) achou um bug de dado, não só de tela — entrou direto em "Itens
 > fechados" já corrigido.
+>
+> 2026-08-15: confirmado com o dono do produto o significado dos três
+> filtros de `coletas-importadas` que estavam com semântica assumida —
+> "Localização", "Tipo" e "Checkpoint" interpretam os campos exatamente como
+> a implementação já fazia. Item saiu de "Média prioridade" para "Itens
+> fechados".
 
 ## Alta prioridade
 
 Nenhum item aberto nesta categoria no momento.
 
 ## Média prioridade
-
-2. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
-   "Localização" foi interpretado como presença/ausência de coordenadas na
-   leitura (`leituras.latitude`), "Tipo" como `tipos_servico` do site e
-   "Checkpoint" como `qr_codes`. Se o sistema de referência (UP Serviços) usa
-   esses campos com outro significado, os filtros restringem errado em
-   silêncio. Confirmar com quem conhece a tela original antes de considerar a
-   página fechada.
 
 3. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
@@ -140,6 +138,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Filtros de `coletas-importadas` com semântica assumida, não confirmada | Confirmado com o dono do produto em 2026-08-15: as três interpretações já implementadas em `queries.ts` (`aplicarFiltrosDeColeta`) estão corretas. "Localização" é presença/ausência de coordenada GPS na própria leitura (`leituras.tem_localizacao`), não um filtro de local; "Tipo" é o `tipo_servico` cadastrado no site da visita (`visitas.sites.tipo_servico_id`), não um tipo da coleta em si; "Checkpoint" é o QR-Code específico onde a leitura foi escaneada (`leituras.qr_code_id`). Nenhum código mudou — o item só saiu de "assumido" para "confirmado" |
 | `salvarSite` gravava todo Site / Planta como inativo, sempre | `site-planta/actions.ts:115` lia `formData.get("ativo")`, um campo que não existe no formulário — o Status da tela (`SiteForm.tsx`) é um `<select name="status">` com valores `"ativo"`/`"inativo"`, não um checkbox. Resultado: `ativo` era sempre `false`, em criação **e** edição, e o site sumia em silêncio da listagem (filtro padrão "Ativos"), parecendo que o cadastro tinha falhado. Achado testando a tela com dado real e confirmado direto no banco (site criado com Status = Ativo na tela, gravado com `ativo: false`). Corrigido para ler `status` como `grupo-de-sites/actions.ts` já fazia (`!== "inativo"`); dois testes que atestavam o comportamento errado foram corrigidos, mais um novo cobrindo os três casos (ausente/ativo/inativo) |
 | `ToastOnMount` mostrava o toast de sucesso duas vezes | `useEffect` sem guard: o StrictMode do React (dev) monta, "desmonta" e remonta todo efeito sem cleanup de propósito, e `show()` não é idempotente. Reproduzido em Grupo de Usuários (único uso hoje) em toda criação/edição. Corrigido com `useRef` marcando que o efeito já rodou; teste novo (`ToastOnMount.test.tsx`) renderiza dentro de `<StrictMode>` contra o `ToastProvider` real e confere que só um toast chega ao DOM |
 | Banco vazio (sem `seed.sql`) não tinha como ser populado só pela tela | `Novo Grupo de Sites` exige ao menos um site existente; `Novo Site / Planta` exige um grupo existente — travam um ao outro quando as duas tabelas partem vazias. Não é bug de código (o multi-select funciona normalmente assim que existe 1 site), é ausência de caminho de bootstrap pela UI; `seed.sql` sempre contornou isso inserindo os dois direto via SQL. Documentado no README, na seção "Banco de dados", para quem for provisionar um ambiente novo sem rodar o seed |
