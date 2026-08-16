@@ -39,6 +39,12 @@ aparece hoje.
 > "Localização", "Tipo" e "Checkpoint" interpretam os campos exatamente como
 > a implementação já fazia. Item saiu de "Média prioridade" para "Itens
 > fechados".
+>
+> 2026-08-16: achado do advisor de segurança do Supabase (funções
+> `SECURITY DEFINER` chamáveis via RPC por `anon`/`authenticated`) fechado
+> em duas migrations — a segunda (0028) corrigindo um resíduo que a
+> primeira (0027) deixou aberto por engano de sessão anterior. Direto em
+> "Itens fechados", nunca esteve nesta lista como item aberto.
 
 ## Alta prioridade
 
@@ -138,6 +144,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Funções `SECURITY DEFINER` de RLS chamáveis por `anon`/`authenticated` via RPC | Achado do advisor de segurança do Supabase. Migration 0027 revogou `EXECUTE` de `anon` em oito funções auxiliares (`e_cliente`, `nivel_acesso_atual`, `pode_administrar_cadastros`, `pode_administrar_grupos_usuarios`, `pode_administrar_usuarios`, `pode_ver_grupo_site`, `pode_ver_toda_operacao`, `usuario_ativo`) — `authenticated` fica de fora de propósito, as policies de RLS chamam essas funções com o privilégio de quem roda a query, não do dono. Nenhuma vazava dado: todas leem só a partir de `auth.uid()`, nulo para `anon`. A 0027 ficou aplicada no banco mas o arquivo não foi commitado na sessão em que foi criada (2026-08-16, 00:03) — detectado e commitado na sessão seguinte. Ao revisar, `handle_new_user()` (trigger de `auth.users`) continuava executável por `anon` **e** `authenticated` mesmo revogada nominalmente: diferente das outras oito, nunca teve `revoke all from public` na criação (migration 0008), então mantinha o grant implícito de `PUBLIC` — e os dois papéis são membros de `PUBLIC`. Migration 0028 revogou de `PUBLIC` diretamente. Confirmado nos grants reais (`proacl`/`has_function_privilege`) antes e depois, não só no advisor. Detalhe técnico completo em `docs/auditoria-seguranca.md` |
 | Filtros de `coletas-importadas` com semântica assumida, não confirmada | Confirmado com o dono do produto em 2026-08-15: as três interpretações já implementadas em `queries.ts` (`aplicarFiltrosDeColeta`) estão corretas. "Localização" é presença/ausência de coordenada GPS na própria leitura (`leituras.tem_localizacao`), não um filtro de local; "Tipo" é o `tipo_servico` cadastrado no site da visita (`visitas.sites.tipo_servico_id`), não um tipo da coleta em si; "Checkpoint" é o QR-Code específico onde a leitura foi escaneada (`leituras.qr_code_id`). Nenhum código mudou — o item só saiu de "assumido" para "confirmado" |
 | `salvarSite` gravava todo Site / Planta como inativo, sempre | `site-planta/actions.ts:115` lia `formData.get("ativo")`, um campo que não existe no formulário — o Status da tela (`SiteForm.tsx`) é um `<select name="status">` com valores `"ativo"`/`"inativo"`, não um checkbox. Resultado: `ativo` era sempre `false`, em criação **e** edição, e o site sumia em silêncio da listagem (filtro padrão "Ativos"), parecendo que o cadastro tinha falhado. Achado testando a tela com dado real e confirmado direto no banco (site criado com Status = Ativo na tela, gravado com `ativo: false`). Corrigido para ler `status` como `grupo-de-sites/actions.ts` já fazia (`!== "inativo"`); dois testes que atestavam o comportamento errado foram corrigidos, mais um novo cobrindo os três casos (ausente/ativo/inativo) |
 | `ToastOnMount` mostrava o toast de sucesso duas vezes | `useEffect` sem guard: o StrictMode do React (dev) monta, "desmonta" e remonta todo efeito sem cleanup de propósito, e `show()` não é idempotente. Reproduzido em Grupo de Usuários (único uso hoje) em toda criação/edição. Corrigido com `useRef` marcando que o efeito já rodou; teste novo (`ToastOnMount.test.tsx`) renderiza dentro de `<StrictMode>` contra o `ToastProvider` real e confere que só um toast chega ao DOM |
