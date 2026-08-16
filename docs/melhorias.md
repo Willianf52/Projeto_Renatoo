@@ -50,6 +50,10 @@ aparece hoje.
 > pelo painel do Supabase recusada pelo próprio Supabase — exige plano Pro.
 > Item permanece aberto, mas a causa mudou de "toggle manual pendente" para
 > "depende de decisão de upgrade de plano".
+>
+> 2026-08-16: primeira rodada do advisor `performance` do Supabase (nunca
+> conferido antes nesta lista, só o de `security`). Achados de baixa
+> prioridade viram item 9.
 
 ## Alta prioridade
 
@@ -103,6 +107,25 @@ Nenhum item aberto nesta categoria no momento.
    Plans and up"** — o projeto UpServiços está no plano Free hoje. Não é mais
    "sem custo": depende de upgrade de plano, decisão do dono do produto, não
    passo técnico pendente.
+
+9. **Achados do advisor `performance` do Supabase (RLS reavalia `auth.uid()`
+   por linha, FKs sem índice, índices nunca usados).** Primeira vez que este
+   advisor foi conferido (2026-08-16) — até aqui só o de `security` era
+   rodado. Três grupos, nenhum urgente:
+   - Seis policies de RLS chamam `auth.uid()`/`auth.<função>()` direto na
+     cláusula em vez de `(select auth.<função>())`: `profiles` (duas
+     policies), `grupos_usuarios_membros`, `grupos_sites_clientes`,
+     `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a função a
+     cada linha em vez de uma vez por query — puramente mecânico, não muda
+     quem vê o quê.
+   - Nove foreign keys sem índice cobrindo:
+     `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`,
+     `profiles.superior_id`,
+     `sites.criado_por`/`responsavel_id`/`tipo_servico_id`,
+     `visitas.coletor_dados_id`/`motivo_visita_id`.
+   - Cerca de 17 índices (a maioria trigram, de busca) nunca usados —
+     esperado com pouco dado de produção ainda, não é sinal de índice
+     desnecessário por si só.
 
 9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
    `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
