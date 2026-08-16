@@ -52,9 +52,11 @@ aparece hoje.
 > "depende de decisão de upgrade de plano".
 >
 > 2026-08-16: primeira rodada do advisor `performance` do Supabase (nunca
-> conferido antes nesta lista, só o de `security`). Achados de baixa
-> prioridade viram item 9. Um dos três grupos (RLS reavaliando `auth.uid()`
-> por linha) fechado no mesmo dia — migration 0029.
+> conferido antes nesta lista, só o de `security`). Três grupos de achado,
+> todos fechados no mesmo dia: RLS reavaliando `auth.uid()` por linha
+> (migration 0029), FKs sem índice (migration 0030), e índices "não usados"
+> — este último por decisão consciente de manter, não por correção. Item
+> nunca ficou aberto por mais de algumas horas nesta lista.
 
 ## Alta prioridade
 
@@ -109,20 +111,6 @@ Nenhum item aberto nesta categoria no momento.
    "sem custo": depende de upgrade de plano, decisão do dono do produto, não
    passo técnico pendente.
 
-9. **Achados do advisor `performance` do Supabase (FKs sem índice, índices
-   nunca usados).** Primeira vez que este advisor foi conferido
-   (2026-08-16) — até aqui só o de `security` era rodado. Dois grupos
-   restantes, nenhum urgente (o terceiro, RLS reavaliando `auth.uid()` por
-   linha, foi fechado no mesmo dia — ver "Itens fechados"):
-   - Nove foreign keys sem índice cobrindo:
-     `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`,
-     `profiles.superior_id`,
-     `sites.criado_por`/`responsavel_id`/`tipo_servico_id`,
-     `visitas.coletor_dados_id`/`motivo_visita_id`.
-   - Cerca de 17 índices (a maioria trigram, de busca) nunca usados —
-     esperado com pouco dado de produção ainda, não é sinal de índice
-     desnecessário por si só.
-
 9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
    `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
    recomendado é um schema próprio para extensões — mover exige uma migration
@@ -172,6 +160,8 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| 10 foreign keys sem índice cobrindo (`unindexed_foreign_keys`) | Achado do advisor de performance do Supabase. `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`, `profiles.superior_id`, `sites.criado_por`/`responsavel_id`/`tipo_servico_id`, `visitas.coletor_dados_id`/`motivo_visita_id` sem índice — DELETE/UPDATE na tabela pai varria a tabela filha inteira para checar integridade referencial, e joins pela FK não tinham por onde entrar. Migration 0030 cria os dez, `create index if not exists`, mesmo padrão de nome das migrations 0011/0018 |
+| ~22 índices marcados "não usados" (`unused_index`) — decisão de manter, não correção | Cruzado cada um com o código antes de decidir: os 11 trigram (`grupos_sites`, `profiles` nome/email/login, `sites` nome/sigla/cidade, `qr_codes` código/finalidade, `grupos_usuarios` nome/descrição) sustentam as caixas de busca (`ilike`) de cada tela de cadastro (migrations 0011/0012/0018); `leituras_com_localizacao_idx` é o filtro "Localização" de Coletas Importadas; `grupos_sites_pai_idx` é a hierarquia de Grupo de Sites (0024); os demais (`profiles_cargo_idx`, `visitas_funcionario_id_idx`, `grupos_usuarios_membros_profile_idx`, `sites_grupo_site_id_idx`, `visitas_data_integracao_idx`, `leituras_evento_id_idx`, `leituras_visita_id_idx`) cobrem coluna usada em filtro, RLS ou join hoje. Prova de que "não usado" aqui é sinal de pouco tráfego, não de índice morto: os 10 índices novos da migration 0030 apareceram nesse mesmo advisor como "não usados" segundos depois de criados. Apagar agora derrubaria busca/filtro/hierarquia assim que o uso crescer, e reconstruir os GIN trigram mais tarde, com tabela maior, custa mais caro do que custa hoje. Reavaliar só se algum candidato específico continuar zerado depois de meses de uso real em produção |
 | Policies de RLS reavaliavam `auth.uid()` por linha (`auth_rls_initplan`) | Achado do advisor de performance do Supabase. Seis policies chamavam `auth.uid()` direto na cláusula em vez de `(select auth.uid())`: `profiles` (leitura e a de update), `grupos_usuarios_membros`, `grupos_sites_clientes`, `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a chamada a cada linha varrida em vez de uma vez por query. Migration 0029 recria as seis com a mesma regra de autorização, só essa troca mecânica — nenhuma decisão de acesso mudou. Validado rodando os pgTAP existentes que cobrem essas policies (`leitura_de_perfis_test`, `escopo_de_cliente_test`, `update_cargo_ativo_negado_test`): 17/17 asserts passaram, mesmo comportamento de antes. Advisor confirma que os seis `auth_rls_initplan` sumiram |
 | Funções `SECURITY DEFINER` de RLS chamáveis por `anon`/`authenticated` via RPC | Achado do advisor de segurança do Supabase. Migration 0027 revogou `EXECUTE` de `anon` em oito funções auxiliares (`e_cliente`, `nivel_acesso_atual`, `pode_administrar_cadastros`, `pode_administrar_grupos_usuarios`, `pode_administrar_usuarios`, `pode_ver_grupo_site`, `pode_ver_toda_operacao`, `usuario_ativo`) — `authenticated` fica de fora de propósito, as policies de RLS chamam essas funções com o privilégio de quem roda a query, não do dono. Nenhuma vazava dado: todas leem só a partir de `auth.uid()`, nulo para `anon`. A 0027 ficou aplicada no banco mas o arquivo não foi commitado na sessão em que foi criada (2026-08-16, 00:03) — detectado e commitado na sessão seguinte. Ao revisar, `handle_new_user()` (trigger de `auth.users`) continuava executável por `anon` **e** `authenticated` mesmo revogada nominalmente: diferente das outras oito, nunca teve `revoke all from public` na criação (migration 0008), então mantinha o grant implícito de `PUBLIC` — e os dois papéis são membros de `PUBLIC`. Migration 0028 revogou de `PUBLIC` diretamente. Confirmado nos grants reais (`proacl`/`has_function_privilege`) antes e depois, não só no advisor. Detalhe técnico completo em `docs/auditoria-seguranca.md` |
 | Filtros de `coletas-importadas` com semântica assumida, não confirmada | Confirmado com o dono do produto em 2026-08-15: as três interpretações já implementadas em `queries.ts` (`aplicarFiltrosDeColeta`) estão corretas. "Localização" é presença/ausência de coordenada GPS na própria leitura (`leituras.tem_localizacao`), não um filtro de local; "Tipo" é o `tipo_servico` cadastrado no site da visita (`visitas.sites.tipo_servico_id`), não um tipo da coleta em si; "Checkpoint" é o QR-Code específico onde a leitura foi escaneada (`leituras.qr_code_id`). Nenhum código mudou — o item só saiu de "assumido" para "confirmado" |
