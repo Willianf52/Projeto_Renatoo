@@ -29,20 +29,53 @@ aparece hoje.
 > Coletas Importadas **é o comportamento esperado**, não uma lacuna — o item
 > "painel inicial" saiu de "Alta prioridade" e foi para "Itens fechados" como
 > decisão de produto, não pendência técnica.
+>
+> 2026-08-15: teste funcional de ponta a ponta (telas de escrita, com conta
+> real) achou um bug de dado, não só de tela — entrou direto em "Itens
+> fechados" já corrigido.
+>
+> 2026-08-15: confirmado com o dono do produto o significado dos três
+> filtros de `coletas-importadas` que estavam com semântica assumida —
+> "Localização", "Tipo" e "Checkpoint" interpretam os campos exatamente como
+> a implementação já fazia. Item saiu de "Média prioridade" para "Itens
+> fechados".
+>
+> 2026-08-16: achado do advisor de segurança do Supabase (funções
+> `SECURITY DEFINER` chamáveis via RPC por `anon`/`authenticated`) fechado
+> em duas migrations — a segunda (0028) corrigindo um resíduo que a
+> primeira (0027) deixou aberto por engano de sessão anterior. Direto em
+> "Itens fechados", nunca esteve nesta lista como item aberto.
+>
+> 2026-08-16: tentativa de ligar a proteção contra senha vazada (item 8)
+> pelo painel do Supabase recusada pelo próprio Supabase — exige plano Pro.
+> Item permanece aberto, mas a causa mudou de "toggle manual pendente" para
+> "depende de decisão de upgrade de plano".
+>
+> 2026-08-16: primeira rodada do advisor `performance` do Supabase (nunca
+> conferido antes nesta lista, só o de `security`). Três grupos de achado,
+> todos fechados no mesmo dia: RLS reavaliando `auth.uid()` por linha
+> (migration 0029), FKs sem índice (migration 0030), e índices "não usados"
+> — este último por decisão consciente de manter, não por correção. Item
+> nunca ficou aberto por mais de algumas horas nesta lista.
+>
+> 2026-08-16: auditoria de segurança pedida explicitamente (RLS, controle de
+> acesso, validação de entrada, headers/segredos) não achou nada Crítico/Alto
+> — o que já estava fechado nesta lista cobre a maior parte do escopo pedido.
+> Dos achados Médio/Baixo, dois viraram ação: item 8 ganhou compensação na
+> aplicação (detalhe na entrada do item) e item 9 ganhou a migration pronta
+> (não aplicada). Os outros dois foram avaliados e conscientemente não
+> mexidos: `script-src 'unsafe-inline'` em produção é o mesmo trade-off já
+> documentado em `lib/security-headers.ts` (nonce por rota foi tentado antes
+> e quebrou a hidratação da tela de login estática — não repetido sem
+> necessidade concreta), e o bloqueio de tentativas de login no
+> `LoginForm.tsx` é UX declarada como tal no próprio comentário do arquivo,
+> não a defesa real (que é o rate limit do GoTrue) — nada para corrigir ali.
 
 ## Alta prioridade
 
 Nenhum item aberto nesta categoria no momento.
 
 ## Média prioridade
-
-2. **Filtros de `coletas-importadas` com semântica assumida, não confirmada.**
-   "Localização" foi interpretado como presença/ausência de coordenadas na
-   leitura (`leituras.latitude`), "Tipo" como `tipos_servico` do site e
-   "Checkpoint" como `qr_codes`. Se o sistema de referência (UP Serviços) usa
-   esses campos com outro significado, os filtros restringem errado em
-   silêncio. Confirmar com quem conhece a tela original antes de considerar a
-   página fechada.
 
 3. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
@@ -64,35 +97,9 @@ Nenhum item aberto nesta categoria no momento.
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-5. **Sentry ligado no código (2026-08-11), inerte até existir um DSN.**
-   `@sentry/nextjs` instalado; `src/instrumentation.ts` (servidor/edge) e
-   `src/instrumentation-client.ts` (navegador) chamam `Sentry.init` com
-   `dsn: process.env.SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — sem essas
-   variáveis (não configuradas em nenhum ambiente ainda) o SDK não envia nada,
-   é a forma documentada de ficar inerte. `lib/log.ts` (usado por
-   `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
-   pelas rotas de API) e os dois `error.tsx` (`app/error.tsx`,
-   `app/dashboard/error.tsx`) chamam `Sentry.captureException`/
-   `captureMessage` além do `console.error` de sempre. Falta só criar a conta
-   Sentry e colar o DSN em `.env.local`/no ambiente de produção — ver
-   `.env.example`.
-
 6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
-
-8. **Proteção contra senha vazada desligada no Supabase Auth.** Achado pelo
-   `get_advisors` (2026-08-11): a checagem contra HaveIBeenPwned.org não está
-   ativada. É um único toggle em Authentication → Policies no painel do
-   Supabase, sem custo — não dá para ligar por aqui, precisa ser feito
-   manualmente.
-
-9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
-   `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
-   recomendado é um schema próprio para extensões — mover exige uma migration
-   que recria os índices GIN que dependem dela (`grupos_sites`, `profiles`,
-   `sites`), então não é mudança de baixo risco o suficiente para fazer sem
-   revisão.
 
 10. **`salvarSite`/`salvarGrupoSite`/`salvarGrupoUsuarios`/`salvarQrCode`/`salvarUsuario` reimplementavam,
     cada um, o mesmo extrator de `FormData` e a mesma tabela de tradução de
@@ -136,6 +143,17 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Proteção contra senha vazada desligada no Supabase Auth (`get_advisors`, 2026-08-11) | O toggle nativo ("Prevent use of leaked passwords", Authentication → Sign In / Providers → Email) exige plano Pro — tentativa de ativação em 2026-08-16 recusada pelo próprio Supabase. **2026-08-16: dono do produto decidiu não fazer upgrade de plano** — deixa de ser pendência dependente de decisão e vira decisão tomada. Compensação ficou na aplicação, no mesmo dia: `lib/senha-vazada.ts` consulta a API k-anonymity do HaveIBeenPwned (só um prefixo de 5 caracteres do SHA-1 sai do servidor, nunca a senha) nos três pontos onde senha é definida — `usuarios/actions.ts` (server action, checagem direta) e `nova-senha`/`trocar-senha` (client components que chamam `supabase.auth.updateUser` direto, sem server action no meio — checam via nova rota `api/senha/verificar-vazamento` antes de chamar `updateUser`). Falha aberta em timeout/erro de rede: é checagem adicional, não defesa de borda. Risco residual aceito conscientemente, não escondido: contas criadas direto pelo painel/console do Supabase (fora da aplicação) não passam por este código — mesma categoria de exposição que qualquer ação feita por quem já tem acesso administrativo ao projeto Supabase, não um caminho que um usuário comum alcança |
+| Sentry ligado no código (2026-08-11), inerte até existir um DSN | Conta e projeto criados em 2026-08-16 (`up-servicos/javascript-nextjs`, região EU). `npx @sentry/wizard` rodou em duas etapas por causa de uma dependência faltando na máquina (`pnpm` não instalado — resolvido com `npm install -g pnpm@11.18.0`, a versão que `package.json` já declarava via `packageManager`). O wizard gerou `sentry.server.config.ts`/`sentry.edge.config.ts` mas **não** os conectou ao `instrumentation.ts` que já existia (o wizard não sobrescreve um `register()` customizado) — os dois ficariam órfãos, nunca executados, com o DSN além disso hardcoded no arquivo em vez de vir de env. Corrigido: `instrumentation.ts` passou a delegar via `await import("../sentry.server.config")`/`sentry.edge.config` (padrão atual do SDK), e os dois arquivos passaram a ler `process.env.SENTRY_DSN`. Também achado e corrigido: o `tunnelRoute: "/monitoring"` que o wizard configurou (necessário porque a CSP deste app restringe `connect-src` a `'self'` + Supabase, mesmo motivo do proxy do ViaCEP em `api/cep`) caía no matcher do middleware de autenticação (`proxy.ts`) — um evento de erro na tela de login, deslogado, seria redirecionado para `/` em vez de chegar ao Sentry; excluído do matcher. `SENTRY_AUTH_TOKEN` (upload de source map) movido do arquivo solto que o wizard cria (`.env.sentry-build-plugin`, apagado) para `.env.local`, mesmo padrão do resto do projeto. Rotas de exemplo do wizard (`sentry-example-page`, `api/sentry-example-api`) removidas depois de confirmar que a rota de teste respondia 500 como esperado. Validado com lint/typecheck/vitest (379/379)/build de produção, incluindo o upload de source map rodando no build. **Pendente:** configurar `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` no ambiente de produção (Vercel ou onde o app estiver hospedado) — `.env.local` cobre só o ambiente local |
+| Extensão `pg_trgm` instalada no schema `public` (`extension_in_public`, `get_advisors`) | Ficou em `public` desde a migration 0011 por ser o schema corrente no momento do `create extension`, sem decisão deliberada. A hipótese inicial de que mover exigiria recriar os índices GIN estava errada — `alter extension pg_trgm set schema` preserva o OID de cada objeto da extensão, e os índices (`grupos_sites_nome_trgm_idx`, `grupos_sites_descricao_trgm_idx`, `profiles_nome_completo_trgm_idx`, `profiles_email_trgm_idx`) resolvem a classe de operador pelo OID gravado neles, não pelo nome a cada consulta. `extensions` (schema que já hospeda `pgcrypto`/`uuid-ossp`/`pg_stat_statements`/`pgtap` neste projeto) está no `search_path` padrão do Supabase, então migration futura com `gin_trgm_ops` continua funcionando sem qualificar o schema. Migration 0031 aplicada em produção em 2026-08-16; confirmado por SQL direto (`pg_extension`/`pg_namespace`) que a extensão está em `extensions`, os 4 índices continuam existindo com a mesma definição, e o achado `extension_in_public` não aparece mais no `get_advisors` |
+| 10 foreign keys sem índice cobrindo (`unindexed_foreign_keys`) | Achado do advisor de performance do Supabase. `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`, `profiles.superior_id`, `sites.criado_por`/`responsavel_id`/`tipo_servico_id`, `visitas.coletor_dados_id`/`motivo_visita_id` sem índice — DELETE/UPDATE na tabela pai varria a tabela filha inteira para checar integridade referencial, e joins pela FK não tinham por onde entrar. Migration 0030 cria os dez, `create index if not exists`, mesmo padrão de nome das migrations 0011/0018 |
+| ~22 índices marcados "não usados" (`unused_index`) — decisão de manter, não correção | Cruzado cada um com o código antes de decidir: os 11 trigram (`grupos_sites`, `profiles` nome/email/login, `sites` nome/sigla/cidade, `qr_codes` código/finalidade, `grupos_usuarios` nome/descrição) sustentam as caixas de busca (`ilike`) de cada tela de cadastro (migrations 0011/0012/0018); `leituras_com_localizacao_idx` é o filtro "Localização" de Coletas Importadas; `grupos_sites_pai_idx` é a hierarquia de Grupo de Sites (0024); os demais (`profiles_cargo_idx`, `visitas_funcionario_id_idx`, `grupos_usuarios_membros_profile_idx`, `sites_grupo_site_id_idx`, `visitas_data_integracao_idx`, `leituras_evento_id_idx`, `leituras_visita_id_idx`) cobrem coluna usada em filtro, RLS ou join hoje. Prova de que "não usado" aqui é sinal de pouco tráfego, não de índice morto: os 10 índices novos da migration 0030 apareceram nesse mesmo advisor como "não usados" segundos depois de criados. Apagar agora derrubaria busca/filtro/hierarquia assim que o uso crescer, e reconstruir os GIN trigram mais tarde, com tabela maior, custa mais caro do que custa hoje. Reavaliar só se algum candidato específico continuar zerado depois de meses de uso real em produção |
+| Policies de RLS reavaliavam `auth.uid()` por linha (`auth_rls_initplan`) | Achado do advisor de performance do Supabase. Seis policies chamavam `auth.uid()` direto na cláusula em vez de `(select auth.uid())`: `profiles` (leitura e a de update), `grupos_usuarios_membros`, `grupos_sites_clientes`, `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a chamada a cada linha varrida em vez de uma vez por query. Migration 0029 recria as seis com a mesma regra de autorização, só essa troca mecânica — nenhuma decisão de acesso mudou. Validado rodando os pgTAP existentes que cobrem essas policies (`leitura_de_perfis_test`, `escopo_de_cliente_test`, `update_cargo_ativo_negado_test`): 17/17 asserts passaram, mesmo comportamento de antes. Advisor confirma que os seis `auth_rls_initplan` sumiram |
+| Funções `SECURITY DEFINER` de RLS chamáveis por `anon`/`authenticated` via RPC | Achado do advisor de segurança do Supabase. Migration 0027 revogou `EXECUTE` de `anon` em oito funções auxiliares (`e_cliente`, `nivel_acesso_atual`, `pode_administrar_cadastros`, `pode_administrar_grupos_usuarios`, `pode_administrar_usuarios`, `pode_ver_grupo_site`, `pode_ver_toda_operacao`, `usuario_ativo`) — `authenticated` fica de fora de propósito, as policies de RLS chamam essas funções com o privilégio de quem roda a query, não do dono. Nenhuma vazava dado: todas leem só a partir de `auth.uid()`, nulo para `anon`. A 0027 ficou aplicada no banco mas o arquivo não foi commitado na sessão em que foi criada (2026-08-16, 00:03) — detectado e commitado na sessão seguinte. Ao revisar, `handle_new_user()` (trigger de `auth.users`) continuava executável por `anon` **e** `authenticated` mesmo revogada nominalmente: diferente das outras oito, nunca teve `revoke all from public` na criação (migration 0008), então mantinha o grant implícito de `PUBLIC` — e os dois papéis são membros de `PUBLIC`. Migration 0028 revogou de `PUBLIC` diretamente. Confirmado nos grants reais (`proacl`/`has_function_privilege`) antes e depois, não só no advisor. Detalhe técnico completo em `docs/auditoria-seguranca.md` |
+| Filtros de `coletas-importadas` com semântica assumida, não confirmada | Confirmado com o dono do produto em 2026-08-15: as três interpretações já implementadas em `queries.ts` (`aplicarFiltrosDeColeta`) estão corretas. "Localização" é presença/ausência de coordenada GPS na própria leitura (`leituras.tem_localizacao`), não um filtro de local; "Tipo" é o `tipo_servico` cadastrado no site da visita (`visitas.sites.tipo_servico_id`), não um tipo da coleta em si; "Checkpoint" é o QR-Code específico onde a leitura foi escaneada (`leituras.qr_code_id`). Nenhum código mudou — o item só saiu de "assumido" para "confirmado" |
+| `salvarSite` gravava todo Site / Planta como inativo, sempre | `site-planta/actions.ts:115` lia `formData.get("ativo")`, um campo que não existe no formulário — o Status da tela (`SiteForm.tsx`) é um `<select name="status">` com valores `"ativo"`/`"inativo"`, não um checkbox. Resultado: `ativo` era sempre `false`, em criação **e** edição, e o site sumia em silêncio da listagem (filtro padrão "Ativos"), parecendo que o cadastro tinha falhado. Achado testando a tela com dado real e confirmado direto no banco (site criado com Status = Ativo na tela, gravado com `ativo: false`). Corrigido para ler `status` como `grupo-de-sites/actions.ts` já fazia (`!== "inativo"`); dois testes que atestavam o comportamento errado foram corrigidos, mais um novo cobrindo os três casos (ausente/ativo/inativo) |
+| `ToastOnMount` mostrava o toast de sucesso duas vezes | `useEffect` sem guard: o StrictMode do React (dev) monta, "desmonta" e remonta todo efeito sem cleanup de propósito, e `show()` não é idempotente. Reproduzido em Grupo de Usuários (único uso hoje) em toda criação/edição. Corrigido com `useRef` marcando que o efeito já rodou; teste novo (`ToastOnMount.test.tsx`) renderiza dentro de `<StrictMode>` contra o `ToastProvider` real e confere que só um toast chega ao DOM |
+| Banco vazio (sem `seed.sql`) não tinha como ser populado só pela tela | `Novo Grupo de Sites` exige ao menos um site existente; `Novo Site / Planta` exige um grupo existente — travam um ao outro quando as duas tabelas partem vazias. Não é bug de código (o multi-select funciona normalmente assim que existe 1 site), é ausência de caminho de bootstrap pela UI; `seed.sql` sempre contornou isso inserindo os dois direto via SQL. Documentado no README, na seção "Banco de dados", para quem for provisionar um ambiente novo sem rodar o seed |
 | `/dashboard` sem tela própria (painel inicial) | Confirmado com o dono do produto em 2026-08-07: cair direto em Coletas Importadas ao entrar no sistema **é o comportamento esperado**, não uma ausência a preencher. `metas_visitas` segue sem consulta nenhuma, mas deixa de ser tratado como pendência — só volta à lista se o critério de produto mudar |
 | Coluna "Ações" vazia em Coletas Importadas | Não havia ação real para colocar nela — a única candidata (mostrar a coordenada exata da leitura, hoje só usada como presença/ausência no filtro "Localização") foi descartada por decisão de produto. A coluna saiu de `TABLE_COLUMNS`, e `toTableRow` passou a ser a lista completa de campos da linha, sem mais precisar de tratamento especial na página |
 | `package-lock.json` local | Apagado da máquina de desenvolvimento — estava fora do controle de versão (`.gitignore`), então a divergência com `pnpm-lock.yaml` não afetava o repositório, só o ambiente local |

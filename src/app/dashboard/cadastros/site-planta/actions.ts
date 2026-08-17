@@ -112,7 +112,9 @@ function extrairValores(formData: FormData): ValoresDoSite {
     recebeVisita: formData.get("recebe_visita") !== null,
     gerarQrcodeAutomatico: formData.get("gerar_qrcode_automatico") !== null,
     gerarRegistroColetas: formData.get("gerar_registro_coletas") !== null,
-    ativo: formData.get("ativo") !== null,
+    // "status" e um Select ("ativo"/"inativo"), nao um checkbox -- ver
+    // grupo-de-sites/actions.ts, mesmo padrao.
+    ativo: String(formData.get("status") ?? "") !== "inativo",
   };
 }
 

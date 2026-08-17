@@ -1,0 +1,39 @@
+-- ============================================================================
+-- VeloxLab — pg_trgm fora do schema public
+--
+-- Achado do advisor `security` do Supabase (extension_in_public):
+-- `pg_trgm` (migration 0011) foi instalada em `public` porque era o schema
+-- corrente no momento do `create extension if not exists pg_trgm`, sem
+-- decisão deliberada. O projeto já usa `extensions` para as demais extensões
+-- não-core (`pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `pgtap`) -- só
+-- `pg_trgm` ficou fora dessa convenção.
+--
+-- O risco de deixar em `public` é indireto: uma extensão nesse schema
+-- expõe suas funções/operadores a qualquer objeto futuro criado ali sem
+-- qualificação de schema, e amplia a superfície do schema que toda tabela
+-- da aplicação também usa. Não há exploração prática conhecida hoje --
+-- é hardening, não correção de uma falha ativa.
+--
+-- `alter extension ... set schema` move os objetos da extensão (funções,
+-- operadores, classes de operador) preservando o OID de cada um -- os
+-- índices GIN que já usam `gin_trgm_ops` (migration 0011:
+-- grupos_sites_nome_trgm_idx, grupos_sites_descricao_trgm_idx,
+-- profiles_nome_completo_trgm_idx, profiles_email_trgm_idx) continuam
+-- funcionando sem rebuild: o Postgres resolve a classe de operador pelo OID
+-- guardado no índice, não reavaliando o nome a cada consulta.
+--
+-- `extensions` já está no search_path padrão dos bancos Supabase (é assim
+-- que `pgcrypto`/`uuid-ossp` funcionam sem qualificação hoje), então uma
+-- migration futura que crie outro índice `gin_trgm_ops` continua funcionando
+-- sem precisar escrever `extensions.gin_trgm_ops`.
+--
+-- Idempotente: pode ser executado mais de uma vez sem erro (o segundo `alter
+-- extension ... set schema` para o schema onde a extensão já está é no-op).
+--
+-- Aplicada em produção em 2026-08-16. Confirmado por SQL direto (pg_extension/
+-- pg_namespace) que a extensão passou para `extensions`, que os 4 índices
+-- trgm continuam existindo com a mesma definição, e que o achado
+-- `extension_in_public` não aparece mais no advisor `security`.
+-- ============================================================================
+
+alter extension pg_trgm set schema extensions;

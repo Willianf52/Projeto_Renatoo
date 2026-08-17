@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useToast } from "@/components/Toast";
 
 /**
@@ -23,8 +23,15 @@ export function ToastOnMount({
 }) {
   const { show } = useToast();
   const router = useRouter();
+  const jaMostrou = useRef(false);
 
   useEffect(() => {
+    // O Strict Mode do React (dev) monta, desmonta e monta de novo todo
+    // efeito sem cleanup, de proposito -- sem este guard o toast apareceria
+    // duas vezes a cada salvamento, so em desenvolvimento.
+    if (jaMostrou.current) return;
+    jaMostrou.current = true;
+
     show(message, variant);
     router.replace(cleanHref);
     // Roda so uma vez, no mount: refazer a cada render reabriria o toast.

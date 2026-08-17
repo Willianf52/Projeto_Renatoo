@@ -235,7 +235,7 @@ export function GrupoUsuariosForm({
         <Button type="submit" loading={enviando} disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar"}
         </Button>
-        <Button href={LISTAGEM} variant="secondary">
+        <Button href={LISTAGEM} variant="secondary" disabled={enviando}>
           Cancelar
         </Button>
       </div>

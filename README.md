@@ -56,6 +56,15 @@ supabase db push
 qualificadores, tipos de serviço) e um grupo de sites de exemplo, para a
 importação de coletas ter em que se apoiar.
 
+**Um banco sem `seed.sql` não tem como ser populado só pela tela.** `Novo
+Grupo de Sites` exige selecionar ao menos um site já cadastrado, e `Novo
+Site / Planta` exige selecionar um grupo de sites já cadastrado — em par,
+travam um ao outro quando as duas tabelas estão vazias. `seed.sql` contorna
+isso inserindo os dois direto via SQL (sem passar pela validação da tela).
+Provisionando um ambiente novo sem rodar o seed, cadastre o primeiro grupo e
+o primeiro site manualmente via SQL (ou pelo painel do Supabase) antes de
+usar as telas.
+
 ## Rodando localmente
 
 ```bash

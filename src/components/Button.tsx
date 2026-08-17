@@ -35,6 +35,7 @@ type CommonProps = {
   size?: Size;
   fullWidth?: boolean;
   loading?: boolean;
+  disabled?: boolean;
   className?: string;
   children: React.ReactNode;
 };
@@ -72,12 +73,30 @@ function buildClassName({
  * `href` presente vira `<Link>` (ex.: "Cancelar" saindo de um formulario);
  * ausente vira `<button>`. `loading` mostra o spinner e desabilita --
  * so faz sentido em botao, um link nao tem estado de carregamento proprio.
+ *
+ * `disabled` num link vira um `<span>` inerte (nao navega), em vez de virar
+ * atributo HTML invalido num `<a>`. Existe para o "Cancelar" ao lado de um
+ * "Salvar" em voo: sem isso, a pessoa navega para longe no meio de uma
+ * escrita que so o servidor sabe se ja terminou, e volta sem saber se salvou.
  */
-export function Button({ variant, size, fullWidth, loading, className, children, ...props }: ButtonProps) {
+export function Button({ variant, size, fullWidth, loading, disabled, className, children, ...props }: ButtonProps) {
   const classes = buildClassName({ variant, size, fullWidth, className });
 
   if ("href" in props && props.href !== undefined) {
     const { href, ...linkProps } = props as Omit<ButtonAsLink, keyof CommonProps> & { href: string };
+
+    if (disabled) {
+      return (
+        <span
+          aria-disabled="true"
+          className={`${classes} cursor-not-allowed opacity-60`}
+          {...(linkProps as React.HTMLAttributes<HTMLSpanElement>)}
+        >
+          {children}
+        </span>
+      );
+    }
+
     return (
       <Link href={href} className={classes} {...linkProps}>
         {children}
@@ -85,7 +104,7 @@ export function Button({ variant, size, fullWidth, loading, className, children,
     );
   }
 
-  const { disabled, ...buttonProps } = props as Omit<ButtonAsButton, keyof CommonProps>;
+  const buttonProps = props as Omit<ButtonAsButton, keyof CommonProps>;
 
   return (
     <button type="button" disabled={disabled || loading} className={classes} {...buttonProps}>

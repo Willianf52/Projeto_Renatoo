@@ -111,7 +111,8 @@ describe("salvarSite", () => {
             // Minusculas viram maiusculas: `uf` e comparada por igualdade nos
             // relatorios, e "rs" nao casaria com "RS".
             uf: "RS",
-            ativo: false,
+            // Campo "status" ausente: ativo por padrao (ver testes abaixo).
+            ativo: true,
           }),
         },
       ]);
@@ -128,9 +129,22 @@ describe("salvarSite", () => {
       expect(linha.regional).toBeNull();
     });
 
-    it("marca ativo quando o checkbox vem no formulario", async () => {
-      // Checkbox nao marcado nao e enviado pelo navegador: ausencia e false.
-      await salvarSite({}, formulario({ ...MINIMO, ativo: "on" }));
+    it("status ausente cai em ativo por padrao", async () => {
+      // "status" e um Select, nao um checkbox: sem valor no formulario nao
+      // quer dizer "desativado", quer dizer que o campo nao foi tocado.
+      await salvarSite({}, formulario(MINIMO));
+
+      expect(chamadas[0].linha.ativo).toBe(true);
+    });
+
+    it('status "inativo" desativa o site', async () => {
+      await salvarSite({}, formulario({ ...MINIMO, status: "inativo" }));
+
+      expect(chamadas[0].linha.ativo).toBe(false);
+    });
+
+    it('status "ativo" mantem o site ativo', async () => {
+      await salvarSite({}, formulario({ ...MINIMO, status: "ativo" }));
 
       expect(chamadas[0].linha.ativo).toBe(true);
     });

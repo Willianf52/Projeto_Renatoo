@@ -32,7 +32,14 @@ export function PieChart({ fatias, tamanho = 220 }: { fatias: [Fatia, Fatia]; ta
 
   if (total <= 0) {
     return (
-      <svg viewBox={`0 0 ${tamanho} ${tamanho}`} width={tamanho} height={tamanho} role="img" aria-label="Sem dados">
+      <svg
+        viewBox={`0 0 ${tamanho} ${tamanho}`}
+        width={tamanho}
+        height={tamanho}
+        role="img"
+        aria-label="Sem dados"
+        className="animate-fade-in-scale"
+      >
         <circle cx={cx} cy={cy} r={raio} className="fill-brand-muted/20" />
       </svg>
     );
@@ -41,7 +48,13 @@ export function PieChart({ fatias, tamanho = 220 }: { fatias: [Fatia, Fatia]; ta
   const cheia = fatias.find((fatia) => fatia.valor === total);
   if (cheia) {
     return (
-      <svg viewBox={`0 0 ${tamanho} ${tamanho}`} width={tamanho} height={tamanho} role="img">
+      <svg
+        viewBox={`0 0 ${tamanho} ${tamanho}`}
+        width={tamanho}
+        height={tamanho}
+        role="img"
+        className="animate-fade-in-scale"
+      >
         <circle cx={cx} cy={cy} r={raio} fill={cheia.cor} />
       </svg>
     );
@@ -62,7 +75,13 @@ export function PieChart({ fatias, tamanho = 220 }: { fatias: [Fatia, Fatia]; ta
   );
 
   return (
-    <svg viewBox={`0 0 ${tamanho} ${tamanho}`} width={tamanho} height={tamanho} role="img">
+    <svg
+      viewBox={`0 0 ${tamanho} ${tamanho}`}
+      width={tamanho}
+      height={tamanho}
+      role="img"
+      className="animate-fade-in-scale"
+    >
       {caminhos.map((fatia, indice) => (
         <path key={indice} d={fatia.path} fill={fatia.cor} />
       ))}
