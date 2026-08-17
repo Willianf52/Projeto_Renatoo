@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
+import { Button } from "@/components/Button";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
 import { salvarSite, type EstadoDoFormulario, type ValoresDoSite } from "./actions";
@@ -265,7 +265,6 @@ export function SiteForm({
             type="text"
             required
             defaultValue={valores.nome}
-            aria-invalid={Boolean(estado.erro)}
             className={getInputClasses(Boolean(estado.erro))}
           />
         </Campo>
@@ -478,19 +477,12 @@ export function SiteForm({
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={enviando}
-          className="flex h-10 items-center justify-center rounded-md bg-brand-green px-6 text-sm font-semibold text-brand-navy shadow-sm transition-all duration-200 hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus:outline-none focus:ring-2 focus:ring-brand-green active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:shadow-sm disabled:active:scale-100"
-        >
+        <Button type="submit" loading={enviando} disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar"}
-        </button>
-        <Link
-          href={LISTAGEM}
-          className="flex h-10 items-center justify-center rounded-md border border-slate-800 px-6 text-sm font-medium text-brand-muted transition-colors duration-200 hover:bg-brand-navy hover:text-white"
-        >
+        </Button>
+        <Button href={LISTAGEM} variant="secondary" disabled={enviando}>
           Cancelar
-        </Link>
+        </Button>
       </div>
     </form>
   );
