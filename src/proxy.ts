@@ -17,13 +17,21 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Aplica a todas as rotas, exceto arquivos estaticos, imagens e /api.
-     * Rotas de API (ex.: /api/webhooks/*) sao chamadas server-to-server, sem
-     * cookie de sessao de navegador -- cair na checagem de usuario aqui as
-     * redirecionaria pra "/" antes de rodar a propria autenticacao da rota
-     * (ex.: segredo compartilhado no header). Cada rota de API cuida da sua
-     * autenticacao.
+     * Aplica a todas as rotas, exceto arquivos estaticos, imagens, /api e
+     * /monitoring. Rotas de API (ex.: /api/webhooks/*) sao chamadas
+     * server-to-server, sem cookie de sessao de navegador -- cair na
+     * checagem de usuario aqui as redirecionaria pra "/" antes de rodar a
+     * propria autenticacao da rota (ex.: segredo compartilhado no header).
+     * Cada rota de API cuida da sua autenticacao.
+     *
+     * /monitoring e o `tunnelRoute` do Sentry (next.config.ts): o SDK do
+     * navegador manda os eventos de erro pra la, mesma origem, pra nao
+     * cair bloqueado pela CSP nem por adblocker. E so ida (sem sessao
+     * necessaria) e roda ate na tela de login, deslogado -- cair na
+     * checagem de usuario aqui perderia o evento redirecionando a
+     * requisicao pra "/" em vez de deixar o proprio SDK do Sentry
+     * encaminha-la.
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api|monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

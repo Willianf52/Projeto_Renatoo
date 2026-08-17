@@ -57,6 +57,19 @@ aparece hoje.
 > (migration 0029), FKs sem índice (migration 0030), e índices "não usados"
 > — este último por decisão consciente de manter, não por correção. Item
 > nunca ficou aberto por mais de algumas horas nesta lista.
+>
+> 2026-08-16: auditoria de segurança pedida explicitamente (RLS, controle de
+> acesso, validação de entrada, headers/segredos) não achou nada Crítico/Alto
+> — o que já estava fechado nesta lista cobre a maior parte do escopo pedido.
+> Dos achados Médio/Baixo, dois viraram ação: item 8 ganhou compensação na
+> aplicação (detalhe na entrada do item) e item 9 ganhou a migration pronta
+> (não aplicada). Os outros dois foram avaliados e conscientemente não
+> mexidos: `script-src 'unsafe-inline'` em produção é o mesmo trade-off já
+> documentado em `lib/security-headers.ts` (nonce por rota foi tentado antes
+> e quebrou a hidratação da tela de login estática — não repetido sem
+> necessidade concreta), e o bloqueio de tentativas de login no
+> `LoginForm.tsx` é UX declarada como tal no próprio comentário do arquivo,
+> não a defesa real (que é o rate limit do GoTrue) — nada para corrigir ali.
 
 ## Alta prioridade
 
@@ -84,39 +97,9 @@ Nenhum item aberto nesta categoria no momento.
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
-5. **Sentry ligado no código (2026-08-11), inerte até existir um DSN.**
-   `@sentry/nextjs` instalado; `src/instrumentation.ts` (servidor/edge) e
-   `src/instrumentation-client.ts` (navegador) chamam `Sentry.init` com
-   `dsn: process.env.SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` — sem essas
-   variáveis (não configuradas em nenhum ambiente ainda) o SDK não envia nada,
-   é a forma documentada de ficar inerte. `lib/log.ts` (usado por
-   `lib/supabase/middleware.ts`, `lib/perfil-atual.ts`, `lib/permissoes.ts` e
-   pelas rotas de API) e os dois `error.tsx` (`app/error.tsx`,
-   `app/dashboard/error.tsx`) chamam `Sentry.captureException`/
-   `captureMessage` além do `console.error` de sempre. Falta só criar a conta
-   Sentry e colar o DSN em `.env.local`/no ambiente de produção — ver
-   `.env.example`.
-
 6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
-
-8. **Proteção contra senha vazada desligada no Supabase Auth.** Achado pelo
-   `get_advisors` (2026-08-11): a checagem contra HaveIBeenPwned.org não está
-   ativada. O toggle fica em Authentication → Sign In / Providers → Email →
-   "Prevent use of leaked passwords". Tentativa de ativação em 2026-08-16
-   (via navegador, direto no painel) recusada pelo próprio Supabase: **"Configuring
-   leaked password protection via HaveIBeenPwned.org is available on Pro
-   Plans and up"** — o projeto UpServiços está no plano Free hoje. Não é mais
-   "sem custo": depende de upgrade de plano, decisão do dono do produto, não
-   passo técnico pendente.
-
-9. **Extensão `pg_trgm` instalada no schema `public`.** Mesmo achado do
-   `get_advisors`. Funciona onde está (`supabase/migrations/0011`), mas o
-   recomendado é um schema próprio para extensões — mover exige uma migration
-   que recria os índices GIN que dependem dela (`grupos_sites`, `profiles`,
-   `sites`), então não é mudança de baixo risco o suficiente para fazer sem
-   revisão.
 
 10. **`salvarSite`/`salvarGrupoSite`/`salvarGrupoUsuarios`/`salvarQrCode`/`salvarUsuario` reimplementavam,
     cada um, o mesmo extrator de `FormData` e a mesma tabela de tradução de
@@ -160,6 +143,9 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Proteção contra senha vazada desligada no Supabase Auth (`get_advisors`, 2026-08-11) | O toggle nativo ("Prevent use of leaked passwords", Authentication → Sign In / Providers → Email) exige plano Pro — tentativa de ativação em 2026-08-16 recusada pelo próprio Supabase. **2026-08-16: dono do produto decidiu não fazer upgrade de plano** — deixa de ser pendência dependente de decisão e vira decisão tomada. Compensação ficou na aplicação, no mesmo dia: `lib/senha-vazada.ts` consulta a API k-anonymity do HaveIBeenPwned (só um prefixo de 5 caracteres do SHA-1 sai do servidor, nunca a senha) nos três pontos onde senha é definida — `usuarios/actions.ts` (server action, checagem direta) e `nova-senha`/`trocar-senha` (client components que chamam `supabase.auth.updateUser` direto, sem server action no meio — checam via nova rota `api/senha/verificar-vazamento` antes de chamar `updateUser`). Falha aberta em timeout/erro de rede: é checagem adicional, não defesa de borda. Risco residual aceito conscientemente, não escondido: contas criadas direto pelo painel/console do Supabase (fora da aplicação) não passam por este código — mesma categoria de exposição que qualquer ação feita por quem já tem acesso administrativo ao projeto Supabase, não um caminho que um usuário comum alcança |
+| Sentry ligado no código (2026-08-11), inerte até existir um DSN | Conta e projeto criados em 2026-08-16 (`up-servicos/javascript-nextjs`, região EU). `npx @sentry/wizard` rodou em duas etapas por causa de uma dependência faltando na máquina (`pnpm` não instalado — resolvido com `npm install -g pnpm@11.18.0`, a versão que `package.json` já declarava via `packageManager`). O wizard gerou `sentry.server.config.ts`/`sentry.edge.config.ts` mas **não** os conectou ao `instrumentation.ts` que já existia (o wizard não sobrescreve um `register()` customizado) — os dois ficariam órfãos, nunca executados, com o DSN além disso hardcoded no arquivo em vez de vir de env. Corrigido: `instrumentation.ts` passou a delegar via `await import("../sentry.server.config")`/`sentry.edge.config` (padrão atual do SDK), e os dois arquivos passaram a ler `process.env.SENTRY_DSN`. Também achado e corrigido: o `tunnelRoute: "/monitoring"` que o wizard configurou (necessário porque a CSP deste app restringe `connect-src` a `'self'` + Supabase, mesmo motivo do proxy do ViaCEP em `api/cep`) caía no matcher do middleware de autenticação (`proxy.ts`) — um evento de erro na tela de login, deslogado, seria redirecionado para `/` em vez de chegar ao Sentry; excluído do matcher. `SENTRY_AUTH_TOKEN` (upload de source map) movido do arquivo solto que o wizard cria (`.env.sentry-build-plugin`, apagado) para `.env.local`, mesmo padrão do resto do projeto. Rotas de exemplo do wizard (`sentry-example-page`, `api/sentry-example-api`) removidas depois de confirmar que a rota de teste respondia 500 como esperado. Validado com lint/typecheck/vitest (379/379)/build de produção, incluindo o upload de source map rodando no build. **Pendente:** configurar `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` no ambiente de produção (Vercel ou onde o app estiver hospedado) — `.env.local` cobre só o ambiente local |
+| Extensão `pg_trgm` instalada no schema `public` (`extension_in_public`, `get_advisors`) | Ficou em `public` desde a migration 0011 por ser o schema corrente no momento do `create extension`, sem decisão deliberada. A hipótese inicial de que mover exigiria recriar os índices GIN estava errada — `alter extension pg_trgm set schema` preserva o OID de cada objeto da extensão, e os índices (`grupos_sites_nome_trgm_idx`, `grupos_sites_descricao_trgm_idx`, `profiles_nome_completo_trgm_idx`, `profiles_email_trgm_idx`) resolvem a classe de operador pelo OID gravado neles, não pelo nome a cada consulta. `extensions` (schema que já hospeda `pgcrypto`/`uuid-ossp`/`pg_stat_statements`/`pgtap` neste projeto) está no `search_path` padrão do Supabase, então migration futura com `gin_trgm_ops` continua funcionando sem qualificar o schema. Migration 0031 aplicada em produção em 2026-08-16; confirmado por SQL direto (`pg_extension`/`pg_namespace`) que a extensão está em `extensions`, os 4 índices continuam existindo com a mesma definição, e o achado `extension_in_public` não aparece mais no `get_advisors` |
 | 10 foreign keys sem índice cobrindo (`unindexed_foreign_keys`) | Achado do advisor de performance do Supabase. `leituras.acao_id`/`area_id`/`qr_code_id`/`qualificador_id`, `profiles.superior_id`, `sites.criado_por`/`responsavel_id`/`tipo_servico_id`, `visitas.coletor_dados_id`/`motivo_visita_id` sem índice — DELETE/UPDATE na tabela pai varria a tabela filha inteira para checar integridade referencial, e joins pela FK não tinham por onde entrar. Migration 0030 cria os dez, `create index if not exists`, mesmo padrão de nome das migrations 0011/0018 |
 | ~22 índices marcados "não usados" (`unused_index`) — decisão de manter, não correção | Cruzado cada um com o código antes de decidir: os 11 trigram (`grupos_sites`, `profiles` nome/email/login, `sites` nome/sigla/cidade, `qr_codes` código/finalidade, `grupos_usuarios` nome/descrição) sustentam as caixas de busca (`ilike`) de cada tela de cadastro (migrations 0011/0012/0018); `leituras_com_localizacao_idx` é o filtro "Localização" de Coletas Importadas; `grupos_sites_pai_idx` é a hierarquia de Grupo de Sites (0024); os demais (`profiles_cargo_idx`, `visitas_funcionario_id_idx`, `grupos_usuarios_membros_profile_idx`, `sites_grupo_site_id_idx`, `visitas_data_integracao_idx`, `leituras_evento_id_idx`, `leituras_visita_id_idx`) cobrem coluna usada em filtro, RLS ou join hoje. Prova de que "não usado" aqui é sinal de pouco tráfego, não de índice morto: os 10 índices novos da migration 0030 apareceram nesse mesmo advisor como "não usados" segundos depois de criados. Apagar agora derrubaria busca/filtro/hierarquia assim que o uso crescer, e reconstruir os GIN trigram mais tarde, com tabela maior, custa mais caro do que custa hoje. Reavaliar só se algum candidato específico continuar zerado depois de meses de uso real em produção |
 | Policies de RLS reavaliavam `auth.uid()` por linha (`auth_rls_initplan`) | Achado do advisor de performance do Supabase. Seis policies chamavam `auth.uid()` direto na cláusula em vez de `(select auth.uid())`: `profiles` (leitura e a de update), `grupos_usuarios_membros`, `grupos_sites_clientes`, `visitas`, `leituras`. Sem o `select`, o Postgres reavalia a chamada a cada linha varrida em vez de uma vez por query. Migration 0029 recria as seis com a mesma regra de autorização, só essa troca mecânica — nenhuma decisão de acesso mudou. Validado rodando os pgTAP existentes que cobrem essas policies (`leitura_de_perfis_test`, `escopo_de_cliente_test`, `update_cargo_ativo_negado_test`): 17/17 asserts passaram, mesmo comportamento de antes. Advisor confirma que os seis `auth_rls_initplan` sumiram |

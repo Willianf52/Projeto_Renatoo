@@ -8,6 +8,7 @@ import { FormField } from "@/components/FormField";
 import { PasswordRulesList } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password-policy";
 import { createClient } from "@/lib/supabase/client";
+import { verificarSenhaVazada } from "@/lib/verificar-senha-vazada";
 
 export default function NovaSenhaPage() {
   const router = useRouter();
@@ -41,6 +42,12 @@ export default function NovaSenhaPage() {
     setErrors({ password: "", confirmation: "" });
     setFormError("");
     setLoading(true);
+
+    if (await verificarSenhaVazada(password)) {
+      setLoading(false);
+      setFormError("Esta senha apareceu em vazamentos de dados conhecidos. Escolha outra.");
+      return;
+    }
 
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });

@@ -44,11 +44,37 @@ const nextConfig: NextConfig = {
 };
 
 /**
- * Sem SENTRY_AUTH_TOKEN (nao configurado neste projeto ainda), o plugin nao
- * tenta subir source map nenhum -- so registra os hooks de instrumentation.
- * `org`/`project` ficam de fora pelo mesmo motivo: so importam para o passo
- * de upload, que nao roda sem o token.
+ * Sem SENTRY_AUTH_TOKEN (SENTRY_AUTH_TOKEN em .env.local), o plugin não tenta
+ * subir source map nenhum -- só registra os hooks de instrumentation.
+ *
+ * `tunnelRoute: "/monitoring"` manda o SDK do navegador enviar eventos pela
+ * própria origem em vez de direto para `*.sentry.io` -- necessário aqui, não
+ * cosmético: a CSP deste app (`lib/security-headers.ts`) restringe
+ * `connect-src` a `'self'` + Supabase de propósito, então uma chamada direta
+ * ao Sentry seria bloqueada pela própria política, mesmo caso do proxy do
+ * ViaCEP em `api/cep`. `/monitoring` está excluído do matcher do middleware
+ * de autenticação (`proxy.ts`) -- sem isso, um evento de erro na tela de
+ * login (deslogado) seria redirecionado para "/" em vez de chegar ao Sentry.
  */
 export default withSentryConfig(nextConfig, {
-  silent: true,
+  org: "up-servicos",
+  project: "javascript-nextjs",
+
+  // Só verboso em CI -- silencioso em build local.
+  silent: !process.env.CI,
+
+  // Conjunto maior de source maps para stack trace legível (aumenta o tempo de build).
+  widenClientFileUpload: true,
+
+  tunnelRoute: "/monitoring",
+
+  webpack: {
+    // Instrumentação automática de Vercel Cron Monitors -- inerte hoje (não há cron configurado).
+    automaticVercelMonitors: true,
+
+    // Remove os `Sentry.logger.*` do bundle final -- não usados neste projeto (lib/log.ts é o logger).
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });

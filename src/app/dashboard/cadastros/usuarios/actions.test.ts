@@ -14,6 +14,7 @@ type Erro = { message: string } | null;
 
 const {
   podeAdministrarUsuariosMock,
+  senhaVazadaMock,
   createAdminClientMock,
   createClientMock,
   redirectMock,
@@ -87,6 +88,7 @@ const {
 
   return {
     podeAdministrarUsuariosMock: vi.fn(async () => true),
+    senhaVazadaMock: vi.fn(async () => false),
     createAdminClientMock,
     createClientMock,
     redirectMock: vi.fn(),
@@ -97,6 +99,7 @@ const {
 });
 
 vi.mock("@/lib/permissoes", () => ({ podeAdministrarUsuarios: podeAdministrarUsuariosMock }));
+vi.mock("@/lib/senha-vazada", () => ({ senhaVazada: senhaVazadaMock }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: createAdminClientMock }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
@@ -137,6 +140,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   chamadas.length = 0;
   podeAdministrarUsuariosMock.mockResolvedValue(true);
+  senhaVazadaMock.mockResolvedValue(false);
   resultados.criarUsuario = { data: { user: { id: "novo-id" } }, error: null };
   resultados.atualizarPerfil = { error: null };
   resultados.lerPerfil = { data: { cargo: "OPERADOR", ativo: true }, error: null };
@@ -218,6 +222,24 @@ describe("validação", () => {
 
     expect(estado.erro).toBe("A senha não atende aos requisitos.");
     expect(chamadas).toHaveLength(0);
+  });
+
+  it("recusa senha vazada em bases de vazamento antes de tocar no banco", async () => {
+    senhaVazadaMock.mockResolvedValue(true);
+
+    const estado = await salvarUsuario({}, formulario(CRIAR));
+
+    expect(estado.erro).toContain("vazamentos");
+    expect(chamadas).toHaveLength(0);
+    expect(createAdminClientMock).not.toHaveBeenCalled();
+  });
+
+  it("não checa vazamento para senha que já falhou a política de composição", async () => {
+    // Checagem de rede: so vale a pena pagar depois que a senha ja passou
+    // pela validacao local, mais barata.
+    await salvarUsuario({}, formulario({ ...CRIAR, senha: "123" }));
+
+    expect(senhaVazadaMock).not.toHaveBeenCalled();
   });
 
   it("nunca devolve a senha para a tela", async () => {
@@ -324,6 +346,15 @@ describe("edição", () => {
     await salvarUsuario({}, formulario({ ...EDITAR, senha: SENHA_VALIDA }));
 
     expect(primeira("updateUserById")?.args).toEqual(["alvo-id", { password: SENHA_VALIDA }]);
+  });
+
+  it("recusa a troca quando a nova senha está vazada", async () => {
+    senhaVazadaMock.mockResolvedValue(true);
+
+    const estado = await salvarUsuario({}, formulario({ ...EDITAR, senha: SENHA_VALIDA }));
+
+    expect(estado.erro).toContain("vazamentos");
+    expect(tipos()).not.toContain("updateUserById");
   });
 
   it("recusa senha fraca antes de gravar o perfil", async () => {

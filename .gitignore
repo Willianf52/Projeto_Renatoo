@@ -62,3 +62,6 @@ next-env.d.ts
 # gerados automaticamente pelo Next.js (agentRules) a cada dev/build
 /AGENTS.md
 /CLAUDE.md
+
+# Sentry Config File
+.env.sentry-build-plugin

@@ -7,6 +7,7 @@ import { texto } from "@/lib/form-data";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { isPasswordValid } from "@/lib/password-policy";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
+import { senhaVazada } from "@/lib/senha-vazada";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
@@ -223,6 +224,17 @@ export async function salvarUsuario(
   const trocandoSenha = valores.senha !== "";
   if ((criando || trocandoSenha) && !isPasswordValid(valores.senha)) {
     return recusar("A senha não atende aos requisitos.", valores);
+  }
+
+  // Compensa o "Prevent use of leaked passwords" do Supabase Auth, indisponível
+  // no plano Free (docs/melhorias.md #8). Só roda depois de isPasswordValid: é
+  // uma checagem de rede, mais cara, e não faz sentido pagá-la para uma senha
+  // que já seria recusada pela política de composição.
+  if ((criando || trocandoSenha) && (await senhaVazada(valores.senha))) {
+    return recusar(
+      "Esta senha apareceu em vazamentos de dados conhecidos. Escolha outra.",
+      valores,
+    );
   }
 
   let admin: ReturnType<typeof createAdminClient>;
