@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Button } from "@/components/Button";
 import { BrandLogo } from "@/components/HeroPanel";
 
 /**
@@ -11,19 +11,18 @@ import { BrandLogo } from "@/components/HeroPanel";
 export default function RootNotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-brand-navy px-4 text-center">
-      <BrandLogo size="sm" />
-      <div>
+      <div className="animate-fade-in-up">
+        <BrandLogo size="sm" />
+      </div>
+      <div className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
         <p className="text-lg font-semibold text-white">Página não encontrada</p>
         <p className="mt-1 text-sm text-brand-muted">
           O endereço acessado não existe ou foi movido.
         </p>
       </div>
-      <Link
-        href="/"
-        className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-green-hover"
-      >
-        Voltar para o início
-      </Link>
+      <div className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
+        <Button href="/">Voltar para o início</Button>
+      </div>
     </div>
   );
 }

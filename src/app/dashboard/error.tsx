@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { Button } from "@/components/Button";
+import { XIcon } from "@/components/dashboard/icons";
 
 export default function DashboardError({
   error,
@@ -17,20 +19,19 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
-      <div className="max-w-sm rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-        <p className="font-medium">Não foi possível carregar esta página.</p>
-        <p className="mt-1 text-xs text-red-300/80">
+    <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center animate-fade-in-up">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+        <XIcon className="h-5 w-5" />
+      </span>
+      <div className="max-w-sm">
+        <p className="font-medium text-white">Não foi possível carregar esta página.</p>
+        <p className="mt-1 text-sm text-brand-muted">
           Tente novamente. Se o problema continuar, procure o administrador.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-green-hover"
-      >
+      <Button type="button" onClick={reset}>
         Tentar novamente
-      </button>
+      </Button>
     </div>
   );
 }

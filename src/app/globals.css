@@ -21,6 +21,7 @@
   --animate-fade-in: fade-in 0.4s var(--ease-out-soft) both;
   --animate-fade-in-up: fade-in-up 0.5s var(--ease-out-soft) both;
   --animate-fade-in-left: fade-in-left 0.5s var(--ease-out-soft) both;
+  --animate-fade-in-scale: fade-in-scale 0.4s var(--ease-out-soft) both;
   --animate-slide-down: slide-down 0.25s var(--ease-out-soft) both;
   /* infinite, sem `both`: e um loop, nao uma entrada com estado final. */
   --animate-progress-indeterminate: progress-indeterminate 1.1s ease-in-out infinite;
@@ -55,6 +56,21 @@
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+/* Entrada de graficos e indicadores: um leve zoom junto do fade da mais peso
+   ao dado revelado do que um fade puro, sem chamar tanta atencao quanto o
+   fade-in-up (que e para blocos de texto/linha, nao para um numero/forma
+   isolada). */
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

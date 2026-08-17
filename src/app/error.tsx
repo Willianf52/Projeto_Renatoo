@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { Button } from "@/components/Button";
 import { BrandLogo } from "@/components/HeroPanel";
+import { XIcon } from "@/components/dashboard/icons";
 
 /**
  * Par do `app/dashboard/error.tsx`, agora no nivel de `app/`. As telas
@@ -30,20 +32,30 @@ export default function RootError({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-brand-navy px-4 text-center">
-      <BrandLogo size="sm" />
-      <div className="max-w-sm rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-        <p className="font-medium">Não foi possível carregar esta página.</p>
-        <p className="mt-1 text-xs text-red-300/80">
-          Tente novamente. Se o problema continuar, procure o administrador.
-        </p>
+      <div className="animate-fade-in-up">
+        <BrandLogo size="sm" />
       </div>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-green-hover"
+
+      <div
+        className="flex max-w-sm flex-col items-center gap-3 animate-fade-in-up"
+        style={{ animationDelay: "80ms" }}
       >
-        Tentar novamente
-      </button>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-400">
+          <XIcon className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="font-medium text-white">Não foi possível carregar esta página.</p>
+          <p className="mt-1 text-sm text-brand-muted">
+            Tente novamente. Se o problema continuar, procure o administrador.
+          </p>
+        </div>
+      </div>
+
+      <div className="animate-fade-in-up" style={{ animationDelay: "160ms" }}>
+        <Button type="button" onClick={reset}>
+          Tentar novamente
+        </Button>
+      </div>
     </div>
   );
 }
