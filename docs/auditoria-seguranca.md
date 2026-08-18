@@ -207,6 +207,11 @@ Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm 
 | A07 Rate limiting no login | **Feito** — bloqueio de 30s no cliente após 5 tentativas falhas (`components/LoginForm.tsx`). É mitigação de UX, não substitui o limite do Supabase Auth no backend |
 | A07 Rate limiting nas rotas de segredo compartilhado (2026-08-13) | **Feito** — `lib/rate-limit.ts` (limite por janela fixa, em memória, chave por rota+IP via `x-forwarded-for`), aplicado em `/api/importar/coletas` (20 req/min) e `/api/webhooks/user-updated` (30 req/min). Fecha o gap de que um segredo vazado (`IMPORTACAO_SECRET`/`SUPABASE_WEBHOOK_SECRET`) não tinha limite nenhum para inundar a rota — o segredo barra quem não o conhece, mas nada limitava quem o conhece. **Limitação registrada, não escondida:** contador por processo, não por instância — atrás de mais de uma réplica do servidor o limite efetivo multiplica pelo número de instâncias. O login em si fica de fora de propósito: `signInWithPassword` fala direto do navegador com o Supabase Auth, sem rota nossa no meio para interceptar — duplicar o limite exigiria proxiar o login inteiro pelo backend, e o GoTrue já limita do lado dele |
 | A01 Funções `SECURITY DEFINER` executáveis via RPC por `anon`/`authenticated` (2026-08-16) | **Feito** — achado do advisor de segurança do Supabase (`anon_security_definer_function_executable` / `authenticated_security_definer_function_executable`). Migration 0027 revoga `EXECUTE` de `anon` em oito funções auxiliares de RLS (`e_cliente`, `nivel_acesso_atual`, `pode_administrar_cadastros`, `pode_administrar_grupos_usuarios`, `pode_administrar_usuarios`, `pode_ver_grupo_site`, `pode_ver_toda_operacao`, `usuario_ativo`), todas chamáveis hoje sem autenticação via `/rest/v1/rpc/<nome>`. `authenticated` fica de fora de propósito: as policies de RLS chamam essas funções nas cláusulas `USING`/`WITH CHECK`, e a chamada roda com o privilégio de quem executa a *query* (`authenticated`), não do dono da função — revogar quebraria toda policy que depende delas. Nenhuma das nove vazava dado: todas leem só a partir de `auth.uid()`, nulo para `anon`, retorno sempre `false`/`null`. Migration 0028 fecha um resíduo que a 0027 não pegou: `handle_new_user()` (trigger de `auth.users`, migration 0008) manteve acesso via `anon` *e* `authenticated` mesmo após o revoke nominal, porque — diferente das outras oito, que já nasceram com `revoke all from public` — ela manteve o grant implícito que o Postgres concede a `PUBLIC` na criação de qualquer função. `anon`/`authenticated` são membros de `PUBLIC`, então herdavam acesso por aí; revogar dos dois papéis nominalmente não tira o que vem de `PUBLIC`. A 0028 revoga de `PUBLIC` diretamente. Confirmado nos grants reais (`proacl`) antes e depois de cada migration, não só no relatório do advisor |
+| A01 Grants de escrita herdados do default privilege (2026-08-18) | **Feito e aplicado em 2026-08-18** — migration 0031. `anon`/`authenticated` tinham INSERT/UPDATE/DELETE/TRUNCATE em 11 tabelas (`visitas` e `leituras` inclusive), barrados só pela ausência de policy de escrita. Ver a seção 5 abaixo |
+| A01 INSERT em `profiles` alcançando `cargo` e `ativo` (2026-08-18) | **Feito e aplicado em 2026-08-18** — migration 0031, passo 5. As 0002/0007 fecharam UPDATE coluna a coluna e nunca tocaram em INSERT |
+| A01 `sincronizar_membros_grupo_usuarios` executável por `anon` (2026-08-18) | **Feito e aplicado em 2026-08-18** — migration 0031, passo 6. O advisor não pega: só inspeciona `SECURITY DEFINER`, e esta é `SECURITY INVOKER` de propósito |
+| A04 Rate limit contornável por `x-forwarded-for` forjado (2026-08-18) | **Feito** — `lib/rate-limit.ts` passou a preferir `x-real-ip` e, na falta dele, o **último** item da cadeia. Coberto por `lib/rate-limit.test.ts` |
+| A04 Vínculo de sites sem conferência de zero linhas (2026-08-18) | **Feito** — `grupo-de-sites/actions.ts` conta as linhas devolvidas pelo `.select("id")` e recusa quando não bate com o que foi pedido |
 
 **Nota sobre a CSP (atualizada):** a política é bloqueante desde o commit `9c56fd4` — a fase `Report-Only` descrita na versão anterior desta nota já terminou. Três coisas que mudaram junto e que não estão no snippet da seção 4.1:
 
@@ -223,3 +228,186 @@ Coberto por `lib/security-headers.test.ts`.
 **Só dá pra resolver no GitHub, não daqui** (seção 3): branch protection, Dependabot alerts/secret scanning ligados nas Settings, confirmação de visibilidade do repo e de quem tem acesso `write`/`admin`. Nenhuma ferramenta aqui tem acesso à configuração do GitHub — precisa ser feito manualmente.
 
 O `MELHORIAS.md` cobre o restante (testes de middleware, `error.tsx`/`loading.tsx`, etc.) e não foi duplicado aqui.
+
+---
+
+## 5. Auditoria de 2026-08-18 — grants em produção
+
+Escopo pedido: RLS e políticas de acesso, validação de entrada/injeção, segredos
+e `.env`, controle de sessão. Diferença de método em relação às anteriores: além
+do código e das migrations, **os grants reais do banco de produção foram
+consultados** (`information_schema.role_table_grants`, `column_privileges`,
+`pg_default_acl`, `pg_proc.proacl`). É onde os achados apareceram — o que as
+migrations dizem e o que o banco tem não eram a mesma coisa.
+
+A mesma lição mordeu esta auditoria por outro lado, e está registrada abaixo:
+os dois achados de config de Auth foram levantados lendo `supabase/config.toml`
+e **caíram** quando o painel de produção foi aberto de fato. Arquivo versionado
+não é estado; nem para grants, nem para config.
+
+Nada crítico e nada explorável no estado em que o banco estava. Os três achados
+de grant eram **latentes**: barrados pelo RLS por ausência de policy de escrita,
+não por privilégio. O incômodo é que isso inverte a doutrina do projeto, que a
+0009 enuncia assim: "o grant é pré-requisito; o RLS abaixo é o portão de
+verdade". Nessas tabelas o RLS era o portão *único*.
+
+### Achados e o que foi feito
+
+**1. `anon` e `authenticated` com INSERT/UPDATE/DELETE/TRUNCATE em 11 tabelas.**
+`visitas`, `leituras`, `grupos_sites_clientes`, `metas_visitas` e as sete de
+referência. Causa raiz em `pg_default_acl`: o Supabase declara
+`alter default privileges in schema public grant arwdDxtm on tables to anon,
+authenticated`, então toda tabela nova nasce aberta. As migrations 0009/0012/
+0015/0016 fazem o `revoke` explícito; as 0003/0004/0014 não fizeram. A 0010 já
+tinha descrito exatamente este risco — e corrigiu **uma** tabela.
+→ Migration **0031**, passos 1 a 4. O passo 1 (`alter default privileges ...
+revoke`) é o que impede a tabela seguinte de repetir o problema.
+
+Nota sobre `TRUNCATE`, que entrou no mesmo pacote por um motivo diferente: é a
+única operação de escrita que o RLS **não** cobre — o Postgres não avalia policy
+nenhuma nela, o privilégio sozinho decide. Não há caminho pelo PostgREST (ele
+não expõe TRUNCATE), mas era o único grant onde a segunda camada não existia
+nem em teoria.
+
+**2. `authenticated` com INSERT em `profiles`, incluindo `cargo` e `ativo`.**
+As 0002 e 0007 revogaram UPDATE e devolveram apenas `nome_completo`,
+deliberadamente deixando `cargo`/`ativo` fora de qualquer grant. Nenhuma das
+duas mexeu em INSERT, e o default privilege o concedia em todas as colunas — a
+mesma escalada fechada na 0002 e na 0005, por outra porta.
+→ Migration **0031**, passo 5.
+
+**3. `sincronizar_membros_grupo_usuarios` executável por `anon`.** A 0026
+escreveu `revoke all ... from public` + `grant execute ... to authenticated`,
+mas a acl em produção mostrava `anon=X`. É a lição da 0027/0028 ao contrário:
+lá o erro foi revogar dos papéis nominais e esquecer `PUBLIC`; aqui foi revogar
+de `PUBLIC` e esquecer o papel nominal, que o default privilege concede. **Uma
+função nova precisa fechar os dois caminhos.** Sem vazamento (a função é
+`SECURITY INVOKER`, o RLS nega `anon`), mas era trabalho de banco disparável
+sem autenticação. O advisor não acusa — ele só inspeciona `SECURITY DEFINER`.
+→ Migration **0031**, passo 6.
+
+**4. Rate limit contornável.** `identificarChamador` usava o primeiro item de
+`x-forwarded-for`. Cada proxy *acrescenta ao fim*, então o item mais à esquerda
+é o que o cliente mandou — trocá-lo a cada requisição dava um balde novo e o
+limite deixava de existir justamente para quem ele foi criado para conter (quem
+tem o segredo e decide inundar a rota).
+→ `lib/rate-limit.ts` + testes.
+
+**5. Vínculo de sites sem conferência de zero linhas.** O único ponto de escrita
+do projeto que ainda ignorava a regra de `lib/escrita-rls.ts` — UPDATE barrado
+pelo RLS não devolve erro, devolve zero linhas. `verificarEscritaComRls` não
+serve ali porque decide sobre uma linha só; o equivalente em massa é comparar a
+contagem com o que foi pedido, e o parcial importa tanto quanto o zero.
+→ `grupo-de-sites/actions.ts` + testes.
+
+**6. Assimetria de escopo entre `sites` e `qr_codes`.** A 0015 conjuga
+`pode_administrar_cadastros()` com `pode_ver_grupo_site()`; a 0012 ficou só com
+o primeiro termo. Sem efeito prático hoje (nenhum cargo acumula "administra
+cadastro" e "escopo restrito"), e por isso é hardening de consistência, não
+correção.
+→ Migration **0032**.
+
+### Config de Auth: dois achados retirados por inspeção direta do painel
+
+Esta auditoria levantou dois itens de configuração do GoTrue a partir de
+`supabase/config.toml` — cadastro público ligado (`enable_signup = true`) e
+política de senha frouxa (`minimum_password_length = 6`,
+`password_requirements = ""`). **Os dois estavam errados.**
+
+Conferido no painel de produção em 2026-08-18:
+
+| Configuração | Estado real |
+|---|---|
+| Allow new users to sign up | **desligado** |
+| Allow manual linking | desligado |
+| Allow anonymous sign-ins | desligado |
+| Confirm email | ligado |
+| Minimum password length | **8** |
+| Password requirements | **Lowercase, uppercase letters, digits and symbols** |
+| Secure email change | ligado |
+| Secure password change | ligado |
+
+**A lição vale mais que os dois achados:** `supabase/config.toml` é a config do
+stack **local** do CLI. Ela não é aplicada ao projeto remoto e não reflete o
+painel — a menos que alguém rode `supabase config push`, o que este projeto não
+faz. Auditar config de Auth lendo esse arquivo produz achado falso, como
+produziu aqui. **Sempre conferir no painel** (ou pela Management API); o
+`config.toml` só descreve o que sobe no Docker local.
+
+Vale notar, pelo mesmo motivo, que os dois arquivos estão **divergentes hoje**:
+o `config.toml` diz `enable_signup = true` e `minimum_password_length = 6`, e a
+produção diz o contrário. Alinhá-lo é higiene, não segurança — mas evita que a
+próxima leitura do arquivo repita este erro, e evita que um `supabase start`
+local se comporte diferente da produção.
+
+### O que não é código e continua pendente
+
+- **Leaked password protection** segue exigindo plano Pro; a compensação na
+  aplicação (`lib/senha-vazada.ts`) continua sendo a resposta.
+- **"Require current password when updating" está desligado** (achado novo, da
+  inspeção do painel). Hoje quem cobre isso é a aplicação: `trocar-senha`
+  reautentica com `signInWithPassword` contra a senha atual antes de chamar
+  `updateUser`. Mas isso é do lado do cliente — uma sessão roubada refaz o
+  `updateUser` por curl sem saber a senha atual. "Secure password change" está
+  ligado e mitiga em parte (exige login nas últimas 24h), não elimina.
+  **Não foi ligado de propósito:** `/nova-senha` (recuperação por e-mail) troca
+  a senha justamente sem saber a antiga, e não está confirmado se o GoTrue
+  isenta a sessão vinda de link de recuperação. Ligar sem testar esse fluxo
+  arrisca deixar quem esqueceu a senha sem caminho de volta. Precisa de teste
+  do fluxo de recuperação antes, não de um clique.
+
+### O que foi verificado e estava correto
+
+RLS habilitado nas 17 tabelas de `public`, todas com policy (confirmado em
+`pg_class.relrowsecurity` + `pg_policies`, não só nas migrations). Sem SQL
+injection: nenhum SQL cru, e o único ponto de interpolação (`.or()`) passa por
+`termoParaOr`. Sem XSS: nenhum `dangerouslySetInnerHTML`/`innerHTML`/`eval`.
+Zod no servidor nas cinco Server Actions, com listas fechadas, regex de UUID e
+`Number.isInteger`. Nenhum arquivo de env jamais versionado; `service_role` só
+dentro de `createAdminClient()`, atrás de `server-only`. Middleware com
+`getUser()` (não `getSession()`), falhando fechado. As quatro rotas de `/api`
+autenticam por conta própria; as duas de segredo compartilhado comparam em
+tempo constante. `usuarios/actions.ts` chama `podeAdministrarUsuarios()` com o
+cliente da sessão como primeira instrução, antes de qualquer escrita com
+`service_role`.
+
+### Como as migrations 0031 e 0032 foram ensaiadas e aplicadas
+
+Sem branch de desenvolvimento no plano atual, o ensaio foi o mesmo caminho já
+usado nas anteriores: o SQL da migration e o pgTAP correspondente rodados na
+**mesma transação**, contra produção, terminando em `rollback`. Nada persistiu.
+
+- `supabase/tests/database/grants_de_escrita_fechados_test.sql` — 21/21.
+- `supabase/tests/database/escrita_de_sites_no_escopo_test.sql` — 8/8.
+
+**Aplicadas em produção em 2026-08-18** (versões `20260818144318` e
+`20260818144351`), depois do ensaio. Confirmado por SQL direto contra o banco,
+não pelo retorno do `apply_migration`:
+
+- `anon` tem **zero** privilégios de escrita em qualquer tabela de `public`
+  (antes: INSERT/UPDATE/DELETE/TRUNCATE em 16 das 17).
+- `authenticated` tem **zero** TRUNCATE em qualquer tabela.
+- `visitas`, `leituras`, `grupos_sites_clientes`, `profiles`: INSERT negado.
+- `profiles.nome_completo` continua editável e `profiles.cargo` continua
+  fechado — o grant da 0007 sobreviveu, que era o risco de um revoke largo.
+- `pg_default_acl` não concede mais escrita a `anon`/`authenticated` em tabela
+  nova criada por `postgres`.
+- `sincronizar_membros_grupo_usuarios`: `anon` não executa, `authenticated`
+  executa.
+- Advisor `security` rodado depois: **nenhum achado novo**. Continuam as oito
+  `authenticated_security_definer_function_executable` (esperadas e
+  inevitáveis nesta arquitetura, ver 0027) e a de leaked password (plano Pro).
+
+Smoke test comportamental contra o banco **já migrado**, em transação com
+rollback: as cinco telas de cadastro (Grupo de Sites, Site / Planta, QR Code,
+Grupo de Usuários criar/editar/excluir, e a RPC de membros da 0026) — 9/9. É a
+confirmação que importava, porque o risco real da 0031 nunca foi ela revogar de
+menos: era revogar demais e derrubar cadastro em silêncio.
+
+**Armadilha que moldou o primeiro arquivo, e que vale para qualquer pgTAP de
+grant daqui em diante:** RLS negando por ausência de policy e GRANT faltando
+levantam **o mesmo SQLSTATE 42501**. Um teste só com `throws_ok(..., '42501')`
+passa idêntico antes e depois da migration e não prova nada. Os asserts
+principais consultam o catálogo (`has_table_privilege`, `has_function_privilege`,
+`pg_default_acl`), e os comportamentais checam a **mensagem** (`permission
+denied for table ...`), não só o código.

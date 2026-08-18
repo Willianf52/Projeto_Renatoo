@@ -169,14 +169,36 @@ export async function salvarGrupoSite(
    * destino, que este formulario nao pergunta (ver o aviso ao lado do campo
    * "Sites" no formulario).
    */
-  const { error: erroSites } = await supabase
+  /**
+   * `.select("id")` nao e para recuperar dado -- e para poder contar. Ver
+   * `lib/escrita-rls.ts`: um UPDATE barrado pelo RLS nao devolve erro,
+   * devolve zero linhas. Sem o select, este era o unico ponto de escrita do
+   * projeto onde a recusa passava calada: a tela dizia "salvo", voltava para
+   * a listagem, e os sites continuavam no grupo antigo.
+   *
+   * `verificarEscritaComRls` nao serve aqui porque ela decide sobre uma linha
+   * so (`maybeSingle`); este UPDATE atinge N. A conferencia equivalente para
+   * o caso em massa e comparar a contagem com o que foi pedido -- e o
+   * parcial importa tanto quanto o zero: se um dos sites saiu do alcance
+   * entre o carregamento do formulario e o envio, os outros foram vinculados
+   * e este aviso e o unico lugar onde isso aparece.
+   */
+  const { data: sitesVinculados, error: erroSites } = await supabase
     .from("sites")
     .update({ grupo_site_id: grupoId })
-    .in("id", validacao.siteIds);
+    .in("id", validacao.siteIds)
+    .select("id");
 
   if (erroSites) {
     return {
       erro: "O grupo foi salvo, mas não foi possível vincular os sites selecionados. Tente novamente.",
+      valores,
+    };
+  }
+
+  if ((sitesVinculados?.length ?? 0) !== validacao.siteIds.length) {
+    return {
+      erro: "O grupo foi salvo, mas não foi possível vincular todos os sites selecionados — você pode não ter permissão sobre eles, ou algum deixou de existir. Recarregue a página e confira.",
       valores,
     };
   }
