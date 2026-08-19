@@ -70,14 +70,115 @@ aparece hoje.
 > necessidade concreta), e o bloqueio de tentativas de login no
 > `LoginForm.tsx` é UX declarada como tal no próprio comentário do arquivo,
 > não a defesa real (que é o rate limit do GoTrue) — nada para corrigir ali.
+>
+> 2026-08-19: auditoria pedida de fora do ângulo habitual — não "o que está
+> construído está bem construído?", mas "o que acontece quando isto entrar em
+> operação?". **"Alta prioridade: nenhum item aberto" durou até essa pergunta
+> ser feita**, e a categoria voltou com quatro itens. Três são de ausência
+> (registro de importação, trilha de auditoria, dado real em produção) e um é
+> defeito de resultado, não de tela: três relatórios truncam em silêncio e
+> exibem número errado. O que mudou não foi o sistema, foi a régua — nenhum
+> destes itens apareceria medindo o projeto contra ele mesmo.
+>
+> Da mesma auditoria, o que **não** entrou nesta lista, por serem achados de
+> segurança/governança e terem documento próprio: repositório GitHub público,
+> deploy de produção saindo de branch de trabalho, sessão sem timeout de
+> inatividade, MFA desligado, e a premissa vencida no comentário de
+> `lib/rate-limit.ts` ("processo único" não vale em serverless). Vão para
+> `docs/auditoria-seguranca.md`.
+>
+> Dois achados dessa rodada foram avaliados e **não** viraram item, por já
+> estarem decididos: o painel inicial em `/dashboard` segue como decisão de
+> produto de 2026-08-07 (a auditoria argumenta a favor de revisitá-la quando
+> houver dado real, mas revisitar é decisão do dono do produto, não pendência
+> técnica), e os testes pgTAP/Playwright fora do CI já têm motivo registrado
+> nos fechados — Docker ausente e rate limit de auth do Supabase, não
+> esquecimento.
 
 ## Alta prioridade
 
-Nenhum item aberto nesta categoria no momento.
+1. **Três dos seis relatórios devolvem número truncado, sem avisar.**
+   `horas-por-usuario/queries.ts:215`, `mapa-de-locais-inspecionados/queries.ts:311`
+   e `ranking-de-inspecoes/queries.ts:168` selecionam `leituras` sem `.range()` e
+   agregam em Node. O PostgREST tem teto próprio (`supabase/config.toml:18`,
+   `max_rows = 1000`), então a consulta para em 1000 linhas e a agregação soma em
+   cima do pedaço — sem erro, sem bandeira, sem nada na tela que denuncie. O
+   resultado não é lentidão: é o número errado com cara de certo. "Quantidade de
+   Horas por Usuário" subnotifica a produtividade de quem trabalhou mais, que é
+   exatamente quem tem mais leituras para cortar.
+
+   O padrão certo já existe no próprio módulo, em dois irmãos:
+   `registro-de-rondas/queries.ts:319` e
+   `inspecoes-inicio-fim-visita/queries.ts:228` pedem `LIMITE_LEITURAS + 1`,
+   detectam o estouro e expõem `truncado` para a tela avisar. Falta aplicá-lo aos
+   três. `ranking-de-inspecoes` é o pior caso e precisa de uma correção a mais:
+   diferente dos outros dois, não exige período informado (`getRankingDeInspecoes`
+   não tem o gate `if (!dataInicial || !dataFinal) return null` que
+   `getHorasPorUsuario` tem), então varre a tabela inteira desde sempre e para em
+   1000 na primeira vez que o volume passar disso.
+
+2. **Nada registra que um lote de importação foi recebido.**
+   Não há tabela de importações. Quando um lote é recusado — 400 por formato, 422
+   por referência desconhecida, 502 por falha de banco — a resposta volta para
+   quem chamou e o evento morre ali. Os `erro()` de `api/importar/coletas/route.ts`
+   vão para o log do servidor e para o Sentry, que ninguém opera como fila de
+   reprocessamento; e um 422 é resposta tratada, não exceção, então nem chega lá.
+
+   O caminho de escrita em si é sólido (tudo-ou-nada, reenvio idempotente, fuso
+   obrigatório — ver `docs/importacao-de-coletas.md`); a lacuna é o que acontece
+   depois da recusa. Se a integração cair numa sexta e três dias de lote forem
+   recusados por um site novo não cadastrado, ninguém descobre até alguém estranhar
+   um relatório vazio na segunda — e não há onde perguntar o que deixou de entrar.
+   Uma tabela `importacoes` (origem, momento, status, linhas recebidas, linhas
+   novas, erro) mais um aviso quando um lote falha ou quando passa X horas sem lote
+   nenhum transforma "sumiu" em "falhou às 03:12, motivo Y, reenviar".
+
+3. **Nenhuma alteração de cadastro é rastreável a uma pessoa.**
+   Não existe tabela de auditoria e nenhuma tabela guarda histórico. `profiles` não
+   tem sequer `updated_at` (migration 0001). Quem desativou um usuário, quem alterou
+   um `cargo` — e `cargo` é o que concede nível de acesso, por isso as migrations
+   0002/0007 negam esse UPDATE a `authenticated` — não é recuperável nem no dia
+   seguinte. A escrita de usuário passa por `service_role` (`usuarios/actions.ts`),
+   que ignora o RLS: o portão é a checagem na action, e ela não deixa rastro.
+
+   Uma tabela `auditoria` alimentada por trigger nas tabelas sensíveis
+   (`profiles`, `sites`, `grupos_sites`, `grupos_usuarios`, `qr_codes`) resolve, e
+   o RLS já existente controla quem a lê. Entra aqui, e não em
+   `auditoria-seguranca.md`, porque é feature a construir — schema, trigger e tela —
+   não achado a corrigir.
+
+4. **Nada foi exercitado com dado real: produção está vazia.**
+   Consulta direta ao projeto `UpServiços` (2026-08-19): 0 leituras, 0 visitas, 0
+   sites, 0 QR-codes, 0 grupos de usuários, 1 perfil (um GESTOR). Projeto criado em
+   27/07, com deploys de produção rodando desde então. As sete features estão
+   implementadas, testadas e no ar; nenhuma encontrou dado nem usuário real, e a
+   meta é 34 usuários (15 inspetores, 19 administrativos).
+
+   É a versão em produção da ressalva que fecha esta lista há revisões ("o que nada
+   nesta revisão pôde verificar"), e a razão de esta categoria ter passado tanto
+   tempo vazia: a lista mede o sistema contra si mesmo, e contra si mesmo ele está
+   bem. Popular o cadastro, ligar a integração de verdade e rodar um mês fechado com
+   um subconjunto de inspetores é o que valida os itens 1 e 2 — e todo problema que
+   aparecer aí é mais barato agora do que depois de apresentado à diretoria.
 
 ## Média prioridade
 
-3. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
+3. **Os seis relatórios agregam em Node, não em SQL.** Todos buscam linhas de
+   `leituras` e agrupam em memória: somar duração `Término - Início`, contar
+   visitas distintas, montar a grade Local × dia. Funciona e está bem testado,
+   mas paga transferência de rede por linha para fazer no JavaScript o que o
+   Postgres faz em milissegundos — e o teto que o item 1 da Alta vai introduzir é
+   um curativo, não a correção: um relatório que avisa "truncado em 5000" ainda é
+   um relatório que não responde a pergunta do mês inteiro.
+
+   A correção estrutural é mover a agregação para view ou função SQL, o mesmo
+   movimento que este projeto já fez com sucesso ao levar a regra de autorização
+   para funções `security definer` (ver "A regra de autorização duplicada em TS e
+   em SQL", nos fechados). Fica em Média, e não em Alta, porque só morde com
+   volume que ainda não existe — mas é pré-requisito de qualquer painel executivo,
+   que precisa de número agregado do período inteiro, sem teto.
+
+7. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
    preservar a estrutura de navegação do sistema de referência. Não têm tabela
    nem tela. Ficam aqui para não se perderem de vista.
