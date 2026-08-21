@@ -121,10 +121,11 @@ acima, com origem (IP), status, contagens e mensagem. `401`/`429` ficam de
 fora: não são tentativa de lote, são a rota rejeitando quem não provou ser a
 integração.
 
-Consulte pela tela `Inspeções → Importações` (filtro de período e status) ou
-direto no banco. O registro é *best-effort*: se a gravação em `importacoes`
-falhar, vira `erro()` no log/Sentry, mas nunca muda a resposta HTTP de quem
-importou — a tabela é auditoria, não parte do contrato da rota.
+Sem tela própria de propósito (decisão do dono do produto, 2026-08-21) --
+consulte direto no banco (`select * from importacoes order by criado_em desc`).
+O registro é *best-effort*: se a gravação em `importacoes` falhar, vira
+`erro()` no log/Sentry, mas nunca muda a resposta HTTP de quem importou -- a
+tabela é auditoria, não parte do contrato da rota.
 
 ## Exemplo
 

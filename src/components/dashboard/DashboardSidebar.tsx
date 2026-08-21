@@ -16,7 +16,6 @@ import {
   QrCodeIcon,
   SearchIcon,
   SitemapIcon,
-  UploadIcon,
   UserIcon,
   UsersIcon,
   XIcon,
@@ -73,11 +72,6 @@ const NAV_ITEMS: NavItem[] = [
         label: "Coletas Importadas",
         href: "/dashboard/inspecoes/coletas-importadas",
         icon: ClipboardListIcon,
-      },
-      {
-        label: "Importações",
-        href: "/dashboard/inspecoes/importacoes",
-        icon: UploadIcon,
       },
       {
         label: "Relatórios",

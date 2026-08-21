@@ -10,6 +10,7 @@ import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { senhaVazada } from "@/lib/senha-vazada";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
 import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
 
 /**
@@ -26,6 +27,12 @@ import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
  * ha RLS atras dela para segurar o que passar. Por isso `podeAdministrarUsuarios()`
  * e chamado com o cliente da sessao (nao o admin) antes de qualquer escrita,
  * em toda action deste arquivo, e nao apenas na tela que leva ate elas.
+ *
+ * Pelo mesmo motivo, `profiles` fica de fora do trigger generico de
+ * `auditoria` (migration 0034): a conexao de `service_role` nao carrega JWT
+ * de pessoa nenhuma, e `auth.uid()` dentro do trigger seria sempre `null`.
+ * Esta action grava em `auditoria` explicitamente (`registrarAuditoria`
+ * abaixo), no mesmo lugar que ja sabe quem esta editando.
  */
 
 const LISTAGEM = "/dashboard/cadastros/usuarios";
@@ -156,6 +163,37 @@ async function sincronizarEscopo(
   return error?.message ?? null;
 }
 
+/**
+ * Grava em `auditoria` (migration 0034) a mudanca que o trigger generico nao
+ * alcanca -- ver o comentario do cabecalho. Best-effort: falha ao registrar
+ * vira `erro()`, nunca recusa nem desfaz a escrita em `profiles` que ja
+ * aconteceu -- a auditoria e trilha, nao portao.
+ */
+async function registrarAuditoria(
+  admin: ReturnType<typeof createAdminClient>,
+  idRequisicao: string,
+  entrada: {
+    registroId: string;
+    operacao: "INSERT" | "UPDATE";
+    atorId: string;
+    dadosAntigos: Record<string, unknown> | null;
+    dadosNovos: Record<string, unknown>;
+  },
+): Promise<void> {
+  const { error } = await admin.from("auditoria").insert({
+    tabela: "profiles",
+    registro_id: entrada.registroId,
+    operacao: entrada.operacao,
+    ator_id: entrada.atorId || null,
+    dados_antigos: entrada.dadosAntigos as Json | null,
+    dados_novos: entrada.dadosNovos as Json,
+  });
+
+  if (error) {
+    erro(idRequisicao, "Administração de usuários: falha ao registrar em `auditoria`.", error);
+  }
+}
+
 const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const NAO_AUTORIZADO =
@@ -211,6 +249,13 @@ export async function salvarUsuario(
   if (!(await podeAdministrarUsuarios())) {
     return recusar(NAO_AUTORIZADO, valores);
   }
+
+  // Cedo, e nao so dentro do ramo de edicao como antes: quem esta editando
+  // agora tambem vira `ator_id` em `auditoria` na criacao, nao so no
+  // autobloqueio de `mudancaEmSiMesmo` (que so faz sentido editando).
+  const supabase = await createClient();
+  const { data: sessao } = await supabase.auth.getUser();
+  const idDeQuemEdita = sessao.user?.id ?? "";
 
   const erroDeValidacao = validar(valores);
   if (erroDeValidacao) return recusar(erroDeValidacao, valores);
@@ -293,6 +338,14 @@ export async function salvarUsuario(
       return recusar(traduzirErro(erroPerfil.message), valores);
     }
 
+    await registrarAuditoria(admin, idRequisicao, {
+      registroId: data.user.id,
+      operacao: "INSERT",
+      atorId: idDeQuemEdita,
+      dadosAntigos: null,
+      dadosNovos: { ...perfil, email: valores.email },
+    });
+
     const erroEscopo = await sincronizarEscopo(admin, data.user.id, valores);
     if (erroEscopo) {
       // Mesmo raciocinio do bloco acima: um CLIENTE sem o escopo que era para
@@ -302,19 +355,19 @@ export async function salvarUsuario(
       return recusar(traduzirErro(erroEscopo), valores);
     }
   } else {
+    // Colunas por extenso, e nao so `cargo, ativo` como antes: viram
+    // `dados_antigos` do registro em `auditoria` mais abaixo, e um diff que so
+    // sabe cargo/ativo esconderia troca de nome, login, funcao, tipo ou
+    // superior.
     const { data: atual, error: erroLeitura } = await admin
       .from("profiles")
-      .select("cargo, ativo")
+      .select("nome_completo, login, funcao, cargo, tipo, ativo, superior_id")
       .eq("id", idAlvo)
       .maybeSingle();
 
     if (erroLeitura || !atual) {
       return recusar("Usuário não encontrado.", valores);
     }
-
-    const supabase = await createClient();
-    const { data: sessao } = await supabase.auth.getUser();
-    const idDeQuemEdita = sessao.user?.id ?? "";
 
     const autoBloqueio = mudancaEmSiMesmo(idAlvo, idDeQuemEdita, valores, atual);
     if (autoBloqueio) return recusar(autoBloqueio, valores);
@@ -338,6 +391,14 @@ export async function salvarUsuario(
       erro(idRequisicao, "Administração de usuários: falha ao atualizar perfil.", error);
       return recusar(traduzirErro(error.message), valores);
     }
+
+    await registrarAuditoria(admin, idRequisicao, {
+      registroId: idAlvo,
+      operacao: "UPDATE",
+      atorId: idDeQuemEdita,
+      dadosAntigos: atual,
+      dadosNovos: perfil,
+    });
 
     if (trocandoSenha) {
       const { error: erroSenha } = await admin.auth.admin.updateUserById(idAlvo, {

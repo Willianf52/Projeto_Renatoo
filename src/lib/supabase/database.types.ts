@@ -35,6 +35,47 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria: {
+        Row: {
+          ator_id: string | null
+          criado_em: string
+          dados_antigos: Json | null
+          dados_novos: Json | null
+          id: number
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Insert: {
+          ator_id?: string | null
+          criado_em?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          id?: never
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Update: {
+          ator_id?: string | null
+          criado_em?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          id?: never
+          operacao?: string
+          registro_id?: string
+          tabela?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areas: {
         Row: {
           ativo: boolean
