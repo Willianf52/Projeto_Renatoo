@@ -217,6 +217,48 @@ export type Database = {
           },
         ]
       }
+      importacoes: {
+        Row: {
+          criado_em: string
+          detalhe: Json | null
+          http_status: number
+          id: number
+          id_requisicao: string
+          leituras_novas: number
+          linhas_recebidas: number
+          mensagem: string | null
+          origem: string
+          status: string
+          visitas_gravadas: number
+        }
+        Insert: {
+          criado_em?: string
+          detalhe?: Json | null
+          http_status: number
+          id?: never
+          id_requisicao: string
+          leituras_novas?: number
+          linhas_recebidas?: number
+          mensagem?: string | null
+          origem: string
+          status: string
+          visitas_gravadas?: number
+        }
+        Update: {
+          criado_em?: string
+          detalhe?: Json | null
+          http_status?: number
+          id?: never
+          id_requisicao?: string
+          leituras_novas?: number
+          linhas_recebidas?: number
+          mensagem?: string | null
+          origem?: string
+          status?: string
+          visitas_gravadas?: number
+        }
+        Relationships: []
+      }
       leituras: {
         Row: {
           acao_id: number | null

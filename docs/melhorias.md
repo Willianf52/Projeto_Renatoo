@@ -106,24 +106,37 @@ aparece hoje.
 > técnica), e os testes pgTAP/Playwright fora do CI já têm motivo registrado
 > nos fechados — Docker ausente e rate limit de auth do Supabase, não
 > esquecimento.
+>
+> 2026-08-21: o item "Nada registra que um lote de importação foi recebido"
+> ganhou metade do que pedia — a tabela `importacoes` (migration 0033), a rota
+> gravando cada tentativa (sucesso e as três recusas: 400, 422, 502) e uma tela
+> de leitura em Inspeções → Importações — e foi para os fechados só nessa
+> metade. A outra metade, o aviso proativo quando um lote falha ou quando passa
+> X horas sem lote nenhum, continua em aberto: entrar sozinho na lista, porque
+> esbarra na mesma trava do item "Decisão de produto" no fim deste arquivo — o
+> remetente do Resend (`lib/resend.ts:29`) só entrega ao dono da conta, sem
+> domínio verificado. Um e-mail de alerta hoje não chegaria a ninguém da
+> operação, então o aviso ficaria tão silencioso quanto o problema que deveria
+> denunciar.
 
 ## Alta prioridade
 
-1. **Nada registra que um lote de importação foi recebido.**
-   Não há tabela de importações. Quando um lote é recusado — 400 por formato, 422
-   por referência desconhecida, 502 por falha de banco — a resposta volta para
-   quem chamou e o evento morre ali. Os `erro()` de `api/importar/coletas/route.ts`
-   vão para o log do servidor e para o Sentry, que ninguém opera como fila de
-   reprocessamento; e um 422 é resposta tratada, não exceção, então nem chega lá.
+1. **Falha de lote de importação não avisa ninguém — só fica visível para
+   quem for procurar.**
+   A tabela `importacoes` (migration 0033) e a tela `Inspeções → Importações`
+   resolveram "não há onde perguntar o que deixou de entrar": cada tentativa de
+   lote (sucesso ou uma das seis recusas: corpo inválido, formato inválido,
+   referência desconhecida, falha ao consultar/gravar) vira uma linha com
+   origem, contagens e mensagem, e dá para filtrar por período e status.
 
-   O caminho de escrita em si é sólido (tudo-ou-nada, reenvio idempotente, fuso
-   obrigatório — ver `docs/importacao-de-coletas.md`); a lacuna é o que acontece
-   depois da recusa. Se a integração cair numa sexta e três dias de lote forem
-   recusados por um site novo não cadastrado, ninguém descobre até alguém estranhar
-   um relatório vazio na segunda — e não há onde perguntar o que deixou de entrar.
-   Uma tabela `importacoes` (origem, momento, status, linhas recebidas, linhas
-   novas, erro) mais um aviso quando um lote falha ou quando passa X horas sem lote
-   nenhum transforma "sumiu" em "falhou às 03:12, motivo Y, reenviar".
+   O que falta é a metade proativa do item original — um aviso quando um lote
+   falha ou quando passa X horas sem lote nenhum, para "sumiu" virar "falhou às
+   03:12, motivo Y, reenviar" sem alguém precisar abrir a tela para descobrir.
+   Bloqueado pelo mesmo motivo do aviso de troca de senha (ver "Decisão de
+   produto", no fim deste arquivo): o remetente do Resend só entrega ao dono da
+   conta sem um domínio verificado, e um alerta que não chega a lugar nenhum
+   não resolve o problema. Precisa de canal (e-mail com domínio verificado, ou
+   outro) antes de valer a pena escrever o cron/trigger que dispara o aviso.
 
 2. **Nenhuma alteração de cadastro é rastreável a uma pessoa.**
    Não existe tabela de auditoria e nenhuma tabela guarda histórico. `profiles` não
@@ -236,6 +249,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Lote de importação recusado não deixava rastro nenhum (metade "registro" do item) | Migration 0033 cria `importacoes` (origem, status, http_status, linhas recebidas, visitas gravadas, leituras novas, mensagem, detalhe) com RLS de leitura para `authenticated` e sem policy de escrita — grava só a rota, com `service_role`. `api/importar/coletas/route.ts` passou a gravar uma linha em cada tentativa que passa do segredo e do limite de taxa: sucesso e as seis recusas (corpo inválido, lote inválido, referência desconhecida, falha ao consultar referências, falha ao gravar visitas, falha ao gravar leituras). 401/429 ficam de fora de propósito — não são lote, são a rota rejeitando quem não provou ser a integração, e registrá-los viraria alvo de ruído para quem varre a rota sem o segredo. `createAdminClient()` subiu para antes da leitura do corpo, porque corpo inválido e lote inválido também precisam virar linha. Registro é best-effort: falha ao gravar em `importacoes` vira `erro()`, nunca 502 para quem importou certo. Tela nova em `Inspeções → Importações` lista as tentativas com filtro de período e status. **Aplicada em produção em 2026-08-21**, depois do ensaio (pgTAP `importacoes_test.sql` na mesma transação, rollback: 3/3). Advisor `security` depois: nenhum achado novo. **A metade "aviso proativo" do item original continua aberta** — ver a entrada correspondente em Alta prioridade |
 | Três dos seis relatórios devolviam número truncado, sem avisar | `horas-por-usuario`, `mapa-de-locais-inspecionados` e `ranking-de-inspecoes` selecionavam `leituras` sem `.range()` e agregavam o que voltasse — o `max_rows = 1000` do PostgREST cortava a consulta **sem erro**, e o total saía por baixo com cara de certo. `buscarEmPaginas` (`lib/supabase/query-helpers.ts`) passa a buscar o resultado inteiro em páginas, e os três expõem `truncado` para tela, CSV e PDF quando o teto de 100 mil linhas é atingido (mais um `erro()` com id de requisição, porque é evento operacional). Duas decisões dentro do helper valem nota: ele avança pelo que **voltou**, não pelo que pediu — parar na primeira página "menor que a pedida" reintroduz o bug original quando o `max_rows` do ambiente é menor que a página —, e quem chama precisa ordenar a consulta, senão `.range()` troca "número menor que o real" por "número aleatório". `ranking-de-inspecoes` levou a correção a mais que o item pedia: ganhou o gate `if (!dataInicial || !dataFinal) return null` dos outros dois, com teste. **Mudança de comportamento:** a tela agora abre pedindo o período, em vez de exibir um ranking de todo o histórico |
 | Proteção contra senha vazada desligada no Supabase Auth (`get_advisors`, 2026-08-11) | O toggle nativo ("Prevent use of leaked passwords", Authentication → Sign In / Providers → Email) exige plano Pro — tentativa de ativação em 2026-08-16 recusada pelo próprio Supabase. **2026-08-16: dono do produto decidiu não fazer upgrade de plano** — deixa de ser pendência dependente de decisão e vira decisão tomada. Compensação ficou na aplicação, no mesmo dia: `lib/senha-vazada.ts` consulta a API k-anonymity do HaveIBeenPwned (só um prefixo de 5 caracteres do SHA-1 sai do servidor, nunca a senha) nos três pontos onde senha é definida — `usuarios/actions.ts` (server action, checagem direta) e `nova-senha`/`trocar-senha` (client components que chamam `supabase.auth.updateUser` direto, sem server action no meio — checam via nova rota `api/senha/verificar-vazamento` antes de chamar `updateUser`). Falha aberta em timeout/erro de rede: é checagem adicional, não defesa de borda. Risco residual aceito conscientemente, não escondido: contas criadas direto pelo painel/console do Supabase (fora da aplicação) não passam por este código — mesma categoria de exposição que qualquer ação feita por quem já tem acesso administrativo ao projeto Supabase, não um caminho que um usuário comum alcança |
 | Sentry ligado no código (2026-08-11), inerte até existir um DSN | Conta e projeto criados em 2026-08-16 (`up-servicos/javascript-nextjs`, região EU). `npx @sentry/wizard` rodou em duas etapas por causa de uma dependência faltando na máquina (`pnpm` não instalado — resolvido com `npm install -g pnpm@11.18.0`, a versão que `package.json` já declarava via `packageManager`). O wizard gerou `sentry.server.config.ts`/`sentry.edge.config.ts` mas **não** os conectou ao `instrumentation.ts` que já existia (o wizard não sobrescreve um `register()` customizado) — os dois ficariam órfãos, nunca executados, com o DSN além disso hardcoded no arquivo em vez de vir de env. Corrigido: `instrumentation.ts` passou a delegar via `await import("../sentry.server.config")`/`sentry.edge.config` (padrão atual do SDK), e os dois arquivos passaram a ler `process.env.SENTRY_DSN`. Também achado e corrigido: o `tunnelRoute: "/monitoring"` que o wizard configurou (necessário porque a CSP deste app restringe `connect-src` a `'self'` + Supabase, mesmo motivo do proxy do ViaCEP em `api/cep`) caía no matcher do middleware de autenticação (`proxy.ts`) — um evento de erro na tela de login, deslogado, seria redirecionado para `/` em vez de chegar ao Sentry; excluído do matcher. `SENTRY_AUTH_TOKEN` (upload de source map) movido do arquivo solto que o wizard cria (`.env.sentry-build-plugin`, apagado) para `.env.local`, mesmo padrão do resto do projeto. Rotas de exemplo do wizard (`sentry-example-page`, `api/sentry-example-api`) removidas depois de confirmar que a rota de teste respondia 500 como esperado. Validado com lint/typecheck/vitest (379/379)/build de produção, incluindo o upload de source map rodando no build. **Pendente:** configurar `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` no ambiente de produção (Vercel ou onde o app estiver hospedado) — `.env.local` cobre só o ambiente local |

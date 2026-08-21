@@ -113,6 +113,19 @@ considera dois `NULL` iguais).
 `leituras_novas` menor que `leituras_recebidas` não é erro: é a deduplicação
 funcionando num reenvio.
 
+## Rastro de cada tentativa
+
+Toda chamada que passa do segredo e do limite de taxa grava uma linha em
+`importacoes` (migration 0033) — sucesso ou qualquer uma das seis recusas
+acima, com origem (IP), status, contagens e mensagem. `401`/`429` ficam de
+fora: não são tentativa de lote, são a rota rejeitando quem não provou ser a
+integração.
+
+Consulte pela tela `Inspeções → Importações` (filtro de período e status) ou
+direto no banco. O registro é *best-effort*: se a gravação em `importacoes`
+falhar, vira `erro()` no log/Sentry, mas nunca muda a resposta HTTP de quem
+importou — a tabela é auditoria, não parte do contrato da rota.
+
 ## Exemplo
 
 ```bash
