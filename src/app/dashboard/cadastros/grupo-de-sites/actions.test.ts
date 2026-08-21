@@ -7,7 +7,10 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
     const resultados = {
       insert: { data: { id: 9 } as { id: number } | null, error: null as ErroSupabase },
       update: { data: null as { id: number } | null, error: null as ErroSupabase },
-      updateSites: { error: null as ErroSupabase },
+      /** `data: null` = o mock ecoa os ids pedidos (todos vinculados, o caso
+       * de sucesso). Um teste que queira simular recusa do RLS passa a lista
+       * de fato afetada -- inclusive `[]`. */
+      updateSites: { data: null as { id: number }[] | null, error: null as ErroSupabase },
     };
     const chamadas: Array<
       | { tipo: "insert"; tabela: string; linha: Record<string, unknown> }
@@ -22,7 +25,15 @@ const { createClientMock, redirectMock, revalidatePathMock, resultados, chamadas
             update: (linha: Record<string, unknown>) => ({
               in: (_coluna: string, ids: unknown[]) => {
                 chamadas.push({ tipo: "update-in", tabela, linha, ids });
-                return Promise.resolve(resultados.updateSites);
+                return {
+                  select: () =>
+                    Promise.resolve({
+                      data:
+                        resultados.updateSites.data ??
+                        ids.map((id) => ({ id: Number(id) })),
+                      error: resultados.updateSites.error,
+                    }),
+                };
               },
             }),
           };
@@ -82,7 +93,7 @@ beforeEach(() => {
   chamadas.length = 0;
   resultados.insert = { data: { id: 9 }, error: null };
   resultados.update = { data: { id: 1 }, error: null };
-  resultados.updateSites = { error: null };
+  resultados.updateSites = { data: null, error: null };
 });
 
 describe("salvarGrupoSite", () => {
@@ -221,11 +232,42 @@ describe("salvarGrupoSite", () => {
   });
 
   it("avisa sem quebrar quando o grupo salva mas o vinculo dos sites falha", async () => {
-    resultados.updateSites = { error: { code: "XX000" } };
+    resultados.updateSites = { data: null, error: { code: "XX000" } };
 
     const estado = await salvarGrupoSite({}, formulario({ nome: "Vinculo", site_ids: "1" }));
 
     expect(estado.erro).toContain("não foi possível vincular");
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * O outro caso silencioso, irmao do "update nao altera linha nenhuma" la em
+   * cima -- so que em massa. O RLS barrando o UPDATE de `sites` nao devolve
+   * erro nem dado: sem contar as linhas, a tela redirecionava dizendo que
+   * salvou e os sites continuavam no grupo antigo.
+   */
+  it("avisa quando o vinculo dos sites nao atinge linha nenhuma", async () => {
+    resultados.updateSites = { data: [], error: null };
+
+    const estado = await salvarGrupoSite({}, formulario({ nome: "Vinculo", site_ids: ["1", "2"] }));
+
+    expect(estado.erro).toContain("todos os sites selecionados");
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("avisa quando so parte dos sites e vinculada", async () => {
+    resultados.updateSites = { data: [{ id: 1 }], error: null };
+
+    const estado = await salvarGrupoSite({}, formulario({ nome: "Vinculo", site_ids: ["1", "2"] }));
+
+    expect(estado.erro).toContain("todos os sites selecionados");
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("redireciona quando todos os sites pedidos foram vinculados", async () => {
+    const estado = await salvarGrupoSite({}, formulario({ nome: "Vinculo", site_ids: ["1", "2"] }));
+
+    expect(estado?.erro).toBeUndefined();
+    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
   });
 });

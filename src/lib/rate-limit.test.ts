@@ -57,21 +57,62 @@ describe("limitarTaxa", () => {
 });
 
 describe("identificarChamador", () => {
-  it("usa o primeiro endereco de x-forwarded-for", () => {
-    const request = { headers: { get: () => "203.0.113.9, 10.0.0.1, 10.0.0.2" } };
+  /** Um request com os headers que interessam, e null para o resto. */
+  const requestCom = (headers: Record<string, string>) => ({
+    headers: { get: (nome: string) => headers[nome] ?? null },
+  });
+
+  it("prefere x-real-ip, que o proxy escreve e nao e uma cadeia", () => {
+    const request = requestCom({
+      "x-real-ip": "203.0.113.9",
+      "x-forwarded-for": "1.1.1.1, 203.0.113.9",
+    });
 
     expect(identificarChamador(request)).toBe("203.0.113.9");
   });
 
   it("remove espaco ao redor do endereco", () => {
-    const request = { headers: { get: () => "  203.0.113.9  , 10.0.0.1" } };
+    const request = requestCom({ "x-real-ip": "  203.0.113.9  " });
 
     expect(identificarChamador(request)).toBe("203.0.113.9");
   });
 
-  it("cai numa chave fixa quando o header nao existe", () => {
-    const request = { headers: { get: () => null } };
+  /**
+   * O achado da auditoria de 2026-08-18, virado teste.
+   *
+   * Cada proxy acrescenta ao FIM da cadeia, entao o item mais a esquerda e o
+   * que o cliente mandou -- e ele pode mandar o que quiser. Usando o primeiro,
+   * bastava trocar esse valor a cada requisicao para ganhar um balde novo e
+   * nunca esbarrar no limite.
+   */
+  it("usa o ultimo endereco de x-forwarded-for, nao o primeiro", () => {
+    const request = requestCom({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 203.0.113.9" });
 
-    expect(identificarChamador(request)).toBe("sem-ip");
+    expect(identificarChamador(request)).toBe("203.0.113.9");
+  });
+
+  it("nao deixa o chamador escolher a propria chave forjando x-forwarded-for", () => {
+    const proxy = "203.0.113.9";
+
+    // Duas requisicoes do mesmo cliente, cada uma inventando um prefixo
+    // diferente. O que o proxy anexou no fim e o mesmo nas duas.
+    const primeira = identificarChamador(requestCom({ "x-forwarded-for": `9.9.9.9, ${proxy}` }));
+    const segunda = identificarChamador(requestCom({ "x-forwarded-for": `8.8.8.8, ${proxy}` }));
+
+    expect(primeira).toBe(segunda);
+  });
+
+  it("aceita x-forwarded-for com um endereco so, sem proxy encadeado", () => {
+    const request = requestCom({ "x-forwarded-for": "203.0.113.9" });
+
+    expect(identificarChamador(request)).toBe("203.0.113.9");
+  });
+
+  it("cai numa chave fixa quando nenhum dos dois headers existe", () => {
+    expect(identificarChamador(requestCom({}))).toBe("sem-ip");
+  });
+
+  it("cai numa chave fixa quando o header existe mas vem vazio", () => {
+    expect(identificarChamador(requestCom({ "x-forwarded-for": " , " }))).toBe("sem-ip");
   });
 });
