@@ -1,4 +1,6 @@
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
+import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -290,6 +292,9 @@ export type MapaDeLocaisInspecionados = {
   dias: string[];
   linhas: LinhaMapa[];
   diasExcedidos: boolean;
+  /** A busca parou no teto de agregacao: as contagens saem por baixo. Nao
+   * confundir com `diasExcedidos`, que corta colunas (dias) e nao linhas. */
+  truncado: boolean;
 };
 
 /** null quando o periodo (Data Inicial/Final) nao foi informado -- a tela
@@ -305,26 +310,42 @@ export async function getMapaDeLocaisInspecionados(filtros: Filtros): Promise<Ma
   const supabase = await createClient();
   const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
 
-  const [sitesResultado, leiturasResultado] = await Promise.all([
+  const [sitesResultado, leituras] = await Promise.all([
     aplicarFiltrosDeSite(supabase.from("sites").select("id, nome").order("nome"), filtros),
-    aplicarFiltrosDeLeitura(
-      supabase.from("leituras").select(montarSelectLeituras(precisaGrupoUsuario)),
-      filtros,
-      diasConsultados[0],
-      diasConsultados[diasConsultados.length - 1],
+    // Paginado pelo mesmo motivo de horas-por-usuario: a consulta parava no
+    // `max_rows` do PostgREST e a contagem por Local x dia saia por baixo, sem
+    // erro. Ordenacao obrigatoria para `.range()` nao repetir nem pular linha.
+    buscarEmPaginas<LeituraBruta>((de, ate) =>
+      aplicarFiltrosDeLeitura(
+        supabase
+          .from("leituras")
+          .select(montarSelectLeituras(precisaGrupoUsuario))
+          .order("data_hora", { ascending: true })
+          .order("id", { ascending: true })
+          .range(de, ate),
+        filtros,
+        diasConsultados[0],
+        diasConsultados[diasConsultados.length - 1],
+      ),
     ),
   ]);
 
   if (sitesResultado.error) throw sitesResultado.error;
-  if (leiturasResultado.error) throw leiturasResultado.error;
+
+  if (leituras.atingiuTeto) {
+    erro(
+      gerarIdDeRequisicao(),
+      `Mapa de Locais Inspecionados: teto de ${TETO_DE_AGREGACAO} leituras atingido; as contagens exibidas estão incompletas.`,
+    );
+  }
 
   const linhas = contarInspecoesPorSiteEDia(
     (sitesResultado.data ?? []) as { id: number; nome: string }[],
-    (leiturasResultado.data ?? []) as unknown as LeituraBruta[],
+    leituras.linhas,
     filtros,
   );
 
-  return { dias: diasConsultados, linhas, diasExcedidos };
+  return { dias: diasConsultados, linhas, diasExcedidos, truncado: leituras.atingiuTeto };
 }
 
 export function paraLinhaDeExportacao(linha: LinhaMapa, dias: string[]): string[] {

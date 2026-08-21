@@ -19,6 +19,12 @@ export async function GET(request: Request) {
     dados.push(["…", "Resultado truncado — ajuste o período para reduzir o total", ...Array(colunas.length - 2).fill("")]);
   }
 
+  // Contagem incompleta e um problema diferente de dias cortados, e cada um
+  // tem a sua linha: o arquivo circula sem a tela ao lado para explicar.
+  if (mapa?.truncado) {
+    dados.push(["…", "Contagens incompletas — reduza o período para ver os números corretos", ...Array(colunas.length - 2).fill("")]);
+  }
+
   return new Response(paraCsv(colunas, dados), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

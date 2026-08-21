@@ -87,6 +87,18 @@ aparece hoje.
 > `lib/rate-limit.ts` ("processo único" não vale em serverless). Vão para
 > `docs/auditoria-seguranca.md`.
 >
+> 2026-08-20: o item "Três dos seis relatórios devolvem número truncado"
+> foi corrigido e foi para os fechados — o único dos quatro de Alta que era
+> defeito, e não ausência. A correção não copiou o padrão dos dois irmãos:
+> `LIMITE_LEITURAS + 1` responde "cortei em N" para uma tela que **lista** N
+> linhas, e estes três não listam, agregam — cortar em N dá um total errado do
+> mesmo jeito. Passaram a buscar o resultado inteiro em páginas
+> (`lib/supabase/query-helpers.ts`), com teto de 100 mil linhas como trava
+> contra varredura sem fim. O teto continua sendo curativo, e a correção
+> estrutural segue sendo o item de Média (agregar em SQL); a diferença é que
+> agora o curativo avisa quando não deu conta, em vez de exibir número errado
+> com cara de certo.
+>
 > Dois achados dessa rodada foram avaliados e **não** viraram item, por já
 > estarem decididos: o painel inicial em `/dashboard` segue como decisão de
 > produto de 2026-08-07 (a auditoria argumenta a favor de revisitá-la quando
@@ -97,27 +109,7 @@ aparece hoje.
 
 ## Alta prioridade
 
-1. **Três dos seis relatórios devolvem número truncado, sem avisar.**
-   `horas-por-usuario/queries.ts:215`, `mapa-de-locais-inspecionados/queries.ts:311`
-   e `ranking-de-inspecoes/queries.ts:168` selecionam `leituras` sem `.range()` e
-   agregam em Node. O PostgREST tem teto próprio (`supabase/config.toml:18`,
-   `max_rows = 1000`), então a consulta para em 1000 linhas e a agregação soma em
-   cima do pedaço — sem erro, sem bandeira, sem nada na tela que denuncie. O
-   resultado não é lentidão: é o número errado com cara de certo. "Quantidade de
-   Horas por Usuário" subnotifica a produtividade de quem trabalhou mais, que é
-   exatamente quem tem mais leituras para cortar.
-
-   O padrão certo já existe no próprio módulo, em dois irmãos:
-   `registro-de-rondas/queries.ts:319` e
-   `inspecoes-inicio-fim-visita/queries.ts:228` pedem `LIMITE_LEITURAS + 1`,
-   detectam o estouro e expõem `truncado` para a tela avisar. Falta aplicá-lo aos
-   três. `ranking-de-inspecoes` é o pior caso e precisa de uma correção a mais:
-   diferente dos outros dois, não exige período informado (`getRankingDeInspecoes`
-   não tem o gate `if (!dataInicial || !dataFinal) return null` que
-   `getHorasPorUsuario` tem), então varre a tabela inteira desde sempre e para em
-   1000 na primeira vez que o volume passar disso.
-
-2. **Nada registra que um lote de importação foi recebido.**
+1. **Nada registra que um lote de importação foi recebido.**
    Não há tabela de importações. Quando um lote é recusado — 400 por formato, 422
    por referência desconhecida, 502 por falha de banco — a resposta volta para
    quem chamou e o evento morre ali. Os `erro()` de `api/importar/coletas/route.ts`
@@ -133,7 +125,7 @@ aparece hoje.
    novas, erro) mais um aviso quando um lote falha ou quando passa X horas sem lote
    nenhum transforma "sumiu" em "falhou às 03:12, motivo Y, reenviar".
 
-3. **Nenhuma alteração de cadastro é rastreável a uma pessoa.**
+2. **Nenhuma alteração de cadastro é rastreável a uma pessoa.**
    Não existe tabela de auditoria e nenhuma tabela guarda histórico. `profiles` não
    tem sequer `updated_at` (migration 0001). Quem desativou um usuário, quem alterou
    um `cargo` — e `cargo` é o que concede nível de acesso, por isso as migrations
@@ -147,7 +139,7 @@ aparece hoje.
    `auditoria-seguranca.md`, porque é feature a construir — schema, trigger e tela —
    não achado a corrigir.
 
-4. **Nada foi exercitado com dado real: produção está vazia.**
+3. **Nada foi exercitado com dado real: produção está vazia.**
    Consulta direta ao projeto `UpServiços` (2026-08-19): 0 leituras, 0 visitas, 0
    sites, 0 QR-codes, 0 grupos de usuários, 1 perfil (um GESTOR). Projeto criado em
    27/07, com deploys de produção rodando desde então. As sete features estão
@@ -244,6 +236,7 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Três dos seis relatórios devolviam número truncado, sem avisar | `horas-por-usuario`, `mapa-de-locais-inspecionados` e `ranking-de-inspecoes` selecionavam `leituras` sem `.range()` e agregavam o que voltasse — o `max_rows = 1000` do PostgREST cortava a consulta **sem erro**, e o total saía por baixo com cara de certo. `buscarEmPaginas` (`lib/supabase/query-helpers.ts`) passa a buscar o resultado inteiro em páginas, e os três expõem `truncado` para tela, CSV e PDF quando o teto de 100 mil linhas é atingido (mais um `erro()` com id de requisição, porque é evento operacional). Duas decisões dentro do helper valem nota: ele avança pelo que **voltou**, não pelo que pediu — parar na primeira página "menor que a pedida" reintroduz o bug original quando o `max_rows` do ambiente é menor que a página —, e quem chama precisa ordenar a consulta, senão `.range()` troca "número menor que o real" por "número aleatório". `ranking-de-inspecoes` levou a correção a mais que o item pedia: ganhou o gate `if (!dataInicial || !dataFinal) return null` dos outros dois, com teste. **Mudança de comportamento:** a tela agora abre pedindo o período, em vez de exibir um ranking de todo o histórico |
 | Proteção contra senha vazada desligada no Supabase Auth (`get_advisors`, 2026-08-11) | O toggle nativo ("Prevent use of leaked passwords", Authentication → Sign In / Providers → Email) exige plano Pro — tentativa de ativação em 2026-08-16 recusada pelo próprio Supabase. **2026-08-16: dono do produto decidiu não fazer upgrade de plano** — deixa de ser pendência dependente de decisão e vira decisão tomada. Compensação ficou na aplicação, no mesmo dia: `lib/senha-vazada.ts` consulta a API k-anonymity do HaveIBeenPwned (só um prefixo de 5 caracteres do SHA-1 sai do servidor, nunca a senha) nos três pontos onde senha é definida — `usuarios/actions.ts` (server action, checagem direta) e `nova-senha`/`trocar-senha` (client components que chamam `supabase.auth.updateUser` direto, sem server action no meio — checam via nova rota `api/senha/verificar-vazamento` antes de chamar `updateUser`). Falha aberta em timeout/erro de rede: é checagem adicional, não defesa de borda. Risco residual aceito conscientemente, não escondido: contas criadas direto pelo painel/console do Supabase (fora da aplicação) não passam por este código — mesma categoria de exposição que qualquer ação feita por quem já tem acesso administrativo ao projeto Supabase, não um caminho que um usuário comum alcança |
 | Sentry ligado no código (2026-08-11), inerte até existir um DSN | Conta e projeto criados em 2026-08-16 (`up-servicos/javascript-nextjs`, região EU). `npx @sentry/wizard` rodou em duas etapas por causa de uma dependência faltando na máquina (`pnpm` não instalado — resolvido com `npm install -g pnpm@11.18.0`, a versão que `package.json` já declarava via `packageManager`). O wizard gerou `sentry.server.config.ts`/`sentry.edge.config.ts` mas **não** os conectou ao `instrumentation.ts` que já existia (o wizard não sobrescreve um `register()` customizado) — os dois ficariam órfãos, nunca executados, com o DSN além disso hardcoded no arquivo em vez de vir de env. Corrigido: `instrumentation.ts` passou a delegar via `await import("../sentry.server.config")`/`sentry.edge.config` (padrão atual do SDK), e os dois arquivos passaram a ler `process.env.SENTRY_DSN`. Também achado e corrigido: o `tunnelRoute: "/monitoring"` que o wizard configurou (necessário porque a CSP deste app restringe `connect-src` a `'self'` + Supabase, mesmo motivo do proxy do ViaCEP em `api/cep`) caía no matcher do middleware de autenticação (`proxy.ts`) — um evento de erro na tela de login, deslogado, seria redirecionado para `/` em vez de chegar ao Sentry; excluído do matcher. `SENTRY_AUTH_TOKEN` (upload de source map) movido do arquivo solto que o wizard cria (`.env.sentry-build-plugin`, apagado) para `.env.local`, mesmo padrão do resto do projeto. Rotas de exemplo do wizard (`sentry-example-page`, `api/sentry-example-api`) removidas depois de confirmar que a rota de teste respondia 500 como esperado. Validado com lint/typecheck/vitest (379/379)/build de produção, incluindo o upload de source map rodando no build. **Pendente:** configurar `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` no ambiente de produção (Vercel ou onde o app estiver hospedado) — `.env.local` cobre só o ambiente local |
 | Extensão `pg_trgm` instalada no schema `public` (`extension_in_public`, `get_advisors`) | Ficou em `public` desde a migration 0011 por ser o schema corrente no momento do `create extension`, sem decisão deliberada. A hipótese inicial de que mover exigiria recriar os índices GIN estava errada — `alter extension pg_trgm set schema` preserva o OID de cada objeto da extensão, e os índices (`grupos_sites_nome_trgm_idx`, `grupos_sites_descricao_trgm_idx`, `profiles_nome_completo_trgm_idx`, `profiles_email_trgm_idx`) resolvem a classe de operador pelo OID gravado neles, não pelo nome a cada consulta. `extensions` (schema que já hospeda `pgcrypto`/`uuid-ossp`/`pg_stat_statements`/`pgtap` neste projeto) está no `search_path` padrão do Supabase, então migration futura com `gin_trgm_ops` continua funcionando sem qualificar o schema. Migration 0031 aplicada em produção em 2026-08-16; confirmado por SQL direto (`pg_extension`/`pg_namespace`) que a extensão está em `extensions`, os 4 índices continuam existindo com a mesma definição, e o achado `extension_in_public` não aparece mais no `get_advisors` |

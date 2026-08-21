@@ -187,6 +187,13 @@ export default async function MapaDeLocaisInspecionadosPage({
           </p>
         )}
 
+        {mapa?.truncado && (
+          <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+            Período com mais leituras do que o suportado — as contagens abaixo estão incompletas. Reduza o período
+            para ver os números corretos.
+          </p>
+        )}
+
         {!mapa ? (
           <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
             <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
