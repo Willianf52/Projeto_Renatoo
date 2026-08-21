@@ -150,6 +150,25 @@ aparece hoje.
 > (variável de ambiente, sem mudar código) quando houver domínio verificado
 > e/ou uso real. Cálculo do silêncio isolado em `lib/importacao-alerta.ts`,
 > puro e testado (8 casos) sem precisar mockar Supabase nem Resend.
+>
+> 2026-08-21: início da expansão mobile (15 inspetores em campo, decisão de
+> produto — não é achado de auditoria, é iniciativa nova, plano completo em
+> "Abrindo o Portão", Artifact publicado). Marcos 01+02 do plano concluídos:
+> migration 0036 adiciona o cargo `INSPETOR` (mesmo eixo de `cargo`, que já
+> responde "quanto a conta enxerga e altera" — não é escopo novo como `tipo`,
+> 0019) e abre `INSERT` em `visitas`/`leituras` para esse cargo, escopado ao
+> próprio `funcionario_id` — as únicas duas tabelas que desde a 0003/0004 só
+> recebiam escrita de `service_role`. Só INSERT de propósito (decisão de
+> produto): o app não permite editar leitura já enviada nesta fase, então a
+> trilha de auditoria (0034) não precisa se estender a estas tabelas ainda.
+> Escopo por site nasce do QR escaneado (`qr_codes.site_id`), sem tabela de
+> vínculo inspetor↔site nova. Ensaiado com pgTAP na mesma transação da
+> migration, rollback: 6/6 — o primeiro ensaio pegou um falso-positivo (tentar
+> escrever via `insert ... select ... from tabela-com-RLS` deixa a policy de
+> SELECT filtrar a linha antes do INSERT ser tentado, sem exceção nenhuma;
+> corrigido capturando ids numa tabela temporária sem RLS antes de trocar de
+> role). Marcos 03-05 (prova de offline num dispositivo real, geração de tipos
+> automática, piloto com 1-2 inspetores) continuam abertos.
 
 ## Alta prioridade
 

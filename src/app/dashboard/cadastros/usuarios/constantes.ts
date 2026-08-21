@@ -20,6 +20,10 @@ export const NIVEIS_ACESSO = [
   { value: "OPERACIONAL", label: "Operacional" },
   { value: "OPERADOR", label: "Operador" },
   { value: "CLIENTE", label: "Cliente" },
+  // Migration 0036: unico nivel com permissao de gravar visitas/leituras
+  // pelo token da propria sessao (app de campo) -- os demais continuam
+  // so lendo, como antes.
+  { value: "INSPETOR", label: "Inspetor" },
 ];
 
 export const SITUACOES = [
