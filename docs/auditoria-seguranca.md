@@ -47,7 +47,7 @@ Não consigo inspecionar as configurações reais do repositório a partir daqui
 - Ativar Secret Scanning + Push Protection (gratuito em repositórios GitHub, inclusive privados em muitos planos) — rede de segurança extra mesmo o projeto estando limpo hoje.
 
 **Acesso:**
-- Confirmar se o repositório é público ou privado intencionalmente — não tenho como verificar daqui.
+- ~~Confirmar se o repositório é público ou privado intencionalmente — não tenho como verificar daqui.~~ **Respondido em 2026-08-19: é público.** Deixa de ser pergunta aberta e vira achado — ver 5.1.
 - Revisar quem tem acesso de `write`/`admin` e se realmente precisa.
 
 **GitHub Actions (quando for configurar CI/CD — hoje não existe `.github/workflows`):**
@@ -193,6 +193,130 @@ Mesmo sendo valores `NEXT_PUBLIC_*` (públicos por natureza), guardá-los como A
 
 ---
 
+## 5. Achados abertos (auditoria de 2026-08-19)
+
+Rodada pedida com foco em operação, não em código: o que acontece quando o
+sistema entrar em uso. Diferente das anteriores, esta consultou **o ambiente**
+— grants e contagens do banco de produção via SQL direto, advisors do Supabase,
+metadados de deploy da Vercel e o histórico de push — em vez de só o
+código-fonte. Nenhum achado é exploração ativa; todos são governança ou
+premissa vencida. A parte não-segurança da mesma rodada está em
+`docs/melhorias.md` (Alta prioridade, revisão de 2026-08-19).
+
+### 5.1 O repositório é público (Alto)
+
+Confirmado em 2026-08-19 pelos metadados de deploy da Vercel
+(`githubRepoVisibility: "public"`), respondendo a pergunta que a seção 3
+carregava em aberto desde a primeira auditoria.
+
+Reconfirmei antes de classificar que **nenhum segredo está versionado**: o
+`.gitignore` cobre `.env*` com `!.env.example`, `git ls-files | grep env` só
+devolve `.env.example`/`lib/env.ts`/`scripts/check-env.mjs`, e a busca no
+histórico não achou chave. O achado não é vazamento — é superfície.
+
+O que está aberto para leitura: o modelo de autorização inteiro (quais cargos
+podem o quê, em qual função `security definer`), o schema completo, todas as
+policies de RLS, e o desenho das duas rotas autenticadas por segredo
+compartilhado — incluindo o nome exato do header (`x-importacao-secret`), os
+limites de taxa aplicados a cada uma e o formato do lote. Nada disso é segredo
+criptográfico, e um sistema bem desenhado não deve depender de obscuridade;
+mas para uma empresa de padrão corporativo, um sistema que guardará dados
+operacionais de clientes não tem por que publicar o próprio mapa. Tornar
+privado é uma troca de configuração, sem custo técnico.
+
+### 5.2 Produção sai de branch de trabalho, e o check obrigatório é contornável (Médio)
+
+Os deploys de produção na Vercel apontam para
+`cursor/login-page-performance-lab`, que é o `default_branch` real do
+repositório; `main` existe e ficou para trás. Não há branch de release, tag de
+versão nem changelog — não existe "a versão que está em produção" identificável,
+e um rollback depende de achar o deploy certo na lista.
+
+A recomendação de branch protection da seção 3 **foi aplicada** e a regra
+existe: o push de 2026-08-19 (`f29801e`, revisão do `melhorias.md`) respondeu
+com `Bypassed rule violations ... Required status check "build" is expected`.
+Ou seja — a proteção está ligada, o check é exigido, e a conta que empurra tem
+permissão para passar por cima. O CI ainda roda depois do fato (o workflow tem
+gatilho de `push` para esta branch, justamente por isso), mas depois do fato: o
+código já está na branch da qual produção sai quando o build começa.
+
+Fechar exige duas coisas na UI do GitHub, ambas fora do alcance de qualquer
+ferramenta daqui: marcar "Do not allow bypassing the above settings" na regra,
+e decidir se pushes diretos continuam sendo o fluxo — se continuarem, a regra
+de PR obrigatório está sendo mantida por engano, e vale desligá-la em vez de
+contorná-la a cada push.
+
+### 5.3 Sessão sem expiração por inatividade e MFA desligado (Médio)
+
+`supabase/config.toml:271-272` tem o bloco `[auth.sessions]` inteiro comentado:
+sem `inactivity_timeout` e sem `timebox`. Com `enable_refresh_token_rotation`
+ligado e `jwt_expiry = 3600`, uma sessão aberta se renova indefinidamente — em
+máquina compartilhada, ela não fecha sozinha nunca. O bloco `[auth.mfa]` existe
+com os valores padrão, sem TOTP habilitado.
+
+Para os 19 usuários administrativos, e sobretudo para o cargo GESTOR — que
+`pode_administrar_usuarios()` (migration 0013) autoriza a conceder nível de
+acesso a terceiros, escrevendo com `service_role` sem RLS atrás —, expiração
+por inatividade e TOTP obrigatório são o padrão que uma auditoria externa
+espera encontrar.
+
+**Ressalva de escopo, para não ser lido como mais do que é:** verifiquei o
+`config.toml`, que governa o ambiente local. As configurações de Auth que valem
+em produção moram no painel do projeto hospedado e **não** foram inspecionadas
+nesta rodada — pode ser que já divirjam do arquivo, para melhor ou para pior.
+Confirmar em Authentication → Sessions e Authentication → Multi-Factor antes de
+tratar como pendência ou como resolvido.
+
+### 5.4 O comentário de `lib/rate-limit.ts` afirma uma premissa que não vale mais (Baixo)
+
+A entrada correspondente na tabela de status abaixo registra a limitação com
+honestidade ("contador por processo, não por instância"). O comentário no topo
+do arquivo vai um passo além e conclui: *"Para o ambiente atual (processo
+único) o limite vale exatamente como configurado."* O ambiente atual é
+serverless na Vercel — cada invocação pode cair numa instância diferente, cada
+uma com seu próprio `Map`, e o limite efetivo é `limite × instâncias ativas`.
+
+O risco prático continua baixo (as duas rotas esperam uma integração conhecida
+como chamadora), e a decisão de não pagar um round-trip ao Postgres por
+requisição continua defensável. O problema é o comentário: ele autoriza a
+próxima pessoa a confiar num limite que não existe. Corrigir o texto é o
+mínimo; mover o contador para armazenamento compartilhado é a correção de
+verdade, quando o volume justificar.
+
+### 5.5 Migrations aplicadas em produção fora da branch de onde produção sai (Médio, processo)
+
+`0031_fecha_grants_padrao_de_escrita` e
+`0032_escopo_de_grupo_na_escrita_de_sites` estão **aplicadas em produção desde
+2026-08-18**, mas vivem só em `fix/grants-padrao-de-escrita` (PR #24), aberta.
+`cursor/login-page-performance-lab` — a branch de onde produção é publicada —
+não tem os dois arquivos. Quem ler `supabase/migrations/` nessa branch vê um
+banco que não é o banco.
+
+É exatamente a classe de problema que o cabeçalho da própria 0031 descreve ao
+justificar por que a auditoria dela consultou os grants reais em vez das
+migrations: *"o que as migrations dizem e o que o banco tem não eram a mesma
+coisa"*. A 0031 fecha isso no nível de privilégio — `anon`/`authenticated`
+tinham INSERT/UPDATE/DELETE/TRUNCATE em 11 tabelas, `visitas` e `leituras`
+entre elas, herdados do `pg_default_acl` do Supabase, barrados até então
+apenas por ausência de policy. Nada explorável, e mesmo assim é o achado mais
+relevante em aberto: era o registro de inspeção protegido por uma camada só.
+Priorizar o merge fecha o achado e a divergência de uma vez.
+
+### Advisors do Supabase nesta rodada
+
+`get_advisors` (security e performance) rodado em 2026-08-19 não trouxe nada
+novo. Os `authenticated_security_definer_function_executable` que aparecem são
+os oito casos já tratados na tabela abaixo — `authenticated` fica de fora do
+revoke de propósito, e o motivo está lá. `auth_leaked_password_protection`
+segue aberto como **decisão registrada**, não pendência: o toggle nativo exige
+plano Pro, o upgrade foi recusado pelo dono do produto, e a compensação em
+`lib/senha-vazada.ts` está documentada em `docs/melhorias.md`. Os
+`unused_index` continuam sendo sinal de pouco tráfego, não de índice morto, e
+esta rodada explica por quê melhor do que a anterior conseguia: com produção
+vazia (0 leituras, 0 visitas — ver o item 4 da Alta prioridade em
+`docs/melhorias.md`), nenhum índice teve como ser usado ainda. A decisão de
+mantê-los, registrada nos fechados daquele arquivo, sai reforçada.
+
 ## Status das correções
 
 Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm exec tsc --noEmit`, `pnpm test`, `pnpm run build` — todos passando):
@@ -225,7 +349,7 @@ Coberto por `lib/security-headers.test.ts`.
 
 **Lição para funções `SECURITY DEFINER` futuras:** `revoke execute ... from <papel>` só remove o que foi concedido nominalmente àquele papel — não remove o que o papel herda por ser membro de `PUBLIC`, e toda função nasce com `EXECUTE` concedido a `PUBLIC` por padrão do Postgres. Sem um `revoke all on function ... from public` (ou `revoke ... from public` específico) na própria migration que cria a função, qualquer revoke posterior por papel nominal (`anon`, `authenticated`) é inofensivo mas ineficaz — foi exatamente o que aconteceu com `handle_new_user()` acima. As funções criadas a partir da migration 0009 em diante já seguem o padrão certo (`revoke all from public` na criação); vale conferir isso em qualquer `SECURITY DEFINER` novo antes de assumir que "revoguei dos papéis errados" resolveu.
 
-**Só dá pra resolver no GitHub, não daqui** (seção 3): branch protection, Dependabot alerts/secret scanning ligados nas Settings, confirmação de visibilidade do repo e de quem tem acesso `write`/`admin`. Nenhuma ferramenta aqui tem acesso à configuração do GitHub — precisa ser feito manualmente.
+**Só dá pra resolver no GitHub, não daqui** (seção 3): branch protection, Dependabot alerts/secret scanning ligados nas Settings, e quem tem acesso `write`/`admin`. Nenhuma ferramenta aqui tem acesso à configuração do GitHub — precisa ser feito manualmente. **Atualização de 2026-08-19:** a visibilidade do repo deixou de ser incógnita (é público — achado 5.1), e a branch protection está ligada mas contornável por quem empurra (achado 5.2). As duas continuam só resolvíveis na UI do GitHub; a diferença é que agora se sabe o que resolver.
 
 O `MELHORIAS.md` cobre o restante (testes de middleware, `error.tsx`/`loading.tsx`, etc.) e não foi duplicado aqui.
 
