@@ -127,6 +127,30 @@ O registro é *best-effort*: se a gravação em `importacoes` falhar, vira
 `erro()` no log/Sentry, mas nunca muda a resposta HTTP de quem importou -- a
 tabela é auditoria, não parte do contrato da rota.
 
+## Alertas
+
+Dois avisos por e-mail (`lib/resend.ts`, `enviarAlertaOperacional`), os dois
+best-effort -- falha ao enviar vira `erro()`, nunca muda a resposta de quem
+chamou nem trava o cron:
+
+- **Lote recusado.** Disparado dentro da própria rota, em qualquer uma das
+  seis recusas. No máximo 1 e-mail a cada 15 minutos (`limitarTaxa`,
+  `alerta-importacao-falha`) -- um problema real tende a se repetir a cada
+  reenvio, e sem o limite cada tentativa viraria um e-mail novo. O registro em
+  `importacoes` continua sem esse limite: o throttle é só no aviso.
+- **Silêncio prolongado.** `GET /api/cron/verificar-importacoes`, alvo de um
+  Vercel Cron Job (`vercel.json`, uma vez por dia -- mais frequente exige
+  plano Pro). Confere a linha mais recente de `importacoes`; sem nenhuma nas
+  últimas `IMPORTACAO_SILENCIO_HORAS` (padrão 24h, `lib/importacao-alerta.ts`)
+  -- inclusive se a tabela nunca recebeu nada -- avisa. Protegida por
+  `CRON_SECRET`: a Vercel manda `Authorization: Bearer <valor>` sozinha
+  quando a variável está configurada no projeto.
+
+**Sem domínio verificado no Resend, os dois só entregam se
+`ALERTA_OPERACAO_EMAIL` for o mesmo e-mail do dono da conta Resend** -- ver o
+comentário de `REMETENTE` em `lib/resend.ts`. Troque por um endereço de
+equipe quando o domínio for verificado.
+
 ## Exemplo
 
 ```bash
