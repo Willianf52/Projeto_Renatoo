@@ -169,6 +169,16 @@ aparece hoje.
 > corrigido capturando ids numa tabela temporária sem RLS antes de trocar de
 > role). Marcos 03-05 (prova de offline num dispositivo real, geração de tipos
 > automática, piloto com 1-2 inspetores) continuam abertos.
+>
+> 2026-08-21, mesmo dia: marco 04 concluído antes do 03, de propósito — tipo
+> mantido à mão é exatamente o tipo de risco que um app novo não deveria
+> herdar, e a comparação achou drift real: `database.types.ts` já estava sem
+> `e_inspetor()` (só criada nesta sessão) e ainda listava `show_limit`/
+> `show_trgm`, funções do `pg_trgm` que a migration de mover a extensão para
+> `extensions` (2026-08-17) tirou do schema `public`. Corrigido, e
+> `pnpm run types:generate` (README, seção "Banco de dados") documentado como
+> o caminho de regeneração -- usa a Management API do projeto hospedado, não
+> precisa de Docker nem de `supabase start`.
 
 ## Alta prioridade
 
