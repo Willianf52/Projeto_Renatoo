@@ -67,12 +67,33 @@ export function limitarTaxa(chave: string, limite: number, janelaMs: number): Re
   return { permitido: true };
 }
 
-/** `x-forwarded-for` pode trazer uma lista ("cliente, proxy1, proxy2") -- o
- * primeiro endereco e o mais proximo do cliente real. Sem o header (ambiente
- * sem proxy na frente), cai numa chave fixa: pior que discriminar por IP,
- * melhor que nao limitar nada. */
+/**
+ * Identifica quem chama, para compor a chave do balde.
+ *
+ * NAO usar o primeiro item de `x-forwarded-for`, que e o que este arquivo
+ * fazia ate a auditoria de 2026-08-18. Cada proxy ACRESCENTA o endereco de
+ * quem falou com ele no fim da lista, entao o item mais a esquerda e o que o
+ * proprio cliente mandou -- texto arbitrario, inventavel a cada requisicao.
+ * Com ele como chave, o limite deixa de existir para exatamente quem ele foi
+ * criado para conter: quem tem o segredo (vazado ou nao) e decide inundar a
+ * rota trocava o header e ganhava um balde novo por requisicao.
+ *
+ * O ultimo item e o que o proxy confiavel na nossa frente escreveu -- o unico
+ * que o cliente nao controla. `x-real-ip` vem antes na ordem de preferencia
+ * porque a Vercel e o nginx o escrevem eles mesmos e ele nao e uma cadeia, so
+ * um endereco: nao ha o que escolher errado.
+ *
+ * Sem nenhum dos dois (ambiente sem proxy na frente), cai numa chave fixa:
+ * pior que discriminar por IP, melhor que nao limitar nada.
+ */
 export function identificarChamador(request: { headers: { get(nome: string): string | null } }): string {
-  const encaminhado = request.headers.get("x-forwarded-for");
-  if (encaminhado) return encaminhado.split(",")[0].trim();
-  return "sem-ip";
+  const real = request.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+
+  const cadeia = (request.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((parte) => parte.trim())
+    .filter(Boolean);
+
+  return cadeia.at(-1) ?? "sem-ip";
 }
