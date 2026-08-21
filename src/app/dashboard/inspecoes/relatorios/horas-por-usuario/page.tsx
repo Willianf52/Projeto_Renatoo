@@ -24,7 +24,7 @@ export default async function HorasPorUsuarioPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const [opcoes, linhas] = await Promise.all([getOpcoesFiltros(), getHorasPorUsuario(filtros)]);
+  const [opcoes, resultado] = await Promise.all([getOpcoesFiltros(), getHorasPorUsuario(filtros)]);
 
   const queryExportacao = (() => {
     const query = new URLSearchParams();
@@ -111,7 +111,14 @@ export default async function HorasPorUsuarioPage({
           </Button>
         </form>
 
-        {!linhas ? (
+        {resultado?.truncado && (
+          <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+            Período com mais leituras do que o suportado — os totais abaixo estão incompletos. Reduza o período para
+            ver as horas corretas.
+          </p>
+        )}
+
+        {!resultado ? (
           <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
             <p className="text-sm font-medium text-white">Selecione um período</p>
             <p className="text-sm text-brand-muted">
@@ -121,15 +128,15 @@ export default async function HorasPorUsuarioPage({
         ) : (
           <DataTable
             columns={TABLE_COLUMNS}
-            rows={linhas.map((linha) => [
+            rows={resultado.linhas.map((linha) => [
               linha.nome,
               formatarDuracao(linha.totalMs),
               formatarMedia(linha.totalMs, linha.visitas),
               String(linha.visitas),
             ])}
             page={1}
-            totalPages={linhas.length > 0 ? 1 : 0}
-            totalItems={linhas.length}
+            totalPages={resultado.linhas.length > 0 ? 1 : 0}
+            totalItems={resultado.linhas.length}
             emptyTitle="Nenhum usuário encontrado"
             emptyDescription="Ajuste os filtros acima para localizar registros."
           />

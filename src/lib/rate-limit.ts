@@ -19,8 +19,17 @@
  *
  * Limitacao registrada, nao escondida: o contador e por processo. Atras de
  * mais de uma instancia (varias replicas do servidor), cada uma conta por
- * conta propria, e o limite efetivo vira `limite x numero de instancias`. Para
- * o ambiente atual (processo unico) o limite vale exatamente como configurado.
+ * conta propria, e o limite efetivo vira `limite x numero de instancias`.
+ *
+ * E esse **e** o ambiente atual, nao uma hipotese futura: producao roda
+ * serverless na Vercel, e cada invocacao pode cair numa instancia diferente,
+ * cada uma com o seu proprio `Map`. Nenhum numero configurado aqui vale
+ * literalmente -- o limite real e sempre maior, e quanto maior depende de
+ * quantas instancias a plataforma mantiver quentes, que nao esta sob controle
+ * deste codigo. A decisao de nao pagar um round-trip ao Postgres por
+ * requisicao segue de pe pelo motivo do paragrafo anterior; o que nao vale e
+ * ler o limite como exato. Quando o volume justificar, a correcao e mover o
+ * contador para armazenamento compartilhado.
  */
 
 type Balde = { contagem: number; expiraEm: number };

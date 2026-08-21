@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contarPorFuncionario, extrairFiltros } from "./queries";
+import { contarPorFuncionario, extrairFiltros, getRankingDeInspecoes } from "./queries";
 
 function leitura(visitaId: number, funcionarioId: string | null, nome: string) {
   return {
@@ -84,5 +84,19 @@ describe("contarPorFuncionario", () => {
   it("empate em quantidade desempata por nome", () => {
     const leituras = [leitura(1, "z", "Zeta"), leitura(2, "a", "Alfa")];
     expect(contarPorFuncionario(leituras).itens.map((item) => item.nome)).toEqual(["Alfa", "Zeta"]);
+  });
+});
+
+describe("getRankingDeInspecoes", () => {
+  /**
+   * O gate vale mais que um detalhe de tela: sem periodo informado a consulta
+   * varre `leituras` desde o primeiro registro. Nao ha cliente Supabase
+   * mockado aqui de proposito -- se o gate deixar de existir, a funcao tenta
+   * abrir conexao e o teste quebra, que e exatamente o aviso desejado.
+   */
+  it("sem periodo informado devolve null, sem consultar o banco", async () => {
+    expect(await getRankingDeInspecoes({})).toBeNull();
+    expect(await getRankingDeInspecoes({ dataInicial: "2026-08-01" })).toBeNull();
+    expect(await getRankingDeInspecoes({ dataFinal: "2026-08-31" })).toBeNull();
   });
 });

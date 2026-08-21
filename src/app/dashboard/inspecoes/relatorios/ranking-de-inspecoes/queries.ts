@@ -1,4 +1,6 @@
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
+import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -77,6 +79,12 @@ export type RankingDeInspecoes = {
   itens: ItemRanking[];
   total: number;
 };
+
+/** O que a tela recebe: o ranking mais o aviso de que ele saiu incompleto.
+ * `truncado` fica fora de `RankingDeInspecoes` de proposito -- aquele e o
+ * retorno de `contarPorFuncionario`, que so conta o que recebeu e nao tem
+ * como saber se a busca parou antes do fim. */
+export type ResultadoRanking = RankingDeInspecoes & { truncado: boolean };
 
 type LeituraBruta = {
   visita_id: number;
@@ -158,19 +166,46 @@ export function contarPorFuncionario(leituras: LeituraBruta[]): RankingDeInspeco
   return { itens, total: itens.reduce((soma, item) => soma + item.quantidade, 0) };
 }
 
-export async function getRankingDeInspecoes(filtros: Filtros): Promise<RankingDeInspecoes> {
+/**
+ * null quando o periodo (Data Inicial/Final) nao foi informado -- mesmo gate
+ * de `horas-por-usuario` e `mapa-de-locais-inspecionados`.
+ *
+ * Antes deste gate a tela abria varrendo `leituras` desde o primeiro registro
+ * e exibia um ranking "de sempre" que ninguem pediu. Paginar sem periodo so
+ * troca o defeito: em vez de somar em cima das primeiras 1000 linhas, passa a
+ * puxar a tabela inteira -- ate 100 idas ao PostgREST -- para responder uma
+ * pergunta que a tela nem faz. Exigir o periodo resolve os dois.
+ */
+export async function getRankingDeInspecoes(filtros: Filtros): Promise<ResultadoRanking | null> {
+  if (!filtros.dataInicial || !filtros.dataFinal) return null;
+
   const supabase = await createClient();
 
   const precisaTipo = Boolean(filtros.tipo);
   const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
 
-  const query = aplicarFiltros(
-    supabase.from("leituras").select(montarSelect(precisaTipo, precisaGrupoUsuario)),
-    filtros,
+  // Paginado pelo mesmo motivo dos outros dois relatorios: a consulta parava
+  // no `max_rows` do PostgREST e o Total de Inspecoes saia por baixo, sem erro
+  // nenhum. Ordenacao obrigatoria para `.range()` nao repetir nem pular linha
+  // entre paginas.
+  const leituras = await buscarEmPaginas<LeituraBruta>((de, ate) =>
+    aplicarFiltros(
+      supabase
+        .from("leituras")
+        .select(montarSelect(precisaTipo, precisaGrupoUsuario))
+        .order("data_hora", { ascending: true })
+        .order("id", { ascending: true })
+        .range(de, ate),
+      filtros,
+    ),
   );
 
-  const { data, error } = await query;
-  if (error) throw error;
+  if (leituras.atingiuTeto) {
+    erro(
+      gerarIdDeRequisicao(),
+      `Ranking de Inspeções: teto de ${TETO_DE_AGREGACAO} leituras atingido; o Total de Inspeções exibido está incompleto.`,
+    );
+  }
 
-  return contarPorFuncionario((data ?? []) as unknown as LeituraBruta[]);
+  return { ...contarPorFuncionario(leituras.linhas), truncado: leituras.atingiuTeto };
 }

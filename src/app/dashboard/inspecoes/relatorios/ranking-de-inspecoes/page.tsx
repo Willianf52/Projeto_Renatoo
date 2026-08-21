@@ -85,34 +85,52 @@ export default async function RankingDeInspecoesPage({
           </div>
         </form>
 
-        <div className="p-4">
-          <div className="mb-4 text-center animate-fade-in-up">
-            <h2 className="text-base font-semibold text-white">Ranking de Inspeções</h2>
-            {temPeriodo && (
-              <p className="mt-1 text-xs text-brand-muted">
-                {formatarData(filtros.dataInicial!)} até {formatarData(filtros.dataFinal!)}
-              </p>
-            )}
-            <p className="text-xs text-brand-muted">Total de Inspeções: {ranking.total}</p>
-          </div>
+        {ranking?.truncado && (
+          <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+            Período com mais leituras do que o suportado — o Total de Inspeções abaixo está incompleto. Reduza o
+            período para ver o número correto.
+          </p>
+        )}
 
-          {ranking.itens.length === 0 ? (
-            <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
-              <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
-                <SearchIcon className="h-6 w-6" />
+        {!ranking ? (
+          <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
+            <p className="text-sm font-medium text-white">Selecione um período</p>
+            <p className="text-sm text-brand-muted">
+              Escolha a Data Inicial e a Data Final acima e clique em Filtrar para ver o ranking do período.
+            </p>
+          </div>
+        ) : (
+          <div className="p-4">
+            <div className="mb-4 text-center animate-fade-in-up">
+              <h2 className="text-base font-semibold text-white">Ranking de Inspeções</h2>
+              {temPeriodo && (
+                <p className="mt-1 text-xs text-brand-muted">
+                  {formatarData(filtros.dataInicial!)} até {formatarData(filtros.dataFinal!)}
+                </p>
+              )}
+              <p className="text-xs text-brand-muted">Total de Inspeções: {ranking.total}</p>
+            </div>
+
+            {ranking.itens.length === 0 ? (
+              <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
+                <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
+                  <SearchIcon className="h-6 w-6" />
+                </div>
+                <p className="text-sm font-medium text-white">Nenhuma inspeção encontrada</p>
+                <p className="text-sm text-brand-muted">
+                  Ajuste o período ou os filtros acima para localizar registros.
+                </p>
               </div>
-              <p className="text-sm font-medium text-white">Nenhuma inspeção encontrada</p>
-              <p className="text-sm text-brand-muted">Ajuste o período ou os filtros acima para localizar registros.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto animate-fade-in-up" style={{ animationDelay: "80ms" }}>
-              <BarChart
-                itens={ranking.itens.map((item) => ({ nome: item.nome, valor: item.quantidade }))}
-                tituloEixoY="Ranking de Inspeções"
-              />
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="overflow-x-auto animate-fade-in-up" style={{ animationDelay: "80ms" }}>
+                <BarChart
+                  itens={ranking.itens.map((item) => ({ nome: item.nome, valor: item.quantidade }))}
+                  tituloEixoY="Ranking de Inspeções"
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

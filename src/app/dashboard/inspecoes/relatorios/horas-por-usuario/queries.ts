@@ -1,4 +1,6 @@
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
+import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -199,30 +201,58 @@ function aplicarFiltrosDeLeitura(query: any, filtros: Filtros) {
   return q;
 }
 
+/** O que a tela recebe: as linhas mais o aviso de que a soma saiu incompleta.
+ * `truncado` fica fora de `LinhaHoras[]` porque `somarHorasPorFuncionario` so
+ * soma o que recebeu -- nao tem como saber se a busca parou antes do fim. */
+export type ResultadoHoras = { linhas: LinhaHoras[]; truncado: boolean };
+
 /** null quando o periodo (Data Inicial/Final) nao foi informado -- mesmo
  * gate de mapa-de-locais-inspecionados. */
-export async function getHorasPorUsuario(filtros: Filtros): Promise<LinhaHoras[] | null> {
+export async function getHorasPorUsuario(filtros: Filtros): Promise<ResultadoHoras | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
 
   const supabase = await createClient();
   const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
 
-  const [profilesResultado, leiturasResultado] = await Promise.all([
+  const [profilesResultado, leituras] = await Promise.all([
     aplicarFiltrosDeProfile(
       supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
       filtros,
     ),
-    aplicarFiltrosDeLeitura(supabase.from("leituras").select(montarSelectLeituras(precisaGrupoUsuario)), filtros),
+    // Paginado: sem isto a consulta parava no `max_rows` do PostgREST e a soma
+    // saia por baixo, sem erro nenhum -- subnotificando justamente quem tem
+    // mais leituras. Ver `buscarEmPaginas`. A ordenacao nao e cosmetica: sem
+    // ela `.range()` pode repetir ou pular linha entre paginas.
+    buscarEmPaginas<LeituraBruta>((de, ate) =>
+      aplicarFiltrosDeLeitura(
+        supabase
+          .from("leituras")
+          .select(montarSelectLeituras(precisaGrupoUsuario))
+          .order("data_hora", { ascending: true })
+          .order("id", { ascending: true })
+          .range(de, ate),
+        filtros,
+      ),
+    ),
   ]);
 
   if (profilesResultado.error) throw profilesResultado.error;
-  if (leiturasResultado.error) throw leiturasResultado.error;
 
-  return somarHorasPorFuncionario(
-    (profilesResultado.data ?? []) as { id: string; nome_completo: string }[],
-    (leiturasResultado.data ?? []) as unknown as LeituraBruta[],
-    filtros,
-  );
+  if (leituras.atingiuTeto) {
+    erro(
+      gerarIdDeRequisicao(),
+      `Horas por Usuário: teto de ${TETO_DE_AGREGACAO} leituras atingido; o total exibido está incompleto.`,
+    );
+  }
+
+  return {
+    linhas: somarHorasPorFuncionario(
+      (profilesResultado.data ?? []) as { id: string; nome_completo: string }[],
+      leituras.linhas,
+      filtros,
+    ),
+    truncado: leituras.atingiuTeto,
+  };
 }
 
 /** "HH:MM:SS", sem teto em 24h -- mesmo formato de
