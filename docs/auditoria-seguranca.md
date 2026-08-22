@@ -246,6 +246,37 @@ e decidir se pushes diretos continuam sendo o fluxo — se continuarem, a regra
 de PR obrigatório está sendo mantida por engano, e vale desligá-la em vez de
 contorná-la a cada push.
 
+**Estado verificado em 2026-08-21, direto na API do GitHub e da Vercel.**
+Três correções ao parágrafo acima, todas medidas e não inferidas:
+
+1. **`main` voltou a ser o `default_branch` do GitHub.** O texto acima diz que
+   o default real era `cursor/login-page-performance-lab` (confirmado em
+   2026-08-12); hoje `gh repo view` responde `main`. A produção **continua**
+   saindo de `cursor/login-page-performance-lab` — quem manda nisso é a
+   Production Branch do projeto na Vercel, não o default do GitHub. As duas
+   configurações apontam para branches diferentes, e é dessa discordância que
+   nasce o resto: PR novo nasce mirando `main` por padrão e, se ninguém
+   corrigir a base, passa em todos os checks sem nunca chegar em produção.
+   Aconteceu com o PR #24 (migrations `0031`/`0032`), corrigido em 2026-08-20.
+
+2. **Nunca existiu regra de PR obrigatório.** O parágrafo acima supõe que ela
+   existe e está sendo contornada. `required_pull_request_reviews` é nulo na
+   API: a única regra é o check de status `build` (com `strict: true`). Push
+   direto sempre foi permitido, e o que os pushes contornavam era o `build`,
+   não uma regra de revisão. Não há regra para "desligar em vez de contornar" —
+   há uma para decidir se vira bloqueante (`enforce_admins`, hoje `false`).
+
+3. **`main` não tem proteção nenhuma** — a API responde
+   `404 Branch not protected`. Toda a proteção existente vive em
+   `cursor/login-page-performance-lab`.
+
+**Ordem obrigatória, se a produção for apontada para `main`** (decisão tomada
+em 2026-08-20, ainda não executada): proteger o `main` **primeiro**, trocar a
+Production Branch na Vercel **depois**. Na ordem inversa, a produção passa a
+sair de uma branch sem check nenhum — estritamente pior que o estado que este
+achado descreve. A troca em si é Settings → Git → Production Branch, na UI da
+Vercel; nenhum tool disponível altera essa configuração.
+
 ### 5.3 Sessão sem expiração por inatividade e MFA desligado (Médio)
 
 `supabase/config.toml:271-272` tem o bloco `[auth.sessions]` inteiro comentado:
