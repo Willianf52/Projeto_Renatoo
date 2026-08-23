@@ -36,6 +36,7 @@ const {
     sessao: { data: { user: { id: "quem-edita" } } },
     limparEscopo: { error: null as Erro },
     inserirEscopo: { error: null as Erro },
+    inserirAuditoria: { error: null as Erro },
   };
 
   type Chamada = { tipo: string; args: unknown[] };
@@ -59,14 +60,19 @@ const {
         },
       },
     },
-    // A tabela importa: `profiles` e `grupos_sites_clientes` passam pelo mesmo
-    // `from`, e os testes de escopo precisam distinguir as duas.
+    // A tabela importa: `profiles`, `grupos_sites_clientes` e `auditoria`
+    // passam pelo mesmo `from`, e os testes de escopo/auditoria precisam
+    // distinguir as tres.
     from: (tabela: string) => ({
       update: (linha: Record<string, unknown>) => {
         registrar("updatePerfil", linha);
         return { eq: async () => resultados.atualizarPerfil };
       },
       insert: (linhas: unknown) => {
+        if (tabela === "auditoria") {
+          registrar("inserirAuditoria", linhas);
+          return Promise.resolve(resultados.inserirAuditoria);
+        }
         registrar("inserirEscopo", linhas);
         return Promise.resolve(resultados.inserirEscopo);
       },
@@ -148,6 +154,7 @@ beforeEach(() => {
   resultados.sessao = { data: { user: { id: "quem-edita" } } };
   resultados.limparEscopo = { error: null };
   resultados.inserirEscopo = { error: null };
+  resultados.inserirAuditoria = { error: null };
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -330,6 +337,27 @@ describe("criação", () => {
 
     expect(primeira("updatePerfil")?.args[0]).toMatchObject({ ativo: false });
   });
+
+  it("registra em auditoria a criação, sem dados_antigos", async () => {
+    await salvarUsuario({}, formulario({ ...CRIAR, cargo: "SUPERVISOR" }));
+
+    expect(primeira("inserirAuditoria")?.args[0]).toMatchObject({
+      tabela: "profiles",
+      registro_id: "novo-id",
+      operacao: "INSERT",
+      ator_id: "quem-edita",
+      dados_antigos: null,
+      dados_novos: { cargo: "SUPERVISOR", email: "maria@exemplo.com" },
+    });
+  });
+
+  it("nao registra em auditoria quando a conta e desfeita por falha no perfil", async () => {
+    resultados.atualizarPerfil = { error: { message: "falha" } };
+
+    await salvarUsuario({}, formulario(CRIAR));
+
+    expect(tipos()).not.toContain("inserirAuditoria");
+  });
 });
 
 describe("edição", () => {
@@ -338,8 +366,28 @@ describe("edição", () => {
 
     // `limparEscopo` entra em todo salvamento: um nivel diferente de CLIENTE
     // limpa o vinculo em vez de ignora-lo -- ver a suite "escopo do cliente".
-    expect(tipos()).toEqual(["limparEscopo", "updatePerfil"]);
+    // `inserirAuditoria` entra depois do `updatePerfil`: e o registro em
+    // `auditoria` que a acao grava explicitamente (migration 0034).
+    expect(tipos()).toEqual(["limparEscopo", "updatePerfil", "inserirAuditoria"]);
     expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+  });
+
+  it("registra em auditoria quem editou e o antes/depois do perfil", async () => {
+    resultados.lerPerfil = {
+      data: { cargo: "OPERADOR", ativo: true, nome_completo: "Nome Antigo" } as never,
+      error: null,
+    };
+
+    await salvarUsuario({}, formulario({ ...EDITAR, nome_completo: "Nome Novo", cargo: "SUPERVISOR" }));
+
+    expect(primeira("inserirAuditoria")?.args[0]).toMatchObject({
+      tabela: "profiles",
+      registro_id: "alvo-id",
+      operacao: "UPDATE",
+      ator_id: "quem-edita",
+      dados_antigos: { cargo: "OPERADOR", ativo: true, nome_completo: "Nome Antigo" },
+      dados_novos: { cargo: "SUPERVISOR", nome_completo: "Nome Novo" },
+    });
   });
 
   it("troca a senha quando preenchida", async () => {

@@ -11,15 +11,28 @@
  * impossivel de montar a partir de um relatorio do sistema de origem.
  */
 
-/** Teto de linhas por requisicao. Um lote maior que isto vira mais de uma
- * chamada: o objetivo e limitar o corpo que o servidor precisa segurar em
- * memoria e o tamanho da transacao no banco, nao o volume total importavel. */
-export const LIMITE_DO_LOTE = 1000;
+import {
+  chaveDaVisita,
+  LIMITE_DO_LOTE,
+  LIMITE_EMAIL,
+  LIMITE_NOME,
+  LIMITE_OBSERVACAO,
+  normalizarInstante,
+  temCoordenada,
+} from "@projeto-renatoo/shared";
 
-/** Limites de aplicacao, no mesmo espirito dos de `grupo-de-sites/actions.ts`:
- * recusam colagem acidental de texto enorme, nao regra de negocio. */
-const LIMITE_NOME = 200;
-const LIMITE_OBSERVACAO = 1000;
+/**
+ * Os limites, a regra de fuso e a derivacao de `tem_localizacao` moram em
+ * `@projeto-renatoo/shared` porque o app dos inspetores aplica exatamente as
+ * mesmas no formulario de campo. Mante-las duplicadas aqui era o caminho
+ * curto para as duas versoes divergirem sem ninguem perceber -- um lote
+ * aceito pela rota e recusado pelo app, ou pior, o contrario.
+ *
+ * As *mensagens* continuam sendo daqui: o publico desta rota e quem integra
+ * por JSON e precisa saber o nome do campo que falhou (`"data_hora"`), nao o
+ * inspetor lendo um rotulo de tela.
+ */
+export { LIMITE_DO_LOTE, chaveDaVisita };
 
 export type ColetaImportada = {
   numeroColeta: number;
@@ -63,22 +76,10 @@ function textoOpcional(
 }
 
 /**
- * Presenca de coordenada no lote. Nao le o valor -- so responde se veio
- * alguma coisa. `null`, ausente e string vazia sao "o aparelho nao obteve
- * sinal", que era o significado de `latitude is null` antes da 0022.
- */
-function temCoordenada(valor: unknown): boolean {
-  return valor !== undefined && valor !== null && valor !== "";
-}
-
-/**
- * Timestamp com deslocamento de fuso obrigatorio.
- *
- * `new Date("2026-08-01T08:12:00")` -- sem fuso -- e interpretado no fuso de
- * quem executa, entao o mesmo lote importado da maquina de um e do servidor de
- * outro geraria horarios diferentes, sem erro nenhum. O mesmo cuidado que
- * `combinarDataHora` toma nos filtros da tela (coletas-importadas/queries.ts),
- * pelo mesmo motivo.
+ * Timestamp com deslocamento de fuso obrigatorio. A regra em si e
+ * `normalizarInstante` do pacote compartilhado -- o mesmo cuidado que
+ * `combinarDataHora` toma nos filtros da tela (coletas-importadas/queries.ts).
+ * Aqui so a traducao do motivo para a mensagem desta rota.
  */
 function instante(
   valor: unknown,
@@ -92,20 +93,18 @@ function instante(
 
   if (typeof valor !== "string") return { ok: false, erro: `"${campo}" deve ser texto` };
 
-  const texto = valor.trim();
-  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(texto)) {
+  const resultado = normalizarInstante(valor);
+  if (!resultado.ok) {
     return {
       ok: false,
-      erro: `"${campo}" precisa terminar com o fuso (ex: 2026-08-01T08:12:00-03:00)`,
+      erro:
+        resultado.motivo === "sem-fuso"
+          ? `"${campo}" precisa terminar com o fuso (ex: 2026-08-01T08:12:00-03:00)`
+          : `"${campo}" não é uma data/hora válida`,
     };
   }
 
-  const data = new Date(texto);
-  if (Number.isNaN(data.getTime())) {
-    return { ok: false, erro: `"${campo}" não é uma data/hora válida` };
-  }
-
-  return { ok: true, valor: data.toISOString() };
+  return { ok: true, valor: resultado.iso };
 }
 
 function lerColeta(valor: unknown): { ok: true; coleta: ColetaImportada } | { ok: false; erro: string } {
@@ -143,7 +142,7 @@ function lerColeta(valor: unknown): { ok: true; coleta: ColetaImportada } | { ok
   const temLocalizacao = temCoordenada(bruto.latitude) && temCoordenada(bruto.longitude);
 
   const opcionais = {
-    funcionarioEmail: textoOpcional(bruto.funcionario_email, "funcionario_email", 254),
+    funcionarioEmail: textoOpcional(bruto.funcionario_email, "funcionario_email", LIMITE_EMAIL),
     motivoVisita: textoOpcional(bruto.motivo_visita, "motivo_visita"),
     coletorDados: textoOpcional(bruto.coletor_dados, "coletor_dados"),
     area: textoOpcional(bruto.area, "area"),
@@ -218,15 +217,6 @@ export function lerLoteDeColetas(valor: unknown): ResultadoDaLeitura {
   }
 
   return { ok: true, coletas };
-}
-
-/**
- * Chave de agrupamento das leituras em visitas. A migration 0004 declara
- * `unique (numero_coleta, site_id)`: o numero da coleta vem do dispositivo e
- * so e unico dentro de um site.
- */
-export function chaveDaVisita(numeroColeta: number, siteId: number): string {
-  return `${numeroColeta}::${siteId}`;
 }
 
 export type IndicePorNome = {

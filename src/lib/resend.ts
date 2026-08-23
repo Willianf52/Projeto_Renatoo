@@ -46,3 +46,28 @@ export async function enviarAvisoSenhaAlterada(destinatario: string) {
     throw new Error(`Falha ao enviar aviso de troca de senha: ${error.message}`);
   }
 }
+
+/**
+ * Alerta operacional (falha de lote de importação, silêncio prolongado) --
+ * ver `api/importar/coletas/route.ts` e `api/cron/verificar-importacoes/route.ts`.
+ *
+ * Vai para `ALERTA_OPERACAO_EMAIL`, não para quem quer que seja: sem domínio
+ * verificado no Resend (ver o comentário de `REMETENTE` acima), a entrega só
+ * funciona se esse endereço for o mesmo da conta Resend. Trocar por um
+ * endereço de equipe (e destinatário livre) quando o domínio for verificado.
+ */
+export async function enviarAlertaOperacional(assunto: string, corpo: string) {
+  const resend = getResendClient();
+  const destinatario = requireServerEnv("ALERTA_OPERACAO_EMAIL");
+
+  const { error } = await resend.emails.send({
+    from: REMETENTE,
+    to: destinatario,
+    subject: assunto,
+    text: corpo,
+  });
+
+  if (error) {
+    throw new Error(`Falha ao enviar alerta operacional: ${error.message}`);
+  }
+}

@@ -106,38 +106,81 @@ aparece hoje.
 > técnica), e os testes pgTAP/Playwright fora do CI já têm motivo registrado
 > nos fechados — Docker ausente e rate limit de auth do Supabase, não
 > esquecimento.
+>
+> 2026-08-21: o item "Nada registra que um lote de importação foi recebido"
+> fechou por completo -- tabela `importacoes` (migration 0033), a rota
+> gravando cada tentativa (sucesso e as três recusas: 400, 422, 502), e os
+> dois alertas proativos (lote recusado, silêncio prolongado; ver a entrada
+> mais abaixo, mesmo dia). A tela de leitura chegou a ser construída
+> (`Inspeções → Importações`) e foi retirada a pedido do dono do produto no
+> mesmo dia: só `Coletas Importadas` e `Relatórios` sob Inspeções. A tabela
+> continua gravando normalmente; consulta é direto no banco (ver
+> `docs/importacao-de-coletas.md`).
+>
+> 2026-08-21: o item "Nenhuma alteração de cadastro é rastreável a uma pessoa"
+> foi para os fechados — tabela `auditoria` (migration 0034) alimentada por
+> trigger em `sites`/`grupos_sites`/`grupos_usuarios`/`qr_codes`. Uma tela de
+> leitura (`Cadastros → Auditoria`) chegou a ser construída no mesmo dia e foi
+> retirada a pedido do dono do produto -- a tabela continua gravando
+> normalmente, consulta é direto no banco. `profiles` ficou de fora do trigger
+> de propósito (escreve com `service_role`, que não carrega `auth.uid()`) e é
+> gravada explicitamente por `usuarios/actions.ts` — mesmo resultado final,
+> mecanismo diferente porque a tabela é a exceção do grupo. O ensaio do pgTAP
+> pegou um segundo problema no caminho: o advisor `security` acusou
+> `registrar_auditoria()` executável por `authenticated` via RPC direto mesmo
+> depois do `revoke all from public` — a mesma lição das migrations 0026/0028
+> (revoke de PUBLIC não remove grant nominal que o default privilege do
+> Supabase concede a `authenticated`). Corrigido na migration 0035, aplicada
+> no mesmo dia.
+>
+> 2026-08-21: a metade "aviso proativo" do item de importações também fechou,
+> no mesmo dia das duas anteriores. Dois alertas por e-mail
+> (`lib/resend.ts`, `enviarAlertaOperacional`): lote recusado dispara dentro
+> da própria rota (throttle de 1 e-mail/15min via `limitarTaxa`, pra reenvio
+> repetido do mesmo lote quebrado não virar spam), e silêncio prolongado via
+> `GET /api/cron/verificar-importacoes` + Vercel Cron (`vercel.json`, uma vez
+> por dia -- mais frequente exige plano Pro). Duas decisões sem informação
+> real pra calibrar, ambas assumidas e documentadas como tal: **canal** é
+> e-mail sem domínio verificado (`ALERTA_OPERACAO_EMAIL` precisa ser o mesmo
+> endereço do dono da conta Resend -- o projeto não tem domínio próprio,
+> só o subdomínio compartilhado da Vercel, que não permite registro DNS
+> arbitrário pra verificação); **limiar de silêncio** é 24h por padrão
+> (`IMPORTACAO_SILENCIO_HORAS`), sem cadência real de integração ainda
+> estabelecida pra calibrar contra. Os dois ficam triviais de trocar depois
+> (variável de ambiente, sem mudar código) quando houver domínio verificado
+> e/ou uso real. Cálculo do silêncio isolado em `lib/importacao-alerta.ts`,
+> puro e testado (8 casos) sem precisar mockar Supabase nem Resend.
+>
+> 2026-08-21: início da expansão mobile (15 inspetores em campo, decisão de
+> produto — não é achado de auditoria, é iniciativa nova, plano completo em
+> "Abrindo o Portão", Artifact publicado). Marcos 01+02 do plano concluídos:
+> migration 0036 adiciona o cargo `INSPETOR` (mesmo eixo de `cargo`, que já
+> responde "quanto a conta enxerga e altera" — não é escopo novo como `tipo`,
+> 0019) e abre `INSERT` em `visitas`/`leituras` para esse cargo, escopado ao
+> próprio `funcionario_id` — as únicas duas tabelas que desde a 0003/0004 só
+> recebiam escrita de `service_role`. Só INSERT de propósito (decisão de
+> produto): o app não permite editar leitura já enviada nesta fase, então a
+> trilha de auditoria (0034) não precisa se estender a estas tabelas ainda.
+> Escopo por site nasce do QR escaneado (`qr_codes.site_id`), sem tabela de
+> vínculo inspetor↔site nova. Ensaiado com pgTAP na mesma transação da
+> migration, rollback: 6/6 — o primeiro ensaio pegou um falso-positivo (tentar
+> escrever via `insert ... select ... from tabela-com-RLS` deixa a policy de
+> SELECT filtrar a linha antes do INSERT ser tentado, sem exceção nenhuma;
+> corrigido capturando ids numa tabela temporária sem RLS antes de trocar de
+> role). Marcos 03-05 (prova de offline num dispositivo real, geração de tipos
+> automática, piloto com 1-2 inspetores) continuam abertos.
+>
+> 2026-08-21, mesmo dia: marco 04 concluído antes do 03, de propósito — tipo
+> mantido à mão é exatamente o tipo de risco que um app novo não deveria
+> herdar, e a comparação achou drift real: `database.types.ts` já estava sem
+> `e_inspetor()` (só criada nesta sessão) e ainda listava `show_limit`/
+> `show_trgm`, funções do `pg_trgm` que a migration de mover a extensão para
+> `extensions` (2026-08-17) tirou do schema `public`. Corrigido, e
+> `pnpm run types:generate` (README, seção "Banco de dados") documentado como
+> o caminho de regeneração -- usa a Management API do projeto hospedado, não
+> precisa de Docker nem de `supabase start`.
 
 ## Alta prioridade
-
-1. **Nada registra que um lote de importação foi recebido.**
-   Não há tabela de importações. Quando um lote é recusado — 400 por formato, 422
-   por referência desconhecida, 502 por falha de banco — a resposta volta para
-   quem chamou e o evento morre ali. Os `erro()` de `api/importar/coletas/route.ts`
-   vão para o log do servidor e para o Sentry, que ninguém opera como fila de
-   reprocessamento; e um 422 é resposta tratada, não exceção, então nem chega lá.
-
-   O caminho de escrita em si é sólido (tudo-ou-nada, reenvio idempotente, fuso
-   obrigatório — ver `docs/importacao-de-coletas.md`); a lacuna é o que acontece
-   depois da recusa. Se a integração cair numa sexta e três dias de lote forem
-   recusados por um site novo não cadastrado, ninguém descobre até alguém estranhar
-   um relatório vazio na segunda — e não há onde perguntar o que deixou de entrar.
-   Uma tabela `importacoes` (origem, momento, status, linhas recebidas, linhas
-   novas, erro) mais um aviso quando um lote falha ou quando passa X horas sem lote
-   nenhum transforma "sumiu" em "falhou às 03:12, motivo Y, reenviar".
-
-2. **Nenhuma alteração de cadastro é rastreável a uma pessoa.**
-   Não existe tabela de auditoria e nenhuma tabela guarda histórico. `profiles` não
-   tem sequer `updated_at` (migration 0001). Quem desativou um usuário, quem alterou
-   um `cargo` — e `cargo` é o que concede nível de acesso, por isso as migrations
-   0002/0007 negam esse UPDATE a `authenticated` — não é recuperável nem no dia
-   seguinte. A escrita de usuário passa por `service_role` (`usuarios/actions.ts`),
-   que ignora o RLS: o portão é a checagem na action, e ela não deixa rastro.
-
-   Uma tabela `auditoria` alimentada por trigger nas tabelas sensíveis
-   (`profiles`, `sites`, `grupos_sites`, `grupos_usuarios`, `qr_codes`) resolve, e
-   o RLS já existente controla quem a lê. Entra aqui, e não em
-   `auditoria-seguranca.md`, porque é feature a construir — schema, trigger e tela —
-   não achado a corrigir.
 
 3. **Nada foi exercitado com dado real: produção está vazia.**
    Consulta direta ao projeto `UpServiços` (2026-08-19): 0 leituras, 0 visitas, 0
@@ -150,8 +193,9 @@ aparece hoje.
    nesta revisão pôde verificar"), e a razão de esta categoria ter passado tanto
    tempo vazia: a lista mede o sistema contra si mesmo, e contra si mesmo ele está
    bem. Popular o cadastro, ligar a integração de verdade e rodar um mês fechado com
-   um subconjunto de inspetores é o que valida os itens 1 e 2 — e todo problema que
-   aparecer aí é mais barato agora do que depois de apresentado à diretoria.
+   um subconjunto de inspetores é o que valida o item de importações acima e a
+   trilha de auditoria (nos fechados) — e todo problema que aparecer aí é mais
+   barato agora do que depois de apresentado à diretoria.
 
 ## Média prioridade
 
@@ -236,6 +280,10 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Policies de INSERT do INSPETOR reavaliavam `auth.uid()` por linha (`auth_rls_initplan`, 2026-08-22) | Achado do advisor de performance do Supabase numa rodada de verificação geral da suíte. As duas policies de INSERT criadas pela 0036 (`Inspetor grava a propria visita` em `visitas`, `Inspetor grava leitura da propria visita` em `leituras`) chamavam `auth.uid()` direto no `with check` em vez de `(select auth.uid())` — nasceram depois da 0029 e ficaram fora daquele sweep, que cobriu só as policies de SELECT existentes na época. Pesa mais aqui do que pesou lá: `visitas`/`leituras` são justamente as tabelas que recebem inserção em lote pela rota de importação de coletas (migration 0033), e é no lote que a reavaliação por linha aparece. Migration 0037 recria as duas com a mesma regra de autorização, só a troca mecânica — nenhuma decisão de acesso mudou. Antes de escrever, as definições vivas foram lidas em `pg_policies` para garantir que a cópia batia caractere por caractere com o que estava no ar. Aplicada em produção em 2026-08-22 via `apply_migration`; confirmado em `pg_policies` que as duas passaram a mostrar `( SELECT auth.uid() AS uid)`, e no advisor que nenhum `auth_rls_initplan` sobrou. O `apply_migration` registrou a versão `20260822185701`, diferente do timestamp que o arquivo local tinha ao ser escrito; o arquivo foi renomeado para casar com o remoto, para o histórico não divergir (mesma classe de descuido da 0027, que ficou aplicada sem o arquivo commitado). **Ensaio pgTAP não foi feito**: a máquina não tinha Docker na sessão, então `escrita_de_campo_por_inspetor_test.sql` não rodou nem antes nem depois — diferente do processo usado na 0034, onde o teste rodou em transação com rollback antes de aplicar. O teste é de comportamento e não inspeciona o texto da policy, então continua válido sem alteração; rodar na próxima sessão com Docker fecha a verificação |
+| Nenhuma alteração de cadastro era rastreável a uma pessoa | Migration 0034 cria `auditoria` (tabela, registro_id, operação, ator_id, dados_antigos/novos jsonb, criado_em), RLS de leitura para quem `pode_administrar_usuarios()` (GESTOR ativo, migration 0013) e sem policy de escrita. Trigger genérico `registrar_auditoria()` (`security definer`, lê `auth.uid()`) cobre `sites`, `grupos_sites`, `grupos_usuarios` e `qr_codes` -- as quatro que escrevem com o token da sessão. `profiles` fica de fora do trigger de propósito: `usuarios/actions.ts` escreve com `service_role`, que não carrega JWT de pessoa nenhuma, e `auth.uid()` dentro do trigger seria sempre `null` -- um trigger assim daria a impressão de rastreamento funcionando sem rastrear a única coisa que o item pedia ("quem alterou um cargo"). Em vez disso, a action grava em `auditoria` explicitamente, no mesmo código que já sabe quem está editando; a seleção de `atual` (dados antigos) ganhou os campos por extenso (não só `cargo, ativo`) para o diff cobrir nome/login/função/tipo/superior também. Uma tela de leitura (`Cadastros → Auditoria`, com filtro de período/tabela/operação e diff calculado) chegou a ser construída e foi retirada a pedido do dono do produto no mesmo dia -- a tabela continua gravando normalmente, consulta é direto no banco. Aplicada em produção em 2026-08-21 depois do ensaio -- pgTAP `auditoria_test.sql` na mesma transação, rollback: 8/8. Achado no primeiro ensaio: testar DELETE contra `grupos_sites` apagava zero linhas em silêncio (essa tabela só desativa por flag, sem policy de DELETE) e o assert passava pelo motivo errado; trocado para `grupos_usuarios` (a única das quatro com DELETE de verdade, migration 0020). Achado depois de aplicar: o advisor `security` acusou `registrar_auditoria()` executável por `authenticated` via RPC mesmo com `revoke all from public` -- mesma lição das 0026/0028 sobre grant nominal do default privilege; corrigido na migration 0035 no mesmo dia, confirmado no advisor e no `pg_proc.proacl` antes/depois |
+| Lote de importação recusado não deixava rastro nenhum (metade "registro" do item) | Migration 0033 cria `importacoes` (origem, status, http_status, linhas recebidas, visitas gravadas, leituras novas, mensagem, detalhe) com RLS de leitura para `authenticated` e sem policy de escrita — grava só a rota, com `service_role`. `api/importar/coletas/route.ts` passou a gravar uma linha em cada tentativa que passa do segredo e do limite de taxa: sucesso e as seis recusas (corpo inválido, lote inválido, referência desconhecida, falha ao consultar referências, falha ao gravar visitas, falha ao gravar leituras). 401/429 ficam de fora de propósito — não são lote, são a rota rejeitando quem não provou ser a integração, e registrá-los viraria alvo de ruído para quem varre a rota sem o segredo. `createAdminClient()` subiu para antes da leitura do corpo, porque corpo inválido e lote inválido também precisam virar linha. Registro é best-effort: falha ao gravar em `importacoes` vira `erro()`, nunca 502 para quem importou certo. **Aplicada em produção em 2026-08-21**, depois do ensaio (pgTAP `importacoes_test.sql` na mesma transação, rollback: 3/3). Advisor `security` depois: nenhum achado novo. Uma tela de leitura (`Inspeções → Importações`) chegou a ser construída no mesmo dia e foi retirada a pedido do dono do produto -- Inspeções fica só com `Coletas Importadas` e `Relatórios`; a tabela continua gravando normalmente, consulta é direto no banco |
+| Aviso proativo de importação não existia (metade "alerta" do item acima) | Dois alertas por e-mail via `enviarAlertaOperacional` (`lib/resend.ts`), os dois best-effort. **Lote recusado**: dispara dentro de `api/importar/coletas/route.ts` em qualquer uma das seis recusas, com `limitarTaxa` limitando a 1 e-mail/15min (reenvio repetido do mesmo lote quebrado não vira spam; o registro em `importacoes` continua sem esse limite). **Silêncio prolongado**: `GET /api/cron/verificar-importacoes`, alvo de um Vercel Cron Job (`vercel.json`, uma vez por dia -- mais frequente exige plano Pro), protegido por `CRON_SECRET` (a Vercel manda `Authorization: Bearer` sozinha quando a variável está configurada). Cálculo isolado em `lib/importacao-alerta.ts` (`calcularSilencio`, `limiteDeSilencioHoras`, `montarMensagemDeSilencio`), puro e testado sem mockar Supabase/Resend. Duas decisões assumidas sem dado real pra calibrar: canal é e-mail sem domínio verificado (`ALERTA_OPERACAO_EMAIL` precisa ser o mesmo endereço do dono da conta Resend -- o projeto não tem domínio próprio, só o subdomínio compartilhado da Vercel, que não aceita registro DNS pra verificação) e o limiar de silêncio é 24h por padrão (`IMPORTACAO_SILENCIO_HORAS`), sem cadência real de integração estabelecida ainda. Os dois viram variável de ambiente, sem mudar código, quando houver domínio verificado e/ou uso real pra calibrar |
 | Três dos seis relatórios devolviam número truncado, sem avisar | `horas-por-usuario`, `mapa-de-locais-inspecionados` e `ranking-de-inspecoes` selecionavam `leituras` sem `.range()` e agregavam o que voltasse — o `max_rows = 1000` do PostgREST cortava a consulta **sem erro**, e o total saía por baixo com cara de certo. `buscarEmPaginas` (`lib/supabase/query-helpers.ts`) passa a buscar o resultado inteiro em páginas, e os três expõem `truncado` para tela, CSV e PDF quando o teto de 100 mil linhas é atingido (mais um `erro()` com id de requisição, porque é evento operacional). Duas decisões dentro do helper valem nota: ele avança pelo que **voltou**, não pelo que pediu — parar na primeira página "menor que a pedida" reintroduz o bug original quando o `max_rows` do ambiente é menor que a página —, e quem chama precisa ordenar a consulta, senão `.range()` troca "número menor que o real" por "número aleatório". `ranking-de-inspecoes` levou a correção a mais que o item pedia: ganhou o gate `if (!dataInicial || !dataFinal) return null` dos outros dois, com teste. **Mudança de comportamento:** a tela agora abre pedindo o período, em vez de exibir um ranking de todo o histórico |
 | Proteção contra senha vazada desligada no Supabase Auth (`get_advisors`, 2026-08-11) | O toggle nativo ("Prevent use of leaked passwords", Authentication → Sign In / Providers → Email) exige plano Pro — tentativa de ativação em 2026-08-16 recusada pelo próprio Supabase. **2026-08-16: dono do produto decidiu não fazer upgrade de plano** — deixa de ser pendência dependente de decisão e vira decisão tomada. Compensação ficou na aplicação, no mesmo dia: `lib/senha-vazada.ts` consulta a API k-anonymity do HaveIBeenPwned (só um prefixo de 5 caracteres do SHA-1 sai do servidor, nunca a senha) nos três pontos onde senha é definida — `usuarios/actions.ts` (server action, checagem direta) e `nova-senha`/`trocar-senha` (client components que chamam `supabase.auth.updateUser` direto, sem server action no meio — checam via nova rota `api/senha/verificar-vazamento` antes de chamar `updateUser`). Falha aberta em timeout/erro de rede: é checagem adicional, não defesa de borda. Risco residual aceito conscientemente, não escondido: contas criadas direto pelo painel/console do Supabase (fora da aplicação) não passam por este código — mesma categoria de exposição que qualquer ação feita por quem já tem acesso administrativo ao projeto Supabase, não um caminho que um usuário comum alcança |
 | Sentry ligado no código (2026-08-11), inerte até existir um DSN | Conta e projeto criados em 2026-08-16 (`up-servicos/javascript-nextjs`, região EU). `npx @sentry/wizard` rodou em duas etapas por causa de uma dependência faltando na máquina (`pnpm` não instalado — resolvido com `npm install -g pnpm@11.18.0`, a versão que `package.json` já declarava via `packageManager`). O wizard gerou `sentry.server.config.ts`/`sentry.edge.config.ts` mas **não** os conectou ao `instrumentation.ts` que já existia (o wizard não sobrescreve um `register()` customizado) — os dois ficariam órfãos, nunca executados, com o DSN além disso hardcoded no arquivo em vez de vir de env. Corrigido: `instrumentation.ts` passou a delegar via `await import("../sentry.server.config")`/`sentry.edge.config` (padrão atual do SDK), e os dois arquivos passaram a ler `process.env.SENTRY_DSN`. Também achado e corrigido: o `tunnelRoute: "/monitoring"` que o wizard configurou (necessário porque a CSP deste app restringe `connect-src` a `'self'` + Supabase, mesmo motivo do proxy do ViaCEP em `api/cep`) caía no matcher do middleware de autenticação (`proxy.ts`) — um evento de erro na tela de login, deslogado, seria redirecionado para `/` em vez de chegar ao Sentry; excluído do matcher. `SENTRY_AUTH_TOKEN` (upload de source map) movido do arquivo solto que o wizard cria (`.env.sentry-build-plugin`, apagado) para `.env.local`, mesmo padrão do resto do projeto. Rotas de exemplo do wizard (`sentry-example-page`, `api/sentry-example-api`) removidas depois de confirmar que a rota de teste respondia 500 como esperado. Validado com lint/typecheck/vitest (379/379)/build de produção, incluindo o upload de source map rodando no build. **Pendente:** configurar `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` no ambiente de produção (Vercel ou onde o app estiver hospedado) — `.env.local` cobre só o ambiente local |
@@ -264,7 +312,7 @@ renumera.
 | `pnpm-lock.yaml` fora de sincronia | `@playwright/test` entrou na revisão anterior sem atualizar o lock, e o próximo push quebraria o CI no `--frozen-lockfile`. Resolvido com `npx pnpm@11.18.0 install --lockfile-only` |
 | Cookies renovados perdidos no redirect | `preservarSessao()` em `lib/supabase/middleware.ts`, com teste de regressão |
 | Cache de referências guardava falha | `getReferenciasCompartilhadas` não grava no cache se alguma consulta trouxe `error` |
-| CI não rodava em push para `main` | Gatilho apontado para `branches: [main]`. Falta marcar o job como required em branch protection — só dá para fazer na UI do GitHub |
+| CI não rodava em push para `main` | Gatilho apontado para `branches: [main]`. O required status check "build" já estava marcado na proteção de `cursor/login-page-performance-lab`, mas `enforce_admins` estava `false` — administrador do repositório (papel de quem empurra direto) pulava a checagem obrigatória, confirmado num push real em 2026-08-21 ("Bypassed rule violations"). **Tentativa de ativar `enforce_admins` revertida no mesmo dia**: o CI só roda depois que o push chega na branch (gatilho `push`), então exigir o check já aprovado *antes* de aceitar o push é um impasse -- nenhum push direto passa mais, nem de commit já validado localmente. Bloqueou os dois terminais que trabalham nesta branch (o meu e outro em paralelo). Corrigir de verdade exige mudar o fluxo para branch + Pull Request (CI roda via gatilho `pull_request`, que dá tempo do check existir antes do merge) -- decisão de fluxo de trabalho, não aplicada; ficou só o required check nominal, sem `enforce_admins` |
 | Botão "Sair" podia não sair | `DashboardNavbar` checa o retorno de `signOut()`, avisa na tela e libera o botão. Corrigiu junto um segundo defeito: `signingOut` nunca voltava a `false`, então numa falha o botão travava em "Saindo...". Coberto por Playwright hoje só indiretamente (o fluxo de login, não o de logout) |
 | Três consultas a `profiles` por requisição | Duas saíram quando `podeAdministrarCadastros()` e `podeVerTodaOperacao()` viraram chamadas RPC às funções `security definer` do banco. A do layout virou `lib/perfil-atual.ts`, memoizada por requisição com `cache()` do React — o ponto não é o número de round-trips hoje, é que tela nova reusa em vez de abrir a sua. A do middleware fica: roda em invocação separada do render, e nenhum cache de requisição atravessa as duas |
 | A regra de autorização duplicada em TS e em SQL | `podeAdministrarCadastros()` e `podeVerTodaOperacao()` (`usuarios/queries.ts`, ex-`getNivelAcessoAtual`/`podeVerTodosOsUsuarios`) passaram a chamar `pode_administrar_cadastros()`/`pode_ver_toda_operacao()` via RPC em vez de reimplementar a regra em TS a partir de `cargo`/`ativo`. Fonte única; teste cobre concessão, negação e falha do RPC negando por padrão. O round-trip a menos é o mesmo citado em "Três consultas a `profiles`" |

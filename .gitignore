@@ -1,5 +1,8 @@
 # dependencies
 /node_modules
+# monorepo: pnpm cria um node_modules por pacote do workspace
+apps/*/node_modules
+packages/*/node_modules
 # O gerenciador do projeto e o pnpm (pnpm-lock.yaml). Um package-lock.json
 # junto resolve versoes por conta propria e diverge do lock oficial.
 /package-lock.json

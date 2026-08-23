@@ -111,9 +111,55 @@ const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
+  {
+    label: "Eventos",
+    icon: MegaphoneIcon,
+    children: [
+      {
+        label: "Relatórios",
+        icon: PrinterIcon,
+        items: [
+          {
+            label: "Registro de Eventos",
+            href: "/dashboard/eventos/relatorios/registro-de-eventos",
+            icon: ClipboardListIcon,
+          },
+          {
+            label: "Mapa de Eventos",
+            href: "/dashboard/eventos/relatorios/mapa-de-eventos",
+            icon: BarChartIcon,
+          },
+          {
+            label: "Mapa de Eventos por Site",
+            href: "/dashboard/eventos/relatorios/mapa-de-eventos-por-site",
+            icon: BarChartIcon,
+          },
+          {
+            label: "Eventos por Site",
+            href: "/dashboard/eventos/relatorios/eventos-por-site",
+            icon: BarChartIcon,
+          },
+          {
+            label: "Gráficos de Eventos",
+            href: "/dashboard/eventos/relatorios/graficos-de-eventos",
+            icon: PieChartIcon,
+          },
+          {
+            label: "Tempo Médio de Resolução das Não Conformidades",
+            href: "/dashboard/eventos/relatorios/tempo-medio-resolucao-nao-conformidades",
+            icon: BarChartIcon,
+          },
+          {
+            label: "Ranking das Não Conformidades",
+            href: "/dashboard/eventos/relatorios/ranking-nao-conformidades",
+            icon: BarChartIcon,
+          },
+        ],
+      },
+    ],
+  },
   // Modulos ainda sem telas definidas: mantidos visiveis para preservar a
   // estrutura de navegacao do sistema de referencia.
-  { label: "Eventos", icon: MegaphoneIcon, children: [] },
   { label: "ChecklistLab", icon: ClipboardListIcon, children: [] },
   { label: "Suporte", icon: UserIcon, children: [] },
 ];

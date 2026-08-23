@@ -65,6 +65,23 @@ Provisionando um ambiente novo sem rodar o seed, cadastre o primeiro grupo e
 o primeiro site manualmente via SQL (ou pelo painel do Supabase) antes de
 usar as telas.
 
+### Tipos do banco (`database.types.ts`)
+
+`src/lib/supabase/database.types.ts` é mantido à mão neste ambiente, sem
+Docker local para `supabase gen types` funcionar contra um Postgres local.
+Isso não exige Docker de verdade -- a Management API do projeto hospedado já
+responde ao `gen types` direto, sem precisar de `supabase start`:
+
+```bash
+SUPABASE_ACCESS_TOKEN=seu_token pnpm run types:generate
+```
+
+O token vem de [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
+(não confundir com a `service_role` key do projeto). Rode isso depois de
+qualquer migration que crie/altere tabela, coluna ou função -- editar
+`database.types.ts` à mão já divergiu do schema real mais de uma vez neste
+projeto (funções de RLS renomeadas/movidas sem o arquivo acompanhar).
+
 ## Rodando localmente
 
 ```bash
@@ -81,6 +98,7 @@ pnpm dev
 | `pnpm test` | Testes unitários (vitest) |
 | `pnpm test:db` | Testes de política de RLS (pgTAP, exige `supabase start` local) |
 | `pnpm test:e2e` | Testes ponta-a-ponta (Playwright) |
+| `pnpm run types:generate` | Regenera `database.types.ts` a partir do schema real (exige `SUPABASE_ACCESS_TOKEN`) |
 
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.

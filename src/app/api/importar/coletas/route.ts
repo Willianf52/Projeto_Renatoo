@@ -9,6 +9,7 @@ import {
 } from "@/lib/importar-coletas";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { enviarAlertaOperacional } from "@/lib/resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { segredoConfere } from "@/lib/webhook-user-updated";
 
@@ -37,6 +38,83 @@ const JANELA_MS = 60_000;
 /** Nao ha nada para cachear numa rota de escrita, e o Next nao deve tentar
  * pre-renderizar isto no build. */
 export const dynamic = "force-dynamic";
+
+type StatusImportacao =
+  | "sucesso"
+  | "corpo_invalido"
+  | "lote_invalido"
+  | "referencia_desconhecida"
+  | "falha_ao_consultar_referencias"
+  | "falha_ao_gravar_visitas"
+  | "falha_ao_gravar_leituras";
+
+/**
+ * Grava uma linha em `importacoes` (migration 0033) para cada tentativa de
+ * lote que passou do segredo e do limite de taxa -- ver o cabecalho da
+ * migration para o porque 401/429 ficam de fora.
+ *
+ * Best-effort: falha ao registrar vira `erro()`, nunca a resposta ao chamador.
+ * Quem integrou o lote corretamente nao pode receber 502 porque a tabela de
+ * auditoria, e nao a importacao em si, deu problema.
+ */
+async function registrarImportacao(
+  supabase: Cliente,
+  idRequisicao: string,
+  origem: string,
+  registro: {
+    status: StatusImportacao;
+    httpStatus: number;
+    linhasRecebidas?: number;
+    visitasGravadas?: number;
+    leiturasNovas?: number;
+    mensagem?: string;
+    /** Hoje so preenchido em `referencia_desconhecida`, com a mesma lista
+     * (ja capada) que a resposta HTTP devolve. */
+    detalhe?: string[];
+  },
+): Promise<void> {
+  const { error } = await supabase.from("importacoes").insert({
+    id_requisicao: idRequisicao,
+    origem,
+    status: registro.status,
+    http_status: registro.httpStatus,
+    linhas_recebidas: registro.linhasRecebidas ?? 0,
+    visitas_gravadas: registro.visitasGravadas ?? 0,
+    leituras_novas: registro.leiturasNovas ?? 0,
+    mensagem: registro.mensagem ?? null,
+    detalhe: registro.detalhe ?? null,
+  });
+
+  if (error) {
+    erro(idRequisicao, "Importação de coletas: falha ao registrar em `importacoes`.", error);
+  }
+}
+
+/**
+ * No maximo 1 e-mail a cada 15 minutos, independente de quantos lotes
+ * falharem nesse intervalo -- um problema real (arquivo errado, site novo
+ * nao cadastrado, banco fora do ar) tende a se repetir a cada tentativa, e
+ * sem o limite cada reenvio viraria um e-mail novo. `importacoes` (migration
+ * 0033) continua com uma linha por tentativa, sem throttle: o limite e so no
+ * aviso, nunca no registro.
+ *
+ * Best-effort e silencioso de proposito: quem integrou errado ja recebeu o
+ * `error` na resposta HTTP, e falha ao avisar por e-mail nao pode virar 502
+ * pra quem so estava tentando reenviar um lote corrigido.
+ */
+const ALERTA_LIMITE = 1;
+const ALERTA_JANELA_MS = 15 * 60_000;
+
+async function avisarFalhaDeImportacao(idRequisicao: string, mensagem: string): Promise<void> {
+  const limite = limitarTaxa("alerta-importacao-falha", ALERTA_LIMITE, ALERTA_JANELA_MS);
+  if (!limite.permitido) return;
+
+  try {
+    await enviarAlertaOperacional("Lote de importação recusado", mensagem);
+  } catch (falha) {
+    erro(idRequisicao, "Importação de coletas: falha ao enviar alerta operacional.", falha);
+  }
+}
 
 type Referencias = {
   sites: IndicePorNome;
@@ -179,6 +257,7 @@ function resolverLinha(
 
 export async function POST(request: NextRequest) {
   const idRequisicao = gerarIdDeRequisicao();
+  const origem = identificarChamador(request);
 
   const segredoEsperado = process.env.IMPORTACAO_SECRET;
   if (!segredoEsperado) {
@@ -192,7 +271,10 @@ export async function POST(request: NextRequest) {
 
   // Depois do segredo, nao antes: o alvo e quem tem o segredo (vazado ou nao)
   // e decide inundar a rota, nao ruido de quem nunca passou da autenticacao.
-  const limite = limitarTaxa(`importar-coletas:${identificarChamador(request)}`, LIMITE_DE_REQUISICOES, JANELA_MS);
+  // Pelo mesmo motivo, 401 e 429 nunca viram linha em `importacoes` (migration
+  // 0033): nao sao tentativa de lote, sao a rota rejeitando quem nao provou
+  // ser a integracao -- ver o cabecalho da migration.
+  const limite = limitarTaxa(`importar-coletas:${origem}`, LIMITE_DE_REQUISICOES, JANELA_MS);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },
@@ -200,16 +282,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let corpo: unknown;
-  try {
-    corpo = await request.json();
-  } catch {
-    return NextResponse.json({ error: "corpo inválido" }, { status: 400 });
-  }
-
-  const lote = lerLoteDeColetas(corpo);
-  if (!lote.ok) return NextResponse.json({ error: lote.erro }, { status: 400 });
-
+  // Criado antes do corpo ser lido, e nao logo antes de `carregarReferencias`
+  // como antes da 0033: corpo invalido e lote invalido tambem precisam virar
+  // linha em `importacoes`, e sem o cliente aqui essas duas recusas ficariam
+  // de fora do registro do mesmo jeito que ficavam antes da tabela existir.
   let supabase: Cliente;
   try {
     supabase = createAdminClient();
@@ -218,11 +294,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
   }
 
+  let corpo: unknown;
+  try {
+    corpo = await request.json();
+  } catch {
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "corpo_invalido",
+      httpStatus: 400,
+      mensagem: "corpo inválido",
+    });
+    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: corpo inválido.`);
+    return NextResponse.json({ error: "corpo inválido" }, { status: 400 });
+  }
+
+  const lote = lerLoteDeColetas(corpo);
+  if (!lote.ok) {
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "lote_invalido",
+      httpStatus: 400,
+      mensagem: lote.erro,
+    });
+    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: ${lote.erro}`);
+    return NextResponse.json({ error: lote.erro }, { status: 400 });
+  }
+
   let referencias: Referencias;
   try {
     referencias = await carregarReferencias(supabase);
   } catch (falha) {
     erro(idRequisicao, "Importação de coletas: falha ao carregar tabelas de referência.", falha);
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "falha_ao_consultar_referencias",
+      httpStatus: 502,
+      linhasRecebidas: lote.coletas.length,
+      mensagem: "falha ao consultar o banco",
+    });
+    await avisarFalhaDeImportacao(
+      idRequisicao,
+      `Lote de ${origem} recusado: falha ao consultar tabelas de referência no banco.`,
+    );
     return NextResponse.json({ error: "falha ao consultar o banco" }, { status: 502 });
   }
 
@@ -241,12 +351,25 @@ export async function POST(request: NextRequest) {
   }
 
   if (problemas.length > 0) {
-    // Teto na resposta: um lote de mil linhas contra um banco vazio geraria
-    // mil mensagens praticamente iguais.
+    // Teto na resposta (e no `detalhe` gravado): um lote de mil linhas contra
+    // um banco vazio geraria mil mensagens praticamente iguais.
+    const problemasCapados = problemas.slice(0, 20);
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "referencia_desconhecida",
+      httpStatus: 422,
+      linhasRecebidas: lote.coletas.length,
+      mensagem: `${problemas.length} linha(s) com referência desconhecida`,
+      detalhe: problemasCapados,
+    });
+    await avisarFalhaDeImportacao(
+      idRequisicao,
+      `Lote de ${origem} recusado: ${problemas.length} linha(s) com referência desconhecida. ` +
+        `Primeiro problema: ${problemasCapados[0]}`,
+    );
     return NextResponse.json(
       {
         error: "lote não importado: há linhas com referências desconhecidas",
-        problemas: problemas.slice(0, 20),
+        problemas: problemasCapados,
         total_de_problemas: problemas.length,
       },
       { status: 422 },
@@ -279,6 +402,13 @@ export async function POST(request: NextRequest) {
 
   if (erroVisitas) {
     erro(idRequisicao, "Importação de coletas: falha ao gravar visitas.", erroVisitas);
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "falha_ao_gravar_visitas",
+      httpStatus: 502,
+      linhasRecebidas: lote.coletas.length,
+      mensagem: "falha ao gravar visitas",
+    });
+    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: falha ao gravar visitas no banco.`);
     return NextResponse.json({ error: "falha ao gravar visitas" }, { status: 502 });
   }
 
@@ -311,8 +441,24 @@ export async function POST(request: NextRequest) {
 
   if (erroLeituras) {
     erro(idRequisicao, "Importação de coletas: falha ao gravar leituras.", erroLeituras);
+    await registrarImportacao(supabase, idRequisicao, origem, {
+      status: "falha_ao_gravar_leituras",
+      httpStatus: 502,
+      linhasRecebidas: lote.coletas.length,
+      visitasGravadas: visitasGravadas?.length ?? 0,
+      mensagem: "falha ao gravar leituras",
+    });
+    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: falha ao gravar leituras no banco.`);
     return NextResponse.json({ error: "falha ao gravar leituras" }, { status: 502 });
   }
+
+  await registrarImportacao(supabase, idRequisicao, origem, {
+    status: "sucesso",
+    httpStatus: 200,
+    linhasRecebidas: leituras.length,
+    visitasGravadas: visitasGravadas?.length ?? 0,
+    leiturasNovas: leiturasGravadas?.length ?? 0,
+  });
 
   return NextResponse.json({
     importado: true,

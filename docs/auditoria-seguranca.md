@@ -311,6 +311,39 @@ apenas por ausência de policy. Nada explorável, e mesmo assim é o achado mais
 relevante em aberto: era o registro de inspeção protegido por uma camada só.
 Priorizar o merge fecha o achado e a divergência de uma vez.
 
+### 5.6 Produção inteira atrás do SSO da Vercel — ninguém de fora conseguia entrar (Crítico, corrigido 2026-08-21)
+
+Achado no meio de uma tarefa não relacionada (configurar variáveis de
+ambiente): `curl` contra a URL de produção
+(`projeto-renatoo-willians-projects-4932c1c5.vercel.app`) devolvia `302` para
+`vercel.com/sso-api`, o login da própria Vercel. `get_project_deployment_protection`
+confirmou `ssoProtection.enabled: true`, escopo `all_except_custom_domains` —
+e o projeto **não tem domínio próprio** (`Domains` no painel: "No domains have
+been added yet"), então o escopo cobria 100% das URLs que o app tem hoje. O
+projeto também aparecia com `"live": false` nos metadados.
+
+Consequência prática: nenhum usuário real (os 34 planejados — 15 inspetores,
+19 administrativos) e nenhuma chamada externa (a integração batendo em
+`POST /api/importar/coletas`) alcançava o app. Isso explica "produção nunca
+usada" (ver `docs/melhorias.md`) de forma mais direta do que "faltou popular
+dado": ninguém conseguia sequer abrir a tela de login. RLS, rate limit e toda
+a autenticação de segredo compartilhado das rotas de API eram irrelevantes
+enquanto essa camada na frente barrava tudo primeiro.
+
+**Corrigido no mesmo dia**, com autorização explícita: `ssoProtection`
+desativado via `update_project_deployment_protection`. Confirmado por `curl`
+antes/depois — `302` para o SSO virou `200`. A rota `/api/cron/verificar-importacoes`
+(ver `docs/importacao-de-coletas.md`) foi usada como segunda prova: `401` sem
+`CRON_SECRET`, `200` com o valor certo — confirma que a autorização de
+verdade (o segredo da própria rota) segue de pé, é só a camada da Vercel na
+frente que saiu.
+
+**Não fica claro por que estava ligado** — pode ter sido o padrão do plano ao
+criar o projeto, ou uma escolha deliberada para não expor o app antes da
+hora. Sem achar decisão registrada em lugar nenhum (código, docs, commit),
+tratado como lacuna e não como reversão de intenção. Se havia motivo pra
+manter fechado, vale religar antes do próximo deploy.
+
 ### Advisors do Supabase nesta rodada
 
 `get_advisors` (security e performance) rodado em 2026-08-19 não trouxe nada

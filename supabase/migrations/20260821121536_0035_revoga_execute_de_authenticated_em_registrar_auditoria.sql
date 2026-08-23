@@ -1,0 +1,32 @@
+-- ============================================================================
+-- VeloxLab — Revoga EXECUTE de `authenticated` em `registrar_auditoria()`
+--
+-- A 0034 criou `registrar_auditoria()` com `revoke all on function ... from
+-- public` logo depois do `create`, mas o advisor `security` do Supabase
+-- (rodado depois de aplicar a 0034) continuou acusando
+-- `authenticated_security_definer_function_executable`: `authenticated` podia
+-- chamar via `/rest/v1/rpc/registrar_auditoria`.
+--
+-- Mesma licao ja registrada nas migrations 0026/0028 (`sincronizar_membros_grupo_usuarios`
+-- e `handle_new_user`): "revoke ... from public" nao remove grant NOMINAL, e o
+-- default privilege que o Supabase mantem no schema `public` concede EXECUTE
+-- nominalmente a `authenticated` (e a `anon`, mas a 0031 ja fechou esse lado
+-- via `alter default privileges ... revoke execute on functions from anon`)
+-- em toda funcao nova -- independente do `revoke ... from public` que a
+-- propria migration que cria a funcao já faz.
+--
+-- Confirmado direto no `pg_proc.proacl` antes desta correcao:
+-- `{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}` --
+-- `authenticated` com EXECUTE nominal, exatamente como o advisor apontou.
+--
+-- Sem exploracao real: chamar a funcao fora de um trigger falha (`NEW`/`OLD`/
+-- `TG_OP` nao existem fora desse contexto), mas o grant nem deveria existir
+-- para alguem tentar -- mesmo raciocinio da 0027/0028.
+--
+-- Idempotente: revoke de privilegio ausente e no-op.
+--
+-- Aplicada em producao em 2026-08-21, no mesmo dia da 0034, depois de
+-- confirmar o achado no advisor `security`.
+-- ============================================================================
+
+revoke execute on function public.registrar_auditoria() from authenticated, anon;

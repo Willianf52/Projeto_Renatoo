@@ -35,6 +35,47 @@ export type Database = {
         }
         Relationships: []
       }
+      auditoria: {
+        Row: {
+          ator_id: string | null
+          criado_em: string
+          dados_antigos: Json | null
+          dados_novos: Json | null
+          id: number
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Insert: {
+          ator_id?: string | null
+          criado_em?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          id?: never
+          operacao: string
+          registro_id: string
+          tabela: string
+        }
+        Update: {
+          ator_id?: string | null
+          criado_em?: string
+          dados_antigos?: Json | null
+          dados_novos?: Json | null
+          id?: never
+          operacao?: string
+          registro_id?: string
+          tabela?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_ator_id_fkey"
+            columns: ["ator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areas: {
         Row: {
           ativo: boolean
@@ -216,6 +257,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      importacoes: {
+        Row: {
+          criado_em: string
+          detalhe: Json | null
+          http_status: number
+          id: number
+          id_requisicao: string
+          leituras_novas: number
+          linhas_recebidas: number
+          mensagem: string | null
+          origem: string
+          status: string
+          visitas_gravadas: number
+        }
+        Insert: {
+          criado_em?: string
+          detalhe?: Json | null
+          http_status: number
+          id?: never
+          id_requisicao: string
+          leituras_novas?: number
+          linhas_recebidas?: number
+          mensagem?: string | null
+          origem: string
+          status: string
+          visitas_gravadas?: number
+        }
+        Update: {
+          criado_em?: string
+          detalhe?: Json | null
+          http_status?: number
+          id?: never
+          id_requisicao?: string
+          leituras_novas?: number
+          linhas_recebidas?: number
+          mensagem?: string | null
+          origem?: string
+          status?: string
+          visitas_gravadas?: number
+        }
+        Relationships: []
       }
       leituras: {
         Row: {
@@ -688,14 +771,13 @@ export type Database = {
     }
     Functions: {
       e_cliente: { Args: never; Returns: boolean }
+      e_inspetor: { Args: never; Returns: boolean }
       nivel_acesso_atual: { Args: never; Returns: string }
       pode_administrar_cadastros: { Args: never; Returns: boolean }
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_grupo_site: { Args: { id_do_grupo: number }; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       sincronizar_membros_grupo_usuarios: {
         Args: { p_grupo_id: number; p_membros: string[] }
         Returns: undefined
