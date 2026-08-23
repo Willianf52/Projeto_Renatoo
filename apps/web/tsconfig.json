@@ -35,6 +35,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
+  "//": "`**/*.ts` alcanca so este pacote -- o isolamento vem da estrutura, nao de exclusoes. Antes do painel sair da raiz era preciso excluir apps/ e packages/ na mao, senao esta config varria o app Expo com as libs do web (dom, jsx do Next) e um `window` indevido em React Native passava batido. `packages/shared` continua tipado por consequencia, pelo que este app importa dele.",
   "exclude": [
     "node_modules"
   ]

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import type { Database } from "./database.types";
+import type { Database } from "@projeto-renatoo/shared";
 
 /**
  * Cliente com a service_role: ignora todas as policies de RLS.

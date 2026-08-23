@@ -2,13 +2,21 @@
   "name": "@projeto-renatoo/shared",
   "private": true,
   "version": "0.1.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest run"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

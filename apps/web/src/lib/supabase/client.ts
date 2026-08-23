@@ -1,6 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
-import type { Database } from "./database.types";
+import type { Database } from "@projeto-renatoo/shared";
 
 /**
  * Singleton de modulo. `createClient()` era chamado de novo a cada

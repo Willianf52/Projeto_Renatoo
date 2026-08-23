@@ -10,7 +10,7 @@ import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { senhaVazada } from "@/lib/senha-vazada";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { Json } from "@/lib/supabase/database.types";
+import type { Json } from "@projeto-renatoo/shared";
 import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
 
 /**
