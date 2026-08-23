@@ -67,7 +67,7 @@ usar as telas.
 
 ### Tipos do banco (`database.types.ts`)
 
-`src/lib/supabase/database.types.ts` é gerado a partir do banco **local**,
+`packages/shared/src/database.types.ts` é gerado a partir do banco **local**,
 que a CLI monta aplicando `supabase/migrations/` do zero:
 
 ```bash
@@ -117,24 +117,52 @@ Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 
 ## Estrutura
 
+Monorepo pnpm. A raiz nao tem codigo de aplicacao -- so a configuracao que
+vale para o repositorio inteiro.
+
 ```
-src/
-  app/                   App Router — páginas e rotas
-    dashboard/cadastros/ 5 módulos (sites, grupos de sites, QR-Codes,
-                         usuários, grupos de usuários), todos no mesmo
-                         formato: page · novo · [id]/editar · actions ·
-                         queries · Form · export/excel · export/pdf
-    dashboard/inspecoes/ Coletas importadas — listagem, filtros, exportação
-    api/                 Rotas de servidor (importação de coletas, webhook)
-  components/            Componentes de UI — raiz é a tela de login,
+apps/
+  web/                   Painel dos 19 administrativos (Next.js)
+    src/app/             App Router — páginas e rotas
+      dashboard/cadastros/  5 módulos (sites, grupos de sites, QR-Codes,
+                            usuários, grupos de usuários), todos no mesmo
+                            formato: page · novo · [id]/editar · actions ·
+                            queries · Form · export/excel · export/pdf
+      dashboard/inspecoes/  Coletas importadas — listagem, filtros, exportação
+      api/                  Rotas de servidor (importação de coletas, webhook)
+    src/components/      Componentes de UI — raiz é a tela de login,
                          dashboard/ é o resto
-  lib/                   Sessão, permissões, segurança, formato de dados
-  proxy.ts               Middleware de sessão (roda em toda rota, exceto API)
-supabase/
+    src/lib/             Sessão, permissões, segurança, formato de dados
+    src/proxy.ts         Middleware de sessão (roda em toda rota, exceto API)
+    e2e/                 Specs do Playwright
+    next.config.ts, vitest.config.mts, playwright.config.ts, vercel.json
+
+  mobile/                App dos 15 inspetores em campo (Expo / React Native)
+    src/telas/           Login, Inspeções, Acesso bloqueado
+    src/auth/            Sessão e perfil
+    src/lib/             Cliente Supabase e envs
+    metro.config.js      Resolução do workspace (symlinks do pnpm)
+
+packages/
+  shared/                Contratos usados pelos dois apps — a fronteira
+    src/campo/           Regras e esquemas Zod de visita/leitura
+    src/database.types.ts  Gerado do schema (`pnpm run types:generate`)
+    src/cargos.ts        Cargos de profiles, incluindo INSPETOR
+    src/supabase-client.ts Cliente com storage injetável
+
+supabase/                Banco — infra dos dois apps, nao de um deles
   migrations/            Schema, uma migration por mudança
   tests/database/        Testes pgTAP das políticas de RLS
-docs/                    Documentação de contratos (ex.: importação de coletas)
+
+.github/workflows/       CI: jobs `build` e `banco`
+eslint.config.mjs        Lint do monorepo inteiro
+pnpm-workspace.yaml      Workspaces e overrides
 ```
+
+**A direcao das dependencias e regra, nao convencao:** `packages/shared` nao
+importa de `apps/` -- ele e consumido pelos dois, entao depender de um deles
+inverteria a seta e faria o painel quebrar o app de campo. Os dois apps nao se
+importam entre si; o que for comum sobe para `shared`.
 
 ## Documentação adicional
 

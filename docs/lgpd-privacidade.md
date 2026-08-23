@@ -63,7 +63,7 @@ jurídico.
 
 ## Log de auditoria de acesso/alteração a dado de outro usuário
 
-Hoje existe log técnico (`src/lib/log.ts`, correlacionado por id de
+Hoje existe log técnico (`apps/web/src/lib/log.ts`, correlacionado por id de
 requisição) para depuração — mas não um **audit trail de negócio**
 pesquisável do tipo "quem viu/alterou o cadastro do usuário X, quando".
 

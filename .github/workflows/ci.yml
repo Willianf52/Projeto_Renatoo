@@ -52,7 +52,14 @@ jobs:
       # nao tem fix disponivel ainda.
       - run: pnpm audit --audit-level=high
       - run: pnpm run lint
-      - run: pnpm exec tsc --noEmit
+      # Um tsc por workspace: a raiz nao tem mais tsconfig proprio -- nao ha
+      # codigo de aplicacao nela. Cada um roda com as libs certas: o tsconfig
+      # do Expo nao inclui `dom`, entao um `window` indevido no app de campo
+      # falha aqui em vez de passar batido por herdar a config do painel.
+      - run: pnpm --filter web exec tsc --noEmit
+      - run: pnpm --filter @projeto-renatoo/shared exec tsc --noEmit
+      - run: pnpm --filter mobile exec tsc --noEmit
+
       - run: pnpm test
 
       # NEXT_PUBLIC_* sao valores publicos (protegidos pelo RLS no Supabase),
@@ -102,9 +109,9 @@ jobs:
 
       - name: database.types.ts esta em dia com as migrations?
         run: |
-          if ! git diff --quiet -- src/lib/supabase/database.types.ts; then
-            echo "::error file=src/lib/supabase/database.types.ts::Desatualizado em relacao a supabase/migrations/. Rode 'pnpm run types:generate' com o stack local de pe e commite o resultado."
-            git diff -- src/lib/supabase/database.types.ts
+          if ! git diff --quiet -- packages/shared/src/database.types.ts; then
+            echo "::error file=packages/shared/src/database.types.ts::Desatualizado em relacao a supabase/migrations/. Rode 'pnpm run types:generate' com o stack local de pe e commite o resultado."
+            git diff -- packages/shared/src/database.types.ts
             exit 1
           fi
 

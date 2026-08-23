@@ -1,20 +1,23 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { SessaoProvider } from "./src/auth/SessaoProvider";
+import { Navegacao } from "./src/navegacao/Navegacao";
+
+/**
+ * Raiz do app de inspecao em campo.
+ *
+ * So monta os provedores -- quem decide qual tela aparece e `Navegacao`, a
+ * partir do estado da sessao. Manter a decisao la, e nao aqui, e o que
+ * permite que login, conta inativa e cargo errado sejam ramos de um lugar so.
+ */
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <SessaoProvider>
+        <StatusBar style="dark" />
+        <Navegacao />
+      </SessaoProvider>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

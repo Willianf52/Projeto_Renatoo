@@ -25,7 +25,7 @@
 |---|---|---|
 | A03 Injeção (SQL/NoSQL) | **Não encontrada.** Todo acesso a dados passa pelo query builder do Supabase (`.eq()`, `.in()`, `.select()`), que parametriza no PostgREST. Não há `.rpc()` com SQL cru nem concatenação de string em query. Busquei especificamente por isso e não achei nenhum caso. | `app/dashboard/inspecoes/coletas-importadas/queries.ts` |
 | A03 XSS | **Não encontrada.** Zero uso de `dangerouslySetInnerHTML`, `eval`, `innerHTML` em todo o projeto. O React escapa por padrão o que é renderizado (nomes, observações, etc. em `DataTable`). | busca em todo `.tsx` |
-| A05 Configuração incorreta — **faltam headers de segurança** | `next.config.ts` está vazio: nenhum `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy` ou `Permissions-Policy` configurado. Não é uma falha ativa, mas é a lacuna mais concreta e barata de fechar aqui — defesa em profundidade contra clickjacking e XSS residual. | `next.config.ts:1-5` |
+| A05 Configuração incorreta — **faltam headers de segurança** | `apps/web/next.config.ts` está vazio: nenhum `Content-Security-Policy`, `X-Frame-Options`, `Referrer-Policy` ou `Permissions-Policy` configurado. Não é uma falha ativa, mas é a lacuna mais concreta e barata de fechar aqui — defesa em profundidade contra clickjacking e XSS residual. | `apps/web/next.config.ts:1-5` |
 | A06 Componentes vulneráveis/desatualizados | **3 vulnerabilidades altas** via `npm audit`, ambas transitivas dentro do próprio `next`: `postcss@8.4.31` (embutido em `node_modules/next/node_modules/postcss`) com CVE de path traversal/leitura arbitrária de arquivo via `sourceMappingURL` (CVSS 7.5), e `sharp@0.34.5` com CVEs em `libvips` (CVE-2026-33327/33328/35590/35591). `sharp` é alcançável de verdade: `next/image` é usado em `components/HeroPanel.tsx`, então não é teórico. | `npm audit`, `components/HeroPanel.tsx` |
 | A07 Falhas de autenticação | RLS bem desenhado (bloqueia por `usuario_ativo()`, escopo por `cargo`), redirect pós-login validado por `safeRedirectPath` (agora com teste automatizado). ~~**Gap:** a troca de senha não pede mais a senha atual.~~ Corrigido — `trocar-senha/page.tsx` reautentica com `signInWithPassword` contra a senha atual antes de chamar `updateUser`; falhando a reautenticação, a troca nem é tentada. ~~**Gap:** login não dá nenhum feedback de limitação de tentativas.~~ Corrigido — bloqueio de 30s após 5 tentativas em `components/LoginForm.tsx`. | `components/LoginForm.tsx` (era `LoginPage.tsx`), `cadastros/trocar-senha/page.tsx` |
 | A08 Falhas de integridade de dados | CSRF: hoje só existe `<form method="get">` no filtro de `coletas-importadas` (não muda estado). Sem risco de CSRF ativo. **Atenção futura:** quando qualquer mutação via POST/Server Action for adicionada (ex.: exportar, editar cadastro), validar origem — Server Actions do Next já checam o header `Origin`, mas uma Route Handler tradicional com POST não tem essa proteção de graça. | n/a hoje, ficar de olho |
@@ -73,7 +73,7 @@ Não consigo inspecionar as configurações reais do repositório a partir daqui
 > Consulte `lib/security-headers.ts` antes de mexer em qualquer coisa desta seção.
 
 ```ts
-// next.config.ts
+// apps/web/next.config.ts
 import type { NextConfig } from "next";
 
 const securityHeaders = [
@@ -211,7 +211,7 @@ carregava em aberto desde a primeira auditoria.
 
 Reconfirmei antes de classificar que **nenhum segredo está versionado**: o
 `.gitignore` cobre `.env*` com `!.env.example`, `git ls-files | grep env` só
-devolve `.env.example`/`lib/env.ts`/`scripts/check-env.mjs`, e a busca no
+devolve `.env.example`/`lib/env.ts`/`apps/web/scripts/check-env.mjs`, e a busca no
 histórico não achou chave. O achado não é vazamento — é superfície.
 
 O que está aberto para leitura: o modelo de autorização inteiro (quais cargos
@@ -365,7 +365,7 @@ Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm 
 
 | Item | Status |
 |---|---|
-| 4.1 Headers de segurança | **Feito e bloqueante** — `lib/security-headers.ts`, aplicado via `next.config.ts`. Inclui HSTS. Ver nota abaixo |
+| 4.1 Headers de segurança | **Feito e bloqueante** — `lib/security-headers.ts`, aplicado via `apps/web/next.config.ts`. Inclui HSTS. Ver nota abaixo |
 | 4.2 Dependências vulneráveis (`postcss`, `sharp`) | **Feito** — `pnpm audit` confirma 0 vulnerabilidades. Um quarto achado (`brace-expansion`, via toolchain do ESLint) apareceu só no `pnpm audit` e também foi corrigido |
 | 4.3 Validação de env vars | **Feito** — `lib/env.ts` |
 | 4.4 Dependabot | **Feito** — `.github/dependabot.yml` |
@@ -381,7 +381,7 @@ Tudo que dependia só de código foi corrigido e verificado (`pnpm lint`, `pnpm 
 
 **Nota sobre a CSP (atualizada):** a política é bloqueante desde o commit `9c56fd4` — a fase `Report-Only` descrita na versão anterior desta nota já terminou. Três coisas que mudaram junto e que não estão no snippet da seção 4.1:
 
-- **Onde mora:** `lib/security-headers.ts`, não `next.config.ts`. O config apenas espalha `HEADERS_ESTATICOS` em `headers()`, que é o único ponto de emissão — o middleware não emite cabeçalho nenhum, e o `source: "/:path*"` cobre também `/api` e estáticos, que ficam fora do matcher dele.
+- **Onde mora:** `lib/security-headers.ts`, não `apps/web/next.config.ts`. O config apenas espalha `HEADERS_ESTATICOS` em `headers()`, que é o único ponto de emissão — o middleware não emite cabeçalho nenhum, e o `source: "/:path*"` cobre também `/api` e estáticos, que ficam fora do matcher dele.
 - **O problema do inline continua real, e a saída não foi o nonce.** Páginas como `/` são prerenderizadas no build, sem espaço para um nonce por requisição, e a especificação manda o navegador ignorar `'unsafe-inline'` assim que existe um nonce na diretiva — os scripts do próprio Next eram bloqueados e a tela de login ficava sem formulário. `script-src` mantém `'unsafe-inline'`; o arquivo registra o custo dessa escolha e o que a política ainda garante.
 - **Quatro diretivas variam entre dev e produção** (`script-src`, `connect-src`, `upgrade-insecure-requests`, HSTS). Cada uma tem no arquivo o sintoma que aparece se for aplicada no ambiente errado — vale ler antes de "limpar" alguma.
 

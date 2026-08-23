@@ -16,20 +16,20 @@ packages/*/node_modules
 !.yarn/versions
 
 # testing
-/coverage
+coverage/
 
 # playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # next.js
-/.next/
-/out/
+.next/
+out/
 
 # production
-/build
+build/
 
 # misc
 .DS_Store

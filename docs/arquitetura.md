@@ -6,7 +6,7 @@ feature nova. Não é aspiracional: reflete o que já existe em produção hoje.
 ## Feature-first via colocation de rota
 
 O App Router do Next.js já é, por si só, um índice de features: cada pasta
-sob `src/app/dashboard/{cadastros,inspecoes}/<feature>/` contém tudo que
+sob `apps/web/src/app/dashboard/{cadastros,inspecoes}/<feature>/` contém tudo que
 aquela feature precisa, colocado junto da rota — em vez de espalhado por um
 `src/features/` paralelo. É o padrão "Split project files by feature or
 route" da própria documentação do Next
@@ -51,12 +51,12 @@ dashboard/inspecoes/checklists-de-visitas/
 
 | Pasta | Conteúdo | Exemplos |
 |---|---|---|
-| `src/components/` | UI genérica, sem saber de domínio | `Button`, `Toast`, `FormField`, `Spinner`, `HeroPanel` |
-| `src/components/dashboard/` | UI compartilhada *entre* features do painel | `DataTable`, `Filter*Picker`, `DashboardSidebar`/`Navbar`, `useClickOutside` |
-| `src/lib/` | Lógica de negócio e infra, sem JSX | `supabase/`, `permissoes.ts`, `rate-limit.ts`, `password-policy.ts` |
+| `apps/web/src/components/` | UI genérica, sem saber de domínio | `Button`, `Toast`, `FormField`, `Spinner`, `HeroPanel` |
+| `apps/web/src/components/dashboard/` | UI compartilhada *entre* features do painel | `DataTable`, `Filter*Picker`, `DashboardSidebar`/`Navbar`, `useClickOutside` |
+| `apps/web/src/lib/` | Lógica de negócio e infra, sem JSX | `supabase/`, `permissoes.ts`, `rate-limit.ts`, `password-policy.ts` |
 
 Regra prática: se um componente aparece em mais de uma feature, sobe para
-`src/components/dashboard/`. Se nasceu numa feature e só ela usa, fica na
+`apps/web/src/components/dashboard/`. Se nasceu numa feature e só ela usa, fica na
 pasta da feature (ex.: `UsuarioForm.tsx`, `SitesMultiSelect.tsx`) — subir
 cedo demais cria abstração sem uso real, subir tarde demais é só mover um
 arquivo.
@@ -72,7 +72,7 @@ arquivo.
 - **Mutação sempre por Server Action** em `actions.ts` com `"use server"` no
   topo do arquivo — nunca `fetch` direto do client para o Supabase em
   escrita. As 5 features de cadastro seguem isto hoje sem exceção.
-- **Cliente de escrita privilegiada é `src/lib/supabase/admin.ts`**
+- **Cliente de escrita privilegiada é `apps/web/src/lib/supabase/admin.ts`**
   (`service_role`, ignora RLS), guardado por `import "server-only"` no topo:
   um import acidental a partir de um Client Component quebra o build em vez
   de embarcar a chave num bundle público. Confirmado por grep: nenhum
@@ -81,13 +81,13 @@ arquivo.
 
 ## Tipagem integrada com o Supabase
 
-`src/lib/supabase/database.types.ts` é gerado a partir do schema do projeto
+`packages/shared/src/database.types.ts` é gerado a partir do schema do projeto
 Supabase (`UpServiços`, `wcmqmeikpwwpwyztqwni`) e alimenta o generic
 `Database` nos três factories de client:
 
-- `src/lib/supabase/server.ts` — `createServerClient<Database>(...)`
-- `src/lib/supabase/client.ts` — `createBrowserClient<Database>(...)`
-- `src/lib/supabase/admin.ts` — `createClient<Database>(...)`
+- `apps/web/src/lib/supabase/server.ts` — `createServerClient<Database>(...)`
+- `apps/web/src/lib/supabase/client.ts` — `createBrowserClient<Database>(...)`
+- `apps/web/src/lib/supabase/admin.ts` — `createClient<Database>(...)`
 
 Toda chamada `.from(...)`/`.select(...)`/`.eq(...)` no projeto passa a ter
 autocomplete e checagem de tipo de coluna a partir disto — sem precisar
