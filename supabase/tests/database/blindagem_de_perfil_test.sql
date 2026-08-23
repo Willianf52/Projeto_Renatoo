@@ -29,7 +29,7 @@
 
 begin;
 
-select plan(15);
+select plan(16);
 
 -- ---------------------------------------------------------------------------
 -- Fixture: um OPERADOR ativo e um GESTOR ativo.
@@ -213,6 +213,19 @@ select is(
     where has_table_privilege('authenticated', format('public.%I', t.tabela), 'DELETE')),
   2,
   'grupos_usuarios e grupos_usuarios_membros mantem DELETE -- tem policy'
+);
+
+-- ---------------------------------------------------------------------------
+-- 5) A funcao de blindagem nao e chamavel como RPC (0040)
+--
+-- A 0039 fez `revoke all ... from public` e isso NAO bastou: o default
+-- privilege do Supabase concede EXECUTE NOMINAL a `authenticated` em toda
+-- funcao nova de `public`. Mesma armadilha das 0026/0028/0035. A 0040 revoga
+-- nominalmente; este assert e o que impede a terceira reincidencia.
+-- ---------------------------------------------------------------------------
+select ok(
+  not has_function_privilege('authenticated', 'public.impedir_escalacao_de_perfil()', 'EXECUTE'),
+  'authenticated nao chama impedir_escalacao_de_perfil via /rest/v1/rpc'
 );
 
 select * from finish();
