@@ -7,6 +7,15 @@
 --   1) `anon` e `authenticated` nao escrevem nas tabelas cuja unica policy e
 --      de SELECT (0003/0004/0014) -- entre elas `visitas` e `leituras`, o
 --      registro de inspecao.
+--
+--      REVISADO EM 2026-08-23: para `visitas` e `leituras` isto deixou de
+--      valer, e nao por regressao -- a 0036 concedeu o INSERT a
+--      `authenticated` de proposito, para a escrita de campo do inspetor
+--      entrar pela sessao em vez da rota de importacao. O portao dessas duas
+--      tabelas passou a ser a policy da 0036 (`e_inspetor()` +
+--      `funcionario_id = auth.uid()`, com o `select` da 0037), nao a ausencia
+--      de grant. Os asserts 2 e 20 foram invertidos para afirmar esse estado;
+--      o resto do arquivo continua cobrindo a 0031 como escrito.
 --   2) `profiles` nao aceita INSERT de `authenticated`. As 0002/0007 fecharam
 --      UPDATE coluna a coluna para proteger `cargo` e `ativo`, mas INSERT
 --      nunca foi revogado e o default privilege o concedia em todas as
@@ -72,9 +81,12 @@ select is(
   'tabela nova criada por postgres nao nasce mais com escrita para anon/authenticated'
 );
 
+-- Grant presente de proposito (0036). O assert existe para travar o par: se
+-- alguem revogar este INSERT achando que restaura a 0031, a escrita de campo
+-- do inspetor morre calada -- e este teste avisa antes.
 select ok(
-  not has_table_privilege('authenticated', 'public.visitas', 'INSERT'),
-  'authenticated nao insere visitas (escrita e da rota de importacao, com service_role)'
+  has_table_privilege('authenticated', 'public.visitas', 'INSERT'),
+  'authenticated insere visitas pelo grant da 0036 -- quem barra e a policy de INSPETOR, nao o grant'
 );
 
 select ok(
@@ -210,20 +222,26 @@ select lives_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 3) Comportamento: o lado que passa a falhar por GRANT, nao por policy
+-- 3) Comportamento: qual das duas camadas barra, e nao so que barrou
 --
--- A mensagem importa mais que o codigo aqui -- RLS por ausencia de policy
--- levanta o mesmo 42501. "permission denied" so aparece quando o grant nao
--- existe, que e o que a 0031 muda.
+-- A mensagem importa mais que o codigo aqui -- GRANT ausente e RLS levantam o
+-- mesmo 42501, entao so o texto distingue. "permission denied" prova que o
+-- grant nao existe (o que a 0031 fecha); "violates row-level security policy"
+-- prova que o grant existe e a policy e que decidiu (o caso de `visitas`
+-- depois da 0036). Um teste que olhasse so o SQLSTATE passaria nos dois e nao
+-- provaria nenhum.
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-0000-0000-000000000003", "role": "authenticated"}';
 
+-- O OPERADOR falha nas duas metades do `with check` da 0036: nao e INSPETOR e
+-- nao esta gravando visita propria. Com o grant presente, quem recusa e a
+-- policy -- e a mensagem esperada abaixo e o que prova isso.
 select throws_ok(
   $$ insert into public.visitas (numero_coleta, site_id) values (999001, 1) $$,
   '42501',
-  'permission denied for table visitas',
-  'OPERADOR ativo esbarra no GRANT ao forjar visita, nao mais so na ausencia de policy'
+  'new row violates row-level security policy for table "visitas"',
+  'OPERADOR ativo nao forja visita -- barrado pela policy de INSPETOR, com o grant da 0036 presente'
 );
 
 select throws_ok(
