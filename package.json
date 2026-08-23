@@ -16,6 +16,7 @@
     "types:generate": "npx --yes supabase gen types typescript --project-id wcmqmeikpwwpwyztqwni --schema public > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
+    "@projeto-renatoo/shared": "workspace:*",
     "@sentry/nextjs": "^10.70.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.2",
