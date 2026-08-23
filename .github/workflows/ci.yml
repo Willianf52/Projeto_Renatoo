@@ -9,21 +9,18 @@ on:
     # o historico de cada branch com status proprio, em vez de depender do
     # resultado do PR que originou cada merge.
     #
-    # As duas entradas cobrem papeis diferentes, e nenhuma e redundante
-    # (estado medido na API em 2026-08-23):
+    # So `main`, e agora ela acumula os dois papeis: e o `default_branch` do
+    # repositorio e, desde 23/08, a Production Branch da Vercel -- commit
+    # nela publica producao de verdade.
     #
-    #   * `main` e o `default_branch` do repositorio -- mudou desde a versao
-    #     anterior deste comentario, que registrava
-    #     cursor/login-page-performance-lab no papel.
-    #   * `cursor/login-page-performance-lab` e de onde a Vercel publica
-    #     producao (Production Branch do projeto). Merge em `main` ainda nao
-    #     publica nada, entao ela continua precisando de CI propria.
+    # `cursor/login-page-performance-lab` saiu desta lista junto com a troca.
+    # Ela era o alvo de producao ate 23/08, e por isso precisava de CI e de
+    # protecao proprias; hoje nao publica nada e nao tem papel nenhum.
     #
-    # Sem essas entradas, push direto (fora de PR) ficava sem cobertura de CI
-    # nenhuma, e a protecao de branch nunca tinha o que checar. `main` segue
-    # sem protecao nenhuma hoje (404 na API) -- quando ela ganhar, os checks
-    # a exigir sao `build` e `banco`.
-    branches: [main, cursor/login-page-performance-lab]
+    # Sem esta entrada, push direto (fora de PR) ficaria sem cobertura de CI
+    # nenhuma, e a protecao de `main` (checks `build` e `banco` obrigatorios,
+    # aplicada em 23/08) nao teria o que checar.
+    branches: [main]
 
 permissions:
   contents: read
