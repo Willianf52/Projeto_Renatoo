@@ -9,12 +9,18 @@ on:
     # o historico de cada branch com status proprio, em vez de depender do
     # resultado do PR que originou cada merge.
     #
-    # `main` existe mas esta parada. O `default_branch` real do repositorio
-    # (confirmado via API, 2026-08-12) e cursor/login-page-performance-lab --
-    # e nela que os pushes diretos acontecem hoje. Sem essa entrada, push
-    # direto (fora de PR) ficava sem cobertura de CI nenhuma, e a protecao de
-    # branch (required status check "build") nunca tinha o que checar.
-    branches: [main, cursor/login-page-performance-lab]
+    # So `main`, e agora ela acumula os dois papeis: e o `default_branch` do
+    # repositorio e, desde 23/08, a Production Branch da Vercel -- commit
+    # nela publica producao de verdade.
+    #
+    # `cursor/login-page-performance-lab` saiu desta lista junto com a troca.
+    # Ela era o alvo de producao ate 23/08, e por isso precisava de CI e de
+    # protecao proprias; hoje nao publica nada e nao tem papel nenhum.
+    #
+    # Sem esta entrada, push direto (fora de PR) ficaria sem cobertura de CI
+    # nenhuma, e a protecao de `main` (checks `build` e `banco` obrigatorios,
+    # aplicada em 23/08) nao teria o que checar.
+    branches: [main]
 
 permissions:
   contents: read
@@ -56,3 +62,56 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+  # Tudo que exige um Postgres de verdade, num job so -- os dois checks abaixo
+  # dividem o mesmo `supabase start`, que e a parte cara (~1-2 min):
+  #
+  #   1) Anti-drift de `database.types.ts`. Unico check que compara o tipo com
+  #      o *schema*, e nao consigo mesmo: `tsc --noEmit` passa feliz tipando
+  #      contra um schema velho, que foi exatamente como o drift corrigido em
+  #      e3e6279 chegou ate a main.
+  #   2) pgTAP: as policies de RLS. Ate a 0038 esta suite nao rodava contra
+  #      banco local nenhum (os grants vinham do default ACL da plataforma, que
+  #      nao estava versionado) -- os testes eram executados a mao contra
+  #      producao, dentro de transacao com rollback. Agora o schema e
+  #      auto-suficiente e isto roda em todo PR.
+  #
+  # Job separado do `build` de propósito: nada aqui depende dele, entao os dois
+  # correm em paralelo em vez de somar tempo no gate.
+  banco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # A CLI vem do lockfile (devDependency `supabase`), nao de `npx` nem do
+      # setup-cli: local e CI geram com a mesma versao, senao a diferenca de
+      # formatacao entre duas versoes da CLI vira "drift" que nao existe.
+      - run: pnpm install --frozen-lockfile
+
+      # So os servicos que `gen types` e o pgTAP precisam. O resto (studio,
+      # realtime, storage, edge runtime...) e imagem baixada e container subido
+      # a toa.
+      - run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor
+
+      - run: pnpm run types:generate
+
+      - name: database.types.ts esta em dia com as migrations?
+        run: |
+          if ! git diff --quiet -- src/lib/supabase/database.types.ts; then
+            echo "::error file=src/lib/supabase/database.types.ts::Desatualizado em relacao a supabase/migrations/. Rode 'pnpm run types:generate' com o stack local de pe e commite o resultado."
+            git diff -- src/lib/supabase/database.types.ts
+            exit 1
+          fi
+
+      # `!cancelled()` em vez do encadeamento normal: sem isto, um drift de
+      # tipo no passo acima esconderia uma policy de RLS quebrada, e voce
+      # corrigiria um, subiria de novo e so entao descobriria o outro. Os dois
+      # sao independentes -- o run deve reportar os dois.
+      - name: pgTAP (policies de RLS)
+        if: ${{ !cancelled() }}
+        run: pnpm run test:db

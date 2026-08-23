@@ -67,20 +67,31 @@ usar as telas.
 
 ### Tipos do banco (`database.types.ts`)
 
-`src/lib/supabase/database.types.ts` é mantido à mão neste ambiente, sem
-Docker local para `supabase gen types` funcionar contra um Postgres local.
-Isso não exige Docker de verdade -- a Management API do projeto hospedado já
-responde ao `gen types` direto, sem precisar de `supabase start`:
+`src/lib/supabase/database.types.ts` é gerado a partir do banco **local**,
+que a CLI monta aplicando `supabase/migrations/` do zero:
 
 ```bash
-SUPABASE_ACCESS_TOKEN=seu_token pnpm run types:generate
+supabase start          # exige Docker
+pnpm run types:generate
 ```
 
-O token vem de [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens)
-(não confundir com a `service_role` key do projeto). Rode isso depois de
-qualquer migration que crie/altere tabela, coluna ou função -- editar
-`database.types.ts` à mão já divergiu do schema real mais de uma vez neste
-projeto (funções de RLS renomeadas/movidas sem o arquivo acompanhar).
+Gerar contra o local (e não contra o projeto hospedado) é o que fecha o ciclo:
+a migration nova está no seu branch, então o tipo sai do mesmo schema que o
+PR está propondo. Contra o remoto, uma migration ainda não aplicada em
+produção simplesmente não aparece, e o arquivo nasce velho.
+
+A CI tem um job (`banco`) que refaz exatamente isso e falha se o
+resultado diferir do commitado -- `tsc --noEmit` não cobre esse caso, porque
+ele checa o código contra o arquivo, não o arquivo contra o banco. Se o job
+acusar, rode o comando acima e commite o resultado; não edite
+`database.types.ts` à mão (já divergiu do schema real mais de uma vez neste
+projeto -- funções de RLS renomeadas sem o arquivo acompanhar).
+
+Sem Docker à mão, `pnpm run types:generate:remoto` gera pela Management API
+do projeto hospedado (`SUPABASE_ACCESS_TOKEN` de
+[supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens),
+não confundir com a `service_role` key). Vale para inspecionar o schema de
+produção; para preparar um PR com migration nova, use o local.
 
 ## Rodando localmente
 
@@ -96,9 +107,10 @@ pnpm dev
 | `pnpm build` / `pnpm start` | Build de produção / serve o build |
 | `pnpm lint` | ESLint |
 | `pnpm test` | Testes unitários (vitest) |
-| `pnpm test:db` | Testes de política de RLS (pgTAP, exige `supabase start` local) |
+| `pnpm test:db` | Testes de política de RLS (pgTAP, exige `supabase start` local; roda também no job `banco` da CI) |
 | `pnpm test:e2e` | Testes ponta-a-ponta (Playwright) |
-| `pnpm run types:generate` | Regenera `database.types.ts` a partir do schema real (exige `SUPABASE_ACCESS_TOKEN`) |
+| `pnpm run types:generate` | Regenera `database.types.ts` a partir do banco local (exige `supabase start`) |
+| `pnpm run types:generate:remoto` | Idem, a partir do projeto hospedado (exige `SUPABASE_ACCESS_TOKEN`) |
 
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.

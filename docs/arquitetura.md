@@ -96,13 +96,17 @@ declarar tipo nenhum a mais em cada `queries.ts`.
 **Para regenerar** depois de uma migration nova:
 
 ```
-npx supabase login   # uma vez
-npx supabase link --project-ref wcmqmeikpwwpwyztqwni
-npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts
+supabase start            # aplica supabase/migrations/ num Postgres local
+pnpm run types:generate   # gen types --local > database.types.ts
 ```
 
-(ou, com a integração MCP do Supabase conectada, pedir para gerar de novo —
-não depende de Docker local, diferente de `--local`.)
+Contra o **local**, de propósito: é o único schema que já contém a migration
+do branch atual. O job `banco` da CI repete o comando e falha se o
+arquivo commitado divergir — ver README, "Tipos do banco".
+
+Sem Docker, `pnpm run types:generate:remoto` (ou a integração MCP do
+Supabase) gera pelo projeto hospedado, com a ressalva de que ele reflete o
+que já está em produção, não o que o PR propõe.
 
 ### Por que `aplicarFiltros`/`aplicarFiltrosDeColeta` continuam com `query: any`
 
