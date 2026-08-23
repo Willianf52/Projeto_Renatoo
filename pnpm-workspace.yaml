@@ -17,3 +17,22 @@ overrides:
   brace-expansion: ^1.1.17
   js-yaml: ^4.3.1
   nanoid: ^3.3.17
+
+# Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
+# apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro
+# 0.84.4 declara `image-size@^1.0.2` e consome o *default export*
+# (`_interopRequireDefault` em metro/src/Assets.js), que a v2 -- a primeira
+# versao corrigida -- removeu. Um override para 2.0.3 troca um risco teorico
+# por um bundler quebrado ao processar asset.
+#
+# O alcance real e o bundler em maquina de desenvolvimento e no build do
+# Expo, sobre imagem que nos mesmos colocamos no repositorio; o app web
+# publicado nao carrega nada disto. O resto do portao continua ativo -- estes
+# dois GHSAs sao ignorados por id, nao a categoria high inteira.
+#
+# Revisitar quando o Expo subir o Metro: `pnpm why image-size` mostra se
+# ainda cai na 1.x.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-w3rx-r6r6-pgpr
+    - GHSA-5p2g-fcmc-qvqq
