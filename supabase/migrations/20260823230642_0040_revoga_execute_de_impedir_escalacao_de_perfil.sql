@@ -1,0 +1,29 @@
+-- ============================================================================
+-- VeloxLab — Revoga EXECUTE de `authenticated` em `impedir_escalacao_de_perfil()`
+--
+-- A 0039 criou a funcao com `revoke all on function ... from public` logo
+-- depois do `create`, e isso NAO basta. A reauditoria de producao feita
+-- imediatamente apos aplicar a 0039 mostrou:
+--
+--   grant EXECUTE na funcao nova -> authenticated, postgres, service_role
+--
+-- E a mesma armadilha ja registrada nas migrations 0026, 0028 e 0035:
+-- `revoke ... from public` nao remove grant NOMINAL, e o default privilege que
+-- o Supabase mantem no schema `public` concede EXECUTE nominalmente a
+-- `authenticated` em toda funcao nova. (`anon` ja esta coberto desde a 0031,
+-- que fez `alter default privileges ... revoke execute on functions from
+-- anon` -- mas entra na lista abaixo do mesmo jeito, porque revoke de
+-- privilegio ausente e no-op e a linha fica explicita sobre a intencao.)
+--
+-- Escrever a 0039 com o revoke insuficiente foi descuido: a licao estava
+-- documentada em tres migrations anteriores deste mesmo repositorio.
+--
+-- Sem exploracao real -- chamar uma funcao de trigger fora de um trigger falha
+-- porque NEW/OLD/TG_OP nao existem nesse contexto --, mas o grant nem deveria
+-- existir para alguem tentar, e ele aparece como endpoint em
+-- `/rest/v1/rpc/impedir_escalacao_de_perfil`. Mesmo raciocinio da 0035.
+--
+-- Idempotente: revoke de privilegio ausente e no-op.
+-- ============================================================================
+
+revoke execute on function public.impedir_escalacao_de_perfil() from authenticated, anon;

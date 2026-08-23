@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "test:db": "supabase test db --local supabase/tests/database",
     "types:generate": "supabase gen types typescript --local --schema public > packages/shared/src/database.types.ts",
-    "types:generate:remoto": "supabase gen types typescript --project-id wcmqmeikpwwpwyztqwni --schema public > packages/shared/src/database.types.ts"
+    "types:generate:remoto": "supabase gen types typescript --linked --schema public > packages/shared/src/database.types.ts"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.3.0",

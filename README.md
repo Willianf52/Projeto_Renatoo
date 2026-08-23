@@ -88,7 +88,9 @@ acusar, rode o comando acima e commite o resultado; não edite
 projeto -- funções de RLS renomeadas sem o arquivo acompanhar).
 
 Sem Docker à mão, `pnpm run types:generate:remoto` gera pela Management API
-do projeto hospedado (`SUPABASE_ACCESS_TOKEN` de
+do projeto **vinculado** — ele lê o ref de `supabase link`, que fica em
+`supabase/.temp/` (fora do versionamento), em vez de trazer o identificador
+do projeto cravado num script commitado. Exige `SUPABASE_ACCESS_TOKEN` (de
 [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens),
 não confundir com a `service_role` key). Vale para inspecionar o schema de
 produção; para preparar um PR com migration nova, use o local.
@@ -110,7 +112,7 @@ pnpm dev
 | `pnpm test:db` | Testes de política de RLS (pgTAP, exige `supabase start` local; roda também no job `banco` da CI) |
 | `pnpm test:e2e` | Testes ponta-a-ponta (Playwright) |
 | `pnpm run types:generate` | Regenera `database.types.ts` a partir do banco local (exige `supabase start`) |
-| `pnpm run types:generate:remoto` | Idem, a partir do projeto hospedado (exige `SUPABASE_ACCESS_TOKEN`) |
+| `pnpm run types:generate:remoto` | Idem, a partir do projeto vinculado (exige `supabase link` + `SUPABASE_ACCESS_TOKEN`) |
 
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.

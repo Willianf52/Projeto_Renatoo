@@ -82,7 +82,7 @@ arquivo.
 ## Tipagem integrada com o Supabase
 
 `packages/shared/src/database.types.ts` é gerado a partir do schema do projeto
-Supabase (`UpServiços`, `wcmqmeikpwwpwyztqwni`) e alimenta o generic
+Supabase vinculado (`supabase link`) e alimenta o generic
 `Database` nos três factories de client:
 
 - `apps/web/src/lib/supabase/server.ts` — `createServerClient<Database>(...)`
