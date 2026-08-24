@@ -17,7 +17,7 @@ import { cores, espaco } from "../tema";
 
 /**
  * O `signInWithPassword` guarda a sessao pelo storage injetado no cliente
- * (AsyncStorage), entao nao ha nada a persistir aqui: o SessaoProvider recebe
+ * (Keychain/Keystore), entao nao ha nada a persistir aqui: o SessaoProvider recebe
  * o evento e a arvore troca de tela sozinha.
  */
 export function TelaDeLogin() {

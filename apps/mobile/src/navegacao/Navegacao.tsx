@@ -31,7 +31,7 @@ const Pilha = createNativeStackNavigator<RotasDoApp>();
 export function Navegacao() {
   const { sessao, perfil, carregando, erroDePerfil, sair } = useSessao();
 
-  // Sessao ainda sendo lida do AsyncStorage. Sem isto, o app pisca a tela de
+  // Sessao ainda sendo lida do armazenamento seguro. Sem isto, o app pisca a tela de
   // login por um instante a cada abertura, mesmo com o inspetor logado.
   if (carregando) {
     return (
