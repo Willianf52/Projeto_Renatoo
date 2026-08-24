@@ -50,7 +50,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let ativo = true;
 
-    // Sessao persistida pelo AsyncStorage: e o que faz o inspetor abrir o app
+    // Sessao persistida no Keychain/Keystore: e o que faz o inspetor abrir o app
     // ja logado no dia seguinte, sem digitar senha em campo.
     supabase.auth.getSession().then(({ data }) => {
       if (!ativo) return;
