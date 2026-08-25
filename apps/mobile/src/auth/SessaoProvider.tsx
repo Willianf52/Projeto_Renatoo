@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@projeto-renatoo/shared";
 
 import { supabase } from "../lib/supabase";
+import { useCicloDeVidaDaSessao } from "./useCicloDeVidaDaSessao";
 
 /**
  * So os campos que o app usa. `Tables<"profiles">` vem do schema real
@@ -23,11 +24,17 @@ type EstadoDaSessao = {
   carregando: boolean;
   /** Falha ao carregar o perfil (rede, RLS). Sessao valida sem perfil legivel. */
   erroDePerfil: string | null;
-  recarregarPerfil: () => Promise<void>;
+  /** Rele `profiles`. Devolve `true` quando a leitura chegou -- ver o uso em
+   * `useCicloDeVidaDaSessao`, que so consome a janela de throttle no sucesso. */
+  recarregarPerfil: () => Promise<boolean>;
   sair: () => Promise<void>;
 };
 
 const ContextoDeSessao = createContext<EstadoDaSessao | null>(null);
+
+/** Mesma frase para falha do PostgREST e para rejeicao de rede: para quem
+ * esta em campo as duas sao "nao deu para carregar, veja o sinal". */
+const FALHA_AO_LER_PERFIL = "Não foi possível carregar seu perfil. Verifique a conexão.";
 
 export function SessaoProvider({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Session | null>(null);
@@ -52,11 +59,22 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
     // Sessao persistida no Keychain/Keystore: e o que faz o inspetor abrir o app
     // ja logado no dia seguinte, sem digitar senha em campo.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!ativo) return;
-      setSessao(data.session);
-      setCarregando(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!ativo) return;
+        setSessao(data.session);
+        setCarregando(false);
+      })
+      .catch(() => {
+        // Ler a sessao persistida pode falhar de verdade -- SecureStore
+        // corrompido, manifesto apontando para pedaco que sumiu. Sem este
+        // ramo `carregando` nunca sai de `true` e o app fica no spinner para
+        // sempre; cair no login e o pior caso aceitavel.
+        if (!ativo) return;
+        setSessao(null);
+        setCarregando(false);
+      });
 
     // O callback do onAuthStateChange NAO pode aguardar outra chamada do
     // supabase-js: o cliente serializa as operacoes de auth, e um `await`
@@ -84,22 +102,58 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     // antigo voltaria ao estado depois do logout.
     let ativo = true;
 
-    lerPerfil(idDoUsuario).then((resultado) => {
-      if (!ativo) return;
-      setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
-    });
+    lerPerfil(idDoUsuario)
+      .then((resultado) => {
+        if (!ativo) return;
+        setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
+      })
+      .catch(() => {
+        // `lerPerfil` traduz erro do PostgREST, mas nao cobre rejeicao da
+        // camada de rede. Sem este ramo o provider ficaria com `perfil` e
+        // `erroDePerfil` nulos e a `Navegacao` giraria o spinner sem saida.
+        if (!ativo) return;
+        setPerfilCarregado({ id: idDoUsuario, perfil: null, erro: FALHA_AO_LER_PERFIL });
+      });
 
     return () => {
       ativo = false;
     };
   }, [idDoUsuario]);
 
-  const recarregarPerfil = useCallback(async () => {
-    if (!idDoUsuario) return;
+  /**
+   * Vivo enquanto o provider estiver montado.
+   *
+   * `recarregarPerfil` e chamado de fora do ciclo de render (do listener de
+   * AppState), entao nao tem o `let ativo` que protege o efeito acima. Sem
+   * esta guarda, uma revalidacao em voo no momento do desmonte gravaria
+   * estado num componente que ja saiu.
+   */
+  const montado = useRef(true);
+  useEffect(() => {
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
+
+  const recarregarPerfil = useCallback(async (): Promise<boolean> => {
+    if (!idDoUsuario) return false;
 
     const resultado = await lerPerfil(idDoUsuario);
+    if (!montado.current) return false;
+
     setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
+    return resultado.erro === null;
   }, [idDoUsuario]);
+
+  /**
+   * Refresh de token amarrado ao AppState e revalidacao de `ativo`/`cargo` ao
+   * voltar do segundo plano. O raciocinio inteiro esta no cabecalho do hook.
+   */
+  useCicloDeVidaDaSessao({
+    temSessao: idDoUsuario !== null,
+    revalidarPerfil: recarregarPerfil,
+  });
 
   const sair = useCallback(async () => {
     await supabase.auth.signOut();
@@ -145,7 +199,7 @@ async function lerPerfil(
     .maybeSingle();
 
   if (error) {
-    return { perfil: null, erro: "Não foi possível carregar seu perfil. Verifique a conexão." };
+    return { perfil: null, erro: FALHA_AO_LER_PERFIL };
   }
 
   return { perfil: data, erro: null };

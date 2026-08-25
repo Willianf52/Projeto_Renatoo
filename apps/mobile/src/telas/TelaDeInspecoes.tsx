@@ -33,12 +33,21 @@ export function TelaDeInspecoes() {
     // de outro usuario entrar) nao pode pintar a lista do inspetor anterior.
     let ativo = true;
 
-    lerVisitas(idDoUsuario).then((resultado) => {
-      if (!ativo) return;
-      setVisitas(resultado.visitas);
-      setErro(resultado.erro);
-      setCarregando(false);
-    });
+    lerVisitas(idDoUsuario)
+      .then((resultado) => {
+        if (!ativo) return;
+        setVisitas(resultado.visitas);
+        setErro(resultado.erro);
+        setCarregando(false);
+      })
+      .catch(() => {
+        // `lerVisitas` ja traduz erro do PostgREST; o que falta e a rejeicao
+        // da camada de rede. Sem este ramo `carregando` fica preso em `true`
+        // e a tela mostra spinner eterno em vez da mensagem de falha.
+        if (!ativo) return;
+        setErro("Não foi possível carregar suas visitas.");
+        setCarregando(false);
+      });
 
     return () => {
       ativo = false;
