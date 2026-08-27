@@ -95,7 +95,14 @@ export async function enviarChecklist(envio: EnvioDeChecklist): Promise<Resultad
     const { data, error } = await supabase.rpc("registrar_checklist", {
       p_visita_id: dados.visitaId,
       p_tipo: dados.tipo,
-      p_motivo: dados.tipo === "CORRETIVA" ? dados.motivo : null,
+      // String vazia e nao `null` na consultoria: o gerador de tipos marca
+      // todo argumento sem default como obrigatorio e nao-nulo, entao `null`
+      // aqui nao passa no `tsc` mesmo sendo aceito pelo Postgres. O
+      // `nullif(btrim(coalesce(p_motivo, '')), '')` dentro de
+      // `registrar_checklist` existe justamente para colapsar os dois no
+      // mesmo `null` antes do insert -- e o check do banco continua sendo
+      // quem recusa uma CONSULTORIA que chegar com motivo de verdade.
+      p_motivo: dados.tipo === "CORRETIVA" ? dados.motivo : "",
       p_assinatura_path: dados.assinaturaPath,
       p_fotos: dados.fotos,
       p_respostas:

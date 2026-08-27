@@ -18,21 +18,30 @@
 --   9) CLIENTE de outro grupo não lê nada -- o recorte não vaza.
 --  10) `authenticated` não tem UPDATE nem DELETE nas tabelas novas -- o
 --      segundo portão do passo 6 da migration.
+--  11) `registrar_checklist` grava as três tabelas numa chamada só, colapsa
+--      motivo vazio em `null` e apara a observação.
 --
 -- Ids de linha alheia são capturados numa tabela temporária SEM RLS antes de
 -- trocar de role e usados como literal -- ver a nota no
 -- `escrita_de_campo_por_inspetor_test.sql`: sem isso a policy de SELECT filtra
 -- a linha antes do INSERT tentar, e o teste passa pelo motivo errado.
 --
--- NÃO EXECUTADO AINDA -- este arquivo foi escrito junto da migration 0042 e
--- precisa rodar (dentro de transação, com rollback) antes de a migration ser
--- aplicada. Ver `supabase-rls-security`, seção 7: sem staging, o pgTAP é o
--- único ensaio que existe.
+-- Executado (2026-08-26) direto contra o projeto Supabase de produção, dentro
+-- de uma transação com rollback -- branch de desenvolvimento não está
+-- disponível no plano atual. Os asserts 1-10 rodaram junto do DDL da 0042 na
+-- mesma transação, ANTES de a migration ser aplicada (é o ensaio que a seção 7
+-- da skill `supabase-rls-security` exige); o 11 rodou logo depois de aplicar.
+-- 11/11 passaram; nada persistiu.
+--
+-- ATENÇÃO ao escrever assert novo que chame `registrar_checklist`: a chamada
+-- precisa ser um statement próprio. Chamá-la dentro do `where` de um `select`
+-- que conta as linhas inseridas devolve 0 -- o snapshot do `select` é anterior
+-- ao insert que a função faz. Custou um "not ok" na primeira tentativa.
 -- ============================================================================
 
 begin;
 
-select plan(10);
+select plan(11);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -275,6 +284,46 @@ select is(
   0,
   'authenticated nao tem UPDATE/DELETE/TRUNCATE nas tabelas do checklist'
 );
+
+-- ---------------------------------------------------------------------------
+-- 11) `registrar_checklist` grava as três tabelas numa chamada só.
+-- ---------------------------------------------------------------------------
+-- A chamada é um statement próprio (o `insert into ids_teste ... select`), e
+-- não uma subconsulta do assert -- ver a nota no cabeçalho.
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011", "role": "authenticated"}';
+
+insert into public.visitas (numero_coleta, site_id, funcionario_id)
+  values (9104, (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000011');
+
+insert into ids_teste (chave, valor)
+select 'checklist_rpc', public.registrar_checklist(
+  (select id from public.visitas where numero_coleta = 9104),
+  'CONSULTORIA',
+  -- String vazia, e não `null`: é a forma que o app envia (o gerador de tipos
+  -- marca o argumento como não-nulo). O `nullif` da função colapsa as duas.
+  '',
+  '9104/assinatura.png',
+  array['9104/foto-a.jpg', '9104/foto-b.jpg'],
+  jsonb_build_array(jsonb_build_object(
+    'pergunta_id', (select valor from ids_teste where chave = 'pergunta'),
+    'resposta', 'NA',
+    'observacao', '  nao ha portao aqui  '))
+);
+
+select is(
+  (select format('%s/%s/%s/%s/%s',
+     (select count(*) from public.checklists_visita c where c.id = r.valor),
+     (select count(*) from public.checklist_fotos f where f.checklist_id = r.valor),
+     (select count(*) from public.checklist_respostas p where p.checklist_id = r.valor),
+     (select c.motivo is null from public.checklists_visita c where c.id = r.valor),
+     coalesce((select p.observacao from public.checklist_respostas p where p.checklist_id = r.valor), '-'))
+   from ids_teste r where r.chave = 'checklist_rpc'),
+  '1/2/1/t/nao ha portao aqui',
+  'registrar_checklist grava checklist, fotos e respostas, com motivo nulo e observacao aparada'
+);
+
+reset role;
 
 select * from finish();
 
