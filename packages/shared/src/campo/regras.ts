@@ -91,3 +91,19 @@ export function temCoordenada(valor: unknown): boolean {
 export function chaveDaVisita(numeroColeta: number, siteId: number): string {
   return `${numeroColeta}::${siteId}`;
 }
+
+/**
+ * Motivo da visita corretiva. Mesmo teto da observacao de leitura: e texto
+ * livre digitado no celular, e o limite existe para recusar colagem
+ * acidental, nao para restringir o que o inspetor tem a dizer.
+ */
+export const LIMITE_MOTIVO = 1000;
+
+/**
+ * Fotos por checklist. O minimo e 1 porque uma visita sem foto nenhuma nao
+ * comprova nada -- e o mesmo raciocinio do "visita sem leitura nao e
+ * inspecao" em `esquemas.ts`. O maximo e o que um aparelho em rede movel
+ * consegue enviar antes de o inspetor desistir e fechar o app.
+ */
+export const MINIMO_DE_FOTOS = 1;
+export const MAXIMO_DE_FOTOS = 10;
