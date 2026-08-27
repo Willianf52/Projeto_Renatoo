@@ -16,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
  * rota resolve as duas coisas: o navegador so fala com `self`, e o
  * ViaCEP e chamado daqui, pelo servidor.
  */
-export const dynamic = "force-dynamic";
+
 
 export async function GET(request: NextRequest) {
   const idRequisicao = gerarIdDeRequisicao();

@@ -37,6 +37,7 @@ const securityHeaders = Object.entries(HEADERS_ESTATICOS).map(([key, value]) => 
 }));
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
   allowedDevOrigins: origensDaRedeLocal,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

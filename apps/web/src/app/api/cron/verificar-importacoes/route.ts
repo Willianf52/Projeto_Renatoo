@@ -6,9 +6,6 @@ import {
 } from "@/lib/importacao-alerta";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { limitarTaxa } from "@/lib/rate-limit";
-import { enviarAlertaOperacional } from "@/lib/resend";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { segredoConfere } from "@/lib/webhook-user-updated";
 
 /**
  * Alvo de um Vercel Cron Job (`vercel.json`), rodando uma vez por dia.
@@ -23,7 +20,10 @@ import { segredoConfere } from "@/lib/webhook-user-updated";
  * ao dia exige Pro. Com o padrao de 24h os dois casam -- checar uma vez ao
  * dia contra um limite de 24h nao perde silencio nenhum.
  */
-export const dynamic = "force-dynamic";
+import { enviarAlertaOperacional } from "@/lib/resend";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { segredoConfere } from "@/lib/webhook-user-updated";
+
 
 const LIMITE_DE_REQUISICOES = 5;
 const JANELA_MS = 60_000;
