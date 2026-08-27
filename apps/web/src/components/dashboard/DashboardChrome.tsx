@@ -6,13 +6,15 @@ import { DashboardNavbar } from "./DashboardNavbar";
 import { DashboardSidebar } from "./DashboardSidebar";
 
 export function DashboardChrome({
-  userName,
-  cargo,
+  identidadeNavbar,
+  saudacaoSidebar,
+  rodape,
   organization,
   children,
 }: {
-  userName: string;
-  cargo: string;
+  identidadeNavbar: React.ReactNode;
+  saudacaoSidebar: React.ReactNode;
+  rodape: React.ReactNode;
   organization: string;
   children: React.ReactNode;
 }) {
@@ -29,8 +31,7 @@ export function DashboardChrome({
             rolagem. A sidebar abaixo nao tem este problema porque o wrapper
             dela e filho de um `flex` e estica para a altura da linha inteira. */}
         <DashboardNavbar
-          userName={userName}
-          cargo={cargo}
+          identidade={identidadeNavbar}
           organization={organization}
           onToggleSidebar={() => setSidebarOpen((open) => !open)}
         />
@@ -38,7 +39,7 @@ export function DashboardChrome({
         <div className="flex">
           <div className="print:hidden">
             <DashboardSidebar
-              userName={userName}
+              saudacao={saudacaoSidebar}
               mobileOpen={sidebarOpen}
               onCloseMobile={() => setSidebarOpen(false)}
             />
@@ -46,9 +47,7 @@ export function DashboardChrome({
 
           <main className="flex min-w-0 flex-1 flex-col p-4 sm:p-6 lg:p-8 print:p-0">
             <div className="flex-1">{children}</div>
-            <footer className="mt-8 text-center text-xs text-brand-muted print:hidden">
-              © {new Date().getFullYear()} Up Serviços
-            </footer>
+            {rodape}
           </main>
         </div>
       </div>

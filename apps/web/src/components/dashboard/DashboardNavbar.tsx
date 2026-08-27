@@ -9,13 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 
 export function DashboardNavbar({
-  userName,
-  cargo,
+  identidade,
   organization,
   onToggleSidebar,
 }: {
-  userName: string;
-  cargo: string;
+  identidade: React.ReactNode;
   organization: string;
   onToggleSidebar: () => void;
 }) {
@@ -92,15 +90,7 @@ export function DashboardNavbar({
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
             <UserIcon className="h-5 w-5" />
           </span>
-          <span className="min-w-0 leading-tight">
-            <span
-              className="block max-w-[220px] truncate text-sm font-medium text-slate-200"
-              title={userName}
-            >
-              {userName}
-            </span>
-            <span className="block text-xs text-brand-muted">{cargo}</span>
-          </span>
+          {identidade}
         </div>
 
         <button
