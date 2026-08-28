@@ -10,9 +10,11 @@ import { createClient } from "@/lib/supabase/client";
 import { verificarSenhaVazada } from "@/lib/verificar-senha-vazada";
 
 export default function TrocarSenhaPage() {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState({
+    currentPassword: "",
     password: "",
     confirmation: "",
   });
@@ -23,6 +25,7 @@ export default function TrocarSenhaPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const currentPasswordError = currentPassword === "" ? "Campo obrigatório" : "";
     const passwordError =
       password === ""
         ? "Campo obrigatório"
@@ -36,14 +39,65 @@ export default function TrocarSenhaPage() {
           ? "As senhas não coincidem"
           : "";
 
-    if (passwordError || confirmationError) {
-      setErrors({ password: passwordError, confirmation: confirmationError });
+    if (currentPasswordError || passwordError || confirmationError) {
+      setErrors({
+        currentPassword: currentPasswordError,
+        password: passwordError,
+        confirmation: confirmationError,
+      });
       return;
     }
 
-    setErrors({ password: "", confirmation: "" });
+    setErrors({ currentPassword: "", password: "", confirmation: "" });
     setFormError("");
     setLoading(true);
+
+    const supabase = createClient();
+
+    /**
+     * Reautenticacao antes da troca.
+     *
+     * Sem isto, `updateUser({ password })` so exige uma sessao valida -- e
+     * qualquer coisa que entregue uma sessao a terceiro (aparelho destravado,
+     * cookie exfiltrado) deixa de ser acesso temporario e vira posse da conta:
+     * troca-se a senha e o dono e expulso, sem nada a atravessar. O aviso por
+     * e-mail do webhook `user-updated` detecta depois do fato; nao impede.
+     *
+     * `signInWithPassword` com o e-mail da propria sessao e o jeito de exigir
+     * a senha atual pelo lado do cliente. A segunda camada e
+     * `secure_password_change` no GoTrue (supabase/config.toml), cobrada pelo
+     * servidor -- as duas juntas porque esta aqui um refactor remove sem
+     * ninguem notar.
+     */
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.email) {
+      setLoading(false);
+      setFormError("Sua sessão expirou. Entre novamente para trocar a senha.");
+      return;
+    }
+
+    const { error: erroDeReautenticacao } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (erroDeReautenticacao) {
+      setLoading(false);
+      setErrors((prev) => ({ ...prev, currentPassword: "Senha atual incorreta" }));
+      return;
+    }
+
+    if (password === currentPassword) {
+      setLoading(false);
+      setErrors((prev) => ({
+        ...prev,
+        password: "A nova senha precisa ser diferente da atual",
+      }));
+      return;
+    }
 
     if (await verificarSenhaVazada(password)) {
       setLoading(false);
@@ -51,7 +105,6 @@ export default function TrocarSenhaPage() {
       return;
     }
 
-    const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
 
     setLoading(false);
@@ -68,6 +121,7 @@ export default function TrocarSenhaPage() {
       return;
     }
 
+    setCurrentPassword("");
     setPassword("");
     setConfirmation("");
     setSuccess(true);
@@ -97,6 +151,27 @@ export default function TrocarSenhaPage() {
             </div>
           ) : (
             <form className="max-w-xl space-y-6" onSubmit={handleSubmit} noValidate>
+              {/* `current-password` no autoComplete: e o que faz o gerenciador
+                  preencher a senha existente aqui e a nova nos dois campos
+                  abaixo, em vez de oferecer a mesma sugestao nos tres. */}
+              <FormField
+                id="senha-atual"
+                label="Senha atual"
+                type="password"
+                autoComplete="current-password"
+                value={currentPassword}
+                error={errors.currentPassword}
+                onChange={(value) => {
+                  setCurrentPassword(value);
+                  if (errors.currentPassword) {
+                    setErrors((prev) => ({ ...prev, currentPassword: "" }));
+                  }
+                  if (formError) {
+                    setFormError("");
+                  }
+                }}
+              />
+
               <div>
                 <FormField
                   id="nova-senha"

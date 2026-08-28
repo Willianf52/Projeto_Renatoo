@@ -234,6 +234,25 @@ aparece hoje.
    passphrase. É paridade exigida com o sistema legado — revisitar quando a
    exigência cair.
 
+   **Revisitado em 2026-08-28 (auditoria de AppSec, achado B-2): mantido em 15,
+   por decisão de produto — a paridade com o legado continua exigida.** Ficam
+   registrados os dois fatos levantados na revisão, para a próxima não repetir
+   o levantamento:
+
+   - O teto é imposto em três pontos, e um deles é servidor: as duas telas de
+     self-service (`nova-senha`, `trocar-senha`) e `cadastros/usuarios/actions.ts`,
+     dentro da Server Action. O GoTrue **não** tem máximo configurável — só
+     mínimo —, então o teto é regra da aplicação, não do banco. Derrubá-lo não
+     exige mexer em migration nem no painel.
+   - A mudança é de uma constante só: `MAX_LENGTH`. O rótulo da lista de regras
+     (`"8 a 15 caracteres"`) é interpolado a partir dela, e
+     `password-policy.test.ts` já se apoia em `MAX_LENGTH` em vez do literal —
+     então subir o valor não quebra teste nem exige tocar em texto de tela.
+   - Ao subir, entra junto uma guarda de bytes. O comentário atual explica que
+     ela é desnecessária hoje porque 15 caracteres chegam no máximo a 45 bytes;
+     acima de 24 caracteres acentuados o limite de 72 bytes do bcrypt passa a
+     ser alcançável, e o corte silencioso do bcrypt é pior que uma recusa.
+
 6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.

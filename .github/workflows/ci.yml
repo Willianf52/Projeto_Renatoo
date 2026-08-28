@@ -46,6 +46,32 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      # Substituto do "non-provider patterns" do secret scanning do GitHub,
+      # que exige o add-on pago Secret Protection (`advanced_security: null`
+      # neste repositorio) -- achado B-7 da auditoria de AppSec de 28/08.
+      #
+      # O scanning gratuito reconhece formato de PROVEDOR: pegaria uma chave
+      # `re_...` da Resend ou uma do Supabase. Nao pega os tres segredos que
+      # este projeto gera a mao -- `SUPABASE_WEBHOOK_SECRET`,
+      # `IMPORTACAO_SECRET` e `CRON_SECRET` sao, por desenho, string aleatoria
+      # sem formato ("gere uma string aleatoria aqui", diz o .env.example). Sao
+      # justamente os que autenticam tres rotas por segredo compartilhado.
+      #
+      # Varre a ARVORE, e nao o diff: pega tambem o que ja tiver entrado antes,
+      # e nao depende de `fetch-depth: 0` nem de base de comparacao -- que
+      # mudaria entre o gatilho `pull_request` e o `push`.
+      #
+      # `.env.example` fica de fora porque e onde os placeholders moram de
+      # proposito. Este proprio arquivo tambem, senao o padrao se acha.
+      - name: Segredo compartilhado versionado?
+        run: |
+          padrao='(SUPABASE_WEBHOOK_SECRET|IMPORTACAO_SECRET|CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY|RESEND_API_KEY|SENTRY_AUTH_TOKEN)[[:space:]]*=[[:space:]]*[^[:space:]]'
+          if git grep -nIE "$padrao" -- . ':!*.env.example' ':!.github/workflows/ci.yml'; then
+            echo "::error::Segredo com valor atribuido em arquivo versionado. Tire o valor, rotacione a chave e use variavel de ambiente."
+            exit 1
+          fi
+          echo "Nenhum segredo compartilhado com valor no repositorio."
+
       - run: pnpm install --frozen-lockfile
       # Falha o build em vulnerabilidade alta/critica de dependencia.
       # audit-level=high para nao travar CI por achado low/moderate que

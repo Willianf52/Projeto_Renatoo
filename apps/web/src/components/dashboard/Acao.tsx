@@ -25,7 +25,12 @@ export function Acao({
       title={titulo}
       aria-label={titulo}
       target={target}
-      rel={target === "_blank" ? "noopener" : undefined}
+      // `noreferrer` junto do `noopener` (achado B-5 da auditoria de 28/08).
+      // Hoje todo destino e da propria origem -- rota de exportacao -- entao
+      // nenhum dos dois muda nada na pratica; e o valor completo que se
+      // escreve uma vez aqui, no unico ponto por onde todo `target="_blank"`
+      // do painel passa, para o dia em que um `href` receber valor de fora.
+      rel={target === "_blank" ? "noopener noreferrer" : undefined}
       className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-90 ${className}`}
     >
       {children}

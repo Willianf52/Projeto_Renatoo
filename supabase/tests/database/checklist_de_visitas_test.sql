@@ -131,10 +131,14 @@ insert into ids_teste (chave, valor)
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000012", "role": "authenticated"}';
 
+-- O caminho da assinatura precisa ser bem formado (`{visita_id}/...`) desde a
+-- 0045, senao o check `checklists_visita_assinatura_na_pasta_da_visita` recusa
+-- antes -- e o assert passaria pelo codigo errado, testando a constraint em vez
+-- da policy. `%1$s` reusa o mesmo id do `%1$L`.
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, motivo, assinatura_path)
-       values (%L, 'CORRETIVA', 'invadindo', '1/x.png') $$,
+       values (%1$L, 'CORRETIVA', 'invadindo', '%1$s/x.png') $$,
     (select valor from ids_teste where chave = 'visita_a')
   ),
   '42501',
@@ -186,7 +190,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, assinatura_path)
-       values (%L, 'CONSULTORIA', 'x/y.png') $$,
+       values (%1$L, 'CONSULTORIA', '%1$s/y.png') $$,
     (select valor from ids_teste where chave = 'visita_a')
   ),
   '23505',
@@ -232,7 +236,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000013
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, assinatura_path)
-       values (%L, 'CONSULTORIA', 'z/a.png') $$,
+       values (%1$L, 'CONSULTORIA', '%1$s/a.png') $$,
     (select valor from ids_teste where chave = 'visita_inativo')
   ),
   '42501',
@@ -315,15 +319,25 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
   values (9104, (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000011');
 
+-- `visita_rpc` guarda o id de verdade (identity), não o numero_coleta 9104
+-- usado acima -- os dois divergem, e desde a 0045 o caminho da mídia precisa
+-- do id real: é o que o check `checklists_visita_assinatura_na_pasta_da_visita`
+-- e a policy de `checklist_fotos` conferem.
+insert into ids_teste (chave, valor)
+  select 'visita_rpc', id from public.visitas where numero_coleta = 9104;
+
 insert into ids_teste (chave, valor)
 select 'checklist_rpc', public.registrar_checklist(
-  (select id from public.visitas where numero_coleta = 9104),
+  (select valor from ids_teste where chave = 'visita_rpc'),
   'CONSULTORIA',
   -- String vazia, e não `null`: é a forma que o app envia (o gerador de tipos
   -- marca o argumento como não-nulo). O `nullif` da função colapsa as duas.
   '',
-  '9104/assinatura.png',
-  array['9104/foto-a.jpg', '9104/foto-b.jpg'],
+  format('%s/assinatura.png', (select valor from ids_teste where chave = 'visita_rpc')),
+  array[
+    format('%s/foto-a.jpg', (select valor from ids_teste where chave = 'visita_rpc')),
+    format('%s/foto-b.jpg', (select valor from ids_teste where chave = 'visita_rpc'))
+  ],
   jsonb_build_array(jsonb_build_object(
     'pergunta_id', (select valor from ids_teste where chave = 'pergunta'),
     'resposta', 'NA',
