@@ -11,6 +11,25 @@ import { createClient } from "@/lib/supabase/server";
  * servidor para checar a senha antes de `usuarios/actions.ts` existir para
  * elas. Esta rota é esse ponto, chamada antes de `updateUser`.
  *
+ * ISTO É CONSULTA, NÃO PORTÃO -- e a distinção não é acadêmica. `updateUser`
+ * vai direto ao GoTrue com a anon key: quem monta a chamada por curl ou pelo
+ * console pula esta rota inteira, e nada no caminho obriga a passá-la. O
+ * mesmo vale para `isPasswordValid` (`lib/password-policy.ts`, que já
+ * registra isso no próprio cabeçalho). Achado M-1 da auditoria de AppSec de
+ * 2026-08-28, que apontou que esta rota herdou o furo da política de
+ * composição sem herdar o aviso.
+ *
+ * Quem de fato recusa senha vazada seria o "Prevent use of leaked passwords"
+ * do Supabase Auth -- confirmado DESLIGADO em produção pelo advisor em 28/08
+ * (`auth_leaked_password_protection`), porque exige plano Pro
+ * (`docs/melhorias.md` #8). Enquanto o upgrade não acontece, esta checagem é
+ * a única que existe, e ela cobre o caminho honesto: a pessoa que digita uma
+ * senha ruim de boa-fé. Não cobre quem quer contorná-la.
+ *
+ * O caminho administrativo é diferente e continua sendo portão de verdade:
+ * `cadastros/usuarios/actions.ts` chama `senhaVazada()` dentro de uma Server
+ * Action, antes de escrever com `service_role` -- lá não há como pular.
+ *
  * Mesmo raciocínio de `api/cep`: rota fora do matcher do proxy.ts, então a
  * checagem de sessão mora aqui. `/nova-senha` é rota pública no middleware
  * (link de recuperação por e-mail, sem conta prévia no navegador), mas a
