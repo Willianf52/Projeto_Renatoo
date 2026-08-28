@@ -95,16 +95,50 @@ async function registrarImportacao(
  * 0033) continua com uma linha por tentativa, sem throttle: o limite e so no
  * aviso, nunca no registro.
  *
+ * POR QUE O CONTADOR NAO E O `limitarTaxa` DAS DEMAIS ROTAS: aquele e um
+ * `Map` por processo, e producao roda serverless -- cada invocacao pode cair
+ * numa instancia diferente, com o seu proprio Map. `lib/rate-limit.ts`
+ * documenta a limitacao e ela e aceitavel nos outros tres usos, onde o efeito
+ * e so uma barreira secundaria mais frouxa. Aqui nao: este balde existe para
+ * conter CUSTO (cota do Resend, caixa de quem recebe alerta operacional), e
+ * "o limite real e limite x instancias quentes" significa um e-mail por
+ * instancia por janela. Achado M-3 da auditoria de 28/08.
+ *
+ * A janela passa a ser lida de `importacoes`, que ja grava uma linha por
+ * tentativa com `criado_em` -- throttle compartilhado entre instancias sem
+ * infraestrutura nova, e o round-trip so acontece no caminho de falha.
+ *
  * Best-effort e silencioso de proposito: quem integrou errado ja recebeu o
  * `error` na resposta HTTP, e falha ao avisar por e-mail nao pode virar 502
  * pra quem so estava tentando reenviar um lote corrigido.
  */
-const ALERTA_LIMITE = 1;
 const ALERTA_JANELA_MS = 15 * 60_000;
 
-async function avisarFalhaDeImportacao(idRequisicao: string, mensagem: string): Promise<void> {
-  const limite = limitarTaxa("alerta-importacao-falha", ALERTA_LIMITE, ALERTA_JANELA_MS);
-  if (!limite.permitido) return;
+async function avisarFalhaDeImportacao(
+  supabase: Cliente,
+  idRequisicao: string,
+  mensagem: string,
+): Promise<void> {
+  const desde = new Date(Date.now() - ALERTA_JANELA_MS).toISOString();
+
+  // A linha desta tentativa ja foi gravada por `registrarImportacao` antes
+  // desta chamada, entao ela precisa sair da conta -- senao toda falha
+  // encontraria a si mesma e nenhum alerta sairia.
+  const { data, error } = await supabase
+    .from("importacoes")
+    .select("id")
+    .neq("status", "sucesso")
+    .neq("id_requisicao", idRequisicao)
+    .gte("criado_em", desde)
+    .limit(1);
+
+  if (error) {
+    // Falha ao consultar o throttle nao pode engolir o alerta: perder o aviso
+    // de um lote recusado e pior que mandar um e-mail a mais.
+    erro(idRequisicao, "Importação de coletas: falha ao consultar a janela do alerta.", error);
+  } else if (data.length > 0) {
+    return;
+  }
 
   try {
     await enviarAlertaOperacional("Lote de importação recusado", mensagem);
@@ -300,7 +334,7 @@ export async function POST(request: NextRequest) {
       httpStatus: 400,
       mensagem: "corpo inválido",
     });
-    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: corpo inválido.`);
+    await avisarFalhaDeImportacao(supabase, idRequisicao, `Lote de ${origem} recusado: corpo inválido.`);
     return NextResponse.json({ error: "corpo inválido" }, { status: 400 });
   }
 
@@ -311,7 +345,7 @@ export async function POST(request: NextRequest) {
       httpStatus: 400,
       mensagem: lote.erro,
     });
-    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: ${lote.erro}`);
+    await avisarFalhaDeImportacao(supabase, idRequisicao, `Lote de ${origem} recusado: ${lote.erro}`);
     return NextResponse.json({ error: lote.erro }, { status: 400 });
   }
 
@@ -327,6 +361,7 @@ export async function POST(request: NextRequest) {
       mensagem: "falha ao consultar o banco",
     });
     await avisarFalhaDeImportacao(
+      supabase,
       idRequisicao,
       `Lote de ${origem} recusado: falha ao consultar tabelas de referência no banco.`,
     );
@@ -359,6 +394,7 @@ export async function POST(request: NextRequest) {
       detalhe: problemasCapados,
     });
     await avisarFalhaDeImportacao(
+      supabase,
       idRequisicao,
       `Lote de ${origem} recusado: ${problemas.length} linha(s) com referência desconhecida. ` +
         `Primeiro problema: ${problemasCapados[0]}`,
@@ -405,7 +441,7 @@ export async function POST(request: NextRequest) {
       linhasRecebidas: lote.coletas.length,
       mensagem: "falha ao gravar visitas",
     });
-    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: falha ao gravar visitas no banco.`);
+    await avisarFalhaDeImportacao(supabase, idRequisicao, `Lote de ${origem} recusado: falha ao gravar visitas no banco.`);
     return NextResponse.json({ error: "falha ao gravar visitas" }, { status: 502 });
   }
 
@@ -445,7 +481,7 @@ export async function POST(request: NextRequest) {
       visitasGravadas: visitasGravadas?.length ?? 0,
       mensagem: "falha ao gravar leituras",
     });
-    await avisarFalhaDeImportacao(idRequisicao, `Lote de ${origem} recusado: falha ao gravar leituras no banco.`);
+    await avisarFalhaDeImportacao(supabase, idRequisicao, `Lote de ${origem} recusado: falha ao gravar leituras no banco.`);
     return NextResponse.json({ error: "falha ao gravar leituras" }, { status: 502 });
   }
 

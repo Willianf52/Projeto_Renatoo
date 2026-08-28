@@ -86,6 +86,25 @@ export function limitarTaxa(chave: string, limite: number, janelaMs: number): Re
  * Sem nenhum dos dois (ambiente sem proxy na frente), cai numa chave fixa:
  * pior que discriminar por IP, melhor que nao limitar nada.
  */
+export const CHAMADOR_DESCONHECIDO = "sem-ip";
+
+/**
+ * O aviso do fallback sai uma vez por processo, nao por requisicao.
+ *
+ * Na Vercel os dois headers sempre chegam, entao este caminho e teorico --
+ * mas se ele passar a ser exercitado (deploy self-hosted, proxy mal
+ * configurado), TODO mundo divide o mesmo balde e um chamador esgota o limite
+ * dos outros. Sem sinal nenhum isso aparece como "a rota comecou a devolver
+ * 429 sem motivo", que e caro de diagnosticar. Achado B-3 da auditoria de
+ * 28/08.
+ *
+ * `console.warn` e nao o `erro()` de `lib/log.ts` de proposito: aquele importa
+ * o Sentry, e este modulo e puro -- sem dependencia de rede ou de framework --,
+ * o que e justamente o que permite testa-lo com `environment: node`. Uma
+ * flag de modulo evita repetir a linha a cada requisicao.
+ */
+let avisouFallback = false;
+
 export function identificarChamador(request: { headers: { get(nome: string): string | null } }): string {
   const real = request.headers.get("x-real-ip")?.trim();
   if (real) return real;
@@ -95,5 +114,17 @@ export function identificarChamador(request: { headers: { get(nome: string): str
     .map((parte) => parte.trim())
     .filter(Boolean);
 
-  return cadeia.at(-1) ?? "sem-ip";
+  const ultimo = cadeia.at(-1);
+  if (ultimo) return ultimo;
+
+  if (!avisouFallback) {
+    avisouFallback = true;
+    console.warn(
+      "[rate-limit] Nem x-real-ip nem x-forwarded-for presentes: o limite de taxa " +
+        "passa a valer para todos os chamadores somados, e nao por IP. " +
+        "Confira se ha um proxy confiavel na frente da aplicacao.",
+    );
+  }
+
+  return CHAMADOR_DESCONHECIDO;
 }
