@@ -319,15 +319,25 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
   values (9104, (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000011');
 
+-- `visita_rpc` guarda o id de verdade (identity), não o numero_coleta 9104
+-- usado acima -- os dois divergem, e desde a 0045 o caminho da mídia precisa
+-- do id real: é o que o check `checklists_visita_assinatura_na_pasta_da_visita`
+-- e a policy de `checklist_fotos` conferem.
+insert into ids_teste (chave, valor)
+  select 'visita_rpc', id from public.visitas where numero_coleta = 9104;
+
 insert into ids_teste (chave, valor)
 select 'checklist_rpc', public.registrar_checklist(
-  (select id from public.visitas where numero_coleta = 9104),
+  (select valor from ids_teste where chave = 'visita_rpc'),
   'CONSULTORIA',
   -- String vazia, e não `null`: é a forma que o app envia (o gerador de tipos
   -- marca o argumento como não-nulo). O `nullif` da função colapsa as duas.
   '',
-  '9104/assinatura.png',
-  array['9104/foto-a.jpg', '9104/foto-b.jpg'],
+  format('%s/assinatura.png', (select valor from ids_teste where chave = 'visita_rpc')),
+  array[
+    format('%s/foto-a.jpg', (select valor from ids_teste where chave = 'visita_rpc')),
+    format('%s/foto-b.jpg', (select valor from ids_teste where chave = 'visita_rpc'))
+  ],
   jsonb_build_array(jsonb_build_object(
     'pergunta_id', (select valor from ids_teste where chave = 'pergunta'),
     'resposta', 'NA',
