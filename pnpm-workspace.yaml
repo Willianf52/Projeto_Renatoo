@@ -17,6 +17,23 @@ overrides:
   brace-expansion: ^1.1.17
   js-yaml: ^4.3.1
   nanoid: ^3.3.17
+  # GHSA-w5hq-g745-h8pq (moderate): uuid < 11.1.1 nao confere o limite do
+  # buffer em v3/v5/v6 quando `buf` e passado. Entra so por
+  # apps/mobile > expo > @expo/config-plugins > xcode, que declara `^7.0.3` e
+  # nao vai subir -- o xcode esta parado na 3.0.1 desde entao.
+  #
+  # A versao vulneravel nao e alcancavel aqui: o unico ponto de uso no xcode
+  # e `uuid.v4()` (pbxProject.js:90, generateUuid), sem `buf` e fora das
+  # versoes afetadas. O override e higiene de inventario, nao correcao de um
+  # buraco aberto -- serve para o Dependabot parar de apontar uma linha que
+  # nunca executa.
+  #
+  # Seguro apesar do salto de major: o xcode so toca `v4()`, que segue como
+  # export nomeado em CJS. O piso e a 11.1.1 (primeira corrigida), mas sem
+  # teto a resolucao cai na 14.0.2 -- e foi nela que `generateUuid()` foi
+  # conferido, devolvendo o hex de 24 casas que o pbxproj exige. Nenhum outro
+  # pacote do lock usa uuid.
+  uuid@<11.1.1: '>=11.1.1'
 
 # Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
 # apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro
