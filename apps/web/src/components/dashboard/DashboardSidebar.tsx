@@ -158,9 +158,19 @@ const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
+  {
+    label: "ChecklistLab",
+    icon: ClipboardListIcon,
+    children: [
+      {
+        label: "Perguntas do Checklist",
+        href: "/dashboard/checklistlab/perguntas",
+        icon: ClipboardListIcon,
+      },
+    ],
+  },
   // Modulos ainda sem telas definidas: mantidos visiveis para preservar a
   // estrutura de navegacao do sistema de referencia.
-  { label: "ChecklistLab", icon: ClipboardListIcon, children: [] },
   { label: "Suporte", icon: UserIcon, children: [] },
 ];
 

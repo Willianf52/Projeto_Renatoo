@@ -41,7 +41,7 @@
 
 begin;
 
-select plan(11);
+select plan(12);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -272,17 +272,36 @@ select is(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 10) `authenticated` não tem UPDATE nem DELETE nas tabelas novas.
+-- 10) `authenticated` não tem UPDATE nem DELETE nas tabelas de campo.
 -- ---------------------------------------------------------------------------
+-- `perguntas_checklist` saiu desta lista na 0043: cadastro operacional grava
+-- com o token da própria pessoa, como `grupos_sites` e `sites`. O grant de
+-- UPDATE que ela ganhou é conferido logo abaixo, junto do DELETE que continua
+-- revogado. As três tabelas de campo seguem sem escrita corretiva: uma
+-- resposta de inspeção não se edita depois de gravada.
 select is(
   (select count(*)::int
      from information_schema.role_table_grants
     where grantee = 'authenticated'
       and table_schema = 'public'
-      and table_name in ('perguntas_checklist', 'checklists_visita', 'checklist_respostas', 'checklist_fotos')
+      and table_name in ('checklists_visita', 'checklist_respostas', 'checklist_fotos')
       and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')),
   0,
-  'authenticated nao tem UPDATE/DELETE/TRUNCATE nas tabelas do checklist'
+  'authenticated nao tem UPDATE/DELETE/TRUNCATE nas tabelas de campo do checklist'
+);
+
+-- ---------------------------------------------------------------------------
+-- 10b) Em `perguntas_checklist`, a 0043 abriu UPDATE e manteve DELETE fechado.
+-- ---------------------------------------------------------------------------
+select is(
+  (select coalesce(string_agg(distinct privilege_type, ',' order by privilege_type), '')
+     from information_schema.role_table_grants
+    where grantee = 'authenticated'
+      and table_schema = 'public'
+      and table_name = 'perguntas_checklist'
+      and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')),
+  'UPDATE',
+  'perguntas_checklist da UPDATE a authenticated, mas nao DELETE nem TRUNCATE'
 );
 
 -- ---------------------------------------------------------------------------
