@@ -131,10 +131,14 @@ insert into ids_teste (chave, valor)
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000012", "role": "authenticated"}';
 
+-- O caminho da assinatura precisa ser bem formado (`{visita_id}/...`) desde a
+-- 0045, senao o check `checklists_visita_assinatura_na_pasta_da_visita` recusa
+-- antes -- e o assert passaria pelo codigo errado, testando a constraint em vez
+-- da policy. `%1$s` reusa o mesmo id do `%1$L`.
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, motivo, assinatura_path)
-       values (%L, 'CORRETIVA', 'invadindo', '1/x.png') $$,
+       values (%1$L, 'CORRETIVA', 'invadindo', '%1$s/x.png') $$,
     (select valor from ids_teste where chave = 'visita_a')
   ),
   '42501',
@@ -186,7 +190,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, assinatura_path)
-       values (%L, 'CONSULTORIA', 'x/y.png') $$,
+       values (%1$L, 'CONSULTORIA', '%1$s/y.png') $$,
     (select valor from ids_teste where chave = 'visita_a')
   ),
   '23505',
@@ -232,7 +236,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000013
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, assinatura_path)
-       values (%L, 'CONSULTORIA', 'z/a.png') $$,
+       values (%1$L, 'CONSULTORIA', '%1$s/a.png') $$,
     (select valor from ids_teste where chave = 'visita_inativo')
   ),
   '42501',
