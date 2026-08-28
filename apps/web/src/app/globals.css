@@ -3,7 +3,13 @@
 @theme inline {
   --font-sans: var(--font-inter);
 
-  /* Identidade Up Servicos. */
+  /* Identidade Up Servicos.
+
+     Esta paleta tambem vive em `packages/shared/src/tema.ts`, de onde o app de
+     campo (React Native, sem CSS) a le. A duplicacao e imposicao do Tailwind
+     v4 -- token so entra no build como custom property -- e nao licenca para
+     divergir: `src/lib/tema-da-marca.test.ts` compara os dois lados e quebra o
+     CI se um hex mudar aqui sem mudar la. */
   --color-brand-navy: #03031a; /* fundo primario */
   --color-brand-surface: #0b0b26; /* superficie elevada sobre o fundo */
   --color-brand-green: #00e676; /* acao primaria e estados ativos */

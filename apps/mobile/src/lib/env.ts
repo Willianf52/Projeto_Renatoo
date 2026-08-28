@@ -24,4 +24,13 @@ export const env = {
     "EXPO_PUBLIC_SUPABASE_ANON_KEY",
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),
+  /**
+   * Opcional, e sem `exigirEnv` de proposito: recuperar senha e fluxo do
+   * painel (envio de e-mail, link com token, tela de nova senha), que o app de
+   * campo nao reimplementa. Configurada, a tela de login mostra o link
+   * "Perdeu sua Senha?" abrindo o navegador no portal; ausente, o link
+   * simplesmente nao aparece -- melhor do que um atalho que leva a lugar
+   * nenhum no meio de uma inspecao.
+   */
+  urlDoPortal: process.env.EXPO_PUBLIC_URL_DO_PORTAL,
 };

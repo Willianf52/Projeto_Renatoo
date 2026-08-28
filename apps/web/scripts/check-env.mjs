@@ -16,6 +16,15 @@ const OBRIGATORIAS = [
   "SUPABASE_WEBHOOK_SECRET",
   "SUPABASE_SERVICE_ROLE_KEY",
   "IMPORTACAO_SECRET",
+  // Alerta operacional. As duas entraram depois da primeira versao desta lista
+  // e ficaram de fora ate a auditoria de 25/08 -- exatamente o buraco que o
+  // cabecalho acima diz existir para fechar. Sem CRON_SECRET, o cron diario de
+  // `api/cron/verificar-importacoes` responde 500 em toda execucao; sem
+  // ALERTA_OPERACAO_EMAIL, `enviarAlertaOperacional` lanca e a rota responde
+  // 502. Nos dois casos o aviso de "importacao em silencio" -- o controle que
+  // avisa que os lotes pararam de chegar -- simplesmente nao existe.
+  "CRON_SECRET",
+  "ALERTA_OPERACAO_EMAIL",
 ];
 
 const faltando = OBRIGATORIAS.filter((nome) => !process.env[nome]);
@@ -25,7 +34,8 @@ if (faltando.length > 0) {
     "Variaveis de ambiente obrigatorias ausentes para deploy:\n" +
       faltando.map((nome) => `  - ${nome}`).join("\n") +
       "\n\nVeja .env.example para o que cada uma faz. Sem elas, a rota " +
-      "correspondente (troca de senha / webhook / importacao de coletas) " +
+      "correspondente (troca de senha / webhook / importacao de coletas / " +
+      "alerta operacional) " +
       "sobe quebrada em produção sem avisar no build.",
   );
   process.exit(1);

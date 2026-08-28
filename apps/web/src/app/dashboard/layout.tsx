@@ -1,28 +1,36 @@
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { DashboardChrome } from "@/components/dashboard/DashboardChrome";
-import { getPerfilAtual, getUsuarioAtual } from "@/lib/perfil-atual";
+import {
+  IdentidadeNavbar,
+  IdentidadeNavbarSkeleton,
+  SaudacaoSidebar,
+  SaudacaoSidebarSkeleton,
+} from "@/components/dashboard/IdentidadeDoUsuario";
+import { RodapeDoDashboard } from "@/components/dashboard/RodapeDoDashboard";
 
-export default async function DashboardLayout({
+/**
+ * Sincrono de proposito: qualquer `await` aqui em cima tira do prerender toda
+ * rota abaixo de /dashboard -- eram 41 telas presas na leitura de sessao deste
+ * layout. A sessao agora e lida dentro dos <Suspense> abaixo.
+ */
+export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getUsuarioAtual();
-
-  if (!user) {
-    redirect("/");
-  }
-
-  // Perfil ausente nao derruba a tela: cai no nome do e-mail e segue. O caso e
-  // registrado dentro de getPerfilAtual(), junto com a falha de leitura.
-  const perfil = await getPerfilAtual();
-
-  const userName = perfil?.nome_completo?.trim() || user.email || "Usuário";
-
   return (
     <DashboardChrome
-      userName={userName}
-      cargo={perfil?.cargo ?? "OPERADOR"}
+      identidadeNavbar={
+        <Suspense fallback={<IdentidadeNavbarSkeleton />}>
+          <IdentidadeNavbar />
+        </Suspense>
+      }
+      saudacaoSidebar={
+        <Suspense fallback={<SaudacaoSidebarSkeleton />}>
+          <SaudacaoSidebar />
+        </Suspense>
+      }
+      rodape={<RodapeDoDashboard />}
       // TODO: substituir por dados reais quando existir tabela de organizacoes
       organization="UP SERVIÇOS (SUPERVISÃO) - Nova (1876)"
     >

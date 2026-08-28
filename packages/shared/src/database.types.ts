@@ -92,6 +92,106 @@ export type Database = {
           },
         ]
       }
+      checklist_fotos: {
+        Row: {
+          checklist_id: number
+          criado_em: string
+          id: number
+          storage_path: string
+        }
+        Insert: {
+          checklist_id: number
+          criado_em?: string
+          id?: never
+          storage_path: string
+        }
+        Update: {
+          checklist_id?: number
+          criado_em?: string
+          id?: never
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_fotos_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_respostas: {
+        Row: {
+          checklist_id: number
+          observacao: string | null
+          pergunta_id: number
+          resposta: string
+        }
+        Insert: {
+          checklist_id: number
+          observacao?: string | null
+          pergunta_id: number
+          resposta: string
+        }
+        Update: {
+          checklist_id?: number
+          observacao?: string | null
+          pergunta_id?: number
+          resposta?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_respostas_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_respostas_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_checklist"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklists_visita: {
+        Row: {
+          assinatura_path: string
+          criado_em: string
+          id: number
+          motivo: string | null
+          tipo: string
+          visita_id: number
+        }
+        Insert: {
+          assinatura_path: string
+          criado_em?: string
+          id?: never
+          motivo?: string | null
+          tipo: string
+          visita_id: number
+        }
+        Update: {
+          assinatura_path?: string
+          criado_em?: string
+          id?: never
+          motivo?: string | null
+          tipo?: string
+          visita_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklists_visita_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: true
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coletores_dados: {
         Row: {
           ativo: boolean
@@ -436,6 +536,30 @@ export type Database = {
         }
         Relationships: []
       }
+      perguntas_checklist: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          ordem: number
+          texto: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          ordem: number
+          texto: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          ordem?: number
+          texto?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           ativo: boolean
@@ -773,6 +897,18 @@ export type Database = {
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_grupo_site: { Args: { id_do_grupo: number }; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      pode_ver_visita: { Args: { id_da_visita: number }; Returns: boolean }
+      registrar_checklist: {
+        Args: {
+          p_assinatura_path: string
+          p_fotos: string[]
+          p_motivo: string
+          p_respostas?: Json
+          p_tipo: string
+          p_visita_id: number
+        }
+        Returns: number
+      }
       sincronizar_membros_grupo_usuarios: {
         Args: { p_grupo_id: number; p_membros: string[] }
         Returns: undefined

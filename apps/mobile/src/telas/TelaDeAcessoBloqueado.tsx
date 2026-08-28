@@ -1,9 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import type { PerfilDoInspetor } from "../auth/SessaoProvider";
-import { cores, espaco } from "../tema";
+import { Botao } from "../componentes/Botao";
+import { Cartao } from "../componentes/Cartao";
+import { Marca } from "../componentes/Marca";
+import { cores, espaco, texto, tipografia } from "../tema";
 
-type Motivo = "inativo" | "cargo" | "sem-perfil";
+type Motivo = "inativo" | "sem-perfil";
 
 /**
  * Sessao valida que ainda assim nao pode inspecionar.
@@ -22,29 +25,37 @@ export function TelaDeAcessoBloqueado({
   perfil: PerfilDoInspetor | null;
   aoSair: () => void;
 }) {
-  const { titulo, texto } = mensagem(motivo, perfil);
+  const { titulo, texto: mensagemDoMotivo } = mensagem(motivo);
 
   return (
     <View style={estilos.raiz}>
-      <View style={estilos.cartao}>
+      {/* A marca fica: e o que diz que o app nao quebrou, so nao liberou. */}
+      <View style={estilos.marca}>
+        <Marca altura={32} />
+      </View>
+
+      <Cartao estilo={estilos.cartao}>
         <Text style={estilos.titulo}>{titulo}</Text>
-        <Text style={estilos.texto}>{texto}</Text>
+        <Text style={estilos.texto}>{mensagemDoMotivo}</Text>
 
         {perfil ? <Text style={estilos.conta}>Conectado como {perfil.email}</Text> : null}
 
-        <Pressable
-          onPress={aoSair}
-          accessibilityRole="button"
-          style={({ pressed }) => [estilos.botao, pressed && estilos.botaoPressionado]}
-        >
-          <Text style={estilos.botaoTexto}>Sair</Text>
-        </Pressable>
-      </View>
+        {/* Secundario, e nao primario: sair daqui e o caminho de saida, nao a
+            acao que se quer incentivar -- o verde chamaria para o lugar
+            errado. Mesma leitura do `variant="secondary"` no painel. */}
+        <Botao
+          titulo="Sair"
+          aoPressionar={aoSair}
+          variante="secundaria"
+          larguraTotal
+          estilo={estilos.botao}
+        />
+      </Cartao>
     </View>
   );
 }
 
-function mensagem(motivo: Motivo, perfil: PerfilDoInspetor | null) {
+function mensagem(motivo: Motivo) {
   if (motivo === "inativo") {
     return {
       titulo: "Conta inativa",
@@ -52,15 +63,6 @@ function mensagem(motivo: Motivo, perfil: PerfilDoInspetor | null) {
       // pgTAP `conta_nova_nasce_inativa_test.sql`) -- alguem da gestao precisa
       // ativar no painel.
       texto: "Sua conta ainda não foi ativada. Peça a liberação à supervisão.",
-    };
-  }
-
-  if (motivo === "cargo") {
-    return {
-      titulo: "Acesso não liberado",
-      texto: `Este aplicativo é do time de inspeção em campo. Seu cargo é ${
-        perfil?.cargo ?? "desconhecido"
-      }, que usa o painel web.`,
     };
   }
 
@@ -76,26 +78,20 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.fundo,
     alignItems: "center",
     justifyContent: "center",
-    padding: espaco.g,
+    padding: espaco.confortavel,
   },
-  cartao: {
-    backgroundColor: cores.superficie,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    padding: espaco.g,
-    width: "100%",
+  marca: { marginBottom: espaco.secao },
+  // `padding` maior que o do cartao de lista: aqui ele e o conteudo da tela
+  // inteira, nao um item entre varios.
+  cartao: { padding: espaco.confortavel, width: "100%", maxWidth: 320 },
+  titulo: texto(tipografia.subtitulo, { cor: cores.texto }),
+  texto: {
+    ...texto(tipografia.apoio, { cor: cores.textoFraco }),
+    marginTop: espaco.entreItens,
   },
-  titulo: { fontSize: 20, fontWeight: "700", color: cores.texto },
-  texto: { fontSize: 15, color: cores.textoFraco, marginTop: espaco.m, lineHeight: 22 },
-  conta: { fontSize: 13, color: cores.textoFraco, marginTop: espaco.m },
-  botao: {
-    marginTop: espaco.g,
-    backgroundColor: cores.primaria,
-    borderRadius: 10,
-    paddingVertical: espaco.m,
-    alignItems: "center",
+  conta: {
+    ...texto(tipografia.nota, { cor: cores.textoFraco }),
+    marginTop: espaco.entreItens,
   },
-  botaoPressionado: { opacity: 0.85 },
-  botaoTexto: { color: cores.textoInverso, fontSize: 16, fontWeight: "700" },
+  botao: { marginTop: espaco.confortavel },
 });

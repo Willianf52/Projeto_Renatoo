@@ -35,9 +35,6 @@ const JANELA_MS = 60_000;
  * (e mesma comparacao em tempo constante) do webhook de troca de senha.
  */
 
-/** Nao ha nada para cachear numa rota de escrita, e o Next nao deve tentar
- * pre-renderizar isto no build. */
-export const dynamic = "force-dynamic";
 
 type StatusImportacao =
   | "sucesso"

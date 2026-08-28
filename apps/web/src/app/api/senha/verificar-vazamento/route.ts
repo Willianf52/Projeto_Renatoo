@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
  * pessoa já tem sessão nesse ponto -- `/auth/callback` trocou o `code` por
  * sessão antes de redirecionar para lá.
  */
-export const dynamic = "force-dynamic";
+
 
 export async function POST(request: NextRequest) {
   const idRequisicao = gerarIdDeRequisicao();
