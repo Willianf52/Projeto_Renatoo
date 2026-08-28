@@ -7,8 +7,21 @@
 # Code Owners" nao esta ativado na protecao de branch (bloquearia o proprio
 # autor de mergear). Ativar esse requisito quando um segundo mantenedor
 # entrar no projeto.
+#
+# ATENCAO AO PREFIXO `apps/web/`. Ate 28/08 tres das quatro regras abaixo
+# apontavam para `/src/...`, de antes do commit 5edb91e ter movido o painel
+# para `apps/web/`. Regra de CODEOWNERS que nao casa com arquivo nenhum nao e
+# erro de sintaxe, nao aparece em lint e nao quebra CI -- ela simplesmente
+# deixa de cobrir, em silencio. Era o achado B-6 da auditoria de AppSec:
+# inerte enquanto a revisao obrigatoria esta desligada, e uma falsa sensacao
+# de cobertura no dia em que for ligada. Mexeu de lugar? Mexa aqui junto.
+/supabase/migrations/                          @Willianf52
+/apps/web/src/lib/supabase/                    @Willianf52
+/apps/web/src/proxy.ts                         @Willianf52
+/apps/web/src/app/dashboard/cadastros/usuarios/ @Willianf52
 
-/supabase/migrations/ @Willianf52
-/src/lib/supabase/ @Willianf52
-/src/proxy.ts @Willianf52
-/src/app/dashboard/cadastros/usuarios/ @Willianf52
+# Os esquemas Zod que o app de campo trata como validacao autoritativa antes
+# de chamar `registrar_checklist`. Entraram na auditoria de 28/08 (achado
+# M-4): o que mora aqui e a regra que o banco espera que o cliente cumpra, e
+# a 0045 desceu para o Postgres a parte que nao podia depender do aparelho.
+/packages/shared/src/campo/                    @Willianf52
