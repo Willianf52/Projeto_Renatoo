@@ -65,6 +65,12 @@ next-env.d.ts
 # gerados automaticamente pelo Next.js (agentRules) a cada dev/build
 /AGENTS.md
 /CLAUDE.md
+# o `next dev` do workspace escreve o mesmo par dentro de apps/web: o gerador
+# resolve `node_modules/next` a partir do diretorio do app, nao da raiz. O
+# padrao ancorado acima nao alcanca essa copia -- ela reaparecia como untracked
+# a cada `pnpm dev` ou `pnpm test:e2e` (que sobe o dev server pelo webServer).
+apps/*/AGENTS.md
+apps/*/CLAUDE.md
 
 # Sentry Config File
 .env.sentry-build-plugin
