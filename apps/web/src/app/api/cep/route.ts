@@ -47,7 +47,18 @@ export async function GET(request: NextRequest) {
 
   let dados: { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
   try {
-    const resposta = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+    /**
+     * Prazo maximo para o servico de terceiro responder.
+     *
+     * Sem ele, um ViaCEP lento (ou pendurado) segura a invocacao serverless
+     * ate o teto da plataforma, e cada clique em "Procurar CEP" prende mais
+     * uma. O limite de taxa acima conta requisicoes, nao tempo: 30 chamadas
+     * penduradas passam por ele sem problema. Falhar em 5s devolve o mesmo
+     * 502 de sempre, que a tela ja sabe exibir.
+     */
+    const resposta = await fetch(`https://viacep.com.br/ws/${digitos}/json/`, {
+      signal: AbortSignal.timeout(5_000),
+    });
     dados = await resposta.json();
   } catch (falha) {
     erro(idRequisicao, "Busca de CEP: falha ao consultar o ViaCEP.", falha);

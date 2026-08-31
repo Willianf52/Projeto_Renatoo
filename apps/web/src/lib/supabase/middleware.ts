@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
 /** Rotas publicas: acessiveis sem sessao ativa. */
 const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth"];
@@ -20,18 +21,39 @@ export async function updateSession(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request });
 
+  /**
+   * Cabecalhos que o `@supabase/ssr` manda junto quando grava cookie de sessao.
+   *
+   * Sao `Cache-Control: private, no-cache, no-store, must-revalidate,
+   * max-age=0`, `Expires: 0` e `Pragma: no-cache` (ver `cookies.js` no pacote).
+   * Nao sao decorativos: a resposta que carrega um `Set-Cookie` de sessao
+   * renovada NAO pode ser guardada por CDN nem por proxy reverso -- guardada,
+   * ela e servida a outra pessoa, e junto vai o token de sessao de quem a
+   * gerou. O adaptador daqui recebia so o primeiro argumento e descartava esse
+   * segundo em silencio.
+   *
+   * Guardados fora do `setAll` porque `preservarSessao` tambem precisa deles:
+   * o redirect e criado depois, e nasceria sem cabecalho nenhum.
+   */
+  let cabecalhosDeCookie: Record<string, string> = {};
+
   const supabase = createServerClient(env.supabaseUrl, env.supabaseAnonKey, {
+    cookieOptions: COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, cabecalhos) {
         cookiesToSet.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);
+        });
+        cabecalhosDeCookie = cabecalhos ?? {};
+        Object.entries(cabecalhosDeCookie).forEach(([chave, valor]) => {
+          supabaseResponse.headers.set(chave, valor);
         });
       },
     },
@@ -75,6 +97,12 @@ export async function updateSession(request: NextRequest) {
    */
   const preservarSessao = (resposta: NextResponse) => {
     supabaseResponse.cookies.getAll().forEach((cookie) => resposta.cookies.set(cookie));
+    // Os cabecalhos de nao-cachear acompanham o cookie que os motivou: um
+    // redirect que leva a sessao renovada e tao incachavel quanto a resposta
+    // original seria.
+    Object.entries(cabecalhosDeCookie).forEach(([chave, valor]) => {
+      resposta.headers.set(chave, valor);
+    });
     return resposta;
   };
 
