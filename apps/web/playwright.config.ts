@@ -38,6 +38,17 @@ export default defineConfig({
     command: "npx next dev --turbopack -p 3100",
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    /**
+     * Teto de espera, nao atraso fixo: quem responde antes segue na hora, e
+     * localmente nada muda.
+     *
+     * Subiu de 60s ao entrar na CI (job `e2e` do ci.yml). La o servidor nasce
+     * frio -- sem `.next` de execucao anterior --, e o Playwright so considera
+     * a URL de pe depois que a primeira pagina termina de compilar. Um runner
+     * lento passava de 60s e o job falhava por timeout do webServer, que
+     * aparece como "e2e quebrou" sem nenhum teste ter chegado a rodar: o pior
+     * tipo de portao intermitente, porque o diagnostico nao esta no relatorio.
+     */
+    timeout: 120_000,
   },
 });

@@ -148,3 +148,64 @@ jobs:
       - name: pgTAP (policies de RLS)
         if: ${{ !cancelled() }}
         run: pnpm run test:db
+
+  # Playwright. Era a unica suite que ninguem rodava automaticamente -- e a
+  # unica que exercita o login num navegador de verdade, com o proxy.ts no
+  # caminho e o cookie de sessao sendo gravado e lido como em producao. Os
+  # testes de `pnpm test` cobrem `updateSession` com o `@supabase/ssr` mockado:
+  # provam a logica, nao o fluxo.
+  #
+  # Job proprio pelo mesmo motivo do `banco`: nada aqui depende do `build`,
+  # entao os tres correm em paralelo em vez de somar tempo no gate.
+  #
+  # SEM CREDENCIAL O JOB AINDA VALE. Os specs que precisam de conta real se
+  # pulam sozinhos quando `E2E_EMAIL` e companhia faltam (`test.skip(...)`, ver
+  # o cabecalho do playwright.config.ts). O que roda sem nenhum segredo ja e a
+  # maior parte: validacao do formulario, credencial invalida, `redirectTo`
+  # preservado e bloqueio por tentativas. Configurar os secrets depois acende
+  # os demais sem precisar editar este arquivo.
+  e2e:
+    runs-on: ubuntu-latest
+    # Teto de seguranca: o `webServer` do Playwright sobe um `next dev`, e um
+    # servidor que nunca responde deixaria o job pendurado ate o limite padrao
+    # do GitHub (6 horas) em vez de falhar.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # So o chromium: e o unico projeto declarado no playwright.config.ts.
+      # `--with-deps` instala as bibliotecas de sistema que o runner nao traz.
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Playwright (login de ponta a ponta)
+        run: pnpm run test:e2e
+        env:
+          # O `next dev` que o Playwright sobe passa por `lib/env.ts`, que
+          # lanca erro se estas faltarem -- sem elas o webServer nem inicia.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Opcionais: ausentes, os specs de conta real se pulam sozinhos.
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_INACTIVE_EMAIL: ${{ secrets.E2E_INACTIVE_EMAIL }}
+          E2E_INACTIVE_PASSWORD: ${{ secrets.E2E_INACTIVE_PASSWORD }}
+          # O reporter `html` abre o relatorio no navegador quando ha falha.
+          # Em CI nao ha navegador para abrir, e o passo ficaria esperando.
+          PLAYWRIGHT_HTML_OPEN: never
+
+      # So em falha: o relatorio traz o trace da primeira repeticao
+      # (`trace: "on-first-retry"`), que e o que permite ver o que a tela
+      # estava fazendo sem reproduzir na mao.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
