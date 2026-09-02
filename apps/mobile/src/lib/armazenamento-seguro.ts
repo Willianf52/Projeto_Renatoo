@@ -136,6 +136,24 @@ export const armazenamentoSeguro: ArmazenamentoDeSessao = {
   async setItem(chave, valor) {
     const pedacos = fragmentar(valor);
 
+    /**
+     * Manifesto apagado ANTES de tocar nos pedacos.
+     *
+     * Deixa-lo apontando para a contagem antiga durante a reescrita nao
+     * protegia nada: os pedacos que ele indexa sao sobrescritos em ordem,
+     * entao uma falha no meio deixava `.0` novo ao lado de `.1`/`.2` velhos,
+     * com o manifesto ainda dizendo "3". O `getItem` concatenava os tres e
+     * devolvia um JSON emendado de DUAS sessoes -- exatamente o "valor pela
+     * metade" que a ordem anterior dizia impedir. Com a sessao nascendo acima
+     * do limite de 2048 bytes (ver o cabecalho), fragmentar e o caminho
+     * normal, nao a excecao.
+     *
+     * Sem manifesto, `getItem` devolve null e a pessoa cai no login -- o pior
+     * caso que o `SessaoProvider` ja trata como aceitavel, e muito melhor que
+     * entregar sessao costurada ao supabase-js.
+     */
+    await SecureStore.deleteItemAsync(chave, OPCOES);
+
     for (let i = 0; i < pedacos.length; i += 1) {
       await SecureStore.setItemAsync(chaveDoPedaco(chave, i), pedacos[i], OPCOES);
     }
@@ -143,9 +161,8 @@ export const armazenamentoSeguro: ArmazenamentoDeSessao = {
     // Sobra de uma sessao anterior maior que esta.
     await apagarPedacosAPartirDe(chave, pedacos.length);
 
-    // Manifesto por ultimo: se a gravacao falhar no meio, a chave principal
-    // ainda aponta para a contagem antiga ou nao existe -- em nenhum dos dois
-    // casos o `getItem` monta um valor pela metade.
+    // Manifesto por ultimo: e so aqui que a entrada volta a existir, e ela so
+    // existe depois de todos os pedacos estarem gravados.
     await SecureStore.setItemAsync(chave, String(pedacos.length), OPCOES);
   },
 

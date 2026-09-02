@@ -10,15 +10,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * usuario recem-criado, sem metadado nenhum (medido contra o stack local em
  * 2026-08-23). Ela ja nasce acima do limite.
  */
-const { armazem, LIMITE_DA_PLATAFORMA } = vi.hoisted(() => ({
+const { armazem, LIMITE_DA_PLATAFORMA, falha } = vi.hoisted(() => ({
   armazem: new Map<string, string>(),
   LIMITE_DA_PLATAFORMA: 2048,
+  /** Injeta falha do Keystore numa chave especifica -- ver "gravacao parcial". */
+  falha: { naChave: null as string | null },
 }));
 
 vi.mock("expo-secure-store", () => ({
   AFTER_FIRST_UNLOCK: "afterFirstUnlock",
   getItemAsync: async (chave: string) => (armazem.has(chave) ? armazem.get(chave)! : null),
   setItemAsync: async (chave: string, valor: string) => {
+    if (falha.naChave === chave) {
+      throw new Error(`SecureStore indisponivel para ${chave}.`);
+    }
     const bytes = Buffer.byteLength(valor, "utf8");
     if (bytes > LIMITE_DA_PLATAFORMA) {
       throw new Error(`SecureStore recusou ${bytes} bytes (limite ${LIMITE_DA_PLATAFORMA}).`);
@@ -40,6 +45,7 @@ const pedacosDe = (chave: string) =>
 
 beforeEach(() => {
   armazem.clear();
+  falha.naChave = null;
 });
 
 describe("round-trip", () => {
@@ -173,6 +179,51 @@ describe("estado corrompido", () => {
   it("devolve null quando o manifesto nao e um numero util", async () => {
     armazem.set(CHAVE, "nao-e-numero");
 
+    expect(await armazenamentoSeguro.getItem(CHAVE)).toBeNull();
+  });
+});
+
+describe("gravacao parcial", () => {
+  /**
+   * O cenario que o manifesto-por-ultimo NAO cobria.
+   *
+   * Os pedacos sao sobrescritos em ordem, entao uma falha no meio deixava
+   * `.0` da sessao NOVA ao lado de `.1`/`.2` da VELHA -- com o manifesto
+   * antigo ainda dizendo "3". A leitura concatenava os tres e devolvia um
+   * JSON emendado de duas sessoes: token de uma, assinatura de outra.
+   *
+   * Apagando o manifesto antes de tocar nos pedacos, a entrada fica
+   * atomicamente ausente durante a reescrita: falhou, `getItem` devolve null
+   * e a pessoa cai no login -- pior caso ja aceito pelo `SessaoProvider`.
+   */
+  it("nao emenda pedacos de duas sessoes quando o Keystore falha no meio", async () => {
+    const anterior = `{"access_token":"${"A".repeat(4000)}"}`;
+    await armazenamentoSeguro.setItem(CHAVE, anterior);
+    expect(pedacosDe(CHAVE).length).toBeGreaterThan(2);
+
+    // A nova sessao ocupa a mesma quantidade de pedacos; o Keystore recusa o
+    // segundo, depois do primeiro ja ter sido sobrescrito.
+    falha.naChave = `${CHAVE}.1`;
+    const nova = `{"access_token":"${"B".repeat(4000)}"}`;
+
+    await expect(armazenamentoSeguro.setItem(CHAVE, nova)).rejects.toThrow();
+
+    const lido = await armazenamentoSeguro.getItem(CHAVE);
+
+    expect(lido).toBeNull();
+    // A garantia que importa, dita sem depender do null acima: em nenhuma
+    // hipotese a leitura devolve um valor que mistura as duas sessoes.
+    expect(lido === null || !(lido.includes("A") && lido.includes("B"))).toBe(true);
+  });
+
+  it("nao deixa a sessao anterior legivel depois de uma reescrita interrompida", async () => {
+    await armazenamentoSeguro.setItem(CHAVE, "sessao-antiga");
+
+    falha.naChave = `${CHAVE}.0`;
+    await expect(armazenamentoSeguro.setItem(CHAVE, "sessao-nova")).rejects.toThrow();
+
+    // Devolver a antiga seria pior que devolver null: o supabase-js seguiria
+    // com um token que o servidor ja pode ter rotacionado.
     expect(await armazenamentoSeguro.getItem(CHAVE)).toBeNull();
   });
 });

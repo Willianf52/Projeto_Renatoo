@@ -50,4 +50,30 @@ describe("senhaVazada", () => {
 
     expect(await senhaVazada("Senha123!")).toBe(false);
   });
+
+  /**
+   * O caso que faltava, e o mais dificil de ver: o `fetch` RESOLVE (cabecalhos
+   * chegaram, status 200) e so a leitura do corpo rejeita -- e o que acontece
+   * quando a conexao cai no meio do download, ou quando o
+   * `AbortSignal.timeout` dispara depois dos cabecalhos.
+   *
+   * Com o `await resposta.text()` fora do `try`, a rejeicao escapava da
+   * funcao: `usuarios/actions.ts` chama sem `try/catch` e a Server Action de
+   * cadastro estourava inteira, em vez de seguir com a checagem pulada.
+   */
+  it("nao bloqueia quando a resposta chega mas o corpo falha no meio", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          text: async () => {
+            throw new Error("aborted");
+          },
+        }) as unknown as Response,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(senhaVazada("Senha123!")).resolves.toBe(false);
+  });
 });

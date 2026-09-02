@@ -49,10 +49,30 @@ overrides:
 #
 # Revisitar quando o Expo subir o Metro: `pnpm why image-size` mostra se
 # ainda cai na 1.x.
+# GHSA-vcc3-ghjq-m6fr (moderate): `decode-uri-component` <=0.4.2 faz decodificacao
+# exponencial em percent-encoding malformado. Entra so por
+# apps/mobile > @react-navigation/native > @react-navigation/core > query-string.
+#
+# NAO E ALCANCAVEL AQUI. O `query-string` existe no @react-navigation para
+# interpretar URL de DEEP LINK, e este app nao tem deep link: `app.json` nao
+# declara `scheme` e o `NavigationContainer` (src/navegacao/Navegacao.tsx) e
+# montado sem a prop `linking`. Nenhuma URL de terceiro chega ao parser --
+# so texto que o proprio app constroi.
+#
+# Nao ha override aplicavel, mesmo caso do `image-size` abaixo: o advisory diz
+# "patched >=0.4.3", mas essa versao NAO EXISTE no registro -- as publicadas
+# pulam de 0.4.1 para 0.5.0. E a 0.5.0 e ESM puro (`"type": "module"`, com
+# `exports` so de entrada ESM), enquanto o query-string 7.1.3 e CommonJS e faz
+# `require('decode-uri-component')` (index.js:3). O override trocaria um DoS
+# inalcancavel por navegacao quebrada no app de campo.
+#
+# Revisitar quando o @react-navigation subir o query-string para a linha 9.x,
+# que ja usa a API nativa de URL: `pnpm why query-string` mostra se ainda entra.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
+    - GHSA-vcc3-ghjq-m6fr
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6

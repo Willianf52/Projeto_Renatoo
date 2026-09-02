@@ -26,15 +26,29 @@ export async function senhaVazada(senha: string): Promise<boolean> {
   const prefixo = hash.slice(0, 5);
   const sufixo = hash.slice(5);
 
-  let resposta: Response;
+  /**
+   * A LEITURA DO CORPO PRECISA ESTAR AQUI DENTRO, e nao depois do `catch`.
+   *
+   * `AbortSignal.timeout` aborta a requisicao inteira, corpo incluido: uma
+   * conexao que cai depois dos cabecalhos e antes do corpo terminar faz
+   * `.text()` rejeitar. Fora do `try`, essa rejeicao escapava da funcao --
+   * e como `usuarios/actions.ts` chama sem `try/catch`, a Server Action de
+   * cadastro estourava inteira, contrariando o "falha de rede/timeout nao
+   * deve bloquear cadastro ou troca de senha" logo abaixo.
+   */
+  let corpo: string;
   try {
-    resposta = await fetch(`https://api.pwnedpasswords.com/range/${prefixo}`, {
+    const resposta = await fetch(`https://api.pwnedpasswords.com/range/${prefixo}`, {
       // Cabecalho documentado da propria API: devolve um numero minimo de
       // linhas "de enchimento" mesmo para prefixos raros, para o tamanho da
       // resposta nao vazar o quao comum e o prefixo consultado.
       headers: { "Add-Padding": "true" },
       signal: AbortSignal.timeout(3000),
     });
+
+    if (!resposta.ok) return false;
+
+    corpo = await resposta.text();
   } catch {
     // Falha de rede/timeout nao deve bloquear cadastro ou troca de senha --
     // e uma checagem a mais, nao a defesa principal (essa e a politica de
@@ -42,9 +56,6 @@ export async function senhaVazada(senha: string): Promise<boolean> {
     return false;
   }
 
-  if (!resposta.ok) return false;
-
-  const corpo = await resposta.text();
   return corpo
     .split("\n")
     .some((linha) => linha.trim().split(":")[0] === sufixo);

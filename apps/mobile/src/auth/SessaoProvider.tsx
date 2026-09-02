@@ -139,7 +139,27 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const recarregarPerfil = useCallback(async (): Promise<boolean> => {
     if (!idDoUsuario) return false;
 
-    const resultado = await lerPerfil(idDoUsuario);
+    /**
+     * O `catch` e a mesma defesa que o efeito de montagem acima ja tem, e
+     * pela mesma razao: `lerPerfil` traduz erro do PostgREST, nao rejeicao da
+     * camada de rede. Sem ele a rejeicao escapava por este caminho, e o
+     * chamador (`useCicloDeVidaDaSessao`, que descarta com `void`) a perdia.
+     *
+     * A consequencia nao era so um log a menos. Esta funcao E o portao que
+     * derruba o inspetor desativado no painel -- o equivalente movel da
+     * releitura de `profiles` no `proxy.ts` da web. Falhando calada, ela
+     * falhava ABERTA: `erroDePerfil` seguia nulo, a `Navegacao` nao caia em
+     * `TelaDeAcessoBloqueado` e o app continuava navegavel. Marcar a falha
+     * fecha o portao, que e o mesmo criterio do middleware da web ("falha de
+     * leitura nao deve virar acesso liberado").
+     */
+    let resultado: { perfil: PerfilDoInspetor | null; erro: string | null };
+    try {
+      resultado = await lerPerfil(idDoUsuario);
+    } catch {
+      resultado = { perfil: null, erro: FALHA_AO_LER_PERFIL };
+    }
+
     if (!montado.current) return false;
 
     setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
