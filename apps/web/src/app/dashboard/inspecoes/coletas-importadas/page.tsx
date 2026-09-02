@@ -6,7 +6,11 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterTimePicker } from "@/components/dashboard/FilterTimePicker";
-import { Skeleton } from "@/components/dashboard/Skeleton";
+import {
+  AcoesEsqueleto,
+  FiltrosEmGradeEsqueleto,
+  TabelaEsqueleto,
+} from "@/components/dashboard/EsqueletosDeListagem";
 import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
 import {
   getColetas,
@@ -76,16 +80,16 @@ export default function ColetasImportadasPage({
             <FilterIcon className="h-4 w-4" />
             Coletas Importadas
           </h1>
-          <Suspense fallback={<AcoesEsqueleto />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
             <AcoesDeExportacao searchParams={searchParams} />
           </Suspense>
         </div>
 
-        <Suspense fallback={<FiltrosEsqueleto />}>
+        <Suspense fallback={<FiltrosEmGradeEsqueleto celulas={16} />}>
           <FormularioDeFiltros searchParams={searchParams} />
         </Suspense>
 
-        <Suspense fallback={<TabelaEsqueleto />}>
+        <Suspense fallback={<TabelaEsqueleto colunas={TABLE_COLUMNS.length} />}>
           <TabelaDeColetas searchParams={searchParams} />
         </Suspense>
       </div>
@@ -262,58 +266,5 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
       totalAproximado
       buildPageHref={buildPageHref}
     />
-  );
-}
-
-/**
- * Os tres fallbacks repetem a FORMA final de cada fronteira, nao um spinner:
- * mesmo criterio ja escrito em `dashboard/loading.tsx` -- a silhueta ocupa o
- * espaco definitivo, entao so o conteudo troca quando o dado chega, sem o
- * salto de layout que um spinner central provoca.
- */
-function AcoesEsqueleto() {
-  return (
-    <div className="flex items-center gap-2">
-      <Skeleton className="h-8 w-8 shrink-0 rounded-md" />
-      <Skeleton className="h-8 w-8 shrink-0 rounded-md" />
-    </div>
-  );
-}
-
-/** 16 celulas: os 15 campos mais o botao Filtrar, na mesma grade do form. */
-function FiltrosEsqueleto() {
-  return (
-    <div className="grid grid-cols-1 gap-3 border-b border-slate-800 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-      {Array.from({ length: 16 }).map((_, indice) => (
-        <div key={indice} className="space-y-1.5">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TabelaEsqueleto() {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[800px] border-collapse text-left text-sm">
-        <tbody>
-          {Array.from({ length: PAGE_SIZE > 8 ? 8 : PAGE_SIZE }).map((_, linha) => (
-            <tr
-              key={linha}
-              className="animate-fade-in border-b border-slate-800/60"
-              style={{ animationDelay: `${linha * 60}ms` }}
-            >
-              {TABLE_COLUMNS.map((coluna) => (
-                <td key={coluna} className="px-4 py-3.5">
-                  <Skeleton className="h-3 w-full" />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }

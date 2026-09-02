@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 
@@ -52,7 +53,25 @@ type FuncaoDePermissao =
   | "pode_administrar_usuarios"
   | "pode_administrar_grupos_usuarios";
 
-async function consultarPermissao(funcao: FuncaoDePermissao, descricao: string): Promise<boolean> {
+/**
+ * Memoizado por requisicao com `cache()` do React, mesmo mecanismo e mesmo
+ * motivo de `getPerfilAtual` (lib/perfil-atual.ts).
+ *
+ * Passou a importar quando as telas foram fatiadas em fronteiras de
+ * `<Suspense>` para o Cache Components: a barra de acoes e a coluna "Ações"
+ * da tabela precisam da MESMA permissao, mas vivem em fronteiras diferentes,
+ * e cada uma chamaria o RPC por conta propria. Com a memoizacao, as duas
+ * dividem a resposta e o numero de round-trips continua o de antes do
+ * fatiamento.
+ *
+ * Por requisicao, nao entre requisicoes -- e o que se quer para permissao: a
+ * chave e o cargo de quem esta na sessao, e a requisicao seguinte comeca do
+ * zero. Guardar entre requisicoes serviria a permissao de um usuario a outro.
+ */
+const consultarPermissao = cache(async function consultarPermissao(
+  funcao: FuncaoDePermissao,
+  descricao: string,
+): Promise<boolean> {
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc(funcao);
@@ -65,4 +84,4 @@ async function consultarPermissao(funcao: FuncaoDePermissao, descricao: string):
   }
 
   return Boolean(data);
-}
+});

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike, termoParaOr } from "@/lib/postgrest-escape";
@@ -48,8 +49,12 @@ const rotuloNivel = (cargo: string) =>
  * gestao"). Mesma razao do `podeAdministrarCadastros()` em
  * `grupo-de-sites/queries.ts` -- a funcao e `security definer`, estavel e ja
  * tem `grant execute` para `authenticated`.
+ *
+ * Memoizada por requisicao com `cache()`, pelo mesmo motivo registrado em
+ * `lib/permissoes.ts`: com a tela fatiada em fronteiras de `<Suspense>`, a
+ * barra de acoes e a tabela pedem a mesma resposta de fronteiras diferentes.
  */
-export async function podeVerTodaOperacao(): Promise<boolean> {
+export const podeVerTodaOperacao = cache(async function podeVerTodaOperacao(): Promise<boolean> {
   const supabase = await createClient();
 
   const { data, error } = await supabase.rpc("pode_ver_toda_operacao");
@@ -60,7 +65,7 @@ export async function podeVerTodaOperacao(): Promise<boolean> {
   }
 
   return Boolean(data);
-}
+});
 
 /** Grupos de usuarios para o select de filtro. A policy so libera a leitura
  * para gestao; para os demais a lista volta vazia e o select fica sem opcoes,
