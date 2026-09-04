@@ -34,6 +34,28 @@ overrides:
   # conferido, devolvendo o hex de 24 casas que o pbxproj exige. Nenhum outro
   # pacote do lock usa uuid.
   uuid@<11.1.1: '>=11.1.1'
+  # Quatro advisories high (CVSS 7.5) do `fast-uri` < 3.1.6, todos na
+  # normalizacao de URI: GHSA-jqff-g426-hqxp e GHSA-5jgf-p345-68v8 (host
+  # confusion), GHSA-f65p-4m7j-42xc e GHSA-fph4-wmhf-6fwf (SSRF). Entra so por
+  # apps/web > @sentry/nextjs > @sentry/webpack-plugin > @sentry/bundler-plugins
+  # > webpack > schema-utils > ajv > fast-uri.
+  #
+  # Nao e alcancavel aqui: o `ajv` nesse caminho valida o schema de opcoes dos
+  # plugins do webpack, em build. As URIs que chegam ao parser sao os `$ref` e
+  # `$id` dos proprios schemas, escritos pelos pacotes -- nenhuma entrada de
+  # terceiro passa por ali, e SSRF/host confusion exigem URI controlada por
+  # atacante. E higiene de inventario, como o uuid acima.
+  #
+  # O override existe so porque `pnpm update fast-uri -r`, mesmo com
+  # `--depth Infinity`, nao move dependencia puramente transitiva: o lock fica
+  # preso na 3.1.5. A 3.1.6 ja satisfaz o `^3.0.1` que o ajv declara, entao
+  # isto nao forca nada fora do range -- e bump de patch dentro do mesmo major,
+  # sem troca de API.
+  #
+  # O teto `~` e obrigatorio aqui, diferente do uuid: sem ele a resolucao pula
+  # para a 4.1.4, que esta FORA do `^3.0.1` do ajv. Manter em 3.1.x respeita o
+  # range declarado e ainda assim sai da faixa vulneravel.
+  fast-uri@<3.1.6: '~3.1.6'
 
 # Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
 # apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro

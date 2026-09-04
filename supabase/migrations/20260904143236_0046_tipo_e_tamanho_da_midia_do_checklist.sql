@@ -1,0 +1,62 @@
+-- ============================================================================
+-- VeloxLab — Fecha tipo e tamanho aceitos no bucket `checklists`
+--
+-- Achado da revisao de seguranca de 2026-09-04.
+--
+-- O PROBLEMA: a 0042 criou o bucket declarando so tres colunas.
+--
+--     insert into storage.buckets (id, name, public)
+--     values ('checklists', 'checklists', false)
+--
+-- `file_size_limit` e `allowed_mime_types` ficaram NULL, que no Storage
+-- significa "qualquer tamanho, qualquer tipo". A 0042 raciocinou com cuidado
+-- sobre `public = false` (dado pessoal, LGPD) e sobre o recorte das policies,
+-- mas o que o bucket ACEITA nunca foi dito -- ficou implicito no cliente.
+--
+-- O que o app de fato envia esta em `envio-de-checklist.ts`: `image/png` para
+-- a assinatura e `image/jpeg` para as fotos, no maximo `MAXIMO_DE_FOTOS` (10,
+-- em `packages/shared/src/campo/regras.ts`), com `quality: 0.6` na camera.
+-- Nenhum outro tipo, nenhum outro tamanho. So que `contentType` viaja como
+-- argumento do cliente (`.upload(caminho, conteudo, { contentType })`): quem
+-- tem o token de um inspetor e monta a chamada por fora do app escolhe o que
+-- quiser.
+--
+-- POR QUE IMPORTA, sendo o bucket privado e a escrita ja recortada: as
+-- policies da 0042/0045 respondem "QUEM pode gravar ONDE" e respondem bem --
+-- so INSPETOR, so na pasta da propria visita, sem UPDATE nem DELETE. Elas nao
+-- respondem "O QUE". Um arquivo `text/html` gravado na pasta da propria visita
+-- passa por todas elas, e o Storage o devolve com o content-type declarado:
+-- quando o GESTOR abre a midia daquela visita pela URL assinada, o conteudo
+-- roda no origin do proprio Supabase, nao no do painel.
+--
+-- Nao e o buraco mais largo do sistema -- exige conta de inspetor valida e
+-- alcanca so quem abrir aquela visita --, mas e a mesma distincao que este
+-- repositorio ja faz em outros lugares entre "consulta" e "portao" (ver o
+-- cabecalho de `api/senha/verificar-vazamento/route.ts`). O tipo do arquivo
+-- estava so na consulta.
+--
+-- O RECORTE ESCOLHIDO:
+--
+-- `allowed_mime_types` com exatamente os dois tipos que o app produz. O
+-- Storage compara com o content-type DECLARADO e recusa o resto -- ou seja,
+-- mesmo que alguem envie bytes de HTML, o arquivo so entra declarado como
+-- imagem e so volta servido como imagem, que o navegador nao executa
+-- (o Storage responde com `X-Content-Type-Options: nosniff`).
+--
+-- `image/svg+xml` fica DE FORA de proposito, e nao por esquecimento: SVG e XML
+-- e carrega `<script>`. Incluir "so mais um formato de imagem" reabriria
+-- exatamente o caminho que esta migration fecha.
+--
+-- 10 MiB por arquivo: uma foto de camera a `quality: 0.6` fica na casa de 1 a
+-- 3 MB nos aparelhos de hoje; 10 deixa folga para sensor grande sem deixar o
+-- teto em aberto. E limite por OBJETO, entao o checklist inteiro (assinatura +
+-- 10 fotos) segue cabendo.
+--
+-- Idempotente: `update` sobre a linha que a 0042 ja garante existir.
+-- ============================================================================
+
+update storage.buckets
+set
+  file_size_limit = 10485760, -- 10 MiB
+  allowed_mime_types = array['image/png', 'image/jpeg']
+where id = 'checklists';
