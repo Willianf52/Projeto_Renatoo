@@ -209,3 +209,119 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # Aplica em producao as migrations que ainda nao foram aplicadas.
+  #
+  # POR QUE ESTE JOB EXISTE: a protecao de `main` (checks obrigatorios,
+  # `enforce_admins`, sem force push) cobre CODIGO. Ela nao cobre SCHEMA.
+  # Migration chegava em producao por `apply_migration`/painel do Supabase --
+  # um caminho paralelo, sem PR, sem CI e sem revisao. O historico do projeto
+  # tem tres marcas disso, todas encontradas depois e corrigidas na mao: a 0027
+  # ficou aplicada com o arquivo nao commitado, a 0037 entrou com timestamp
+  # diferente do arquivo local, e a 0046 (04/09) foi aplicada com o PR ainda
+  # aberto. Com este job, schema segue o mesmo caminho do codigo, e aplicar por
+  # fora vira excecao visivel em vez de rotina.
+  #
+  # `needs` e o portao, e e por isso que este job mora aqui dentro em vez de num
+  # workflow proprio: um workflow separado com gatilho `push` correria EM
+  # PARALELO com os testes, e uma migration quebrada entraria em producao junto
+  # com o run que a reprovaria. Com `needs`, ela so e aplicada depois de
+  # `banco` (que roda o pgTAP contra as migrations) passar.
+  #
+  # `if` limita a merge em `main`: em PR os tres jobs acima rodam e este e
+  # pulado, entao ele nunca aparece como check pendente no gate.
+  #
+  # `supabase db push` aplica so o que falta, em ordem, e nao repete o que ja
+  # esta registrado -- rodar de novo num merge que nao traz migration nova e
+  # no-op.
+  migracoes:
+    runs-on: ubuntu-latest
+    needs: [build, banco, e2e]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    # Dois merges seguidos nao podem aplicar migration ao mesmo tempo: a ordem
+    # entre elas importa, e o segundo run esperaria o primeiro terminar.
+    # `cancel-in-progress: false` de proposito -- cancelar no meio de um push
+    # deixaria o banco com parte das migrations aplicadas.
+    concurrency:
+      group: migracoes-producao
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Mesma CLI do lockfile que o job `banco` usa, pelo mesmo motivo: a versao
+      # que gerou e testou as migrations e a que as aplica.
+      - run: pnpm install --frozen-lockfile
+
+      # Falha cedo e com nome, em vez de deixar a CLI errar por credencial
+      # vazia. Sem isto, secret faltando vira erro de conexao generico num job
+      # que so roda depois de 3 outros -- caro de diagnosticar.
+      - name: Os segredos de producao estao configurados?
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          faltando=""
+          [ -z "$SUPABASE_ACCESS_TOKEN" ] && faltando="$faltando SUPABASE_ACCESS_TOKEN"
+          [ -z "$SUPABASE_PROJECT_ID" ]   && faltando="$faltando SUPABASE_PROJECT_ID"
+          [ -z "$SUPABASE_DB_PASSWORD" ]  && faltando="$faltando SUPABASE_DB_PASSWORD"
+          if [ -n "$faltando" ]; then
+            echo "::error::Secret(s) ausente(s):$faltando. Configure em Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "Segredos presentes."
+
+      - name: Conecta ao projeto de producao
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm exec supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_ID }}"
+
+      # Antes de aplicar, deixa no log o que local e remoto tem. Quando algo der
+      # errado, esta e a foto do estado anterior -- sem ela, o diagnostico
+      # comeca sem saber o que havia no banco.
+      - name: O que esta pendente?
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm exec supabase migration list --linked
+
+      - name: Aplica as migrations pendentes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm exec supabase db push
+
+      # O mesmo `migration list` de novo, agora como comprovacao: toda linha
+      # deve mostrar `local` e `remote` preenchidos. Uma migration que ficou
+      # so no local aparece aqui, e o job termina vermelho em vez de verde com
+      # o banco atrasado.
+      - name: Local e remoto batem?
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          saida=$(pnpm exec supabase migration list --linked)
+          echo "$saida"
+
+          # O formato e conferido ANTES de procurar a pendencia, e nao depois.
+          # O padrao abaixo casa com a saida JSON da CLI de hoje; se uma versao
+          # futura passar a imprimir tabela, ele deixaria de casar e este passo
+          # aprovaria qualquer coisa em silencio -- exatamente o tipo de check
+          # que parece verde por nao estar mais olhando. Sem a ancora
+          # `"migrations"`, o job falharia aberto.
+          if ! echo "$saida" | grep -q '"migrations"'; then
+            echo "::error::Saida de 'supabase migration list' fora do formato esperado (sem a chave \"migrations\"). O check abaixo nao vale nesta versao da CLI -- ajuste o padrao antes de confiar neste job."
+            exit 1
+          fi
+
+          if echo "$saida" | grep -qE '"local":"[0-9]+","remote":""'; then
+            echo "::error::Ha migration local sem par no remoto depois do push. O banco ficou atras do repositorio."
+            exit 1
+          fi
+          echo "Historico local e remoto batem."
