@@ -165,7 +165,7 @@ export function TelaDeInspecoes() {
                   larguraTotal
                   estilo={estilos.finalizar}
                   aoPressionar={() =>
-                    navegacao.navigate("Checklist", {
+                    navegacao.navigate("TipoDeVisita", {
                       visitaId: item.id,
                       numeroColeta: item.numero_coleta,
                     })

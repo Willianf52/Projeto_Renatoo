@@ -16,7 +16,6 @@ import {
   RESPOSTAS_DO_CHECKLIST,
   ROTULO_DA_RESPOSTA,
   ROTULO_DO_TIPO,
-  TIPOS_DE_VISITA,
   type RespostaDoChecklist,
   type Tables,
   type TipoDeVisita,
@@ -49,13 +48,21 @@ type Pergunta = Pick<Tables<"perguntas_checklist">, "id" | "ordem" | "texto">;
 export function TelaDeChecklist({
   visitaId,
   numeroColeta,
+  tipo,
   aoConcluir,
 }: {
   visitaId: number;
   numeroColeta: string;
+  /**
+   * Escolhido na tela anterior (`TelaDeTipoDeVisita`), e nao aqui: e o fluxo
+   * do material que a supervisao distribuiu. Chega como prop, e nao como
+   * estado, porque trocar de tipo no meio do preenchimento nao e "mudar um
+   * campo" -- e comecar outro formulario. Voltar e escolher de novo deixa isso
+   * explicito, em vez de esvaziar respostas por baixo do dedo.
+   */
+  tipo: TipoDeVisita;
   aoConcluir: () => void;
 }) {
-  const [tipo, setTipo] = useState<TipoDeVisita | null>(null);
   const [motivo, setMotivo] = useState("");
   // `null` e "ainda nao buscadas", `[]` e "buscadas e nao ha nenhuma". Os dois
   // estados sao diferentes na tela -- um mostra esqueleto, o outro diz que o
@@ -160,7 +167,7 @@ export function TelaDeChecklist({
   }, []);
 
   const enviar = useCallback(async () => {
-    if (!tipo || envioEmVoo.current) return;
+    if (envioEmVoo.current) return;
 
     envioEmVoo.current = true;
 
@@ -250,38 +257,7 @@ export function TelaDeChecklist({
         keyboardDismissMode="on-drag"
       >
         <Text style={estilos.titulo}>Coleta {numeroColeta}</Text>
-        <Text style={estilos.subtitulo}>Selecione o tipo de visita para continuar.</Text>
-
-        {/* As duas opcoes da tela. Cartao inteiro e o alvo de toque, e nao um
-            radio de 20 pontos ao lado do texto: o aparelho e usado em pe, as
-            vezes com luva. */}
-        <View style={estilos.opcoes}>
-          {TIPOS_DE_VISITA.map((opcao) => (
-            <Pressable
-              key={opcao}
-              onPress={() => {
-                setTipo(opcao);
-                setErro(null);
-              }}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: tipo === opcao }}
-              style={({ pressed }) => [
-                estilos.opcao,
-                tipo === opcao && estilos.opcaoEscolhida,
-                pressed && estilos.opcaoPressionada,
-              ]}
-            >
-              <Text style={[estilos.opcaoTexto, tipo === opcao && estilos.opcaoTextoEscolhido]}>
-                {ROTULO_DO_TIPO[opcao]}
-              </Text>
-              <Text style={estilos.opcaoApoio}>
-                {opcao === "CORRETIVA"
-                  ? "Motivo da visita, foto e assinatura"
-                  : "Checklist completo, foto e assinatura"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={estilos.subtitulo}>{ROTULO_DO_TIPO[tipo]}</Text>
 
         {erro ? <Aviso mensagem={erro} estilo={estilos.aviso} /> : null}
 
@@ -451,7 +427,6 @@ const estilos = StyleSheet.create({
     marginTop: espaco.rotulo,
     marginBottom: espaco.confortavel,
   },
-  opcoes: { gap: espaco.entreItens },
   opcao: {
     backgroundColor: cores.superficie,
     borderWidth: 1,
@@ -461,11 +436,7 @@ const estilos = StyleSheet.create({
   },
   // A escolha e marcada pela borda verde, nao por preenchimento: preencher o
   // cartao de verde deixaria o texto branco em 1.5:1 em cima dele.
-  opcaoEscolhida: { borderColor: cores.primaria },
   opcaoPressionada: { opacity: 0.7 },
-  opcaoTexto: texto(tipografia.destaque, { cor: cores.texto }),
-  opcaoTextoEscolhido: { color: cores.primaria },
-  opcaoApoio: { ...texto(tipografia.nota, { cor: cores.textoFraco }), marginTop: 2 },
 
   aviso: { marginTop: espaco.entreItens },
   secao: { marginTop: espaco.entreCampos, gap: espaco.entreItens },

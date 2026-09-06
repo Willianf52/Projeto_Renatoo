@@ -1,6 +1,8 @@
 import { DarkTheme, NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { ROTULO_DO_TIPO, type TipoDeVisita } from "@projeto-renatoo/shared";
+
 import { useSessao } from "../auth/SessaoProvider";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
 import { TelaDeAgendados } from "../telas/TelaDeAgendados";
@@ -8,6 +10,7 @@ import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
 import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
+import { TelaDeTipoDeVisita } from "../telas/TelaDeTipoDeVisita";
 import { TelaInicial } from "../telas/TelaInicial";
 import { cores } from "../tema";
 
@@ -24,7 +27,8 @@ export type RotasDoApp = {
   Inicio: undefined;
   Inspecoes: undefined;
   Agendados: undefined;
-  Checklist: { visitaId: number; numeroColeta: string };
+  TipoDeVisita: { visitaId: number; numeroColeta: string };
+  Checklist: { visitaId: number; numeroColeta: string; tipo: TipoDeVisita };
 };
 
 const Pilha = createNativeStackNavigator<RotasDoApp>();
@@ -125,19 +129,41 @@ export function Navegacao() {
           options={{ title: "Agendados" }}
         />
 
+        {/* A escolha do tipo e tela propria, e nao um seletor no topo do
+            formulario: e a forma do material que a supervisao distribuiu para
+            os inspetores. O `push` para `Checklist` leva o tipo como
+            parametro. */}
+        <Pilha.Screen name="TipoDeVisita" options={{ title: "Checklist de visitas" }}>
+          {({ route, navigation }) => (
+            <TelaDeTipoDeVisita
+              numeroColeta={route.params.numeroColeta}
+              aoEscolher={(tipo) =>
+                navigation.navigate("Checklist", { ...route.params, tipo })
+              }
+            />
+          )}
+        </Pilha.Screen>
+
         {/* Com header, ao contrario da raiz: o inspetor precisa do botao de
             voltar para desistir do checklist sem sair do app -- e e o header
             que reserva o espaco da barra de status, que a raiz resolve na mao
             com `useSafeAreaInsets`. */}
-        <Pilha.Screen name="Checklist" options={{ title: "Finalizar visita" }}>
+        <Pilha.Screen
+          name="Checklist"
+          options={({ route }) => ({ title: ROTULO_DO_TIPO[route.params.tipo] })}
+        >
           {({ route, navigation }) => (
             <TelaDeChecklist
               visitaId={route.params.visitaId}
               numeroColeta={route.params.numeroColeta}
-              // `goBack` e nao `navigate("Inspecoes")`: a lista continua
-              // montada embaixo, e voltar para ela preserva a rolagem de onde
-              // o inspetor saiu.
-              aoConcluir={() => navigation.goBack()}
+              tipo={route.params.tipo}
+              // `pop(2)` e nao `goBack`: agora ha duas telas entre a lista e
+              // aqui (a escolha do tipo entrou no meio), e um voltar simples
+              // devolveria o inspetor a pergunta "que tipo de visita?" logo
+              // depois de ele ter terminado uma. Desempilhar as duas mantem o
+              // que o `goBack` dava -- a lista continua montada embaixo, com a
+              // rolagem de onde ele saiu.
+              aoConcluir={() => navigation.pop(2)}
             />
           )}
         </Pilha.Screen>
