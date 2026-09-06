@@ -51,7 +51,7 @@ export function TelaDeChecklist({
   aoConcluir,
 }: {
   visitaId: number;
-  numeroColeta: number;
+  numeroColeta: string;
   aoConcluir: () => void;
 }) {
   const [tipo, setTipo] = useState<TipoDeVisita | null>(null);

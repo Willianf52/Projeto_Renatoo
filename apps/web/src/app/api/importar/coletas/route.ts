@@ -201,7 +201,13 @@ async function carregarReferencias(supabase: Cliente): Promise<Referencias> {
 }
 
 type LinhaResolvida = {
-  visita: { numero_coleta: number; site_id: number };
+  // `numero_coleta` e texto desde a 0047 -- a coluna passou a hospedar duas
+  // origens (o inteiro deste lote e o UUID do app de campo). O corpo da
+  // requisicao continua sendo validado como inteiro positivo em
+  // `importar-coletas.ts`: e o formato que o sistema de origem manda, e
+  // afrouxar isso aqui aceitaria como chave qualquer texto que ele errasse.
+  // A conversao acontece na fronteira, uma vez, ao montar a linha.
+  visita: { numero_coleta: string; site_id: number };
   visitaExtra: {
     funcionario_id: string | null;
     motivo_visita_id: number | null;
@@ -264,7 +270,7 @@ function resolverLinha(
   return {
     ok: true,
     linha: {
-      visita: { numero_coleta: coleta.numeroColeta, site_id: site.id as number },
+      visita: { numero_coleta: String(coleta.numeroColeta), site_id: site.id as number },
       visitaExtra: {
         funcionario_id: funcionarioId,
         motivo_visita_id: motivo.id,

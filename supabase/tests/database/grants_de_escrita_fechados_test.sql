@@ -41,6 +41,11 @@
 -- transacao antes dos asserts -- branch de desenvolvimento nao esta disponivel
 -- no plano atual. 21/21 asserts passaram; nada persistiu. `pnpm test:db`
 -- continua sendo o caminho de verdade quando houver Docker.
+--
+-- Em 2026-09-06 a migration 0047 trocou `numero_coleta` para text e a chave
+-- do assert de `visitas` virou literal de texto ('999001'). SO ESSE assert foi
+-- reexecutado, isolado, com a fixture minima dele: passou. O resto do arquivo
+-- nao foi tocado nem reexecutado nessa data.
 -- ============================================================================
 
 begin;
@@ -238,7 +243,7 @@ set local "request.jwt.claims" to '{"sub": "d0000000-0000-0000-0000-000000000003
 -- nao esta gravando visita propria. Com o grant presente, quem recusa e a
 -- policy -- e a mensagem esperada abaixo e o que prova isso.
 select throws_ok(
-  $$ insert into public.visitas (numero_coleta, site_id) values (999001, 1) $$,
+  $$ insert into public.visitas (numero_coleta, site_id) values ('999001', 1) $$,
   '42501',
   'new row violates row-level security policy for table "visitas"',
   'OPERADOR ativo nao forja visita -- barrado pela policy de INSPETOR, com o grant da 0036 presente'

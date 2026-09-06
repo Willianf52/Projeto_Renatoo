@@ -19,8 +19,10 @@ import { cores } from "../tema";
  * trip para redesenhar o que a lista de onde se veio ja tinha na mao.
  */
 export type RotasDoApp = {
+  Inicio: undefined;
   Inspecoes: undefined;
-  Checklist: { visitaId: number; numeroColeta: number };
+  Agendados: undefined;
+  Checklist: { visitaId: number; numeroColeta: string };
 };
 
 const Pilha = createNativeStackNavigator<RotasDoApp>();

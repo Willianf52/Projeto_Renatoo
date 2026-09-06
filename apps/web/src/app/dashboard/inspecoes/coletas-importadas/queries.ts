@@ -85,7 +85,7 @@ export type ColetaRow = {
   qualificadores: { nome: string } | null;
   qr_codes: { codigo: string } | null;
   visitas: {
-    numero_coleta: number;
+    numero_coleta: string;
     profiles: { nome_completo: string } | null;
     coletores_dados: { nome: string } | null;
     sites: { nome: string } | null;
@@ -401,7 +401,7 @@ export { formatarDataHora };
  */
 export function toTableRow(leitura: ColetaRow): string[] {
   return [
-    leitura.visitas ? String(leitura.visitas.numero_coleta) : "",
+    leitura.visitas?.numero_coleta ?? "",
     formatarDataHora(leitura.data_hora),
     leitura.visitas?.coletores_dados?.nome ?? "",
     leitura.visitas?.profiles?.nome_completo ?? "",

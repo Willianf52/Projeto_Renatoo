@@ -62,9 +62,15 @@ describe("temCoordenada", () => {
 
 describe("chaveDaVisita", () => {
   it("combina numero da coleta e site", () => {
-    // A migration 0004 declara `unique (numero_coleta, site_id)`: o numero
-    // vem do dispositivo e so e unico dentro de um site.
-    expect(chaveDaVisita(12, 3)).toBe("12::3");
-    expect(chaveDaVisita(12, 3)).not.toBe(chaveDaVisita(12, 4));
+    // A migration 0004 declara `unique (numero_coleta, site_id)`: a chave
+    // so e unica dentro de um site.
+    expect(chaveDaVisita("12", 3)).toBe("12::3");
+    expect(chaveDaVisita("12", 3)).not.toBe(chaveDaVisita("12", 4));
+
+    // Desde a 0047 a chave tambem pode ser o UUID que o app cunha offline --
+    // a funcao nao precisa saber de qual das duas origens ela veio.
+    expect(chaveDaVisita("c9d1f2a4-1111-4222-8333-444455556666", 3)).toBe(
+      "c9d1f2a4-1111-4222-8333-444455556666::3",
+    );
   });
 });

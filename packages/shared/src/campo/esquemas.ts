@@ -100,7 +100,19 @@ export const esquemaDeLeituraDeCampo = z
   }));
 
 export const esquemaDeVisitaDeCampo = z.object({
-  numeroColeta: referencia("O número da coleta"),
+  /**
+   * Chave de idempotencia da visita, cunhada pelo proprio aparelho no momento
+   * da primeira leitura -- ver a migration 0047.
+   *
+   * UUID e nao inteiro porque em campo nao ha contador para consultar: o
+   * aparelho esta offline por premissa, e dois inspetores no mesmo site
+   * chegariam ao mesmo numero. Exigido como UUID aqui, ainda que a coluna
+   * aceite texto qualquer: a largura da coluna existe para o lote importado,
+   * que continua gravando o inteiro do sistema externo. O que o *app* produz
+   * e mais estreito que o que a coluna aceita, e este esquema e o contrato do
+   * app.
+   */
+  numeroColeta: z.uuid("A chave da coleta deve ser um UUID gerado pelo aparelho."),
   siteId: referencia("O site"),
   funcionarioId: z
     .uuid("O funcionário informado é inválido.")
