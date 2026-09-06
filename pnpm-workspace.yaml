@@ -35,6 +35,28 @@ overrides:
   # pacote do lock usa uuid.
   uuid@<11.1.1: '>=11.1.1'
 
+  # GHSA-jqff-g426-hqxp e mais tres (todos high): `fast-uri` < 3.1.6 confunde
+  # host em URL com esquema percent-encoded e com IDN pulado -- o suficiente
+  # para uma checagem de destino aceitar um endereco e a requisicao sair para
+  # outro. Entra so por apps/web > @sentry/nextjs > @sentry/webpack-plugin >
+  # webpack > schema-utils > ajv.
+  #
+  # Nao e um override que force incompatibilidade: o `ajv` declara
+  # `fast-uri: ^3.0.1`, entao a versao corrigida ja cabia -- o lockfile e que
+  # estava parado na 3.1.5. `pnpm update -r fast-uri` nao a alcanca por ser
+  # transitiva, dai o piso explicito aqui.
+  #
+  # COM TETO, e nao `>=3.1.6`: sem ele a resolucao pula para a 4.x -- um major
+  # acima do que o `ajv` declara, trocando quatro advisories por um risco de
+  # incompatibilidade em tempo de build. Mesma licao do `uuid` acima.
+  #
+  # O alcance real e o bundler do Sentry em tempo de build; nenhuma URL de
+  # terceiro passa por esse parser em producao. Ainda assim se corrige em vez
+  # de ignorar por id, porque aqui existe versao corrigida e ela entra sem
+  # quebrar nada -- diferente do `image-size` e do `decode-uri-component`
+  # abaixo, onde a correcao nao e aplicavel.
+  'fast-uri@<3.1.6': '^3.1.6'
+
 # Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
 # apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro
 # 0.84.4 declara `image-size@^1.0.2` e consome o *default export*

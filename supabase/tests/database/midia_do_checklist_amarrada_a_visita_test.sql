@@ -14,6 +14,9 @@
 -- legitimo pendurando, na visita A, o caminho da visita B. A policy antiga
 -- aceitava, porque so conferia de quem era o checklist; a nova compara o
 -- prefixo do caminho com o `visita_id` daquele checklist.
+--
+-- Reexecutado (2026-09-06) apos a migration 0047, com as chaves da fixture
+-- como literal de texto. 4/4 passaram; nada persistiu.
 -- ============================================================================
 
 begin;
@@ -36,16 +39,16 @@ insert into public.sites (grupo_site_id, nome)
   select id, 'Site Midia' from public.grupos_sites where nome = 'Grupo Midia';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9301, s.id, 'a1000000-0000-0000-0000-000000000001'
+  select '9301', s.id, 'a1000000-0000-0000-0000-000000000001'
   from public.sites s where s.nome = 'Site Midia';
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9302, s.id, 'a1000000-0000-0000-0000-000000000001'
+  select '9302', s.id, 'a1000000-0000-0000-0000-000000000001'
   from public.sites s where s.nome = 'Site Midia';
 
 insert into ids_midia (chave, valor)
-  select 'visita_1', id from public.visitas where numero_coleta = 9301;
+  select 'visita_1', id from public.visitas where numero_coleta = '9301';
 insert into ids_midia (chave, valor)
-  select 'visita_2', id from public.visitas where numero_coleta = 9302;
+  select 'visita_2', id from public.visitas where numero_coleta = '9302';
 
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "a1000000-0000-0000-0000-000000000001", "role": "authenticated"}';
@@ -84,7 +87,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 insert into public.checklists_visita (visita_id, tipo, assinatura_path)
   select v.id, 'CONSULTORIA', v.id || '/assinatura.png'
-  from public.visitas v where v.numero_coleta = 9301;
+  from public.visitas v where v.numero_coleta = '9301';
 
 select isnt_empty(
   format(

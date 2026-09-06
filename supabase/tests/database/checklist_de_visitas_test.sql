@@ -37,6 +37,12 @@
 -- precisa ser um statement próprio. Chamá-la dentro do `where` de um `select`
 -- que conta as linhas inseridas devolve 0 -- o snapshot do `select` é anterior
 -- ao insert que a função faz. Custou um "not ok" na primeira tentativa.
+--
+-- Reexecutado (2026-09-06) apos a migration 0047. Alem das chaves virarem
+-- literal de texto, a fixture de `perguntas_checklist` saiu de `ordem = 1`
+-- para 9901: a ordem 1 ja esta ocupada em producao e o arquivo colidia em
+-- `perguntas_checklist_ordem_unica` antes de chegar ao primeiro assert -- ou
+-- seja, ele ja estava quebrado por conta propria. 12/12 passaram.
 -- ============================================================================
 
 begin;
@@ -74,7 +80,12 @@ insert into public.grupos_sites_clientes (grupo_site_id, profile_id)
 insert into public.grupos_sites_clientes (grupo_site_id, profile_id)
   select id, 'f0000000-0000-0000-0000-000000000015' from public.grupos_sites where nome = 'Grupo Checklist Fora';
 
-insert into public.perguntas_checklist (ordem, texto) values (1, 'Pergunta de teste 1');
+-- `ordem` alta de proposito: `perguntas_checklist_ordem_unica` e global, e o
+-- cadastro real de producao ja ocupa as ordens baixas. Com `ordem = 1` a
+-- fixture colidia com a pergunta que ja existe la (achado ao reexecutar este
+-- arquivo em 2026-09-06) -- e a colisao nao tem nada a ver com o que o teste
+-- cobre.
+insert into public.perguntas_checklist (ordem, texto) values (9901, 'Pergunta de teste 1');
 
 insert into ids_teste (chave, valor)
   select 'site', id from public.sites where nome = 'Site Checklist';
@@ -88,42 +99,42 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011", "role": "authenticated"}';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9101, s.id, 'f0000000-0000-0000-0000-000000000011'
+  select '9101', s.id, 'f0000000-0000-0000-0000-000000000011'
   from public.sites s where s.nome = 'Site Checklist';
 
 insert into public.checklists_visita (visita_id, tipo, assinatura_path)
   select v.id, 'CONSULTORIA', v.id || '/assinatura.png'
-  from public.visitas v where v.numero_coleta = 9101;
+  from public.visitas v where v.numero_coleta = '9101';
 
 insert into public.checklist_respostas (checklist_id, pergunta_id, resposta)
   select c.id, p.id, 'SIM'
   from public.checklists_visita c
   join public.visitas v on v.id = c.visita_id
   cross join public.perguntas_checklist p
-  where v.numero_coleta = 9101 and p.ordem = 1;
+  where v.numero_coleta = '9101' and p.ordem = 9901;
 
 insert into public.checklist_fotos (checklist_id, storage_path)
   select c.id, c.visita_id || '/foto-1.jpg'
   from public.checklists_visita c
   join public.visitas v on v.id = c.visita_id
-  where v.numero_coleta = 9101;
+  where v.numero_coleta = '9101';
 
 select is(
   (select count(*)::int
      from public.checklist_respostas r
      join public.checklists_visita c on c.id = r.checklist_id
      join public.visitas v on v.id = c.visita_id
-    where v.numero_coleta = 9101),
+    where v.numero_coleta = '9101'),
   1,
   'INSPETOR grava checklist, resposta e foto da propria visita'
 );
 
 reset role;
 
-insert into ids_teste (chave, valor) select 'visita_a', id from public.visitas where numero_coleta = 9101;
+insert into ids_teste (chave, valor) select 'visita_a', id from public.visitas where numero_coleta = '9101';
 insert into ids_teste (chave, valor)
   select 'checklist_a', c.id from public.checklists_visita c
-  join public.visitas v on v.id = c.visita_id where v.numero_coleta = 9101;
+  join public.visitas v on v.id = c.visita_id where v.numero_coleta = '9101';
 
 -- ---------------------------------------------------------------------------
 -- 2) INSPETOR B não grava checklist na visita do INSPETOR A.
@@ -155,13 +166,13 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000012", "role": "authenticated"}';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9102, s.id, 'f0000000-0000-0000-0000-000000000012'
+  select '9102', s.id, 'f0000000-0000-0000-0000-000000000012'
   from public.sites s where s.id = (select valor from ids_teste where chave = 'site');
 
 select throws_ok(
   $$ insert into public.checklists_visita (visita_id, tipo, motivo, assinatura_path)
      select v.id, 'CORRETIVA', null, v.id || '/a.png'
-     from public.visitas v where v.numero_coleta = 9102 $$,
+     from public.visitas v where v.numero_coleta = '9102' $$,
   '23514',
   null,
   'CORRETIVA sem motivo e recusada pelo check do banco'
@@ -173,7 +184,7 @@ select throws_ok(
 select throws_ok(
   $$ insert into public.checklists_visita (visita_id, tipo, motivo, assinatura_path)
      select v.id, 'CONSULTORIA', 'nao deveria caber', v.id || '/a.png'
-     from public.visitas v where v.numero_coleta = 9102 $$,
+     from public.visitas v where v.numero_coleta = '9102' $$,
   '23514',
   null,
   'CONSULTORIA com motivo e recusada pelo check do banco'
@@ -227,8 +238,8 @@ reset role;
 -- também não conseguiria criá-la, e o que está sob teste aqui é a policy do
 -- checklist, não a da visita.
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  values (9103, (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000013');
-insert into ids_teste (chave, valor) select 'visita_inativo', id from public.visitas where numero_coleta = 9103;
+  values ('9103', (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000013');
+insert into ids_teste (chave, valor) select 'visita_inativo', id from public.visitas where numero_coleta = '9103';
 
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000013", "role": "authenticated"}';
@@ -317,14 +328,14 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011", "role": "authenticated"}';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  values (9104, (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000011');
+  values ('9104', (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000011');
 
 -- `visita_rpc` guarda o id de verdade (identity), não o numero_coleta 9104
 -- usado acima -- os dois divergem, e desde a 0045 o caminho da mídia precisa
 -- do id real: é o que o check `checklists_visita_assinatura_na_pasta_da_visita`
 -- e a policy de `checklist_fotos` conferem.
 insert into ids_teste (chave, valor)
-  select 'visita_rpc', id from public.visitas where numero_coleta = 9104;
+  select 'visita_rpc', id from public.visitas where numero_coleta = '9104';
 
 insert into ids_teste (chave, valor)
 select 'checklist_rpc', public.registrar_checklist(

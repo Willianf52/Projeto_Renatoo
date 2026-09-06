@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
@@ -18,12 +18,28 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
  */
 
 export type ControleDaAssinatura = {
-  /** PNG em base64, ou `null` se ninguem assinou ainda. */
+  /**
+   * PNG em base64, ou `null` se ninguem assinou ainda -- e tambem se a
+   * rasterizacao nao respondeu a tempo (ver `ESPERA_MAXIMA_DA_CAPTURA`). Quem
+   * chama distingue os dois pelo proprio estado: a tela sabe se ha traco.
+   */
   capturar: () => Promise<string | null>;
   limpar: () => void;
 };
 
 const ALTURA = 180;
+
+/**
+ * Teto para o `toDataURL` responder.
+ *
+ * Ele e chamada nativa com callback, e nao promessa: se o lado nativo falhar,
+ * o callback nunca chega e a promessa fica pendurada para sempre. Quem espera
+ * por ela e o `enviar` da `TelaDeChecklist`, que segura a guarda de envio
+ * unico -- pendurar aqui deixaria o botao Finalizar morto pelo resto da
+ * visita, que e pior que a falha original. Dez segundos e folga larga para
+ * rasterizar um SVG de 180 pontos, mesmo em aparelho fraco.
+ */
+const ESPERA_MAXIMA_DA_CAPTURA = 10_000;
 
 export const AreaDeAssinatura = forwardRef<
   ControleDaAssinatura,
@@ -40,6 +56,20 @@ export const AreaDeAssinatura = forwardRef<
   // `useRef` e nao estado: o `PanResponder` e criado uma vez (memo abaixo) e
   // fecharia sobre o valor da primeira renderizacao se lesse do estado.
   const atual = useRef<string>("");
+
+  /**
+   * Um so `limpar`, usado pelo botao da tela e pelo `ref`.
+   *
+   * Estavam duplicados, corpo a corpo -- e duas copias de "apague tudo" e o
+   * tipo de coisa que desencontra na primeira vez que uma delas ganha um
+   * passo a mais (zerar um traco em curso, avisar o pai) e a outra nao.
+   */
+  const limpar = useCallback(() => {
+    setTracos([]);
+    setEmCurso("");
+    atual.current = "";
+    aoMudar?.(false);
+  }, [aoMudar]);
 
   const respondedor = useMemo(
     () =>
@@ -71,11 +101,15 @@ export const AreaDeAssinatura = forwardRef<
           // assim faria o campo contar como assinado.
           if (!terminado.includes("L")) return;
 
-          setTracos((anteriores) => {
-            const proximos = [...anteriores, terminado];
-            aoMudar?.(true);
-            return proximos;
-          });
+          // `aoMudar` FORA do updater de `setTracos`.
+          //
+          // Updater tem que ser puro: `aoMudar` e o `setTemAssinatura` da
+          // `TelaDeChecklist`, e chama-lo la dentro atualizava o pai durante a
+          // fase de render deste componente. Alem disso o React 19 invoca o
+          // updater duas vezes sob StrictMode -- era idempotente por sorte,
+          // nao por desenho.
+          setTracos((anteriores) => [...anteriores, terminado]);
+          aoMudar?.(true);
         },
       }),
     [aoMudar],
@@ -91,19 +125,30 @@ export const AreaDeAssinatura = forwardRef<
             return;
           }
 
+          // Uma resposta so, venha ela do callback nativo ou do prazo. `prazo`
+          // declarado antes de `encerrar` por causa do caso -- improvavel, mas
+          // barato de cobrir -- em que o `toDataURL` chama o callback de forma
+          // sincrona: sem isso, `encerrar` leria a variavel na zona morta.
+          let respondido = false;
+          let prazo: ReturnType<typeof setTimeout> | undefined;
+
+          const encerrar = (base64: string | null) => {
+            if (respondido) return;
+            respondido = true;
+            if (prazo !== undefined) clearTimeout(prazo);
+            resolver(base64);
+          };
+
+          prazo = setTimeout(() => encerrar(null), ESPERA_MAXIMA_DA_CAPTURA);
+
           // `toDataURL` do react-native-svg devolve base64 puro, sem o
           // prefixo `data:image/png;base64,` -- que e justamente o que o
           // Storage precisa receber.
-          svg.current.toDataURL((base64) => resolver(base64 ?? null));
+          svg.current.toDataURL((base64) => encerrar(base64 ?? null));
         }),
-      limpar: () => {
-        setTracos([]);
-        setEmCurso("");
-        atual.current = "";
-        aoMudar?.(false);
-      },
+      limpar,
     }),
-    [tracos, aoMudar],
+    [tracos, limpar],
   );
 
   const vazia = tracos.length === 0 && emCurso === "";
@@ -114,12 +159,7 @@ export const AreaDeAssinatura = forwardRef<
         <Text style={estilos.rotulo}>{rotulo}</Text>
         {!vazia ? (
           <Pressable
-            onPress={() => {
-              setTracos([]);
-              setEmCurso("");
-              atual.current = "";
-              aoMudar?.(false);
-            }}
+            onPress={limpar}
             accessibilityRole="button"
             accessibilityLabel="Limpar assinatura"
             hitSlop={12}

@@ -65,3 +65,44 @@ export function IconeDeLupa({ tamanho = 20, cor }: PropsDeIcone) {
     </Svg>
   );
 }
+
+/**
+ * Os tres desenhos da tela inicial. Nao vieram do painel -- ele nao tem um
+ * menu de acoes como este --, entao seguem a mesma gramatica dos de cima
+ * (traco 2, cantos redondos, grade de 24) para nao destoarem ao lado deles.
+ */
+
+/** Lista com marcas de conferido: o cartao "Inspecao". */
+export function IconeDeChecklist({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="m3 6 2 2 3-3" stroke={cor} {...COMUNS} />
+      <Path d="m3 14 2 2 3-3" stroke={cor} {...COMUNS} />
+      <Path d="M12 7h9" stroke={cor} {...COMUNS} />
+      <Path d="M12 15h9" stroke={cor} {...COMUNS} />
+      <Path d="M12 21h9" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Relogio: o cartao "Agendados". */
+export function IconeDeRelogio({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={cor} {...COMUNS} />
+      <Path d="M12 7v5l3 2" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Duas setas em ciclo: o cartao "Sincronizar". */
+export function IconeDeSincronizar({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 11a8 8 0 0 0-13.7-5.7L3 8.5" stroke={cor} {...COMUNS} />
+      <Path d="M3 4v4.5h4.5" stroke={cor} {...COMUNS} />
+      <Path d="M4 13a8 8 0 0 0 13.7 5.7L21 15.5" stroke={cor} {...COMUNS} />
+      <Path d="M21 20v-4.5h-4.5" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}

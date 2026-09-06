@@ -830,7 +830,7 @@ export type Database = {
           funcionario_id: string | null
           id: number
           motivo_visita_id: number | null
-          numero_coleta: number
+          numero_coleta: string
           site_id: number
         }
         Insert: {
@@ -840,7 +840,7 @@ export type Database = {
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null
-          numero_coleta: number
+          numero_coleta: string
           site_id: number
         }
         Update: {
@@ -850,7 +850,7 @@ export type Database = {
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null
-          numero_coleta?: number
+          numero_coleta?: string
           site_id?: number
         }
         Relationships: [

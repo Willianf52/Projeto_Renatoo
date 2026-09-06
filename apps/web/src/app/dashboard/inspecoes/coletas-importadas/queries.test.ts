@@ -308,7 +308,7 @@ describe("toTableRow", () => {
       qualificadores: null,
       qr_codes: null,
       visitas: {
-        numero_coleta: 42,
+        numero_coleta: "42",
         profiles: { nome_completo: "Ana" },
         coletores_dados: { nome: "Dispositivo Móvel" },
         sites: { nome: "Cooplivre" },

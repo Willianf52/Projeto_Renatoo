@@ -23,6 +23,10 @@
 -- Executado (2026-08-21) direto contra o projeto Supabase de producao, dentro
 -- de uma transacao com rollback -- branch de desenvolvimento nao esta
 -- disponivel no plano atual. 6/6 asserts passaram; nada persistiu.
+--
+-- Reexecutado (2026-09-06) apos a migration 0047, que trocou `numero_coleta`
+-- de bigint para text: as chaves da fixture viraram literal de texto. 6/6
+-- passaram; nada persistiu.
 -- ============================================================================
 
 begin;
@@ -62,22 +66,22 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000001", "role": "authenticated"}';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9001, s.id, 'f0000000-0000-0000-0000-000000000001'
+  select '9001', s.id, 'f0000000-0000-0000-0000-000000000001'
   from public.sites s where s.nome = 'Site Teste Inspetor';
 
 insert into public.leituras (visita_id, data_hora)
   select v.id, now()
-  from public.visitas v where v.numero_coleta = 9001;
+  from public.visitas v where v.numero_coleta = '9001';
 
 select is(
-  (select count(*)::int from public.leituras l join public.visitas v on v.id = l.visita_id where v.numero_coleta = 9001),
+  (select count(*)::int from public.leituras l join public.visitas v on v.id = l.visita_id where v.numero_coleta = '9001'),
   1,
   'INSPETOR grava a propria visita e a propria leitura'
 );
 
 reset role;
 
-insert into ids_teste (chave, valor) select 'visita_a', id from public.visitas where numero_coleta = 9001;
+insert into ids_teste (chave, valor) select 'visita_a', id from public.visitas where numero_coleta = '9001';
 
 -- ---------------------------------------------------------------------------
 -- 2) INSPETOR A nao grava visita em nome do INSPETOR B.
@@ -87,7 +91,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000001
 
 select throws_ok(
   $$ insert into public.visitas (numero_coleta, site_id, funcionario_id)
-     select 9002, s.id, 'f0000000-0000-0000-0000-000000000002'
+     select '9002', s.id, 'f0000000-0000-0000-0000-000000000002'
      from public.sites s where s.nome = 'Site Teste Inspetor' $$,
   '42501',
   null,
@@ -103,12 +107,12 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000002", "role": "authenticated"}';
 
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
-  select 9003, s.id, 'f0000000-0000-0000-0000-000000000002'
+  select '9003', s.id, 'f0000000-0000-0000-0000-000000000002'
   from public.sites s where s.nome = 'Site Teste Inspetor';
 
 reset role;
 
-insert into ids_teste (chave, valor) select 'visita_b', id from public.visitas where numero_coleta = 9003;
+insert into ids_teste (chave, valor) select 'visita_b', id from public.visitas where numero_coleta = '9003';
 
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000001", "role": "authenticated"}';
@@ -134,7 +138,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000003
 select throws_ok(
   format(
     $$ insert into public.visitas (numero_coleta, site_id, funcionario_id)
-       values (9004, %L, 'f0000000-0000-0000-0000-000000000003') $$,
+       values ('9004', %L, 'f0000000-0000-0000-0000-000000000003') $$,
     (select valor from ids_teste where chave = 'site')
   ),
   '42501',
@@ -154,7 +158,7 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000004
 select throws_ok(
   format(
     $$ insert into public.visitas (numero_coleta, site_id, funcionario_id)
-       values (9005, %L, 'f0000000-0000-0000-0000-000000000004') $$,
+       values ('9005', %L, 'f0000000-0000-0000-0000-000000000004') $$,
     (select valor from ids_teste where chave = 'site')
   ),
   '42501',
