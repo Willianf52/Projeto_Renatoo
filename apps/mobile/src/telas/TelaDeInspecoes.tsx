@@ -80,33 +80,30 @@ export function TelaDeInspecoes() {
 
     setAtualizando(true);
 
-    const resultado = await lerVisitas(idDoUsuario, soAsMinhas);
-    setVisitas(resultado.visitas);
-    setErro(resultado.erro);
-    setAtualizando(false);
+    try {
+      const resultado = await lerVisitas(idDoUsuario, soAsMinhas);
+      setVisitas(resultado.visitas);
+      setErro(resultado.erro);
+    } catch {
+      // A mesma defesa que o effect acima ja tinha, e que faltava aqui:
+      // `lerVisitas` traduz erro do PostgREST, nao rejeicao da camada de rede.
+      // Sem este ramo `atualizando` ficava preso em `true` e o disco de
+      // puxar-para-atualizar girava para sempre -- o spinner eterno de novo,
+      // so que pelo caminho do gesto em vez do da montagem.
+      setErro("Não foi possível carregar suas visitas.");
+    } finally {
+      // No `finally` e nao no fim do `try`: o disco tem que parar nos dois
+      // desfechos, senao o ramo de erro deixa o gesto pendurado.
+      setAtualizando(false);
+    }
   }, [idDoUsuario, soAsMinhas]);
-
-  const nome = perfil?.nome_completo?.trim() || perfil?.email || "Sem nome";
 
   return (
     <View style={estilos.raiz}>
-      <View style={[estilos.cabecalho, { paddingTop: bordas.top + espaco.entreItens }]}>
-        <View style={estilos.cabecalhoTexto}>
-          <Text style={estilos.saudacao} numberOfLines={1}>
-            {nome}
-          </Text>
-          <Text style={estilos.cargo}>{perfil?.cargo}</Text>
-        </View>
-        <Pressable
-          onPress={sair}
-          accessibilityRole="button"
-          hitSlop={8}
-          style={({ pressed }) => [estilos.sair, pressed && estilos.sairPressionado]}
-        >
-          <Text style={estilos.sairTexto}>Sair</Text>
-        </Pressable>
-      </View>
-
+      {/* Sem cabecalho proprio desde que a tela deixou de ser a raiz: quem
+          nomeia a tela e da o botao de voltar e o header do navegador, e o
+          nome/cargo do inspetor e o "Sair" passaram para a tela inicial. Ter
+          os dois deixava duas barras empilhadas dizendo coisas diferentes. */}
       {carregando ? (
         <EsqueletoDaLista />
       ) : (

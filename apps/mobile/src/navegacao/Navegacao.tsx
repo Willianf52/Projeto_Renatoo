@@ -3,10 +3,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useSessao } from "../auth/SessaoProvider";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
+import { TelaDeAgendados } from "../telas/TelaDeAgendados";
 import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
 import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
+import { TelaInicial } from "../telas/TelaInicial";
 import { cores } from "../tema";
 
 /**
@@ -99,10 +101,28 @@ export function Navegacao() {
           headerShadowVisible: false,
         }}
       >
+        {/* A raiz e o menu, e nao mais a lista de visitas: e a forma que os
+            inspetores ja conhecem do sistema antigo, com a pergunta em cima e
+            os tres cartoes embaixo. A lista virou um destino do menu. */}
+        <Pilha.Screen
+          name="Inicio"
+          component={TelaInicial}
+          options={{ title: "Inicio", headerShown: false }}
+        />
+
+        {/* Com header desde que deixou de ser a raiz: sem ele nao ha botao de
+            voltar, e o inspetor que entrasse na lista ficaria sem caminho de
+            volta ao menu a nao ser pelo gesto do sistema. */}
         <Pilha.Screen
           name="Inspecoes"
           component={TelaDeInspecoes}
-          options={{ title: "Minhas visitas", headerShown: false }}
+          options={{ title: "Minhas visitas" }}
+        />
+
+        <Pilha.Screen
+          name="Agendados"
+          component={TelaDeAgendados}
+          options={{ title: "Agendados" }}
         />
 
         {/* Com header, ao contrario da raiz: o inspetor precisa do botao de
