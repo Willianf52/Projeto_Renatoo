@@ -57,6 +57,32 @@ overrides:
   # abaixo, onde a correcao nao e aplicavel.
   'fast-uri@<3.1.6': '^3.1.6'
 
+  # GHSA-6gmq-8vp8-gcm6 (moderate): `@xmldom/xmldom` monta `EntityReference`
+  # com `nodeName` invalido e serializa sem recusar quando `requireWellFormed`
+  # esta ligado -- o resultado e um fragmento XML injetado no documento de
+  # saida. Entra em DUAS copias, as duas por tooling de plist do Expo:
+  # a 0.8.x por @expo/cli > @expo/plist, e a 0.9.x por @expo/config-plugins >
+  # xcode > simple-plist > plist.
+  #
+  # Mesmo caso do `fast-uri` acima, e nao o do `image-size`: os ranges
+  # declarados ja admitem a versao corrigida (`^0.8.8` aceita a 0.8.15,
+  # `^0.9.10` aceita a 0.9.12) -- o lockfile e que estava parado. Nao ha salto
+  # de major nem API trocada; as versoes que estavam no lock e que carregam
+  # `deprecated: this version has critical issues`.
+  #
+  # COM TETO nos dois pisos, pela licao do `uuid`: `^0.8.15` segura a linha
+  # 0.8 e `^0.9.12` segura a 0.9, cada uma dentro do que seu dependente
+  # declara. Sem teto as duas colapsariam na mesma versao, atravessando um
+  # major que nenhum dos dois pediu.
+  #
+  # O alcance real e nulo hoje: o xmldom so existe aqui para ler e escrever
+  # plist de iOS (Info.plist, entitlements) durante `expo prebuild`, e este
+  # projeto nao tem `apps/mobile/ios` -- so `android`. E ferramenta de build,
+  # sobre arquivo que nos mesmos escrevemos. Corrige-se porque a correcao
+  # entra limpa, nao porque havia buraco aberto.
+  '@xmldom/xmldom@<0.8.15': '^0.8.15'
+  '@xmldom/xmldom@>=0.9.0 <0.9.12': '^0.9.12'
+
 # Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
 # apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro
 # 0.84.4 declara `image-size@^1.0.2` e consome o *default export*
