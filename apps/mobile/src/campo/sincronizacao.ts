@@ -58,12 +58,24 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
     const leituras = await leiturasPendentes(visita.chave);
 
     /**
-     * Visita sem leitura pendente e sem id do servidor nao tem o que enviar
-     * ainda -- e uma ronda aberta, com o inspetor a caminho do primeiro
-     * checkpoint. `esquemaDeVisitaDeCampo` recusaria (minimo de 1 leitura), e
-     * recusar aqui seria tratar o normal como erro.
+     * Visita sem leitura pendente nao tem o que enviar -- em nenhum dos dois
+     * casos em que ela chega aqui assim. `esquemaDeVisitaDeCampo` recusaria
+     * (minimo de 1 leitura), e recusar aqui seria tratar o normal como erro.
+     *
+     * A guarda ja teve um `&& visita.visitaId !== null` que anulava metade do
+     * proprio motivo de existir: a ronda ABERTA -- o inspetor a caminho do
+     * primeiro checkpoint -- e justamente a que ainda nao tem id do servidor,
+     * entao ela escapava por aqui e ia morrer no `safeParse` logo abaixo. O
+     * inspetor que iniciava a ronda e sincronizava antes do primeiro scan
+     * levava "Registre ao menos uma leitura na visita" em vermelho, e o
+     * carimbo do rodape -- que so entra quando `falhas` esta vazio -- nunca
+     * era escrito. Ou seja: a tela dizia que nada tinha subido, no exato
+     * cenario em que nao havia nada para subir.
+     *
+     * O outro caso (`visitaId !== null`, visita ja enviada e sem leitura
+     * pendente) continua coberto: nao ha o que fazer com ela nesta passada.
      */
-    if (leituras.length === 0 && visita.visitaId !== null) continue;
+    if (leituras.length === 0) continue;
 
     const conferida = esquemaDeVisitaDeCampo.safeParse({
       numeroColeta: visita.chave,
@@ -94,8 +106,6 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
     }
 
     await marcarVisitaEnviada(visita.chave, idDaVisita);
-
-    if (leituras.length === 0) continue;
 
     const linhas = visitaValida.leituras.map((l) => linhaDeLeitura(l, idDaVisita));
 
