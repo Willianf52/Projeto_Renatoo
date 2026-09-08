@@ -72,6 +72,36 @@ jobs:
           fi
           echo "Nenhum segredo compartilhado com valor no repositorio."
 
+      # Irma do passo acima, mesmo formato e mesmo motivo: uma linha que so
+      # faz sentido numa maquina nao pode entrar no arquivo que vale para
+      # todas.
+      #
+      # `virtualStoreDir` aponta o virtual store do pnpm para um caminho curto
+      # (`C:\pv` aqui), sem o qual o build Android local estoura o teto de
+      # caminho do CMake (250). Ela TEM de morar no `pnpm-workspace.yaml`
+      # porque o pnpm 11 ignora `virtual-store-dir` no `.npmrc` e a env var
+      # `npm_config_virtual_store_dir` -- as duas foram testadas e as duas
+      # caem em `node_modules/.pnpm`. Nao ha onde esconder a linha, entao ela
+      # vive como edicao local, e isso e uma coisa so a um `git commit -a` de
+      # distancia de virar problema de todo mundo.
+      #
+      # O estrago se ela passar: em Linux `C:\pv` nao e caminho absoluto, e
+      # sim um NOME DE DIRETORIO relativo (a barra invertida e caractere
+      # comum de arquivo). O runner instala num diretorio de nome esquisito
+      # dentro do repositorio em vez de falhar, entao o sintoma nao e "a CI
+      # quebrou" -- e ninguem descobrir por meses.
+      #
+      # `^virtualStoreDir:` ancorado na chave: os comentarios que explicam a
+      # linha (inclusive este bloco) citam o nome e nao podem disparar o
+      # portao.
+      - name: Configuracao de maquina no pnpm-workspace.yaml?
+        run: |
+          if git grep -nE '^virtualStoreDir:' -- pnpm-workspace.yaml; then
+            echo "::error file=pnpm-workspace.yaml::virtualStoreDir e configuracao de UMA maquina e nao pode ser versionada -- em Linux ela vira um diretorio de nome literal 'C:\\pv' dentro do repositorio, sem erro nenhum. Tire a linha do commit (ela continua valendo como edicao local) e mantenha o TURBOPACK_ROOT correspondente no apps/web/.env.local."
+            exit 1
+          fi
+          echo "Nenhuma configuracao de maquina versionada."
+
       - run: pnpm install --frozen-lockfile
       # Falha o build em vulnerabilidade alta/critica de dependencia.
       # audit-level=high para nao travar CI por achado low/moderate que
