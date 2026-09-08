@@ -1,3 +1,4 @@
+import { FUSO_DO_PROJETO } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -241,11 +242,11 @@ export async function getInspecoesComInicioEFim(filtros: Filtros): Promise<Inspe
 /** "yyyy-mm-ddThh:mm:ss+00:00" (o Postgres devolve com offset) -> "dd/mm/aaaa"
  * e "HH:MM:SS" separados, como as colunas Data/Hora da referencia. */
 export function formatarData(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: FUSO_DO_PROJETO }).format(new Date(iso));
 }
 
 export function formatarHora(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone: "America/Sao_Paulo" }).format(new Date(iso));
+  return new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone: FUSO_DO_PROJETO }).format(new Date(iso));
 }
 
 /** "HH:MM:SS", sem teto em 24h -- mesmo formato das demais telas. */

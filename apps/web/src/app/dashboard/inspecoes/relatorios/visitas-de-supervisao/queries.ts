@@ -1,4 +1,5 @@
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { mesAtual } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -13,10 +14,9 @@ export type Filtros = {
   site?: string;
 };
 
-const MES_ATUAL = () => {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
-};
+/** Ver `mesAtual` em lib/data-hora.ts: o fuso precisa ser explicito, senao o
+ * servidor (UTC na Vercel) vira o mes tres horas antes de Brasilia. */
+const MES_ATUAL = () => mesAtual();
 
 /** Igual as demais telas: mes fora do formato yyyy-mm (ou com mes fora de
  * 01-12, tipo "2026-13") cai no mes atual em vez de virar uma consulta que

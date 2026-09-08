@@ -1,3 +1,4 @@
+import { mesAtual } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -25,10 +26,9 @@ export type Filtros = {
   motivo?: string;
 };
 
-const MES_ATUAL = () => {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
-};
+/** Ver `mesAtual` em lib/data-hora.ts: o fuso precisa ser explicito, senao o
+ * servidor (UTC na Vercel) vira o mes tres horas antes de Brasilia. */
+const MES_ATUAL = () => mesAtual();
 
 function mesValido(valor: string | undefined): valor is string {
   if (!valor) return false;

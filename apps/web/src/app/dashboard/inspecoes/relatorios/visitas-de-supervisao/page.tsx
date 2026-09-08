@@ -10,6 +10,7 @@ import { FilterMonthPicker } from "@/components/dashboard/FilterMonthPicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterIcon, PieChartIcon, SearchIcon } from "@/components/dashboard/icons";
 import { PieChart } from "@/components/dashboard/PieChart";
+import { FUSO_DO_PROJETO } from "@/lib/data-hora";
 import { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites, type SearchParams } from "./queries";
 
 const TABLE_COLUMNS = ["Data/Hora", "Funcionário", "Local", "Geolocalização", "Motivo Visita", "Observação"];
@@ -20,17 +21,34 @@ function formatarPeriodo(mes: string): string {
   return `${mesNumero}/${ano}`;
 }
 
-/** "mm/dd/aaaa - HH:mm hs", como no sistema de referencia -- diferente do
+/** "dd/mm/aaaa - HH:mm hs", como no sistema de referencia -- diferente do
  * formatarDataHora() de lib/data-hora.ts (que usa virgula, sem "hs"), entao
- * fica local em vez de forcar as outras telas a mudar de formato junto. */
+ * fica local em vez de forcar as outras telas a mudar de formato junto.
+ *
+ * O FORMATO e local; o FUSO nao pode ser. `getDate()`/`getHours()` -- que
+ * era como isto era montado -- leem no fuso do processo, e quem renderiza
+ * esta pagina e o servidor, em UTC na Vercel: a coluna "Data/Hora" saia tres
+ * horas adiantada, e virava o dia errado antes das 03:00. Nao ha como passar
+ * fuso para os getters de `Date`, dai `formatToParts`: ele da os mesmos
+ * pedacos, ja convertidos para `FUSO_DO_PROJETO`, e o formato acima continua
+ * montado a mao. */
 function formatarDataHoraVisita(valor: string | null): string {
   if (!valor) return "";
-  const data = new Date(valor);
-  const dia = String(data.getDate()).padStart(2, "0");
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  const hora = String(data.getHours()).padStart(2, "0");
-  const minuto = String(data.getMinutes()).padStart(2, "0");
-  return `${dia}/${mes}/${data.getFullYear()} - ${hora}:${minuto} hs`;
+
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_DO_PROJETO,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(valor));
+
+  const pedaco = (tipo: Intl.DateTimeFormatPartTypes) =>
+    partes.find((parte) => parte.type === tipo)?.value ?? "";
+
+  return `${pedaco("day")}/${pedaco("month")}/${pedaco("year")} - ${pedaco("hour")}:${pedaco("minute")} hs`;
 }
 
 type SearchParamsPromise = Promise<SearchParams>;
