@@ -1,4 +1,4 @@
-import { formatarDataHora } from "@/lib/data-hora";
+import { dataValida, formatarDataHora, horaValida } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
 
@@ -40,10 +40,10 @@ export function primeiro(valor: string | string[] | undefined): string | undefin
  */
 export function extrairFiltros(params: SearchParams): ColetaFiltros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
-    horaInicial: primeiro(params.hora_inicial),
-    horaFinal: primeiro(params.hora_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
+    horaInicial: horaValida(primeiro(params.hora_inicial)),
+    horaFinal: horaValida(primeiro(params.hora_final)),
     coletorDados: primeiro(params.coletor_dados),
     qualificador: primeiro(params.qualificador),
     motivoVisita: primeiro(params.motivo_visita),

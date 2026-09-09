@@ -140,3 +140,27 @@ describe("paraLinhaDeExportacao", () => {
     expect(paraLinhaDeExportacao(linha, dias)).toEqual(["Alfa", "0", "3", "0", "3"]);
   });
 });
+
+describe("periodo torto na querystring", () => {
+  /**
+   * Aqui o sintoma era PIOR que nas outras tres telas: `listarDias` compara
+   * `getTime()` com NaN, a comparacao da falso, o laco nao roda e o relatorio
+   * sai VAZIO -- sem erro nenhum, com cara de "nao houve inspecao no periodo".
+   * Um 500 pelo menos se percebe.
+   */
+  it("descarta data que nao existe em vez de produzir relatorio vazio", () => {
+    const filtros = extrairFiltros({ data_inicial: "abc", data_final: "2026-13-01" });
+
+    expect(filtros.dataInicial).toBeUndefined();
+    expect(filtros.dataFinal).toBeUndefined();
+  });
+
+  it("mostra o que listarDias fazia com a data torta -- o motivo da guarda", () => {
+    expect(listarDias("abc", "2026-08-05")).toEqual([]);
+    expect(listarDias("2026-08-01", "2026-08-03")).toEqual([
+      "2026-08-01",
+      "2026-08-02",
+      "2026-08-03",
+    ]);
+  });
+});

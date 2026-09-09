@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatarDataHora, mesAtual } from "./data-hora";
+import { dataValida, formatarDataHora, horaValida, mesAtual } from "./data-hora";
 
 /**
  * O ponto desta suite nao e o formato -- e o FUSO.
@@ -53,5 +53,53 @@ describe("mesAtual", () => {
 
   it("preenche o mes com dois digitos", () => {
     expect(mesAtual(new Date("2026-03-15T12:00:00Z"))).toBe("2026-03");
+  });
+});
+
+/**
+ * Estas duas nao sao sobre fuso, e sim sobre o que chega pela querystring.
+ *
+ * Os filtros de periodo montam o limite da consulta por interpolacao, entao
+ * um valor que so PARECE data derruba a tela com erro do Postgres em vez de
+ * ser ignorado -- ver o cabecalho de `dataValida`.
+ */
+describe("dataValida", () => {
+  it("aceita a data que o FilterDatePicker emite", () => {
+    expect(dataValida("2026-09-09")).toBe("2026-09-09");
+    expect(dataValida("2028-02-29")).toBe("2028-02-29"); // 29/02 de ano bissexto existe
+  });
+
+  it("recusa o que nao tem o formato", () => {
+    expect(dataValida(undefined)).toBeUndefined();
+    expect(dataValida("")).toBeUndefined();
+    expect(dataValida("abc")).toBeUndefined();
+    expect(dataValida("09/09/2026")).toBeUndefined();
+    expect(dataValida("2026-9-9")).toBeUndefined();
+    expect(dataValida("2026-09-09T10:00:00Z")).toBeUndefined();
+  });
+
+  it("recusa data que existe no formato mas nao no calendario", () => {
+    // O regex sozinho deixaria as tres passarem -- e o ida e volta pelo ISO
+    // que as pega.
+    expect(dataValida("2026-13-01")).toBeUndefined();
+    expect(dataValida("2026-02-31")).toBeUndefined();
+    expect(dataValida("2026-00-10")).toBeUndefined();
+    // 2026 nao e bissexto -- a checagem e de calendario, nao so de faixa.
+    expect(dataValida("2026-02-29")).toBeUndefined();
+  });
+});
+
+describe("horaValida", () => {
+  it("aceita a hora que o FilterTimePicker emite", () => {
+    expect(horaValida("00:00")).toBe("00:00");
+    expect(horaValida("23:59")).toBe("23:59");
+  });
+
+  it("recusa formato torto e faixa fora do relogio", () => {
+    expect(horaValida(undefined)).toBeUndefined();
+    expect(horaValida("zz")).toBeUndefined();
+    expect(horaValida("7:30")).toBeUndefined();
+    expect(horaValida("24:00")).toBeUndefined();
+    expect(horaValida("12:60")).toBeUndefined();
   });
 });

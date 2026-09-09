@@ -100,3 +100,15 @@ describe("getRankingDeInspecoes", () => {
     expect(await getRankingDeInspecoes({ dataFinal: "2026-08-31" })).toBeNull();
   });
 });
+
+describe("periodo torto na querystring", () => {
+  it("descarta data que nao existe em vez de interpolar no limite da consulta", () => {
+    // O limite vira literal de timestamptz por interpolacao, entao `abc`
+    // chegaria ao Postgres como `abcT00:00:00-03:00` (erro 22007). Descartado,
+    // o periodo fica incompleto e a tela pede um periodo em vez de quebrar.
+    const filtros = extrairFiltros({ data_inicial: "abc", data_final: "2026-02-31" });
+
+    expect(filtros.dataInicial).toBeUndefined();
+    expect(filtros.dataFinal).toBeUndefined();
+  });
+});
