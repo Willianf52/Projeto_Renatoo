@@ -11,6 +11,7 @@ import {
   primeiro,
   textoDaConclusao,
   textoDaSituacao,
+  TIPO_CONSULTORIA,
   type ChecklistDetalhe,
   type SearchParams,
 } from "../queries";
@@ -80,7 +81,7 @@ export default async function DetalheDoChecklistPage({
         </Cartao>
       )}
 
-      {linha.checklist === "Consultoria" && (
+      {linha.tipo === TIPO_CONSULTORIA && (
         <Cartao
           titulo={`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`}
           atraso="160ms"

@@ -175,7 +175,7 @@ describe("aplicarFiltrosDerivados", () => {
   const linhas = brutos.map((b) => linha(b));
 
   const ids = (filtros: Filtros) =>
-    aplicarFiltrosDerivados(linhas, brutos, filtros).map((l) => l.id);
+    aplicarFiltrosDerivados(linhas, filtros).map((l) => l.id);
 
   it("devolve tudo sem filtro derivado nenhum", () => {
     expect(ids(SEM_FILTROS)).toEqual([1, 2, 3]);
@@ -290,7 +290,7 @@ describe("regressoes encontradas na revisao", () => {
 
     expect(textoDaSituacao(linhas[0])).toBe("Sem respostas");
     expect(
-      aplicarFiltrosDerivados(linhas, [semRespostas], { ...SEM_FILTROS, situacao: "conforme" }),
+      aplicarFiltrosDerivados(linhas, { ...SEM_FILTROS, situacao: "conforme" }),
     ).toEqual([]);
   });
 
@@ -301,5 +301,41 @@ describe("regressoes encontradas na revisao", () => {
     expect(extrairFiltros({ data_inicial: "abc" }).dataInicial).toBeUndefined();
     expect(extrairFiltros({ data_final: "2026-13-01" }).dataFinal).toBeUndefined();
     expect(extrairFiltros({ data_inicial: "2026-09-09" }).dataInicial).toBe("2026-09-09");
+  });
+});
+
+describe("decisao pelo tipo cru, nao pelo rotulo de tela", () => {
+  it("continua reconhecendo a corretiva se o rotulo da coluna mudar", () => {
+    // O rotulo e texto de tela e pode ser renomeado a qualquer momento. Antes
+    // as tres funcoes decidiam comparando com ele, entao um `checklist:
+    // "Visita corretiva"` fazia os filtros pararem de reconhecer a corretiva
+    // -- sem erro de compilacao e sem teste vermelho.
+    const renomeada = { ...linha(bruto(1, "CORRETIVA", [])), checklist: "Visita corretiva" };
+
+    expect(renomeada.tipo).toBe("CORRETIVA");
+    expect(estaConcluido(renomeada)).toBe(true);
+    expect(textoDaSituacao(renomeada)).toBe("Corretiva");
+    expect(textoDaConclusao(renomeada)).toBe("Concluído");
+    expect(aplicarFiltrosDerivados([renomeada], { ...SEM_FILTROS, situacao: "conforme" })).toEqual([]);
+  });
+});
+
+describe("textosDeResposta", () => {
+  it("junta as observacoes e o motivo da corretiva", () => {
+    expect(linha(bruto(1, "CONSULTORIA", [{ resposta: "NAO", observacao: "Extintor vencido" }]))
+      .textosDeResposta).toEqual(["Extintor vencido"]);
+    expect(linha(bruto(2, "CORRETIVA", [])).textosDeResposta).toEqual(["Portão danificado"]);
+  });
+
+  it("nao inclui o motivo da VISITA -- ninguem o digitou respondendo o checklist", () => {
+    const consultoria = linha(bruto(3, "CONSULTORIA", [{ resposta: "SIM" }]));
+
+    // O motivo da visita aparece na coluna Motivo (busca livre comum)...
+    expect(consultoria.motivo).toBe("Visita programada");
+    // ...mas nao na busca de respostas tipo texto.
+    expect(consultoria.textosDeResposta).toEqual([]);
+    expect(
+      aplicarFiltrosDerivados([consultoria], { ...SEM_FILTROS, buscaRespostas: "programada" }),
+    ).toEqual([]);
   });
 });

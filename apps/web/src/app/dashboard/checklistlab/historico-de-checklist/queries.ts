@@ -63,9 +63,21 @@ export const CAMPO_DE_DATA_OPCOES = [
   { value: "visita", label: "Data de Registro da Visita" },
 ];
 
+/**
+ * Os dois valores do check `checklists_visita_tipo_check` (0042).
+ *
+ * Exportados porque a tela de detalhe tambem decide por eles. Antes as
+ * comparacoes eram contra o ROTULO ("Corretiva"), e isso era uma armadilha:
+ * renomear o texto que aparece na coluna Checklist faria os filtros de
+ * Situacao e Conclusao pararem de reconhecer a corretiva -- sem erro de
+ * compilacao, sem teste vermelho, so resultado errado.
+ */
+export const TIPO_CORRETIVA = "CORRETIVA";
+export const TIPO_CONSULTORIA = "CONSULTORIA";
+
 export const CHECKLIST_OPCOES = [
-  { value: "CONSULTORIA", label: "Consultoria" },
-  { value: "CORRETIVA", label: "Corretiva" },
+  { value: TIPO_CONSULTORIA, label: "Consultoria" },
+  { value: TIPO_CORRETIVA, label: "Corretiva" },
 ];
 
 export const ORDEM_OPCOES = [
@@ -197,6 +209,9 @@ export type ChecklistBruto = {
 
 export type HistoricoLinha = {
   id: number;
+  /** Valor cru da coluna `tipo` -- e por ele que se DECIDE. O `checklist`
+   * abaixo e o mesmo dado em texto de tela, e serve so para EXIBIR. */
+  tipo: string;
   numeroAno: string;
   /** "Consultoria" | "Corretiva" -- o `tipo` em capitalizacao de tela. */
   checklist: string;
@@ -207,6 +222,15 @@ export type HistoricoLinha = {
    * motivo (constraint `checklists_visita_motivo_por_tipo`, 0042) e cai no
    * motivo da visita, quando a visita tem um. */
   motivo: string;
+  /**
+   * Todo texto livre que o inspetor digitou neste checklist: a `observacao`
+   * de cada resposta mais o `motivo` da corretiva (0042 -- SIM/NAO/NA nao sao
+   * texto livre). Mora na linha, e nao e relido da linha crua na hora de
+   * filtrar, para que `aplicarFiltrosDerivados` precise de um array so: com
+   * dois arrays em paralelo, a correspondencia era por INDICE, e nada no tipo
+   * impedia passar um recortado e outro nao.
+   */
+  textosDeResposta: string[];
   respondidas: number;
   totalPerguntas: number;
   naoConformidades: number;
@@ -215,7 +239,6 @@ export type HistoricoLinha = {
   nota: number | null;
 };
 
-const TIPO_CORRETIVA = "CORRETIVA";
 
 /**
  * Deriva as tres colunas que a tela mostra e que nao existem como coluna no
@@ -238,12 +261,19 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
 
   return {
     id: bruto.id,
+    tipo: bruto.tipo,
     numeroAno: bruto.visitas?.numero_coleta ?? "",
     checklist: bruto.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
     enviadoEm: bruto.criado_em,
     responsavel: bruto.visitas?.profiles?.nome_completo ?? "",
     site: bruto.visitas?.sites?.nome ?? "",
     motivo: bruto.motivo ?? motivoDaVisita,
+    // `bruto.motivo`, e nao `motivo` acima: na consultoria aquele campo cai no
+    // motivo da VISITA, que ninguem digitou respondendo o checklist e por isso
+    // nao pertence a "Busca Livre Respostas tipo Texto".
+    textosDeResposta: [...respostas.map((r) => r.observacao ?? ""), bruto.motivo ?? ""].filter(
+      (texto) => texto.length > 0,
+    ),
     respondidas: respostas.length,
     totalPerguntas,
     naoConformidades: nao,
@@ -258,11 +288,11 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
  * de pendencia com linhas que nunca terao resposta.
  */
 export function estaConcluido(linha: HistoricoLinha): boolean {
-  return linha.checklist === "Corretiva" || linha.respondidas >= linha.totalPerguntas;
+  return linha.tipo === TIPO_CORRETIVA || linha.respondidas >= linha.totalPerguntas;
 }
 
 export function textoDaConclusao(linha: HistoricoLinha): string {
-  if (linha.checklist === "Corretiva") return "Concluído";
+  if (linha.tipo === TIPO_CORRETIVA) return "Concluído";
   return estaConcluido(linha)
     ? `Concluído (${linha.respondidas}/${linha.totalPerguntas})`
     : `Incompleto (${linha.respondidas}/${linha.totalPerguntas})`;
@@ -275,7 +305,7 @@ export function textoDaConclusao(linha: HistoricoLinha): string {
  * julgamento que o inspetor nao deu.
  */
 export function textoDaSituacao(linha: HistoricoLinha): string {
-  if (linha.checklist === "Corretiva") return "Corretiva";
+  if (linha.tipo === TIPO_CORRETIVA) return "Corretiva";
   if (linha.naoConformidades > 0) {
     return `${linha.naoConformidades} não ${linha.naoConformidades === 1 ? "conformidade" : "conformidades"}`;
   }
@@ -292,7 +322,7 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
  */
 function combinaSituacao(linha: HistoricoLinha, situacao: string | undefined): boolean {
   if (!situacao) return true;
-  if (linha.checklist === "Corretiva") return false;
+  if (linha.tipo === TIPO_CORRETIVA) return false;
   return situacao === "nao_conforme"
     ? linha.naoConformidades > 0
     : linha.naoConformidades === 0 && linha.respondidas > 0;
@@ -321,13 +351,12 @@ function contem(texto: string | null | undefined, termo: string): boolean {
  */
 export function aplicarFiltrosDerivados(
   linhas: HistoricoLinha[],
-  brutos: ChecklistBruto[],
   filtros: Filtros,
 ): HistoricoLinha[] {
   const busca = filtros.busca?.trim().toLocaleLowerCase("pt-BR");
   const buscaRespostas = filtros.buscaRespostas?.trim().toLocaleLowerCase("pt-BR");
 
-  return linhas.filter((linha, indice) => {
+  return linhas.filter((linha) => {
     if (!combinaSituacao(linha, filtros.situacao)) return false;
     if (!combinaConclusao(linha, filtros.conclusao)) return false;
 
@@ -341,16 +370,10 @@ export function aplicarFiltrosDerivados(
       if (!casa) return false;
     }
 
-    if (buscaRespostas) {
-      // "Busca Livre Respostas tipo Texto": o unico texto que o inspetor
-      // digita respondendo o checklist e a `observacao` de cada resposta
-      // (0042) -- SIM/NAO/NA nao sao texto livre. O `motivo` da CORRETIVA
-      // entra junto por ser o campo equivalente naquele tipo.
-      const observacoes = brutos[indice]?.checklist_respostas ?? [];
-      const casa =
-        observacoes.some((r) => contem(r.observacao, buscaRespostas)) ||
-        contem(brutos[indice]?.motivo, buscaRespostas);
-      if (!casa) return false;
+    // "Busca Livre Respostas tipo Texto": ver `textosDeResposta` em
+    // `HistoricoLinha` para o que entra ali e o que fica de fora.
+    if (buscaRespostas && !linha.textosDeResposta.some((t) => contem(t, buscaRespostas))) {
+      return false;
     }
 
     return true;
@@ -495,7 +518,7 @@ export async function getHistorico(filtros: Filtros): Promise<Historico> {
   const linhas = brutos.map((bruto) => montarLinha(bruto, totalPerguntas));
 
   return {
-    linhas: aplicarFiltrosDerivados(linhas, brutos, filtros),
+    linhas: aplicarFiltrosDerivados(linhas, filtros),
     truncado: resultado.atingiuTeto,
   };
 }
