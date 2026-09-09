@@ -275,3 +275,31 @@ describe("ordenarRespostas", () => {
     expect(primeira.pergunta).toBe("Extintores em dia?");
   });
 });
+
+/**
+ * Os dois casos abaixo nasceram de uma revisao: sao defeitos encontrados
+ * depois da tela pronta, e o teste vem junto para nao voltarem.
+ */
+describe("regressoes encontradas na revisao", () => {
+  it("nao devolve como Conforme a consultoria que nao respondeu nada", () => {
+    // A tabela rotula esta linha como "Sem respostas" (textoDaSituacao). O
+    // filtro precisa concordar com o rotulo: quem escolhe "Conforme" espera
+    // checklist respondido e sem nao conformidade, nao checklist vazio.
+    const semRespostas = bruto(4, "CONSULTORIA", []);
+    const linhas = [linha(semRespostas)];
+
+    expect(textoDaSituacao(linhas[0])).toBe("Sem respostas");
+    expect(
+      aplicarFiltrosDerivados(linhas, [semRespostas], { ...SEM_FILTROS, situacao: "conforme" }),
+    ).toEqual([]);
+  });
+
+  it("descarta data fora do formato yyyy-mm-dd em vez de repassar ao Postgres", () => {
+    // `?data_inicial=abc` viraria o literal `abcT00:00:00-03:00` num `gte` de
+    // timestamptz -- erro 22007 do Postgres subindo como 500 da tela. Mesma
+    // guarda que `registro-de-rondas` faz com `mesValido`.
+    expect(extrairFiltros({ data_inicial: "abc" }).dataInicial).toBeUndefined();
+    expect(extrairFiltros({ data_final: "2026-13-01" }).dataFinal).toBeUndefined();
+    expect(extrairFiltros({ data_inicial: "2026-09-09" }).dataInicial).toBe("2026-09-09");
+  });
+});

@@ -84,6 +84,25 @@ export const CONCLUSAO_OPCOES = [
 ];
 
 /**
+ * Data do periodo, ou `undefined` quando o que veio na URL nao e uma data.
+ *
+ * O `FilterDatePicker` so emite `yyyy-mm-dd`, mas a querystring e editavel a
+ * mao -- e `?data_inicial=abc` viraria o literal `abcT00:00:00-03:00` num
+ * `gte` de timestamptz, ou seja, erro 22007 do Postgres subindo como 500 da
+ * tela em vez de filtro ignorado. Mesma guarda que `registro-de-rondas` faz
+ * com `mesValido`.
+ *
+ * O ida e volta pelo ISO existe porque o formato sozinho nao basta:
+ * "2026-02-31" passa no regex e nao existe no calendario.
+ */
+function dataValida(valor: string | undefined): string | undefined {
+  if (!valor || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return undefined;
+  const data = new Date(`${valor}T00:00:00Z`);
+  if (Number.isNaN(data.getTime())) return undefined;
+  return data.toISOString().slice(0, 10) === valor ? valor : undefined;
+}
+
+/**
  * Le os filtros da querystring. Exportada (e nao so usada por `page.tsx`)
  * para as rotas de exportar lerem exatamente os mesmos filtros da listagem,
  * sem duplicar o mapeamento campo a campo -- mesmo arranjo de
@@ -99,8 +118,8 @@ export function extrairFiltros(params: SearchParams): Filtros {
 
   return {
     campoData: campoData === "visita" ? "visita" : "envio",
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
     numeroAno: primeiro(params.numero_ano),
     checklist: primeiro(params.checklist),
     ordem: ordem === "antigos" ? "antigos" : "recentes",
@@ -263,10 +282,20 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
   return linha.respondidas > 0 ? "Conforme" : "Sem respostas";
 }
 
+/**
+ * O `respondidas > 0` no ramo "conforme" nao e detalhe: sem ele, a
+ * consultoria enviada sem resposta nenhuma cai em "Conforme" -- ela tem zero
+ * nao conformidades, afinal -- enquanto a tabela ao lado a rotula
+ * "Sem respostas" (ver `textoDaSituacao`). Filtro e rotulo discordando na
+ * mesma tela e pior do que qualquer um dos dois sozinho, e "conforme" aqui
+ * significa "foi respondido e nada foi reprovado", nao "nada foi reprovado".
+ */
 function combinaSituacao(linha: HistoricoLinha, situacao: string | undefined): boolean {
   if (!situacao) return true;
   if (linha.checklist === "Corretiva") return false;
-  return situacao === "nao_conforme" ? linha.naoConformidades > 0 : linha.naoConformidades === 0;
+  return situacao === "nao_conforme"
+    ? linha.naoConformidades > 0
+    : linha.naoConformidades === 0 && linha.respondidas > 0;
 }
 
 function combinaConclusao(linha: HistoricoLinha, conclusao: string | undefined): boolean {
