@@ -1,4 +1,4 @@
-import { FUSO_DO_PROJETO } from "@/lib/data-hora";
+import { dataValida, FUSO_DO_PROJETO } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -24,8 +24,8 @@ export type Filtros = {
 
 export function extrairFiltros(params: SearchParams): Filtros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
     evento: primeiro(params.evento),
     atividade: primeiro(params.atividade),
     motivo: primeiro(params.motivo),

@@ -1,3 +1,4 @@
+import { dataValida } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
@@ -23,8 +24,8 @@ export type Filtros = {
 
 export function extrairFiltros(params: SearchParams): Filtros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
     coletorDados: primeiro(params.coletor_dados),
     funcionario: primeiro(params.funcionario),
     checkpoint: primeiro(params.checkpoint),
