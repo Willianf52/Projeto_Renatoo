@@ -72,3 +72,48 @@ export function mesAtual(agora: Date = new Date()): string {
 
   return `${pedaco("year")}-${pedaco("month")}`;
 }
+
+/**
+ * "yyyy-mm-dd" vindo da querystring, ou `undefined` quando o que chegou nao e
+ * uma data.
+ *
+ * POR QUE ISTO EXISTE. Os filtros de periodo montam o limite da consulta por
+ * interpolacao -- `${data}T00:00:00-03:00` em `combinarDataHora` e nas quatro
+ * telas de relatorio. O `FilterDatePicker` so emite "yyyy-mm-dd", mas a
+ * querystring e editavel a mao: `?data_inicial=abc` vira o literal
+ * `abcT00:00:00-03:00` num `gte` de timestamptz, ou seja, erro 22007 do
+ * Postgres subindo como erro de tela em vez de filtro ignorado.
+ *
+ * O ida e volta pelo ISO existe porque o formato sozinho nao basta:
+ * "2026-02-31" passa no regex e nao existe no calendario. `Date.UTC` e nao o
+ * fuso do projeto de proposito -- aqui so se pergunta se a data EXISTE, e
+ * essa resposta nao muda com o fuso; converter deslocaria o dia.
+ *
+ * Nasceu em `checklistlab/historico-de-checklist/queries.ts` e subiu para ca
+ * pelo mesmo motivo que `formatarDataHora`: a segunda tela a precisar dela
+ * teria de importar de dentro da pasta da primeira.
+ */
+export function dataValida(valor: string | undefined): string | undefined {
+  if (!valor || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return undefined;
+  const data = new Date(`${valor}T00:00:00Z`);
+  if (Number.isNaN(data.getTime())) return undefined;
+  return data.toISOString().slice(0, 10) === valor ? valor : undefined;
+}
+
+/**
+ * "HH:MM" vindo da querystring, ou `undefined`.
+ *
+ * Mesma armadilha da `dataValida`, um campo adiante: `combinarDataHora`
+ * concatena a hora no mesmo literal (`${data}T${hora}:00-03:00`), entao
+ * `?hora_inicial=zz` derruba a consulta exatamente como uma data torta. O
+ * `FilterTimePicker` emite "HH:MM" e nada mais.
+ *
+ * Sem ida e volta por Date aqui: a faixa valida de hora e minuto e fechada e
+ * cabe no proprio teste, sem precisar de uma data de referencia para
+ * construir.
+ */
+export function horaValida(valor: string | undefined): string | undefined {
+  if (!valor || !/^\d{2}:\d{2}$/.test(valor)) return undefined;
+  const [hora, minuto] = valor.split(":").map(Number);
+  return hora <= 23 && minuto <= 59 ? valor : undefined;
+}

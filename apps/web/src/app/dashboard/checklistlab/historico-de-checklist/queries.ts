@@ -1,4 +1,4 @@
-import { formatarDataHora } from "@/lib/data-hora";
+import { dataValida, formatarDataHora } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
@@ -94,25 +94,6 @@ export const CONCLUSAO_OPCOES = [
   { value: "concluido", label: "Concluído" },
   { value: "incompleto", label: "Incompleto" },
 ];
-
-/**
- * Data do periodo, ou `undefined` quando o que veio na URL nao e uma data.
- *
- * O `FilterDatePicker` so emite `yyyy-mm-dd`, mas a querystring e editavel a
- * mao -- e `?data_inicial=abc` viraria o literal `abcT00:00:00-03:00` num
- * `gte` de timestamptz, ou seja, erro 22007 do Postgres subindo como 500 da
- * tela em vez de filtro ignorado. Mesma guarda que `registro-de-rondas` faz
- * com `mesValido`.
- *
- * O ida e volta pelo ISO existe porque o formato sozinho nao basta:
- * "2026-02-31" passa no regex e nao existe no calendario.
- */
-function dataValida(valor: string | undefined): string | undefined {
-  if (!valor || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return undefined;
-  const data = new Date(`${valor}T00:00:00Z`);
-  if (Number.isNaN(data.getTime())) return undefined;
-  return data.toISOString().slice(0, 10) === valor ? valor : undefined;
-}
 
 /**
  * Le os filtros da querystring. Exportada (e nao so usada por `page.tsx`)

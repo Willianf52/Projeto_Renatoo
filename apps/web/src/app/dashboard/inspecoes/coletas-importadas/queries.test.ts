@@ -62,6 +62,7 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
 const {
   combinarDataHora,
+  extrairFiltros,
   getColetas,
   getColetasParaExportar,
   getFilterOptions,
@@ -321,5 +322,45 @@ describe("toTableRow", () => {
     expect(linha[4]).toBe("Cooplivre");
     expect(linha[5]).toBe("Início");
     expect(linha[7]).toBe("Portão trancado");
+  });
+});
+
+/**
+ * O periodo desta tela vira literal de timestamptz por interpolacao em
+ * `combinarDataHora`. Sem guarda, `?data_inicial=abc` chega ao Postgres como
+ * `abcT00:00:00-03:00` e derruba a tela com erro 22007 em vez de ignorar o
+ * filtro -- a querystring e editavel a mao, mesmo com os pickers na tela.
+ */
+describe("extrairFiltros: periodo torto na querystring", () => {
+  it("descarta data e hora que nao tem o formato dos pickers", () => {
+    const filtros = extrairFiltros({
+      data_inicial: "abc",
+      data_final: "2026-02-31",
+      hora_inicial: "zz",
+      hora_final: "24:00",
+    });
+
+    expect(filtros.dataInicial).toBeUndefined();
+    expect(filtros.dataFinal).toBeUndefined();
+    expect(filtros.horaInicial).toBeUndefined();
+    expect(filtros.horaFinal).toBeUndefined();
+    // Descartado significa "sem limite", nao "limite invalido".
+    expect(combinarDataHora(filtros.dataInicial, filtros.horaInicial, "00:00:00")).toBeNull();
+  });
+
+  it("deixa passar o que os pickers emitem", () => {
+    expect(
+      extrairFiltros({
+        data_inicial: "2026-09-01",
+        data_final: "2026-09-30",
+        hora_inicial: "08:00",
+        hora_final: "17:30",
+      }),
+    ).toMatchObject({
+      dataInicial: "2026-09-01",
+      dataFinal: "2026-09-30",
+      horaInicial: "08:00",
+      horaFinal: "17:30",
+    });
   });
 });
