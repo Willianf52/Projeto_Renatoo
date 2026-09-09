@@ -107,15 +107,36 @@ overrides:
 # montado sem a prop `linking`. Nenhuma URL de terceiro chega ao parser --
 # so texto que o proprio app constroi.
 #
-# Nao ha override aplicavel, mesmo caso do `image-size` abaixo: o advisory diz
-# "patched >=0.4.3", mas essa versao NAO EXISTE no registro -- as publicadas
-# pulam de 0.4.1 para 0.5.0. E a 0.5.0 e ESM puro (`"type": "module"`, com
-# `exports` so de entrada ESM), enquanto o query-string 7.1.3 e CommonJS e faz
-# `require('decode-uri-component')` (index.js:3). O override trocaria um DoS
-# inalcancavel por navegacao quebrada no app de campo.
+# NAO HA OVERRIDE APLICAVEL, mesmo caso do `image-size` abaixo, e por DOIS
+# motivos independentes -- conferidos no registro em 09/09/2026:
+#
+#   1) FRONTEIRA ESM/CJS. A primeira versao corrigida e a 0.5.0, que e ESM puro
+#      (`"type": "module"`, e `exports` sem condicao `require`). O
+#      query-string 7.1.3 e CommonJS -- sem campo `type`, `engines.node >=6` --
+#      e faz `require('decode-uri-component')` (index.js:3).
+#
+#   2) O RANGE DECLARADO NAO ALCANCA VERSAO SA. O query-string pede
+#      `decode-uri-component: ^0.2.2`, e caret em `0.x` trava em
+#      `>=0.2.2 <0.3.0`: NENHUMA versao dentro do que ele declara esta fora do
+#      advisory. A 0.2.2 instalada e a unica que satisfaz o range.
+#
+# O override trocaria um DoS inalcancavel por navegacao quebrada no app de campo.
+#
+# Sobre a faixa do advisory: ele hoje diz `first_patched_version: 0.5.0` (ja
+# foi corrigido na fonte -- antes apontava uma "0.4.3" que nunca existiu). As
+# versoes publicadas sao 0.1.0, 0.2.0, 0.2.1, 0.2.2, 0.3.0, 0.4.0, 0.4.1 e
+# 0.5.0: nem a 0.4.2 do limite superior do range vulneravel foi ao ar.
+#
+# O ALERTA 5 DO DEPENDABOT FOI DISPENSADO como `not_used` em 09/09/2026, e nao
+# so ignorado aqui: `auditConfig.ignoreGhsas` vale para o `pnpm audit` e o
+# Dependabot nao le este arquivo, entao sem a dispensa o aviso continuaria
+# aparecendo a cada push.
 #
 # Revisitar quando o @react-navigation subir o query-string para a linha 9.x,
 # que ja usa a API nativa de URL: `pnpm why query-string` mostra se ainda entra.
+# A dispensa tambem cai se o app de campo passar a declarar `scheme` e
+# `linking` -- ai o parser volta a receber URL de terceiro, e a premissa de
+# "nao alcancavel" acima deixa de valer.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
