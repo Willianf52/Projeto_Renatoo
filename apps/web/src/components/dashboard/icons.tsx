@@ -142,6 +142,18 @@ export function SearchIcon({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+/** "Ver detalhe" nas colunas de Ação -- lupa (SearchIcon) ali ja significa
+ * "buscar" no cabecalho de filtros, e repetir o mesmo desenho com dois
+ * sentidos na mesma tela e o tipo de economia que custa uma leitura a mais. */
+export function EyeIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export function MegaphoneIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
