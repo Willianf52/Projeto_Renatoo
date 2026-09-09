@@ -106,3 +106,35 @@ export function IconeDeSincronizar({ tamanho = 24, cor }: PropsDeIcone) {
     </Svg>
   );
 }
+
+/** Chave de boca: a "Visita Corretiva" -- conserto de algo que esta errado. */
+export function IconeDeFerramenta({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14.7 6.3a4 4 0 0 0 5 5L21 10a5.5 5.5 0 0 1-7.4 7.4l-6 6a2.1 2.1 0 0 1-3-3l6-6A5.5 5.5 0 0 1 18 3l-3.3 3.3Z"
+        stroke={cor}
+        {...COMUNS}
+      />
+    </Svg>
+  );
+}
+
+/** Pessoa: a "Consultoria" -- alguem que vai ao posto orientar, nao consertar. */
+export function IconeDePessoa({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="8" r="4" stroke={cor} {...COMUNS} />
+      <Path d="M4 21a8 8 0 0 1 16 0" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Seta do fim do cartao: diz que tocar leva a outra tela, e nao marca uma opcao. */
+export function IconeDeSeta({ tamanho = 20, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="m9 6 6 6-6 6" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
