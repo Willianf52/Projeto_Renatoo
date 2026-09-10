@@ -456,13 +456,52 @@ export async function POST(request: NextRequest) {
     idPorChave.set(chaveDaVisita(visita.numero_coleta, visita.site_id), visita.id);
   }
 
-  // 2) Leituras.
-  const leituras = linhas.map((linha) => ({
-    visita_id: idPorChave.get(
-      chaveDaVisita(linha.visita.numero_coleta, linha.visita.site_id),
-    ) as number,
-    ...linha.leitura,
-  }));
+  /**
+   * 2) Leituras.
+   *
+   * O `as number` que estava aqui prometia o que o `Map` nao garante:
+   * `get` devolve `number | undefined`, e a assercao apagava o segundo caso
+   * em vez de trata-lo. Faltando a chave, `undefined` era descartado pelo
+   * `JSON.stringify` antes da requisicao sair -- a linha chegava ao PostgREST
+   * SEM a coluna `visita_id`, e o que voltava era violacao de NOT NULL
+   * traduzida no generico "falha ao gravar leituras". Ou seja: o erro que
+   * apontava para o upsert de visitas era relatado como erro do de leituras,
+   * e o `idRequisicao` no log nao ajudava porque a causa nunca era registrada.
+   *
+   * Isto so acontece se o upsert de `visitas` devolver menos linhas do que o
+   * lote pediu -- que nao deveria ocorrer com `ignoreDuplicates: false`. Mas
+   * "nao deveria" e exatamente o caso que merece parar alto em vez de virar
+   * uma linha torta no banco: sem `visita_id` a leitura nao tem a que
+   * pertencer, e importar o resto do lote deixaria a coleta orfa.
+   */
+  const leituras: (LinhaResolvida["leitura"] & { visita_id: number })[] = [];
+
+  for (const linha of linhas) {
+    const chave = chaveDaVisita(linha.visita.numero_coleta, linha.visita.site_id);
+    const visitaId = idPorChave.get(chave);
+
+    if (visitaId === undefined) {
+      erro(
+        idRequisicao,
+        `Importação de coletas: a visita ${chave} foi gravada mas não voltou no select; lote recusado.`,
+      );
+      await registrarImportacao(supabase, idRequisicao, origem, {
+        status: "falha_ao_gravar_visitas",
+        httpStatus: 502,
+        linhasRecebidas: lote.coletas.length,
+        visitasGravadas: visitasGravadas?.length ?? 0,
+        mensagem: "falha ao gravar visitas",
+      });
+      await avisarFalhaDeImportacao(
+        supabase,
+        idRequisicao,
+        `Lote de ${origem} recusado: visita gravada não retornada pelo banco.`,
+      );
+      return NextResponse.json({ error: "falha ao gravar visitas" }, { status: 502 });
+    }
+
+    leituras.push({ visita_id: visitaId, ...linha.leitura });
+  }
 
   const { data: leiturasGravadas, error: erroLeituras } = await supabase
     .from("leituras")
