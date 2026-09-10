@@ -48,11 +48,36 @@ export type LeituraNaFila = {
   enviada: boolean;
 };
 
-let bancoAberto: SQLite.SQLiteDatabase | null = null;
+/**
+ * A ABERTURA EM VOO, NAO O BANCO JA ABERTO.
+ *
+ * Guardar o resultado (`let bancoAberto: SQLiteDatabase | null`) e so
+ * atribui-lo no fim de `abrirDeFato` abria uma corrida real, nao teorica:
+ * entre o primeiro `await` e a atribuicao final passam cinco idas ao disco, e
+ * qualquer chamador que entre nessa janela ve `null` e abre o arquivo de novo.
+ * `TelaInicial` faz exatamente isso -- `Promise.all([contarPendentes(),
+ * ultimaSincronizacao()])` chama as duas no mesmo tick.
+ *
+ * O estrago nao era corrupcao (o `create table if not exists` e idempotente),
+ * era vazamento: dois handles nativos do mesmo arquivo, o perdedor sem
+ * ninguem para fecha-lo, a cada abertura do app. Memoizar a PROMESSA faz os
+ * dois chamadores dividirem a mesma abertura.
+ */
+let abertura: Promise<SQLite.SQLiteDatabase> | null = null;
 
-export async function abrirFila(): Promise<SQLite.SQLiteDatabase> {
-  if (bancoAberto) return bancoAberto;
+export function abrirFila(): Promise<SQLite.SQLiteDatabase> {
+  abertura ??= abrirDeFato().catch((falha) => {
+    // Falha nao pode envenenar o modulo. Sem este reset, um erro transitorio
+    // de I/O na primeira abertura deixaria a fila inacessivel ate o app ser
+    // reiniciado -- e a fila e justamente o que nao pode ficar inalcancavel.
+    abertura = null;
+    throw falha;
+  });
 
+  return abertura;
+}
+
+async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
   const banco = await SQLite.openDatabaseAsync(ARQUIVO);
 
   /**
@@ -119,7 +144,6 @@ export async function abrirFila(): Promise<SQLite.SQLiteDatabase> {
     await banco.execAsync(`pragma user_version = ${VERSAO_DO_SCHEMA}`);
   }
 
-  bancoAberto = banco;
   return banco;
 }
 
@@ -186,7 +210,25 @@ export async function registrarLeitura(entrada: {
   return resultado.changes > 0;
 }
 
-export async function visitasPendentes(): Promise<VisitaNaFila[]> {
+/**
+ * O QUE ESTA FILA DEVE AO INSPETOR DA SESSAO, E SO A ELE.
+ *
+ * O arquivo SQLite e do APARELHO, e o aparelho e compartilhado -- quinze
+ * inspetores, um lote de celulares. Sem o recorte por `funcionario_id`, a
+ * ronda que A deixou pendente ao sair e drenada pela sessao de B, e o
+ * `linhaDeVisita` leva `funcionario_id = A` num insert assinado com o token
+ * de B. A policy da migration 0036 (`with check (... and funcionario_id =
+ * auth.uid())`) recusa, `registrarFalha` conta mais uma tentativa, e a ronda
+ * de A fica presa para sempre atras de um erro que B nao tem como resolver.
+ *
+ * O `SessaoProvider` ja etiqueta o perfil carregado com o id de quem ele e,
+ * pelo mesmo motivo e com a mesma frase ("dois inspetores dividindo o mesmo
+ * aparelho"). A fila tinha ficado de fora dessa regra.
+ *
+ * O recorte NAO apaga nada de ninguem: a ronda de A continua no arquivo,
+ * intacta, e volta a ser drenavel assim que A entrar de novo.
+ */
+export async function visitasPendentes(funcionarioId: string): Promise<VisitaNaFila[]> {
   const banco = await abrirFila();
 
   const linhas = await banco.getAllAsync<{
@@ -199,10 +241,12 @@ export async function visitasPendentes(): Promise<VisitaNaFila[]> {
   }>(
     `select chave, site_id, funcionario_id, capturado_em, visita_id, enviada
        from visitas_na_fila
-      where enviada = 0
-         or exists (select 1 from leituras_na_fila l
-                     where l.chave_da_visita = visitas_na_fila.chave and l.enviada = 0)
+      where funcionario_id = ?
+        and (enviada = 0
+             or exists (select 1 from leituras_na_fila l
+                         where l.chave_da_visita = visitas_na_fila.chave and l.enviada = 0))
       order by capturado_em`,
+    funcionarioId,
   );
 
   return linhas.map((l) => ({
@@ -301,19 +345,35 @@ export async function contarNaFila(): Promise<{ visitas: number; leituras: numbe
 }
 
 /**
- * Quantas rondas e quantas leituras ainda nao chegaram ao servidor.
+ * Quantas rondas e quantas leituras ainda nao chegaram ao servidor, do
+ * inspetor da sessao.
  *
- * E o numero que a tela inicial mostra ao lado de "Sincronizar": diferente de
- * `contarNaFila`, que conta tudo que existe no aparelho -- incluindo o que ja
- * subiu e so nao foi apagado.
+ * Recortado por `funcionario_id` pelo mesmo motivo de `visitasPendentes` --
+ * e o numero que a tela inicial pinta no distintivo de "Sincronizar", e ele
+ * precisa contar exatamente o que aquele toque vai enviar. Contando a fila
+ * inteira, o inspetor que entra depois de outro ve um distintivo que nao e
+ * dele e que o botao dele nao consegue zerar.
+ *
+ * Diferente de `contarNaFila`, que conta tudo que existe no aparelho --
+ * incluindo o que ja subiu e o que e de outra sessao.
  */
-export async function contarPendentes(): Promise<{ visitas: number; leituras: number }> {
+export async function contarPendentes(
+  funcionarioId: string,
+): Promise<{ visitas: number; leituras: number }> {
   const banco = await abrirFila();
   const visitas = await banco.getFirstAsync<{ n: number }>(
-    "select count(*) as n from visitas_na_fila where enviada = 0",
+    "select count(*) as n from visitas_na_fila where funcionario_id = ? and enviada = 0",
+    funcionarioId,
   );
+  // A leitura nao carrega `funcionario_id` -- ela pertence a uma visita, e e
+  // a visita que tem dono. O join e o que mantem as duas contagens falando do
+  // mesmo inspetor.
   const leituras = await banco.getFirstAsync<{ n: number }>(
-    "select count(*) as n from leituras_na_fila where enviada = 0",
+    `select count(*) as n
+       from leituras_na_fila l
+       join visitas_na_fila v on v.chave = l.chave_da_visita
+      where v.funcionario_id = ? and l.enviada = 0`,
+    funcionarioId,
   );
   return { visitas: visitas?.n ?? 0, leituras: leituras?.n ?? 0 };
 }
