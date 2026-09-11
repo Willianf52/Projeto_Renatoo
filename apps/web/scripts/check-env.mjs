@@ -8,6 +8,12 @@
 // Uso: node scripts/check-env.mjs
 // Sentry (SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN) fica fora de proposito: e
 // documentado como opcional, o app funciona sem.
+//
+// ESTA LISTA TEM UMA GEMEA em `src/lib/saude.ts`, que e a mesma checagem em
+// RUNTIME (o health check em `/api/health`). A duplicacao e deliberada -- um
+// responde "vai subir quebrado?" e a outra "esta quebrado agora?" --, mas as
+// duas precisam andar juntas: `src/lib/saude.test.ts` le este arquivo e falha
+// se as listas divergirem. Acrescentou uma env aqui? Acrescente la tambem.
 
 const OBRIGATORIAS = [
   "NEXT_PUBLIC_SUPABASE_URL",
