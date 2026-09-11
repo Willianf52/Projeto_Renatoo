@@ -36,6 +36,13 @@ import {
  * que a linha chegou. Guardar os dois e o que permite marcar como suspeita
  * uma ronda cujo aparelho estava com a hora errada -- sem isso o relatorio de
  * permanencia herda o erro calado (Parte IV do plano).
+ *
+ * DRENA A FILA DE UM INSPETOR SO. `funcionarioId` nao e conveniencia de
+ * assinatura: e o token da sessao que assina os inserts, e a policy da 0036
+ * exige `funcionario_id = auth.uid()`. Drenar a fila inteira num aparelho
+ * compartilhado mandaria a ronda do inspetor anterior com o token do atual, e
+ * o RLS recusaria -- prendendo a ronda alheia atras de um erro que a sessao
+ * atual nao tem como resolver. Ver o cabecalho de `visitasPendentes`.
  */
 
 export type ResultadoDaSincronizacao = {
@@ -46,7 +53,7 @@ export type ResultadoDaSincronizacao = {
   falhas: { chave: string; erro: string }[];
 };
 
-export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
+export async function sincronizar(funcionarioId: string): Promise<ResultadoDaSincronizacao> {
   const resultado: ResultadoDaSincronizacao = {
     visitasCriadas: 0,
     visitasJaExistiam: 0,
@@ -55,7 +62,7 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
     falhas: [],
   };
 
-  for (const visita of await visitasPendentes()) {
+  for (const visita of await visitasPendentes(funcionarioId)) {
     const leituras = await leiturasPendentes(visita.chave);
 
     /**
