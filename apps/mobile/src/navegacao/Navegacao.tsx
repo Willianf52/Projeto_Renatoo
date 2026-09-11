@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ROTULO_DO_TIPO, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { useSessao } from "../auth/SessaoProvider";
+import { usePisoDeVersao } from "../lib/usePisoDeVersao";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
 import { TelaDeAgendados } from "../telas/TelaDeAgendados";
 import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
@@ -62,6 +63,24 @@ const TEMA: Theme = {
  */
 export function Navegacao() {
   const { sessao, perfil, carregando, erroDePerfil, sair } = useSessao();
+  const { bloqueado: versaoVelhaDemais } = usePisoDeVersao();
+
+  /**
+   * O portao de versao vem ANTES de tudo, inclusive do login.
+   *
+   * Um build abaixo do piso nao pode nem autenticar: a partir da 0036 o app
+   * escreve direto em `visitas`/`leituras`, e a 0042 deu a ele um RPC com
+   * contrato proprio. Cliente velho continua escrevendo com o contrato velho
+   * e o banco aceita -- o estrago nao aparece como erro, aparece como dado
+   * incompleto num relatorio meses depois. Barrar na porta e o unico lugar
+   * onde isso sai barato.
+   *
+   * Falha aberta quando nao da para perguntar o piso; o porque esta em
+   * `lib/versao-minima.ts`.
+   */
+  if (versaoVelhaDemais) {
+    return <TelaDeAcessoBloqueado motivo="app-desatualizado" perfil={null} />;
+  }
 
   // Sessao ainda sendo lida do armazenamento seguro. Sem isto, o app pisca a tela de
   // login por um instante a cada abertura, mesmo com o inspetor logado.

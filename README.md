@@ -117,6 +117,45 @@ pnpm dev
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.
 
+## App de campo: builds, atualização e erro
+
+O `apps/mobile/eas.json` é JSON e não aceita comentário, então o raciocínio
+dos três perfis mora aqui.
+
+| Perfil | Para quê | Distribuição |
+|---|---|---|
+| `development` | Dev client, com o Metro conectado | interna |
+| `preview` | Homologação — APK que a supervisão instala à mão | interna, `apk` |
+| `production` | Publicação, com `autoIncrement` do `versionCode` | `app-bundle` |
+
+Cada perfil define `EXPO_PUBLIC_AMBIENTE`, que é o que separa um evento de
+homologação de um evento de campo no Sentry.
+
+**Erro do app (Sentry).** Sem `EXPO_PUBLIC_SENTRY_DSN` o app não envia nada e
+não falha por isso — é o estado de desenvolvimento. O SDK fica isolado em
+`src/lib/observabilidade-sentry.ts`, o único arquivo que o importa; todo o
+resto passa por `src/lib/observabilidade.ts`, que não conhece o Sentry. A
+separação não é purismo: o SDK arrasta o `react-native`, que é Flow e não
+carrega no vitest, e instrumentar `sincronizacao.ts` direto derrubaria o teste
+node dele.
+
+**Piso de versão.** O app pergunta a `/api/app/versao-minima` no painel qual a
+versão mínima aceita e se recusa a passar do login se estiver abaixo dela —
+um build antigo escreve com contrato antigo, e o estrago aparece como dado
+incompleto num relatório meses depois, não como erro. O piso é a env
+`VERSAO_MINIMA_DO_APP` no painel: subir o número e publicar barra os aparelhos
+antigos no próximo login, sem tocar em APK. **Vazio, o portão fica desligado.**
+A checagem falha aberta de propósito (sem rede, ninguém é barrado) — o
+raciocínio completo está em `apps/mobile/src/lib/versao-minima.ts`.
+
+**Falta ligar a conta do EAS.** O `expo-updates` está instalado e configurado
+(`runtimeVersion` por `appVersion`), mas publicar atualização exige rodar
+`eas init` dentro de `apps/mobile/` com a conta Expo — é ele que grava
+`extra.eas.projectId` e `updates.url` no `app.json`. Enquanto isso não
+acontece, o app roda normalmente e apenas não recebe atualização por canal. O
+mesmo vale para o upload de source map do Sentry, que pede `organization` e
+`project` no plugin.
+
 ## Estrutura
 
 Monorepo pnpm. A raiz nao tem codigo de aplicacao -- so a configuracao que
@@ -156,7 +195,7 @@ supabase/                Banco — infra dos dois apps, nao de um deles
   migrations/            Schema, uma migration por mudança
   tests/database/        Testes pgTAP das políticas de RLS
 
-.github/workflows/       CI: jobs `build` e `banco`
+.github/workflows/       CI: jobs `build`, `banco` e `e2e` (os tres obrigatorios)
 eslint.config.mjs        Lint do monorepo inteiro
 pnpm-workspace.yaml      Workspaces e overrides
 ```

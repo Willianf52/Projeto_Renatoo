@@ -5,6 +5,7 @@ import {
   type VisitaDeCampo,
 } from "@projeto-renatoo/shared";
 
+import { capturarFalhaDeCampo } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
 import {
   leiturasPendentes,
@@ -91,8 +92,7 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
 
     if (!conferida.success) {
       const erro = conferida.error.issues.map((i) => i.message).join(" ");
-      await registrarFalha(visita.chave, erro);
-      resultado.falhas.push({ chave: visita.chave, erro });
+      await falhar(resultado, "validacao", visita.chave, erro);
       continue;
     }
 
@@ -100,8 +100,7 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
 
     const idDaVisita = await garantirVisita(visitaValida, resultado);
     if (typeof idDaVisita !== "number") {
-      await registrarFalha(visita.chave, idDaVisita.erro);
-      resultado.falhas.push({ chave: visita.chave, erro: idDaVisita.erro });
+      await falhar(resultado, "visita", visita.chave, idDaVisita.erro);
       continue;
     }
 
@@ -121,8 +120,7 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
       .select("id");
 
     if (error) {
-      await registrarFalha(visita.chave, error.message);
-      resultado.falhas.push({ chave: visita.chave, erro: error.message });
+      await falhar(resultado, "leituras", visita.chave, error.message);
       continue;
     }
 
@@ -143,6 +141,34 @@ export async function sincronizar(): Promise<ResultadoDaSincronizacao> {
   }
 
   return resultado;
+}
+
+/**
+ * Os tres desfechos de falha de uma ronda, num lugar so.
+ *
+ * Os tres ja faziam a mesma dupla de coisas -- gravar o erro na fila local e
+ * acumular em `resultado.falhas` --, e agora fazem uma terceira: mandar para
+ * o Sentry. Extrair foi o que evitou espalhar a terceira linha por tres
+ * pontos e descobrir meses depois que um deles ficou de fora.
+ *
+ * `etapa` e o que separa "o esquema recusou" (bug nosso, ou dado que o app
+ * deixou entrar errado) de "o banco recusou" (policy, rede, contrato) quando
+ * os eventos estiverem agregados no Sentry. Sem ela seriam todos "falhou".
+ *
+ * A gravacao local continua sendo a fonte de verdade para a TELA: o inspetor
+ * precisa ver o que houve com a ronda dele mesmo sem sinal, e e `ultimo_erro`
+ * na fila que sustenta isso. O envio e observabilidade para quem opera o
+ * sistema -- nao substitui nada do que ja existia.
+ */
+async function falhar(
+  resultado: ResultadoDaSincronizacao,
+  etapa: "validacao" | "visita" | "leituras",
+  chave: string,
+  erro: string,
+): Promise<void> {
+  await registrarFalha(chave, erro);
+  resultado.falhas.push({ chave, erro });
+  capturarFalhaDeCampo(etapa, chave, erro);
 }
 
 /**

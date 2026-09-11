@@ -146,3 +146,10 @@ auditConfig:
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
   - expo-image-picker@57.0.14
+  - expo-eas-client@57.0.4
+  - expo-json-utils@57.0.2
+  - expo-manifests@57.0.2
+  - expo-structured-headers@57.0.1
+  - expo-updates-interface@57.0.2
+  - expo-updates@57.0.22
+  - expo-constants@57.0.18
