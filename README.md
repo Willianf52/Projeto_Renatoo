@@ -117,6 +117,25 @@ pnpm dev
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.
 
+## Monitoramento
+
+`GET /api/health` é o sinal de vida do painel, para um monitor externo bater a
+cada poucos minutos. Confere duas coisas — o banco responde, e as envs
+obrigatórias estão presentes — e devolve **200** de pé, **503** fora. O corpo
+é só `{ status, banco, envs }`: a rota é pública (monitor não autentica),
+então nome de env e mensagem do Postgres vão para o log do servidor, não para
+a resposta.
+
+O que ele pega, e o cron diário de importação não pegava: env perdida num
+deploy, projeto Supabase pausado por inatividade, chave rotacionada sem
+atualizar o ambiente. Nos três o painel carrega e só quebra quando alguém
+tenta usar.
+
+**Falta apontar um monitor para ele** — qualquer serviço de uptime serve,
+configurado para alertar em status diferente de 200. E, no Sentry, uma regra
+de alerta por taxa de erro: o projeto já emite os eventos (agora dos dois
+lados, painel e app de campo) e ninguém é avisado deles.
+
 ## App de campo: builds, atualização e erro
 
 O `apps/mobile/eas.json` é JSON e não aceita comentário, então o raciocínio
