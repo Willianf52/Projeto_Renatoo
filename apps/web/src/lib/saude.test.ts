@@ -21,10 +21,18 @@ describe("envsAusentes", () => {
   it("trata env em branco como ausente", () => {
     // O estado de quem copiou o .env.example e nao preencheu -- mais comum
     // que a env ausente, e igualmente quebrado.
+    //
+    // `ALERTA_OPERACAO_EMAIL` e nao um dos segredos da lista de proposito: o
+    // portao "Segredo compartilhado versionado?" da CI procura o padrao
+    // `NOME=valor` em arquivo versionado, e nao tem como saber que este aqui
+    // e um ambiente falso de teste. Ele acusou de verdade na primeira versao
+    // deste arquivo, e estava certo em acusar -- a linha tinha a forma exata
+    // de um segredo commitado. O portao continua util; o teste e que nao
+    // precisa dessa forma para provar o que prova.
     const ambiente = Object.fromEntries(ENVS_OBRIGATORIAS.map((nome) => [nome, "valor"]));
-    ambiente.RESEND_API_KEY = "   ";
+    ambiente.ALERTA_OPERACAO_EMAIL = "   ";
 
-    expect(envsAusentes(ambiente)).toEqual(["RESEND_API_KEY"]);
+    expect(envsAusentes(ambiente)).toEqual(["ALERTA_OPERACAO_EMAIL"]);
   });
 
   it("ignora env que nao esta na lista", () => {
