@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { CONTAS, STACK_LOCAL } from "./suporte/ambiente";
 
 /**
  * Cobre login -> dashboard e conta inativa barrada com a mensagem certa.
- * As duas pontas exigem uma conta real no projeto Supabase configurado em
- * `.env.local` -- não há service_role neste ambiente para criar usuários de
- * teste na hora, então os specs pulam sozinhos quando as env vars faltam.
+ * As duas pontas exigem uma conta real. Contra o Supabase local (a CI) as
+ * contas vem do projeto `setup`; contra qualquer outro projeto elas vem das
+ * env vars abaixo, e sem elas os specs pulam sozinhos.
  *
- * Para rodar de verdade:
+ * Para rodar contra outro projeto:
  *   E2E_EMAIL=... E2E_PASSWORD=... npx playwright test sessao-autenticada
  *   E2E_INACTIVE_EMAIL=... E2E_INACTIVE_PASSWORD=... npx playwright test sessao-autenticada
  *
@@ -14,10 +15,16 @@ import { expect, test } from "@playwright/test";
  * E2E_INACTIVE_EMAIL precisa existir com profiles.ativo = false.
  */
 
-const EMAIL = process.env.E2E_EMAIL;
-const PASSWORD = process.env.E2E_PASSWORD;
-const INATIVO_EMAIL = process.env.E2E_INACTIVE_EMAIL;
-const INATIVO_PASSWORD = process.env.E2E_INACTIVE_PASSWORD;
+// No stack local as contas existem sempre -- o projeto `setup` as cria (ver
+// auth.setup.ts) --, entao estes specs deixam de depender de secret. As env
+// vars continuam tendo precedencia, para rodar contra outro projeto com conta
+// de teste dedicada.
+const EMAIL = process.env.E2E_EMAIL ?? (STACK_LOCAL ? CONTAS.gestor.email : undefined);
+const PASSWORD = process.env.E2E_PASSWORD ?? (STACK_LOCAL ? CONTAS.gestor.senha : undefined);
+const INATIVO_EMAIL =
+  process.env.E2E_INACTIVE_EMAIL ?? (STACK_LOCAL ? CONTAS.inativo.email : undefined);
+const INATIVO_PASSWORD =
+  process.env.E2E_INACTIVE_PASSWORD ?? (STACK_LOCAL ? CONTAS.inativo.senha : undefined);
 
 test.describe("Login com conta ativa", () => {
   test.skip(!EMAIL || !PASSWORD, "requer E2E_EMAIL e E2E_PASSWORD");
