@@ -28,16 +28,43 @@ export default defineConfig({
     baseURL: "http://localhost:3100",
     trace: "on-first-retry",
   },
+  /**
+   * `setup` antes de tudo: cria as contas do stack local e grava a sessao do
+   * GESTOR (e2e/auth.setup.ts). Fora do stack local ele se pula, e um projeto
+   * pulado nao segura os dependentes -- os specs sem credencial rodam igual.
+   *
+   * Os specs de fluxo de negocio (cadastro, checklist, relatorio) escrevem no
+   * banco e por isso so rodam contra Supabase em 127.0.0.1 -- ver a guarda em
+   * e2e/suporte/ambiente.ts.
+   */
   projects: [
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // Mede bundle de producao; roda pela playwright.desempenho.config.ts.
+      testIgnore: /desempenho\.spec\.ts/,
+      dependencies: ["setup"],
     },
   ],
   webServer: {
     command: "npx next dev --turbopack -p 3100",
     url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    /**
+     * Teto de espera, nao atraso fixo: quem responde antes segue na hora, e
+     * localmente nada muda.
+     *
+     * Subiu de 60s ao entrar na CI (job `e2e` do ci.yml). La o servidor nasce
+     * frio -- sem `.next` de execucao anterior --, e o Playwright so considera
+     * a URL de pe depois que a primeira pagina termina de compilar. Um runner
+     * lento passava de 60s e o job falhava por timeout do webServer, que
+     * aparece como "e2e quebrou" sem nenhum teste ter chegado a rodar: o pior
+     * tipo de portao intermitente, porque o diagnostico nao esta no relatorio.
+     */
+    timeout: 120_000,
   },
 });

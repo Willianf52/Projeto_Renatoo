@@ -163,8 +163,8 @@ const NAV_ITEMS: NavItem[] = [
     icon: ClipboardListIcon,
     children: [
       {
-        label: "Perguntas do Checklist",
-        href: "/dashboard/checklistlab/perguntas",
+        label: "Histórico de Checklist",
+        href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
       },
     ],

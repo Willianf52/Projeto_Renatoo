@@ -9,6 +9,9 @@ import { LIMITE_OBSERVACAO } from "./regras";
 
 const LEITURA_MINIMA = { dataHora: "2026-08-01T08:12:00-03:00" };
 
+/** Chave de coleta no formato que o app cunha desde a migration 0047. */
+const CHAVE_DE_COLETA = "c9d1f2a4-1111-4222-8333-444455556666";
+
 function primeiroErro(resultado: { success: false; error: { issues: { message: string }[] } }) {
   return resultado.error.issues[0].message;
 }
@@ -100,7 +103,7 @@ describe("esquemaDeLeituraDeCampo", () => {
 });
 
 describe("esquemaDeVisitaDeCampo", () => {
-  const VISITA_MINIMA = { numeroColeta: 12, siteId: 3, leituras: [LEITURA_MINIMA] };
+  const VISITA_MINIMA = { numeroColeta: CHAVE_DE_COLETA, siteId: 3, leituras: [LEITURA_MINIMA] };
 
   it("aceita a visita minima e colapsa os opcionais", () => {
     const resultado = esquemaDeVisitaDeCampo.safeParse(VISITA_MINIMA);
@@ -145,7 +148,7 @@ describe("esquemaDeVisitaDeCampo", () => {
 describe("ponte com o schema do banco", () => {
   it("mapeia a visita para as colunas de `visitas`", () => {
     const visita = esquemaDeVisitaDeCampo.parse({
-      numeroColeta: 12,
+      numeroColeta: CHAVE_DE_COLETA,
       siteId: 3,
       funcionarioId: "a0000000-0000-4000-8000-000000000001",
       motivoVisitaId: 7,
@@ -153,7 +156,7 @@ describe("ponte com o schema do banco", () => {
     });
 
     expect(linhaDeVisita(visita)).toEqual({
-      numero_coleta: 12,
+      numero_coleta: CHAVE_DE_COLETA,
       site_id: 3,
       funcionario_id: "a0000000-0000-4000-8000-000000000001",
       motivo_visita_id: 7,

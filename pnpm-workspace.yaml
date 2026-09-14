@@ -13,9 +13,9 @@ onlyBuiltDependencies:
 
 overrides:
   postcss: ^8.5.18
-  sharp: ^0.35.0
+  sharp: ^0.35.4
   brace-expansion: ^1.1.17
-  js-yaml: ^4.3.1
+  js-yaml: ^4.3.2
   nanoid: ^3.3.17
   # GHSA-w5hq-g745-h8pq (moderate): uuid < 11.1.1 nao confere o limite do
   # buffer em v3/v5/v6 quando `buf` e passado. Entra so por
@@ -35,6 +35,54 @@ overrides:
   # pacote do lock usa uuid.
   uuid@<11.1.1: '>=11.1.1'
 
+  # GHSA-jqff-g426-hqxp e mais tres (todos high): `fast-uri` < 3.1.6 confunde
+  # host em URL com esquema percent-encoded e com IDN pulado -- o suficiente
+  # para uma checagem de destino aceitar um endereco e a requisicao sair para
+  # outro. Entra so por apps/web > @sentry/nextjs > @sentry/webpack-plugin >
+  # webpack > schema-utils > ajv.
+  #
+  # Nao e um override que force incompatibilidade: o `ajv` declara
+  # `fast-uri: ^3.0.1`, entao a versao corrigida ja cabia -- o lockfile e que
+  # estava parado na 3.1.5. `pnpm update -r fast-uri` nao a alcanca por ser
+  # transitiva, dai o piso explicito aqui.
+  #
+  # COM TETO, e nao `>=3.1.6`: sem ele a resolucao pula para a 4.x -- um major
+  # acima do que o `ajv` declara, trocando quatro advisories por um risco de
+  # incompatibilidade em tempo de build. Mesma licao do `uuid` acima.
+  #
+  # O alcance real e o bundler do Sentry em tempo de build; nenhuma URL de
+  # terceiro passa por esse parser em producao. Ainda assim se corrige em vez
+  # de ignorar por id, porque aqui existe versao corrigida e ela entra sem
+  # quebrar nada -- diferente do `image-size` e do `decode-uri-component`
+  # abaixo, onde a correcao nao e aplicavel.
+  'fast-uri@<3.1.6': '^3.1.6'
+
+  # GHSA-6gmq-8vp8-gcm6 (moderate): `@xmldom/xmldom` monta `EntityReference`
+  # com `nodeName` invalido e serializa sem recusar quando `requireWellFormed`
+  # esta ligado -- o resultado e um fragmento XML injetado no documento de
+  # saida. Entra em DUAS copias, as duas por tooling de plist do Expo:
+  # a 0.8.x por @expo/cli > @expo/plist, e a 0.9.x por @expo/config-plugins >
+  # xcode > simple-plist > plist.
+  #
+  # Mesmo caso do `fast-uri` acima, e nao o do `image-size`: os ranges
+  # declarados ja admitem a versao corrigida (`^0.8.8` aceita a 0.8.15,
+  # `^0.9.10` aceita a 0.9.12) -- o lockfile e que estava parado. Nao ha salto
+  # de major nem API trocada; as versoes que estavam no lock e que carregam
+  # `deprecated: this version has critical issues`.
+  #
+  # COM TETO nos dois pisos, pela licao do `uuid`: `^0.8.15` segura a linha
+  # 0.8 e `^0.9.12` segura a 0.9, cada uma dentro do que seu dependente
+  # declara. Sem teto as duas colapsariam na mesma versao, atravessando um
+  # major que nenhum dos dois pediu.
+  #
+  # O alcance real e nulo hoje: o xmldom so existe aqui para ler e escrever
+  # plist de iOS (Info.plist, entitlements) durante `expo prebuild`, e este
+  # projeto nao tem `apps/mobile/ios` -- so `android`. E ferramenta de build,
+  # sobre arquivo que nos mesmos escrevemos. Corrige-se porque a correcao
+  # entra limpa, nao porque havia buraco aberto.
+  '@xmldom/xmldom@<0.8.15': '^0.8.15'
+  '@xmldom/xmldom@>=0.9.0 <0.9.12': '^0.9.12'
+
 # Dois advisories high do `image-size` (<=2.0.2) que entram unicamente por
 # apps/mobile > expo > @expo/cli > metro. Nao ha correcao aplicavel: o Metro
 # 0.84.4 declara `image-size@^1.0.2` e consome o *default export*
@@ -49,11 +97,59 @@ overrides:
 #
 # Revisitar quando o Expo subir o Metro: `pnpm why image-size` mostra se
 # ainda cai na 1.x.
+# GHSA-vcc3-ghjq-m6fr (moderate): `decode-uri-component` <=0.4.2 faz decodificacao
+# exponencial em percent-encoding malformado. Entra so por
+# apps/mobile > @react-navigation/native > @react-navigation/core > query-string.
+#
+# NAO E ALCANCAVEL AQUI. O `query-string` existe no @react-navigation para
+# interpretar URL de DEEP LINK, e este app nao tem deep link: `app.json` nao
+# declara `scheme` e o `NavigationContainer` (src/navegacao/Navegacao.tsx) e
+# montado sem a prop `linking`. Nenhuma URL de terceiro chega ao parser --
+# so texto que o proprio app constroi.
+#
+# NAO HA OVERRIDE APLICAVEL, mesmo caso do `image-size` abaixo, e por DOIS
+# motivos independentes -- conferidos no registro em 09/09/2026:
+#
+#   1) FRONTEIRA ESM/CJS. A primeira versao corrigida e a 0.5.0, que e ESM puro
+#      (`"type": "module"`, e `exports` sem condicao `require`). O
+#      query-string 7.1.3 e CommonJS -- sem campo `type`, `engines.node >=6` --
+#      e faz `require('decode-uri-component')` (index.js:3).
+#
+#   2) O RANGE DECLARADO NAO ALCANCA VERSAO SA. O query-string pede
+#      `decode-uri-component: ^0.2.2`, e caret em `0.x` trava em
+#      `>=0.2.2 <0.3.0`: NENHUMA versao dentro do que ele declara esta fora do
+#      advisory. A 0.2.2 instalada e a unica que satisfaz o range.
+#
+# O override trocaria um DoS inalcancavel por navegacao quebrada no app de campo.
+#
+# Sobre a faixa do advisory: ele hoje diz `first_patched_version: 0.5.0` (ja
+# foi corrigido na fonte -- antes apontava uma "0.4.3" que nunca existiu). As
+# versoes publicadas sao 0.1.0, 0.2.0, 0.2.1, 0.2.2, 0.3.0, 0.4.0, 0.4.1 e
+# 0.5.0: nem a 0.4.2 do limite superior do range vulneravel foi ao ar.
+#
+# O ALERTA 5 DO DEPENDABOT FOI DISPENSADO como `not_used` em 09/09/2026, e nao
+# so ignorado aqui: `auditConfig.ignoreGhsas` vale para o `pnpm audit` e o
+# Dependabot nao le este arquivo, entao sem a dispensa o aviso continuaria
+# aparecendo a cada push.
+#
+# Revisitar quando o @react-navigation subir o query-string para a linha 9.x,
+# que ja usa a API nativa de URL: `pnpm why query-string` mostra se ainda entra.
+# A dispensa tambem cai se o app de campo passar a declarar `scheme` e
+# `linking` -- ai o parser volta a receber URL de terceiro, e a premissa de
+# "nao alcancavel" acima deixa de valer.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
+    - GHSA-vcc3-ghjq-m6fr
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
   - expo-image-picker@57.0.14
+  - expo-eas-client@57.0.4
+  - expo-json-utils@57.0.2
+  - expo-manifests@57.0.2
+  - expo-structured-headers@57.0.1
+  - expo-updates-interface@57.0.2
+  - expo-updates@57.0.22
+  - expo-constants@57.0.18

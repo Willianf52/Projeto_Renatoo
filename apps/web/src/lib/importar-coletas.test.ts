@@ -277,12 +277,12 @@ describe("resolverReferencia", () => {
 
 describe("chaveDaVisita", () => {
   it("combina numero e site, que e a unique da migration 0004", () => {
-    expect(chaveDaVisita(10, 3)).toBe("10::3");
+    expect(chaveDaVisita("10", 3)).toBe("10::3");
   });
 
   it("nao confunde numeros que se concatenariam igual", () => {
     // Sem separador, (1, 23) e (12, 3) dariam a mesma chave e duas visitas
     // distintas seriam agrupadas numa so.
-    expect(chaveDaVisita(1, 23)).not.toBe(chaveDaVisita(12, 3));
+    expect(chaveDaVisita("1", 23)).not.toBe(chaveDaVisita("12", 3));
   });
 });

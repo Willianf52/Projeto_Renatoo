@@ -8,7 +8,8 @@ import {
   type IndicePorNome,
 } from "@/lib/importar-coletas";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { identificarChamador } from "@/lib/rate-limit";
 import { enviarAlertaOperacional } from "@/lib/resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { segredoConfere } from "@/lib/webhook-user-updated";
@@ -103,6 +104,11 @@ async function registrarImportacao(
  * conter CUSTO (cota do Resend, caixa de quem recebe alerta operacional), e
  * "o limite real e limite x instancias quentes" significa um e-mail por
  * instancia por janela. Achado M-3 da auditoria de 28/08.
+ *
+ * (Desde a 0048 o `limitarTaxa` tambem e compartilhado entre instancias -- ver
+ * `lib/limite-compartilhado.ts`. Este throttle continua lendo `importacoes`
+ * mesmo assim: a linha de tentativa ja existe, e ele so roda no caminho de
+ * falha, entao nao ha ganho em trocar.)
  *
  * A janela passa a ser lida de `importacoes`, que ja grava uma linha por
  * tentativa com `criado_em` -- throttle compartilhado entre instancias sem
@@ -201,7 +207,13 @@ async function carregarReferencias(supabase: Cliente): Promise<Referencias> {
 }
 
 type LinhaResolvida = {
-  visita: { numero_coleta: number; site_id: number };
+  // `numero_coleta` e texto desde a 0047 -- a coluna passou a hospedar duas
+  // origens (o inteiro deste lote e o UUID do app de campo). O corpo da
+  // requisicao continua sendo validado como inteiro positivo em
+  // `importar-coletas.ts`: e o formato que o sistema de origem manda, e
+  // afrouxar isso aqui aceitaria como chave qualquer texto que ele errasse.
+  // A conversao acontece na fronteira, uma vez, ao montar a linha.
+  visita: { numero_coleta: string; site_id: number };
   visitaExtra: {
     funcionario_id: string | null;
     motivo_visita_id: number | null;
@@ -264,7 +276,7 @@ function resolverLinha(
   return {
     ok: true,
     linha: {
-      visita: { numero_coleta: coleta.numeroColeta, site_id: site.id as number },
+      visita: { numero_coleta: String(coleta.numeroColeta), site_id: site.id as number },
       visitaExtra: {
         funcionario_id: funcionarioId,
         motivo_visita_id: motivo.id,
@@ -305,7 +317,7 @@ export async function POST(request: NextRequest) {
   // Pelo mesmo motivo, 401 e 429 nunca viram linha em `importacoes` (migration
   // 0033): nao sao tentativa de lote, sao a rota rejeitando quem nao provou
   // ser a integracao -- ver o cabecalho da migration.
-  const limite = limitarTaxa(`importar-coletas:${origem}`, LIMITE_DE_REQUISICOES, JANELA_MS);
+  const limite = await limitarTaxa(`importar-coletas:${origem}`, LIMITE_DE_REQUISICOES, JANELA_MS);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },

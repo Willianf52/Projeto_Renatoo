@@ -65,3 +65,76 @@ export function IconeDeLupa({ tamanho = 20, cor }: PropsDeIcone) {
     </Svg>
   );
 }
+
+/**
+ * Os tres desenhos da tela inicial. Nao vieram do painel -- ele nao tem um
+ * menu de acoes como este --, entao seguem a mesma gramatica dos de cima
+ * (traco 2, cantos redondos, grade de 24) para nao destoarem ao lado deles.
+ */
+
+/** Lista com marcas de conferido: o cartao "Inspecao". */
+export function IconeDeChecklist({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="m3 6 2 2 3-3" stroke={cor} {...COMUNS} />
+      <Path d="m3 14 2 2 3-3" stroke={cor} {...COMUNS} />
+      <Path d="M12 7h9" stroke={cor} {...COMUNS} />
+      <Path d="M12 15h9" stroke={cor} {...COMUNS} />
+      <Path d="M12 21h9" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Relogio: o cartao "Agendados". */
+export function IconeDeRelogio({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={cor} {...COMUNS} />
+      <Path d="M12 7v5l3 2" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Duas setas em ciclo: o cartao "Sincronizar". */
+export function IconeDeSincronizar({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 11a8 8 0 0 0-13.7-5.7L3 8.5" stroke={cor} {...COMUNS} />
+      <Path d="M3 4v4.5h4.5" stroke={cor} {...COMUNS} />
+      <Path d="M4 13a8 8 0 0 0 13.7 5.7L21 15.5" stroke={cor} {...COMUNS} />
+      <Path d="M21 20v-4.5h-4.5" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Chave de boca: a "Visita Corretiva" -- conserto de algo que esta errado. */
+export function IconeDeFerramenta({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14.7 6.3a4 4 0 0 0 5 5L21 10a5.5 5.5 0 0 1-7.4 7.4l-6 6a2.1 2.1 0 0 1-3-3l6-6A5.5 5.5 0 0 1 18 3l-3.3 3.3Z"
+        stroke={cor}
+        {...COMUNS}
+      />
+    </Svg>
+  );
+}
+
+/** Pessoa: a "Consultoria" -- alguem que vai ao posto orientar, nao consertar. */
+export function IconeDePessoa({ tamanho = 24, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="8" r="4" stroke={cor} {...COMUNS} />
+      <Path d="M4 21a8 8 0 0 1 16 0" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}
+
+/** Seta do fim do cartao: diz que tocar leva a outra tela, e nao marca uma opcao. */
+export function IconeDeSeta({ tamanho = 20, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="m9 6 6 6-6 6" stroke={cor} {...COMUNS} />
+    </Svg>
+  );
+}

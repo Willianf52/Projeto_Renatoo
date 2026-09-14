@@ -11,11 +11,11 @@ import {
 } from "react-native";
 import * as SeletorDeImagem from "expo-image-picker";
 import {
+  LIMITE_MOTIVO,
   MAXIMO_DE_FOTOS,
   RESPOSTAS_DO_CHECKLIST,
   ROTULO_DA_RESPOSTA,
   ROTULO_DO_TIPO,
-  TIPOS_DE_VISITA,
   type RespostaDoChecklist,
   type Tables,
   type TipoDeVisita,
@@ -48,13 +48,21 @@ type Pergunta = Pick<Tables<"perguntas_checklist">, "id" | "ordem" | "texto">;
 export function TelaDeChecklist({
   visitaId,
   numeroColeta,
+  tipo,
   aoConcluir,
 }: {
   visitaId: number;
-  numeroColeta: number;
+  numeroColeta: string;
+  /**
+   * Escolhido na tela anterior (`TelaDeTipoDeVisita`), e nao aqui: e o fluxo
+   * do material que a supervisao distribuiu. Chega como prop, e nao como
+   * estado, porque trocar de tipo no meio do preenchimento nao e "mudar um
+   * campo" -- e comecar outro formulario. Voltar e escolher de novo deixa isso
+   * explicito, em vez de esvaziar respostas por baixo do dedo.
+   */
+  tipo: TipoDeVisita;
   aoConcluir: () => void;
 }) {
-  const [tipo, setTipo] = useState<TipoDeVisita | null>(null);
   const [motivo, setMotivo] = useState("");
   // `null` e "ainda nao buscadas", `[]` e "buscadas e nao ha nenhuma". Os dois
   // estados sao diferentes na tela -- um mostra esqueleto, o outro diz que o
@@ -69,6 +77,20 @@ export function TelaDeChecklist({
   const [erro, setErro] = useState<string | null>(null);
 
   const assinatura = useRef<ControleDaAssinatura>(null);
+
+  /**
+   * Guarda contra dois envios em voo ao mesmo tempo -- a mesma peca que
+   * `revalidacaoEmVoo` em `useCicloDeVidaDaSessao`, e pelo mesmo motivo.
+   *
+   * REF E NAO O `enviando`: `enviando` e estado, e so vira `true` depois do
+   * `await` da captura da assinatura (o `toDataURL` nativo rasteriza o SVG e
+   * demora). Ate la o botao seguia ativo, e dois toques nessa janela viravam
+   * dois envios completos: as fotos subiam duas vezes e o segundo batia na
+   * unique `checklists_visita_visita_unica` (migration 0042) -- depois de
+   * gastar a rede de campo inteira de novo e deixar o dobro de orfaos no
+   * bucket. Uma ref e lida no mesmo tique do toque, antes de qualquer render.
+   */
+  const envioEmVoo = useRef(false);
 
   /**
    * As perguntas so sao buscadas quando a CONSULTORIA e escolhida, e nao na
@@ -108,97 +130,121 @@ export function TelaDeChecklist({
   const carregandoPerguntas = tipo === "CONSULTORIA" && perguntas === null;
 
   const anexarFoto = useCallback(async () => {
-    // `requestCameraPermissionsAsync` a cada toque, e nao uma vez na abertura:
-    // a permissao pode ser revogada pelas configuracoes do sistema com o app
-    // aberto, e pedir no momento do uso e o que o inspetor entende -- ele
-    // acabou de tocar em "Tirar foto".
-    const permissao = await SeletorDeImagem.requestCameraPermissionsAsync();
+    try {
+      // `requestCameraPermissionsAsync` a cada toque, e nao uma vez na
+      // abertura: a permissao pode ser revogada pelas configuracoes do sistema
+      // com o app aberto, e pedir no momento do uso e o que o inspetor entende
+      // -- ele acabou de tocar em "Tirar foto".
+      const permissao = await SeletorDeImagem.requestCameraPermissionsAsync();
 
-    if (!permissao.granted) {
-      setErro("Autorize o acesso à câmera para anexar a foto.");
-      return;
+      if (!permissao.granted) {
+        setErro("Autorize o acesso à câmera para anexar a foto.");
+        return;
+      }
+
+      const resultado = await SeletorDeImagem.launchCameraAsync({
+        mediaTypes: ["images"],
+        // A foto e prova de campo, nao material de catalogo: 0.6 corta o
+        // arquivo a uma fracao sem perder o que a imagem precisa mostrar, e e
+        // a diferenca entre o envio terminar ou nao numa rede fraca.
+        quality: 0.6,
+      });
+
+      if (resultado.canceled) return;
+
+      setErro(null);
+      setFotos((atuais) =>
+        [...atuais, ...resultado.assets.map((a) => a.uri)].slice(0, MAXIMO_DE_FOTOS),
+      );
+    } catch {
+      // As duas chamadas acima REJEITAM de verdade -- camera indisponivel,
+      // outro seletor ja aberto. A funcao e descartada com `void` no botao,
+      // entao sem este ramo a rejeicao sumia sem deixar rastro: o inspetor
+      // tocava em "Tirar foto" e a tela nao reagia nem explicava, que e o
+      // formato de falha mais caro para quem esta em campo.
+      setErro("Não foi possível abrir a câmera. Tente de novo.");
     }
-
-    const resultado = await SeletorDeImagem.launchCameraAsync({
-      mediaTypes: ["images"],
-      // A foto e prova de campo, nao material de catalogo: 0.6 corta o arquivo
-      // a uma fracao sem perder o que a imagem precisa mostrar, e e a
-      // diferenca entre o envio terminar ou nao numa rede fraca.
-      quality: 0.6,
-    });
-
-    if (resultado.canceled) return;
-
-    setErro(null);
-    setFotos((atuais) => [...atuais, ...resultado.assets.map((a) => a.uri)].slice(0, MAXIMO_DE_FOTOS));
   }, []);
 
   const enviar = useCallback(async () => {
-    if (!tipo) return;
+    if (envioEmVoo.current) return;
 
-    setErro(null);
+    envioEmVoo.current = true;
 
-    // Checagens locais antes de gastar rede: subir cinco fotos para depois
-    // descobrir que falta a assinatura e o pior desfecho possivel aqui.
-    if (tipo === "CORRETIVA" && motivo.trim() === "") {
-      setErro("Informe o motivo da visita.");
-      return;
-    }
+    try {
+      setErro(null);
 
-    const lista = perguntas ?? [];
+      // Checagens locais antes de gastar rede: subir cinco fotos para depois
+      // descobrir que falta a assinatura e o pior desfecho possivel aqui.
+      if (tipo === "CORRETIVA" && motivo.trim() === "") {
+        setErro("Informe o motivo da visita.");
+        return;
+      }
 
-    if (tipo === "CONSULTORIA") {
-      const semResposta = lista.filter((pergunta) => !respostas[pergunta.id]);
+      const lista = perguntas ?? [];
 
-      if (lista.length === 0 || semResposta.length > 0) {
+      if (tipo === "CONSULTORIA") {
+        const semResposta = lista.filter((pergunta) => !respostas[pergunta.id]);
+
+        if (lista.length === 0 || semResposta.length > 0) {
+          setErro(
+            lista.length === 0
+              ? "Nenhuma pergunta cadastrada no checklist."
+              : `Responda todas as perguntas (faltam ${semResposta.length}).`,
+          );
+          return;
+        }
+      }
+
+      if (fotos.length === 0) {
+        setErro("Anexe ao menos uma foto.");
+        return;
+      }
+
+      const traco = await assinatura.current?.capturar();
+
+      if (!traco) {
+        // `capturar` devolve `null` por dois motivos diferentes, e mandar o
+        // inspetor "colher a assinatura" quando ela esta ali na tela seria
+        // pedir para ele repetir o que ja fez. `temAssinatura` desempata.
         setErro(
-          lista.length === 0
-            ? "Nenhuma pergunta cadastrada no checklist."
-            : `Responda todas as perguntas (faltam ${semResposta.length}).`,
+          temAssinatura
+            ? "Não foi possível gerar a assinatura. Toque em Finalizar de novo."
+            : "Colha a assinatura do responsável.",
         );
         return;
       }
+
+      setEnviando(true);
+
+      const resultado = await enviarChecklist({
+        visitaId,
+        tipo,
+        motivo: tipo === "CORRETIVA" ? motivo : undefined,
+        respostas:
+          tipo === "CONSULTORIA"
+            ? lista.map((pergunta) => ({
+                perguntaId: pergunta.id,
+                resposta: respostas[pergunta.id],
+                observacao: null,
+              }))
+            : undefined,
+        fotos,
+        assinatura: traco,
+      });
+
+      setEnviando(false);
+
+      if (!resultado.ok) {
+        setErro(resultado.erro);
+        return;
+      }
+
+      aoConcluir();
+    } finally {
+      envioEmVoo.current = false;
     }
-
-    if (fotos.length === 0) {
-      setErro("Anexe ao menos uma foto.");
-      return;
-    }
-
-    const traco = await assinatura.current?.capturar();
-
-    if (!traco) {
-      setErro("Colha a assinatura do responsável.");
-      return;
-    }
-
-    setEnviando(true);
-
-    const resultado = await enviarChecklist({
-      visitaId,
-      tipo,
-      motivo: tipo === "CORRETIVA" ? motivo : undefined,
-      respostas:
-        tipo === "CONSULTORIA"
-          ? lista.map((pergunta) => ({
-              perguntaId: pergunta.id,
-              resposta: respostas[pergunta.id],
-              observacao: null,
-            }))
-          : undefined,
-      fotos,
-      assinatura: traco,
-    });
-
-    setEnviando(false);
-
-    if (!resultado.ok) {
-      setErro(resultado.erro);
-      return;
-    }
-
-    aoConcluir();
-  }, [aoConcluir, fotos, motivo, perguntas, respostas, tipo, visitaId]);
+  }, [aoConcluir, fotos, motivo, perguntas, respostas, temAssinatura, tipo, visitaId]);
 
   return (
     <KeyboardAvoidingView
@@ -211,38 +257,7 @@ export function TelaDeChecklist({
         keyboardDismissMode="on-drag"
       >
         <Text style={estilos.titulo}>Coleta {numeroColeta}</Text>
-        <Text style={estilos.subtitulo}>Selecione o tipo de visita para continuar.</Text>
-
-        {/* As duas opcoes da tela. Cartao inteiro e o alvo de toque, e nao um
-            radio de 20 pontos ao lado do texto: o aparelho e usado em pe, as
-            vezes com luva. */}
-        <View style={estilos.opcoes}>
-          {TIPOS_DE_VISITA.map((opcao) => (
-            <Pressable
-              key={opcao}
-              onPress={() => {
-                setTipo(opcao);
-                setErro(null);
-              }}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: tipo === opcao }}
-              style={({ pressed }) => [
-                estilos.opcao,
-                tipo === opcao && estilos.opcaoEscolhida,
-                pressed && estilos.opcaoPressionada,
-              ]}
-            >
-              <Text style={[estilos.opcaoTexto, tipo === opcao && estilos.opcaoTextoEscolhido]}>
-                {ROTULO_DO_TIPO[opcao]}
-              </Text>
-              <Text style={estilos.opcaoApoio}>
-                {opcao === "CORRETIVA"
-                  ? "Motivo da visita, foto e assinatura"
-                  : "Checklist completo, foto e assinatura"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={estilos.subtitulo}>{ROTULO_DO_TIPO[tipo]}</Text>
 
         {erro ? <Aviso mensagem={erro} estilo={estilos.aviso} /> : null}
 
@@ -253,6 +268,14 @@ export function TelaDeChecklist({
               valor={motivo}
               aoMudar={setMotivo}
               placeholder="Descreva o que motivou a visita"
+              // O mesmo teto que o `esquemaDeChecklistDeVisita` aplica, aqui
+              // no campo -- como o `LIMITE_EMAIL` no login, e pela mesma razao,
+              // que neste caminho custa mais caro: o `safeParse` do envio roda
+              // DEPOIS de a assinatura e todas as fotos ja terem subido
+              // (`envio-de-checklist.ts`). Sem o limite na digitacao, um texto
+              // colado longo demais so falhava no fim, com a rede de campo ja
+              // gasta e os arquivos orfaos no bucket.
+              maxLength={LIMITE_MOTIVO}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -404,7 +427,6 @@ const estilos = StyleSheet.create({
     marginTop: espaco.rotulo,
     marginBottom: espaco.confortavel,
   },
-  opcoes: { gap: espaco.entreItens },
   opcao: {
     backgroundColor: cores.superficie,
     borderWidth: 1,
@@ -414,11 +436,7 @@ const estilos = StyleSheet.create({
   },
   // A escolha e marcada pela borda verde, nao por preenchimento: preencher o
   // cartao de verde deixaria o texto branco em 1.5:1 em cima dele.
-  opcaoEscolhida: { borderColor: cores.primaria },
   opcaoPressionada: { opacity: 0.7 },
-  opcaoTexto: texto(tipografia.destaque, { cor: cores.texto }),
-  opcaoTextoEscolhido: { color: cores.primaria },
-  opcaoApoio: { ...texto(tipografia.nota, { cor: cores.textoFraco }), marginTop: 2 },
 
   aviso: { marginTop: espaco.entreItens },
   secao: { marginTop: espaco.entreCampos, gap: espaco.entreItens },

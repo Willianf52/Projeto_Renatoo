@@ -1,6 +1,6 @@
-import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
+import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
-import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -19,8 +19,8 @@ export type Filtros = {
 
 export function extrairFiltros(params: SearchParams): Filtros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
     checkpoint: primeiro(params.checkpoint),
     funcionario: primeiro(params.funcionario),
     grupoUsuario: primeiro(params.grupo_usuario),
@@ -80,87 +80,20 @@ export type RankingDeInspecoes = {
   total: number;
 };
 
-/** O que a tela recebe: o ranking mais o aviso de que ele saiu incompleto.
- * `truncado` fica fora de `RankingDeInspecoes` de proposito -- aquele e o
- * retorno de `contarPorFuncionario`, que so conta o que recebeu e nao tem
- * como saber se a busca parou antes do fim. */
-export type ResultadoRanking = RankingDeInspecoes & { truncado: boolean };
-
-type LeituraBruta = {
-  visita_id: number;
-  visitas: {
-    funcionario_id: string | null;
-    profiles: { nome_completo: string } | null;
-  } | null;
-};
-
-/** Fuso da operacao (Brasilia), mesmo criterio das demais telas. */
-const FUSO_OPERACIONAL = "-03:00";
-
-function combinarDataHora(data: string | undefined, horaPadrao: string): string | null {
-  if (!data) return null;
-  return `${data}T${horaPadrao}${FUSO_OPERACIONAL}`;
-}
-
-function montarSelect(precisaTipo: boolean, precisaGrupoUsuario: boolean): string {
-  return `
-    visita_id,
-    visitas!inner (
-      funcionario_id,
-      profiles ( nome_completo )
-      ${precisaTipo ? ", sites!inner ( tipo_servico_id )" : ""}
-      ${precisaGrupoUsuario ? ", profiles!inner ( grupos_usuarios_membros!inner ( grupo_id ) )" : ""}
-    )
-  `;
-}
+/** Uma linha de `relatorio_ranking_de_inspecoes` (migration 0049). */
+export type RankingDoBanco = { funcionario_id: string; nome: string; quantidade: number };
 
 /**
- * `query: any` pelo mesmo motivo de aplicarFiltrosDeVisita em
- * registro-de-rondas/queries.ts: o cliente aqui nao carrega o generic
- * `Database`.
+ * Contagens do banco -> ranking da tela: maior quantidade primeiro, empate
+ * desempatado por nome em pt-BR, e o Total de Inspecoes.
+ *
+ * A contagem de visitas DISTINTAS (uma visita com Inicio e Termino conta uma
+ * vez) mora no banco desde a 0049. Pura, para ser testada sem mockar o
+ * Supabase.
  */
-function aplicarFiltros(query: any, filtros: Filtros) {
-  let q = query;
-
-  if (filtros.checkpoint) q = q.eq("qr_code_id", filtros.checkpoint);
-  if (filtros.funcionario) q = q.eq("visitas.funcionario_id", filtros.funcionario);
-  if (filtros.tipo) q = q.eq("visitas.sites.tipo_servico_id", filtros.tipo);
-  if (filtros.grupoUsuario) {
-    q = q.eq("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.grupoUsuario);
-  }
-
-  const inicio = combinarDataHora(filtros.dataInicial, "00:00:00");
-  const fim = combinarDataHora(filtros.dataFinal, "23:59:59");
-  if (inicio) q = q.gte("data_hora", inicio);
-  if (fim) q = q.lte("data_hora", fim);
-
-  return q;
-}
-
-/**
- * Conta visitas distintas por funcionario -- uma visita normalmente tem duas
- * leituras (Inicio e Termino, migration 0004), e a mesma visita nao pode
- * contar duas vezes so por ter mais de uma leitura dentro do periodo.
- * Exportada pura para ser testada com leituras fabricadas, sem mockar o
- * Supabase -- mesmo padrao de agruparEmLinhas em registro-de-rondas.
- */
-export function contarPorFuncionario(leituras: LeituraBruta[]): RankingDeInspecoes {
-  const visitasPorFuncionario = new Map<string, { nome: string; visitas: Set<number> }>();
-
-  for (const leitura of leituras) {
-    const funcionarioId = leitura.visitas?.funcionario_id;
-    if (!funcionarioId) continue;
-
-    const atual = visitasPorFuncionario.get(funcionarioId) ?? {
-      nome: leitura.visitas?.profiles?.nome_completo ?? "",
-      visitas: new Set<number>(),
-    };
-    atual.visitas.add(leitura.visita_id);
-    visitasPorFuncionario.set(funcionarioId, atual);
-  }
-
-  const itens = Array.from(visitasPorFuncionario.entries())
-    .map(([funcionarioId, { nome, visitas }]) => ({ funcionarioId, nome, quantidade: visitas.size }))
+export function ordenarRanking(linhas: RankingDoBanco[]): RankingDeInspecoes {
+  const itens = linhas
+    .map((linha) => ({ funcionarioId: linha.funcionario_id, nome: linha.nome, quantidade: linha.quantidade }))
     .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome, "pt-BR"));
 
   return { itens, total: itens.reduce((soma, item) => soma + item.quantidade, 0) };
@@ -171,41 +104,29 @@ export function contarPorFuncionario(leituras: LeituraBruta[]): RankingDeInspeco
  * de `horas-por-usuario` e `mapa-de-locais-inspecionados`.
  *
  * Antes deste gate a tela abria varrendo `leituras` desde o primeiro registro
- * e exibia um ranking "de sempre" que ninguem pediu. Paginar sem periodo so
- * troca o defeito: em vez de somar em cima das primeiras 1000 linhas, passa a
- * puxar a tabela inteira -- ate 100 idas ao PostgREST -- para responder uma
- * pergunta que a tela nem faz. Exigir o periodo resolve os dois.
+ * e exibia um ranking "de sempre" que ninguem pediu. Com a contagem no banco
+ * o custo caiu, mas a pergunta continua sem sentido sem periodo -- o gate
+ * fica.
  */
-export async function getRankingDeInspecoes(filtros: Filtros): Promise<ResultadoRanking | null> {
+export async function getRankingDeInspecoes(filtros: Filtros): Promise<RankingDeInspecoes | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
 
   const supabase = await createClient();
+  const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
 
-  const precisaTipo = Boolean(filtros.tipo);
-  const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
+  // Uma linha por funcionario: nunca chega perto do `max_rows`, sem paginacao.
+  const { data, error } = await supabase.rpc("relatorio_ranking_de_inspecoes", {
+    p_inicio: inicio,
+    p_fim: fim,
+    p_filtros: filtrosParaRpc({
+      checkpoint: filtros.checkpoint,
+      funcionario: filtros.funcionario,
+      tipo_servico: filtros.tipo,
+      grupo_usuario: filtros.grupoUsuario,
+    }),
+  });
 
-  // Paginado pelo mesmo motivo dos outros dois relatorios: a consulta parava
-  // no `max_rows` do PostgREST e o Total de Inspecoes saia por baixo, sem erro
-  // nenhum. Ordenacao obrigatoria para `.range()` nao repetir nem pular linha
-  // entre paginas.
-  const leituras = await buscarEmPaginas<LeituraBruta>((de, ate) =>
-    aplicarFiltros(
-      supabase
-        .from("leituras")
-        .select(montarSelect(precisaTipo, precisaGrupoUsuario))
-        .order("data_hora", { ascending: true })
-        .order("id", { ascending: true })
-        .range(de, ate),
-      filtros,
-    ),
-  );
+  if (error) throw error;
 
-  if (leituras.atingiuTeto) {
-    erro(
-      gerarIdDeRequisicao(),
-      `Ranking de Inspeções: teto de ${TETO_DE_AGREGACAO} leituras atingido; o Total de Inspeções exibido está incompleto.`,
-    );
-  }
-
-  return { ...contarPorFuncionario(leituras.linhas), truncado: leituras.atingiuTeto };
+  return ordenarRanking((data ?? []) as RankingDoBanco[]);
 }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Resultado = { data: unknown[]; error: null; count: number };
 type Ordem = { tabela: string; coluna: string; ascending?: boolean };
 type Range = { tabela: string; from: number; to: number };
+type Limite = { operador: "gte" | "lt" | "lte"; coluna: string; valor: string };
 
 /** Encadeamento minimo do query builder do Supabase: todo metodo devolve a si
  * mesmo e o objeto e "thenable", entao `await query` resolve o resultado. */
@@ -11,20 +12,22 @@ type Chain = {
   eq: () => Chain;
   not: () => Chain;
   is: () => Chain;
-  gte: () => Chain;
-  lte: () => Chain;
+  gte: (coluna: string, valor: string) => Chain;
+  lt: (coluna: string, valor: string) => Chain;
+  lte: (coluna: string, valor: string) => Chain;
   range: (from: number, to: number) => Chain;
   order: (coluna: string, opcoes?: { ascending?: boolean }) => Chain;
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges } = vi.hoisted(
+const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges, limites } = vi.hoisted(
   () => {
     const respostas = new Map<string, unknown[]>();
     const tabelasConsultadas: string[] = [];
     const ordens: Ordem[] = [];
     const contagens = new Map<string, string | undefined>();
     const ranges: Range[] = [];
+    const limites: Limite[] = [];
 
     const createClientMock = vi.fn(async () => ({
       from(tabela: string) {
@@ -37,8 +40,20 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
           eq: () => chain,
           not: () => chain,
           is: () => chain,
-          gte: () => chain,
-          lte: () => chain,
+          gte: (coluna, valor) => {
+            limites.push({ operador: "gte", coluna, valor });
+            return chain;
+          },
+          lt: (coluna, valor) => {
+            limites.push({ operador: "lt", coluna, valor });
+            return chain;
+          },
+          // `lte` continua no duble de proposito: se voltar a ser usado, o
+          // teste falha como operador errado, e nao como "lte is not a function".
+          lte: (coluna, valor) => {
+            limites.push({ operador: "lte", coluna, valor });
+            return chain;
+          },
           range: (from, to) => {
             ranges.push({ tabela, from, to });
             return chain;
@@ -54,14 +69,14 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
       },
     }));
 
-    return { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges };
+    return { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges, limites };
   },
 );
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
 const {
-  combinarDataHora,
+  extrairFiltros,
   getColetas,
   getColetasParaExportar,
   getFilterOptions,
@@ -80,6 +95,7 @@ beforeEach(() => {
   ordens.length = 0;
   contagens.clear();
   ranges.length = 0;
+  limites.length = 0;
 });
 
 describe("getFilterOptions", () => {
@@ -212,26 +228,39 @@ describe("getColetas", () => {
   });
 });
 
-describe("combinarDataHora", () => {
-  /**
-   * Sem o deslocamento explicito, o Postgres interpretaria o timestamp
-   * conforme o fuso da conexao -- que pode nao ser o fuso operacional (ver
-   * comentario da funcao).
-   */
-  it("adiciona o deslocamento de Brasilia ao combinar data e hora", () => {
-    expect(combinarDataHora("2026-08-05", "14:30", "00:00:00")).toBe(
-      "2026-08-05T14:30:00-03:00",
-    );
+/**
+ * `data_hora` e timestamptz com milissegundo. Fechar o periodo com
+ * `lte ...T23:59:59` perdia a leitura das 23:59:59.437 do ultimo dia.
+ */
+describe("getColetas: filtro de periodo", () => {
+  it("so data: gte no inicio do dia inicial, lt no inicio do dia seguinte ao final", async () => {
+    await getColetas({ pagina: 1, dataInicial: "2026-08-05", dataFinal: "2026-08-31" });
+
+    expect(limites).toEqual([
+      { operador: "gte", coluna: "data_hora", valor: "2026-08-05T00:00:00-03:00" },
+      { operador: "lt", coluna: "data_hora", valor: "2026-09-01T00:00:00-03:00" },
+    ]);
   });
 
-  it("usa a hora padrao quando so a data foi informada", () => {
-    expect(combinarDataHora("2026-08-05", undefined, "23:59:59")).toBe(
-      "2026-08-05T23:59:59-03:00",
-    );
+  it("com hora: o minuto final entra inteiro", async () => {
+    await getColetas({
+      pagina: 1,
+      dataInicial: "2026-08-05",
+      horaInicial: "08:00",
+      dataFinal: "2026-08-05",
+      horaFinal: "17:30",
+    });
+
+    expect(limites).toEqual([
+      { operador: "gte", coluna: "data_hora", valor: "2026-08-05T08:00:00-03:00" },
+      { operador: "lt", coluna: "data_hora", valor: "2026-08-05T17:31:00-03:00" },
+    ]);
   });
 
-  it("sem data, nao ha limite para aplicar", () => {
-    expect(combinarDataHora(undefined, "14:30", "00:00:00")).toBeNull();
+  it("sem data, nao ha limite para aplicar", async () => {
+    await getColetas({ pagina: 1, horaInicial: "14:30" });
+
+    expect(limites).toEqual([]);
   });
 });
 
@@ -308,7 +337,7 @@ describe("toTableRow", () => {
       qualificadores: null,
       qr_codes: null,
       visitas: {
-        numero_coleta: 42,
+        numero_coleta: "42",
         profiles: { nome_completo: "Ana" },
         coletores_dados: { nome: "Dispositivo Móvel" },
         sites: { nome: "Cooplivre" },
@@ -321,5 +350,46 @@ describe("toTableRow", () => {
     expect(linha[4]).toBe("Cooplivre");
     expect(linha[5]).toBe("Início");
     expect(linha[7]).toBe("Portão trancado");
+  });
+});
+
+/**
+ * O periodo desta tela vira literal de timestamptz por interpolacao em
+ * `inicioDoFiltro`/`fimExclusivoDoFiltro`. Sem guarda, `?data_inicial=abc` chega ao Postgres como
+ * `abcT00:00:00-03:00` e derruba a tela com erro 22007 em vez de ignorar o
+ * filtro -- a querystring e editavel a mao, mesmo com os pickers na tela.
+ */
+describe("extrairFiltros: periodo torto na querystring", () => {
+  it("descarta data e hora que nao tem o formato dos pickers", async () => {
+    const filtros = extrairFiltros({
+      data_inicial: "abc",
+      data_final: "2026-02-31",
+      hora_inicial: "zz",
+      hora_final: "24:00",
+    });
+
+    expect(filtros.dataInicial).toBeUndefined();
+    expect(filtros.dataFinal).toBeUndefined();
+    expect(filtros.horaInicial).toBeUndefined();
+    expect(filtros.horaFinal).toBeUndefined();
+    // Descartado significa "sem limite", nao "limite invalido".
+    await getColetas(filtros);
+    expect(limites).toEqual([]);
+  });
+
+  it("deixa passar o que os pickers emitem", () => {
+    expect(
+      extrairFiltros({
+        data_inicial: "2026-09-01",
+        data_final: "2026-09-30",
+        hora_inicial: "08:00",
+        hora_final: "17:30",
+      }),
+    ).toMatchObject({
+      dataInicial: "2026-09-01",
+      dataFinal: "2026-09-30",
+      horaInicial: "08:00",
+      horaFinal: "17:30",
+    });
   });
 });

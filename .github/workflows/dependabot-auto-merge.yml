@@ -1,0 +1,67 @@
+name: Dependabot auto-merge
+
+# P1-6 da auditoria de 11/09: a fila de PRs do Dependabot crescia sem decisao,
+# e fila que vira ruido vira habito de ignorar -- inclusive o PR que um dia vai
+# corrigir vulnerabilidade de verdade.
+#
+# O QUE ESTE WORKFLOW FAZ, E O QUE ELE NAO FAZ. Ele so LIGA o auto-merge do
+# GitHub no PR. Quem decide se o merge acontece continua sendo a protecao da
+# `main`: os tres checks obrigatorios (`build`, `banco`, `e2e`) verdes e a
+# branch em dia com a `main` (`strict`). Nenhum passo aqui faz checkout, roda
+# codigo do PR ou mergeia direto -- um PR vermelho fica parado exatamente como
+# ficaria sem este arquivo.
+#
+# SO PATCH E MINOR. Major continua pedindo revisao humana: e a atualizacao que
+# costuma exigir mudanca de codigo (Next 16, PR #8). `update-type` vazio -- o
+# fetch-metadata nao conseguiu classificar -- tambem fica de fora: na duvida,
+# nao automatiza. Em PR agrupado o valor e a MAIOR mudanca do grupo, entao um
+# unico major dentro dele ja tira o grupo inteiro do automatico.
+#
+# `pull_request` e nao `pull_request_target`: e a forma da documentacao do
+# GitHub para Dependabot, e nao ha motivo para rodar no contexto da base.
+#
+# LIMITE CONHECIDO: com `strict`, um PR que ficou para tras da `main` so
+# mergeia depois de atualizado, e o Dependabot nao faz isso de forma confiavel
+# quando nao ha conflito (dependabot-core#13740). O agrupamento no
+# dependabot.yml deixa um PR por ecossistema, o que evita a situacao entre PRs
+# do proprio Dependabot. Se ainda assim um travar, comente `@dependabot rebase`
+# no PR -- o comando precisa vir de uma pessoa: o Dependabot recusa o mesmo
+# comando vindo do `github-actions[bot]`, entao automatizar isso exigiria um
+# token pessoal guardado como secret, e essa troca nao foi feita.
+#
+# O merge feito pelo auto-merge nao dispara o `push` do ci.yml (evento gerado
+# pelo GITHUB_TOKEN nao inicia workflow). Nao abre buraco: com `strict` e merge
+# commit, a arvore mergeada e a mesma que os checks do PR acabaram de aprovar.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # `user.login` (quem abriu o PR) e nao `github.actor` (quem disparou este
+    # evento): uma pessoa que re-rode o job num PR do Dependabot vira o actor,
+    # e um fork com um branch de nome parecido nao vira dependabot[bot].
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'Willianf52/Projeto_Renatoo'
+    steps:
+      - name: Metadados do PR
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Liga o auto-merge (patch e minor)
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Major fica para revisao
+        if: steps.meta.outputs.update-type != 'version-update:semver-patch' && steps.meta.outputs.update-type != 'version-update:semver-minor'
+        # Valor por env, nao interpolado no script: mesmo vindo do
+        # fetch-metadata, saida de action nao entra crua em `run`.
+        run: echo "::notice::update-type='$TIPO' -- auto-merge NAO ligado; este PR precisa de revisao humana."
+        env:
+          TIPO: ${{ steps.meta.outputs.update-type }}

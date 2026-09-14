@@ -8,6 +8,7 @@
     "build": "pnpm --filter web build",
     "start": "pnpm --filter web start",
     "test": "pnpm -r test",
+    "test:cobertura": "pnpm -r test:cobertura",
     "test:e2e": "pnpm --filter web test:e2e",
     "check:env": "pnpm --filter web check:env",
     "lint": "eslint .",
@@ -16,16 +17,16 @@
     "types:generate:remoto": "supabase gen types typescript --linked --schema public > packages/shared/src/database.types.ts"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^16.3.0",
-    "@typescript-eslint/eslint-plugin": "^8.65.0",
-    "@typescript-eslint/parser": "^8.66.0",
+    "@next/eslint-plugin-next": "^16.3.4",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
     "eslint": "^9",
-    "eslint-config-next": "^16.3.0",
+    "eslint-config-next": "^16.3.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "supabase": "^2.115.0",
+    "supabase": "^2.117.0",
     "typescript": "^5"
   }
 }

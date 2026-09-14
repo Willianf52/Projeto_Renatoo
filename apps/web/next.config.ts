@@ -36,7 +36,32 @@ const securityHeaders = Object.entries(HEADERS_ESTATICOS).map(([key, value]) => 
   value,
 }));
 
+/**
+ * Raiz de resolucao do Turbopack -- so definida quando alguem pede.
+ *
+ * Por padrao o Turbopack usa o diretorio do lockfile (a raiz do monorepo) e
+ * recusa compilar o que estiver fora dela: "files outside of the workspace
+ * root are not compiled". Isso e o certo, e em CI e em qualquer instalacao
+ * normal nada aqui precisa mudar -- dai o `undefined`.
+ *
+ * O caso em que precisa: quando o virtual store do pnpm mora fora do
+ * repositorio. Acontece nas maquinas que usam `virtual-store-dir=C:\pv` no
+ * `.npmrc` (nao versionado) para escapar do teto de caminho do CMake no build
+ * Android. Ali `node_modules/next` vira symlink para fora da raiz, e o
+ * Turbopack falha com "Could not find the Next.js package" -- `next build` e
+ * `next dev`, os dois. Sem esta valvula, as duas necessidades se excluem:
+ * ou o app de campo compila, ou o painel roda.
+ *
+ * Por env var e nao por deteccao automatica de proposito. O valor e uma
+ * propriedade da MAQUINA, nao do projeto, entao mora junto com o resto da
+ * configuracao local (`.env.local`, ja ignorado pelo git) em vez de virar
+ * codigo que adivinha ambiente -- e quem nao tem o contorno nao paga nada
+ * por ele existir.
+ */
+const raizDoTurbopack = process.env.TURBOPACK_ROOT;
+
 const nextConfig: NextConfig = {
+  ...(raizDoTurbopack ? { turbopack: { root: raizDoTurbopack } } : {}),
   cacheComponents: true,
   allowedDevOrigins: origensDaRedeLocal,
   async headers() {

@@ -21,6 +21,10 @@
 -- na primeira tentativa: `where id like` nao compila contra uma coluna uuid
 -- sem cast -- corrigido para `id::text like` abaixo. `pnpm test:db` continua
 -- sendo o caminho de verdade quando houver Docker.
+--
+-- Reexecutado (2026-09-06) apos a migration 0047. A fixture deixou de usar
+-- faixa numerica (`1000 + s.id`, contada com `>= 1000`) e passou a usar chave
+-- com prefixo, que sobrevive a uma coluna `text`. 10/10 passaram.
 -- ============================================================================
 
 begin;
@@ -54,8 +58,12 @@ select 'QR-' || s.id, s.id from public.sites s
 join public.grupos_sites g on g.id = s.grupo_site_id
 where g.nome in ('Grupo do cliente A', 'Grupo do cliente B');
 
+-- Chave com prefixo, e nao `1000 + s.id`: desde a 0047 `numero_coleta` e
+-- `text`, entao contar a fixture por faixa numerica (`>= 1000`) deixou de
+-- funcionar. O prefixo segue o mesmo idioma do `'QR-' || s.id` acima e
+-- sobrevive a uma coluna que hoje hospeda tambem UUID vindo do app.
 insert into public.visitas (numero_coleta, site_id)
-select 1000 + s.id, s.id from public.sites s
+select 'escopo-' || s.id::text, s.id from public.sites s
 join public.grupos_sites g on g.id = s.grupo_site_id
 where g.nome in ('Grupo do cliente A', 'Grupo do cliente B');
 
@@ -98,7 +106,7 @@ select is(
 
 -- O ponto 1: antes da 0014 esta contagem era zero, e a tela abria vazia.
 select is(
-  (select count(*)::int from public.visitas where numero_coleta >= 1000),
+  (select count(*)::int from public.visitas where numero_coleta like 'escopo-%'),
   1,
   'CLIENTE ve as visitas do proprio grupo (antes da 0014 via nenhuma)'
 );
@@ -125,7 +133,7 @@ select is(
 );
 
 select is(
-  (select count(*)::int from public.visitas where numero_coleta >= 1000),
+  (select count(*)::int from public.visitas where numero_coleta like 'escopo-%'),
   1,
   'CLIENTE B ve so a visita do proprio grupo'
 );
@@ -147,7 +155,7 @@ select is(
 );
 
 select is(
-  (select count(*)::int from public.visitas where numero_coleta >= 1000),
+  (select count(*)::int from public.visitas where numero_coleta like 'escopo-%'),
   2,
   'GESTOR ve as visitas dos dois clientes'
 );

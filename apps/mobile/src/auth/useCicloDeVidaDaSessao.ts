@@ -76,6 +76,15 @@ export function useCicloDeVidaDaSessao({ temSessao, revalidarPerfil }: Parametro
         // contar a partir de quando o dado chegou, nao de quando foi pedido.
         ultimaRevalidacaoEm.current = Date.now();
       }
+    } catch {
+      /**
+       * Segunda barreira, nao a primeira: `recarregarPerfil` ja trata a
+       * rejeicao de rede e a transforma em `erroDePerfil`. Este ramo existe
+       * porque a chamada abaixo e descartada com `void` -- qualquer rejeicao
+       * que escape de um `revalidarPerfil` futuro viraria unhandled rejection
+       * em vez de erro visivel, e a janela de throttle nao deve ser consumida
+       * por uma tentativa que falhou (ver `ultimaRevalidacaoEm`).
+       */
     } finally {
       revalidacaoEmVoo.current = false;
     }

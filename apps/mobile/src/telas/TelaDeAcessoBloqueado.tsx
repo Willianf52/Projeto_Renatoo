@@ -6,7 +6,7 @@ import { Cartao } from "../componentes/Cartao";
 import { Marca } from "../componentes/Marca";
 import { cores, espaco, texto, tipografia } from "../tema";
 
-type Motivo = "inativo" | "sem-perfil";
+type Motivo = "inativo" | "sem-perfil" | "app-desatualizado";
 
 /**
  * Sessao valida que ainda assim nao pode inspecionar.
@@ -15,6 +15,11 @@ type Motivo = "inativo" | "sem-perfil";
  * `e_inspetor()` (0036). Mesmo que esta tela fosse burlada, a policy recusaria
  * a gravacao. O que ela evita e o inspetor descobrir que a conta esta inativa
  * so depois de preencher uma visita inteira em campo.
+ *
+ * `app-desatualizado` e o unico motivo que chega aqui SEM sessao: o portao de
+ * versao roda antes do login (ver `Navegacao`), porque um build velho pode
+ * escrever com contrato velho e ninguem quer descobrir isso pelo relatorio do
+ * mes seguinte. Por isso `aoSair` e opcional -- nao ha de onde sair.
  */
 export function TelaDeAcessoBloqueado({
   motivo,
@@ -23,7 +28,7 @@ export function TelaDeAcessoBloqueado({
 }: {
   motivo: Motivo;
   perfil: PerfilDoInspetor | null;
-  aoSair: () => void;
+  aoSair?: () => void;
 }) {
   const { titulo, texto: mensagemDoMotivo } = mensagem(motivo);
 
@@ -42,20 +47,37 @@ export function TelaDeAcessoBloqueado({
 
         {/* Secundario, e nao primario: sair daqui e o caminho de saida, nao a
             acao que se quer incentivar -- o verde chamaria para o lugar
-            errado. Mesma leitura do `variant="secondary"` no painel. */}
-        <Botao
-          titulo="Sair"
-          aoPressionar={aoSair}
-          variante="secundaria"
-          larguraTotal
-          estilo={estilos.botao}
-        />
+            errado. Mesma leitura do `variant="secondary"` no painel.
+
+            Ausente no `app-desatualizado`: nao ha sessao para encerrar, e um
+            botao que nao resolve o bloqueio so daria ao inspetor a impressao
+            de que ha o que tentar. */}
+        {aoSair ? (
+          <Botao
+            titulo="Sair"
+            aoPressionar={aoSair}
+            variante="secundaria"
+            larguraTotal
+            estilo={estilos.botao}
+          />
+        ) : null}
       </Cartao>
     </View>
   );
 }
 
 function mensagem(motivo: Motivo) {
+  if (motivo === "app-desatualizado") {
+    return {
+      titulo: "Atualize o aplicativo",
+      // Sem instrucao de "vá na loja": a distribuicao e interna (perfil
+      // `preview` do eas.json, APK entregue pela supervisao). Dizer o caminho
+      // errado e pior do que nao dizer caminho nenhum.
+      texto:
+        "Esta versão não é mais aceita. Peça a atualização à supervisão antes de iniciar a ronda.",
+    };
+  }
+
   if (motivo === "inativo") {
     return {
       titulo: "Conta inativa",

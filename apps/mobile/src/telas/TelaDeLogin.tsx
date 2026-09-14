@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
 import { LIMITE_EMAIL, movimento } from "@projeto-renatoo/shared";
 
 import {
@@ -120,12 +121,60 @@ export function TelaDeLogin() {
     setEnviando(true);
     setErro(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password: senha,
-    });
+    let error: AuthError | null;
+
+    /**
+     * O `try` cobre o que o supabase-js NAO devolve em `error`.
+     *
+     * Falha de rede ele embrulha em `AuthRetryableFetchError` e entrega pelo
+     * retorno; o que ele relanca e erro que nao e de auth -- e o caminho real
+     * disso aqui e o Keystore. Depois de autenticar, o SDK chama
+     * `_saveSession`, que passa por `armazenamentoSeguro.setItem`, e
+     * `armazenamento-seguro.ts` propaga a excecao de proposito.
+     *
+     * Sem este ramo a rejeicao escapava por um handler que ninguem aguarda,
+     * `enviando` ficava preso em `true` e a tela morria calada: botao em
+     * spinner e os dois campos com `editable={false}`, sem uma palavra. E o
+     * mesmo spinner eterno que `TelaDeInspecoes` e `SessaoProvider` ja
+     * documentam, e exatamente "a tela de login que nao abre" que
+     * `limite-guardado.ts` diz ser o pior desfecho possivel.
+     *
+     * Nao conta tentativa: nada disto foi credencial recusada.
+     */
+    try {
+      ({ error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: senha,
+      }));
+    } catch {
+      setErro("Não foi possível entrar. Tente de novo.");
+      setEnviando(false);
+      abalo.sacudir();
+      return;
+    }
 
     if (error) {
+      /**
+       * Rede fora NAO e senha errada.
+       *
+       * Sem esta separacao, o inspetor em obra sem sinal levava a culpa por
+       * ter errado a senha e ainda gastava uma das cinco tentativas -- cinco
+       * quedas de rede seguidas e ele ganhava trinta segundos de bloqueio por
+       * um problema que nao era dele. Por isso `registrarFalha` fica fora
+       * deste ramo: o contador existe para credencial recusada.
+       *
+       * A mensagem generica logo abaixo continua intacta, porque o que se
+       * distingue aqui e rede contra credencial -- e nao conta que existe
+       * contra conta que nao existe, que e o que transformaria a tela num
+       * verificador de quem tem cadastro.
+       */
+      if (isAuthRetryableFetchError(error)) {
+        setErro("Sem conexão. Verifique o sinal e tente de novo.");
+        setEnviando(false);
+        abalo.sacudir();
+        return;
+      }
+
       // Mensagem generica de proposito: distinguir "e-mail nao existe" de
       // "senha errada" transforma a tela de login num verificador de quem tem
       // conta. O log do Supabase guarda o motivo real para suporte.
@@ -212,7 +261,13 @@ export function TelaDeLogin() {
               placeholder="••••••••"
               editable={!enviando}
               returnKeyType="go"
-              onSubmitEditing={entrar}
+              // `void` explicito, como em todo o resto do app: `entrar` e
+              // async e estes dois handlers descartam o retorno. Ela nao
+              // rejeita mais (ver o `try` la dentro), e marcar o descarte e o
+              // que impede a proxima mudanca de reabrir o buraco em silencio.
+              onSubmitEditing={() => {
+                void entrar();
+              }}
             />
           </Animated.View>
 
@@ -237,7 +292,9 @@ export function TelaDeLogin() {
           <Animated.View style={[estilos.acao, entradaDoBotao]}>
             <Botao
               titulo={bloqueado ? `Aguarde ${segundos}s` : enviando ? "Entrando..." : "Entrar"}
-              aoPressionar={entrar}
+              aoPressionar={() => {
+                void entrar();
+              }}
               carregando={enviando}
               desabilitado={!podeEnviar}
               larguraTotal

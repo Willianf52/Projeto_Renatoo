@@ -1,5 +1,7 @@
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { mesAtual, periodoDoMes } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
+import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -13,10 +15,9 @@ export type Filtros = {
   site?: string;
 };
 
-const MES_ATUAL = () => {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
-};
+/** Ver `mesAtual` em lib/data-hora.ts: o fuso precisa ser explicito, senao o
+ * servidor (UTC na Vercel) vira o mes tres horas antes de Brasilia. */
+const MES_ATUAL = () => mesAtual();
 
 /** Igual as demais telas: mes fora do formato yyyy-mm (ou com mes fora de
  * 01-12, tipo "2026-13") cai no mes atual em vez de virar uma consulta que
@@ -83,71 +84,31 @@ export type HistoricoDeSupervisao = {
   visitas: VisitaDeSupervisao[];
 };
 
-type LeituraBruta = {
-  id: number;
+/** Uma linha de `relatorio_visitas_de_supervisao` (migration 0049). */
+export type VisitaDoBanco = {
+  visita_id: number;
   data_hora: string;
+  funcionario: string;
+  local: string;
   tem_localizacao: boolean;
-  observacao: string | null;
-  visitas: {
-    id: number;
-    profiles: { nome_completo: string } | null;
-    motivos_visita: { nome: string } | null;
-    sites: { nome: string } | null;
-  } | null;
+  motivo_visita: string;
+  observacao: string;
 };
 
-/**
- * Uma visita normalmente tem duas leituras (Inicio e Termino, ver migration
- * 0004) e o relatorio mostra uma linha por VISITA, nao por leitura -- por
- * isso o agrupamento em memoria em vez de devolver a leitura crua. Sem uma
- * `group by` no Postgres/PostgREST para "uma linha por visita com o dado da
- * leitura mais antiga", isto teria que ser uma view ou funcao no banco; feito
- * aqui porque o volume por mes/site e pequeno (visitas de supervisao, nao
- * o historico inteiro de coletas).
- */
-function agruparPorVisita(leituras: LeituraBruta[]): VisitaDeSupervisao[] {
-  const porVisita = new Map<number, VisitaDeSupervisao>();
-
-  for (const leitura of leituras) {
-    const visita = leitura.visitas;
-    if (!visita) continue;
-
-    const atual = porVisita.get(visita.id);
-    const ehMaisAntiga = !atual || !atual.dataHora || leitura.data_hora < atual.dataHora;
-
-    if (!atual) {
-      porVisita.set(visita.id, {
-        visitaId: visita.id,
-        dataHora: leitura.data_hora,
-        funcionario: visita.profiles?.nome_completo ?? "",
-        local: visita.sites?.nome ?? "",
-        temLocalizacao: leitura.tem_localizacao,
-        motivoVisita: visita.motivos_visita?.nome ?? "",
-        observacao: leitura.observacao ?? "",
-      });
-    } else {
-      // Localizacao e observacao vem de qualquer leitura da visita que as
-      // tenha, nao so da mais antiga -- um sinal perdido no Inicio nao deve
-      // esconder um sinal obtido no Termino.
-      if (leitura.tem_localizacao) atual.temLocalizacao = true;
-      if (!atual.observacao && leitura.observacao) atual.observacao = leitura.observacao;
-      if (ehMaisAntiga) atual.dataHora = leitura.data_hora;
-    }
-  }
-
-  return Array.from(porVisita.values()).sort((a, b) =>
-    (b.dataHora ?? "").localeCompare(a.dataHora ?? ""),
-  );
+/** Linha do banco -> linha da tela. O agrupamento por visita (data da leitura
+ * mais antiga; localizacao e observacao de qualquer leitura que as tenha) mora
+ * no banco desde a 0049. */
+export function paraVisitaDeSupervisao(linha: VisitaDoBanco): VisitaDeSupervisao {
+  return {
+    visitaId: linha.visita_id,
+    dataHora: linha.data_hora,
+    funcionario: linha.funcionario,
+    local: linha.local,
+    temLocalizacao: linha.tem_localizacao,
+    motivoVisita: linha.motivo_visita,
+    observacao: linha.observacao,
+  };
 }
-
-/**
- * Fuso da operacao (Brasilia), mesmo criterio de FUSO_OPERACIONAL em
- * coletas-importadas/queries.ts: fixo em -03:00 porque o Brasil nao observa
- * mais horario de verao desde 2019. Sem o deslocamento explicito, o limite
- * do mes seria calculado em UTC e uma visita no fim do dia (horario local)
- * cairia no mes seguinte do relatorio.
- */
-const FUSO_OPERACIONAL = "-03:00";
 
 /**
  * `site` obrigatorio: Meta e Realizado sao por site (metas_visitas.site_id),
@@ -157,57 +118,46 @@ const FUSO_OPERACIONAL = "-03:00";
 export async function getHistoricoDeSupervisao(filtros: Filtros): Promise<HistoricoDeSupervisao> {
   const supabase = await createClient();
 
-  const [ano, mes] = filtros.mes.split("-").map(Number);
-  const anoFim = mes === 12 ? ano + 1 : ano;
-  const mesFim = mes === 12 ? 1 : mes + 1;
-  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01T00:00:00${FUSO_OPERACIONAL}`;
-  const fim = `${anoFim}-${String(mesFim).padStart(2, "0")}-01T00:00:00${FUSO_OPERACIONAL}`;
-  const competencia = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const { inicio, fim } = periodoDoMes(filtros.mes);
+  const competencia = `${filtros.mes}-01`;
+  const site = Number(filtros.site);
 
-  const [leiturasResultado, metaResultado] = await Promise.all([
-    supabase
-      .from("leituras")
-      .select(
-        `
-          id, data_hora, tem_localizacao, observacao,
-          visitas!inner (
-            id,
-            profiles ( nome_completo ),
-            motivos_visita ( nome ),
-            sites ( nome )
-          )
-        `,
-      )
-      .eq("visitas.site_id", Number(filtros.site))
-      .gte("data_hora", inicio)
-      .lt("data_hora", fim),
+  // Sem isto, uma falha de consulta (RLS inesperado, instabilidade de rede)
+  // e indistinguivel de "realmente nao ha visita" -- a tela mostraria
+  // "Nenhuma visita encontrada" nos dois casos, sem ninguem saber qual foi.
+  const idRequisicao = gerarIdDeRequisicao();
+
+  const [visitas, metaResultado] = await Promise.all([
+    // Uma linha por visita de um site num mes: paginado mesmo assim, porque o
+    // corte do `max_rows` e silencioso. Mais recentes primeiro, como a tela.
+    buscarEmPaginas<VisitaDoBanco>((de, ate) =>
+      supabase
+        .rpc("relatorio_visitas_de_supervisao", { p_site: site, p_inicio: inicio, p_fim: fim })
+        .order("data_hora", { ascending: false })
+        .order("visita_id", { ascending: false })
+        .range(de, ate),
+    ).catch((falha: { message?: string }) => {
+      erro(idRequisicao, "Falha ao carregar visitas para o histórico de visitas de supervisão:", falha?.message);
+      return { linhas: [] as VisitaDoBanco[], atingiuTeto: false };
+    }),
     // Visivel so para gestao (RLS da 0014): um CLIENTE simplesmente nao
     // recebe linha nenhuma aqui, e "meta: null" -> "-" e exatamente o
     // comportamento certo para quem nao tem acesso a meta contratada.
     supabase
       .from("metas_visitas")
       .select("quantidade_esperada")
-      .eq("site_id", Number(filtros.site))
+      .eq("site_id", site)
       .eq("competencia", competencia)
       .maybeSingle(),
   ]);
 
-  // Sem isto, uma falha de consulta (RLS inesperado, instabilidade de rede)
-  // e indistinguivel de "realmente nao ha visita" -- a tela mostraria
-  // "Nenhuma visita encontrada" nos dois casos, sem ninguem saber qual foi.
-  const idRequisicao = gerarIdDeRequisicao();
-  if (leiturasResultado.error) {
-    erro(idRequisicao, "Falha ao carregar leituras para o histórico de visitas de supervisão:", leiturasResultado.error.message);
-  }
   if (metaResultado.error) {
     erro(idRequisicao, "Falha ao carregar meta de visitas:", metaResultado.error.message);
   }
 
-  const visitas = agruparPorVisita((leiturasResultado.data ?? []) as unknown as LeituraBruta[]);
-
   return {
     meta: metaResultado.data?.quantidade_esperada ?? null,
-    realizado: visitas.length,
-    visitas,
+    realizado: visitas.linhas.length,
+    visitas: visitas.linhas.map(paraVisitaDeSupervisao),
   };
 }

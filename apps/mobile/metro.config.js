@@ -12,6 +12,7 @@
 // para `src/lib/supabase/database.types.ts` do painel web -- mas e
 // `export type`, apagado pelo Babel antes do bundle. Nenhum arquivo do web
 // entra no APK por causa dele.
+const fs = require("node:fs");
 const path = require("node:path");
 const { getDefaultConfig } = require("expo/metro-config");
 
@@ -20,8 +21,44 @@ const raizDoWorkspace = path.resolve(raizDoProjeto, "../..");
 
 const config = getDefaultConfig(raizDoProjeto);
 
+/**
+ * Onde o pnpm guarda o store virtual (a pasta `.pnpm`).
+ *
+ * Derivado do `realpath` de uma dependencia, e nao escrito a mao: o caminho
+ * muda de maquina para maquina quando `virtualStoreDir` esta configurado, e
+ * um literal aqui quebraria a CI.
+ *
+ * O symlink aponta para `<store>/<pacote>@<versao>_<hash>/node_modules/<pacote>`,
+ * dai os tres niveis acima. Devolve `null` se algo nao resolver -- e melhor
+ * cair no comportamento antigo do que derrubar o bundler por causa disto.
+ */
+function raizDoStoreVirtual() {
+  try {
+    const real = fs.realpathSync(path.join(raizDoProjeto, "node_modules", "expo"));
+    return path.resolve(real, "../../..");
+  } catch {
+    return null;
+  }
+}
+
+const storeVirtual = raizDoStoreVirtual();
+
+// Fora da raiz do workspace? So quando `virtualStoreDir` foi movido. No lugar
+// padrao isto da `<raiz>/node_modules/.pnpm`, que ja esta coberto.
+const storeEstaForaDoWorkspace =
+  storeVirtual !== null && path.relative(raizDoWorkspace, storeVirtual).startsWith("..");
+
 // 1) Observar o workspace inteiro, para o shared ser recompilado ao mudar.
-config.watchFolders = [raizDoWorkspace];
+//
+// 1b) E o store do pnpm junto, quando ele mora fora da raiz. O Metro nao
+// segue symlink para fora de `watchFolders`: sem esta linha, com o store
+// deslocado, nem `expo` resolve -- o bundle morre no primeiro import de
+// `index.ts`. O store e movido para fora quando o caminho de dentro do
+// repositorio estoura o limite de 260 caracteres do ninja ao compilar o
+// codegen nativo do Android (ver `virtualStoreDir` no pnpm-workspace.yaml).
+config.watchFolders = storeEstaForaDoWorkspace
+  ? [raizDoWorkspace, storeVirtual]
+  : [raizDoWorkspace];
 
 // 2) Procurar dependencia nos dois node_modules, nesta ordem.
 config.resolver.nodeModulesPaths = [

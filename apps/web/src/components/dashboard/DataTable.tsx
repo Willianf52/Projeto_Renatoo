@@ -13,6 +13,7 @@ export function DataTable({
   emptyTitle = "Nenhuma coleta encontrada",
   emptyDescription = "Ajuste o período ou os filtros acima para localizar registros.",
   minWidth = "min-w-[1280px]",
+  rotulo = "Resultados",
 }: {
   columns: string[];
   /** ReactNode e nao string: a coluna "Acoes" das telas de cadastro leva
@@ -34,12 +35,23 @@ export function DataTable({
   /** Largura minima em classe Tailwind: depende de quantas colunas a tela
    * tem. Com poucas colunas, forcar 1280px cria rolagem horizontal inutil. */
   minWidth?: string;
+  /** Nome acessivel da area rolavel (ver o `tabIndex` abaixo). */
+  rotulo?: string;
 }) {
   const podeVoltar = page > 1;
   const podeAvancar = totalPages > 0 && page < totalPages;
 
   return (
-    <div className="overflow-x-auto rounded-b-lg">
+    // Focavel por teclado: com 12 colunas a tabela rola na horizontal, e sem
+    // `tabIndex` quem nao usa mouse nao alcanca as colunas da direita (axe
+    // `scrollable-region-focusable`). `role="region"` com nome para o leitor
+    // de tela anunciar o que recebeu o foco.
+    <div
+      role="region"
+      aria-label={rotulo}
+      tabIndex={0}
+      className="overflow-x-auto rounded-b-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green"
+    >
       {/* 1280px: em 1100px as 12 colunas ficam na largura minima do conteudo e
           os titulos encostam um no outro. A folga extra e distribuida entre
           elas; abaixo disso a area rola na horizontal. */}

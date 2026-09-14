@@ -1,37 +1,36 @@
-import { describe, expect, it } from "vitest";
-import {
-  combinaFiltrosDeDetalhe,
-  extrairFiltros,
-  formatarDuracao,
-  montarLinhasDeInspecao,
-  type Filtros,
-} from "./queries";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const AREA_INICIO = { nome: "Início" };
-const AREA_TERMINO = { nome: "Término" };
+// O agrupamento por visita (par Inicio/Termino, evento de qualquer leitura,
+// filtros de detalhe na mesma leitura) desceu para o banco na 0049:
+// supabase/tests/database/relatorios_agregados_no_banco_test.sql.
 
-function leitura(
-  visitaId: number,
-  dataHora: string,
-  area: { nome: string } | null,
-  extra: Record<string, unknown> = {},
-) {
-  return {
-    visita_id: visitaId,
-    data_hora: dataHora,
-    evento_id: null,
-    acao_id: null,
-    areas: area,
-    eventos: null,
-    visitas: {
-      profiles: { nome_completo: "Manassés Almeida Ferreira" },
-      sites: { nome: "Portal das Estrelas", regional: "SP" },
-    },
-    ...extra,
-  };
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
+
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: rpcMock }) }));
+
+const { extrairFiltros, formatarDuracao, getInspecoesComInicioEFim, paraLinhaDeInspecao } = await import("./queries");
+
+/** Builder de `.rpc()`: encadeia `.order()` e resolve no `.range()`. */
+function construtor(data: unknown, error: unknown = null) {
+  const builder = { order: () => builder, range: () => Promise.resolve({ data, error }) };
+  return builder;
 }
 
-const SEM_FILTROS: Filtros = {};
+const doBanco = {
+  visita_id: 1,
+  inicio: "2026-08-11T10:27:33+00:00",
+  termino: "2026-08-11T12:48:10+00:00",
+  duracao_ms: 8_437_000,
+  usuario: "Manassés Almeida Ferreira",
+  regional: "SP",
+  site: "Portal das Estrelas",
+  evento: "Ocorrência",
+};
+
+beforeEach(() => {
+  rpcMock.mockReset();
+  rpcMock.mockReturnValue(construtor([]));
+});
 
 describe("extrairFiltros", () => {
   it("le todos os filtros da querystring", () => {
@@ -67,67 +66,55 @@ describe("formatarDuracao", () => {
   });
 });
 
-describe("combinaFiltrosDeDetalhe", () => {
-  it("sem filtro de detalhe, todo grupo combina", () => {
-    expect(combinaFiltrosDeDetalhe([leitura(1, "2026-08-11T09:00:00-03:00", AREA_INICIO)], SEM_FILTROS)).toBe(true);
-  });
-
-  it("exige que a mesma leitura bata com evento e atividade ao mesmo tempo", () => {
-    const grupo = [
-      leitura(1, "2026-08-11T09:00:00-03:00", AREA_INICIO, { evento_id: 5, acao_id: 1 }),
-      leitura(1, "2026-08-11T09:30:00-03:00", AREA_TERMINO, { evento_id: 9, acao_id: 1 }),
-    ];
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "5", atividade: "1" })).toBe(true);
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "9", atividade: "2" })).toBe(false);
-  });
-});
-
-describe("montarLinhasDeInspecao", () => {
-  it("monta uma linha por visita, com data/hora de inicio, termino e a duracao entre eles", () => {
-    const leituras = [
-      leitura(1, "2026-08-11T07:27:33-03:00", AREA_INICIO),
-      leitura(1, "2026-08-11T09:48:10-03:00", AREA_TERMINO),
-    ];
-
-    const linhas = montarLinhasDeInspecao(leituras, SEM_FILTROS);
-
-    expect(linhas).toHaveLength(1);
-    expect(linhas[0]).toMatchObject({
-      dataHoraInicio: "2026-08-11T07:27:33-03:00",
-      dataHoraTermino: "2026-08-11T09:48:10-03:00",
+describe("paraLinhaDeInspecao", () => {
+  it("renomeia a linha do banco para a forma da tela, sem recalcular nada", () => {
+    expect(paraLinhaDeInspecao(doBanco)).toEqual({
+      visitaId: 1,
+      dataHoraInicio: "2026-08-11T10:27:33+00:00",
+      dataHoraTermino: "2026-08-11T12:48:10+00:00",
+      duracaoMs: 8_437_000,
       usuario: "Manassés Almeida Ferreira",
       regional: "SP",
       site: "Portal das Estrelas",
+      evento: "Ocorrência",
     });
-    expect(linhas[0].duracaoMs).toBe(new Date("2026-08-11T09:48:10-03:00").getTime() - new Date("2026-08-11T07:27:33-03:00").getTime());
+  });
+});
+
+describe("getInspecoesComInicioEFim", () => {
+  it("sem periodo completo, nao consulta nada", async () => {
+    expect(await getInspecoesComInicioEFim({ dataFinal: "2026-08-11" })).toBeNull();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("ignora visita sem par Inicio/Termino completo", () => {
-    const leituras = [leitura(1, "2026-08-11T09:00:00-03:00", AREA_INICIO)];
-    expect(montarLinhasDeInspecao(leituras, SEM_FILTROS)).toEqual([]);
+  it("manda periodo meio-aberto e traduz Sites e Atividades", async () => {
+    await getInspecoesComInicioEFim({ dataInicial: "2026-08-11", dataFinal: "2026-08-11", sites: "5", atividade: "2" });
+
+    expect(rpcMock).toHaveBeenCalledWith("relatorio_inspecoes_inicio_fim", {
+      p_inicio: "2026-08-11T00:00:00-03:00",
+      p_fim: "2026-08-12T00:00:00-03:00",
+      p_filtros: { site: "5", atividade: "2" },
+    });
   });
 
-  it("evento vem de qualquer leitura da visita que o tenha, nao so a de Inicio", () => {
-    const leituras = [
-      leitura(1, "2026-08-11T09:00:00-03:00", AREA_INICIO, { eventos: null }),
-      leitura(1, "2026-08-11T09:45:00-03:00", AREA_TERMINO, { eventos: { nome: "Ocorrência" } }),
-    ];
+  it("junta as paginas e nao marca truncado abaixo do teto", async () => {
+    rpcMock.mockReturnValueOnce(construtor([doBanco])).mockReturnValueOnce(construtor([]));
 
-    const linhas = montarLinhasDeInspecao(leituras, SEM_FILTROS);
+    const resultado = await getInspecoesComInicioEFim({ dataInicial: "2026-08-11", dataFinal: "2026-08-11" });
 
-    expect(linhas[0].evento).toBe("Ocorrência");
+    expect(resultado?.linhas).toHaveLength(1);
+    expect(resultado?.truncado).toBe(false);
   });
+});
 
-  it("ordena por Data/Hora de Inicio", () => {
-    const leituras = [
-      leitura(2, "2026-08-11T14:00:00-03:00", AREA_INICIO),
-      leitura(2, "2026-08-11T14:30:00-03:00", AREA_TERMINO),
-      leitura(1, "2026-08-11T07:00:00-03:00", AREA_INICIO),
-      leitura(1, "2026-08-11T07:30:00-03:00", AREA_TERMINO),
-    ];
+describe("periodo torto na querystring", () => {
+  it("descarta data que nao existe em vez de interpolar no limite da consulta", () => {
+    // O limite vira literal de timestamptz por interpolacao, entao `abc`
+    // chegaria ao Postgres como `abcT00:00:00-03:00` (erro 22007). Descartado,
+    // o periodo fica incompleto e a tela pede um periodo em vez de quebrar.
+    const filtros = extrairFiltros({ data_inicial: "abc", data_final: "2026-02-31" });
 
-    const linhas = montarLinhasDeInspecao(leituras, SEM_FILTROS);
-
-    expect(linhas.map((l) => l.visitaId)).toEqual([1, 2]);
+    expect(filtros.dataInicial).toBeUndefined();
+    expect(filtros.dataFinal).toBeUndefined();
   });
 });

@@ -85,10 +85,15 @@ export function temCoordenada(valor: unknown): boolean {
 
 /**
  * Chave de agrupamento das leituras em visitas. A migration 0004 declara
- * `unique (numero_coleta, site_id)`: o numero da coleta vem do dispositivo e
- * so e unico dentro de um site.
+ * `unique (numero_coleta, site_id)`: a chave da coleta so e unica dentro de
+ * um site.
+ *
+ * `string` desde a 0047, e nao por acaso: a coluna passou a receber duas
+ * origens -- o inteiro que o sistema externo inventa (rota de importacao) e o
+ * UUID que o app cunha na primeira leitura offline. Agrupar por `${chave}` ja
+ * funcionava para os dois; o tipo agora diz isso em voz alta.
  */
-export function chaveDaVisita(numeroColeta: number, siteId: number): string {
+export function chaveDaVisita(numeroColeta: string, siteId: number): string {
   return `${numeroColeta}::${siteId}`;
 }
 

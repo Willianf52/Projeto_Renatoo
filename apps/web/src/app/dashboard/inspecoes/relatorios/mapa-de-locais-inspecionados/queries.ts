@@ -1,6 +1,8 @@
+import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
-import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
+import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,8 +36,8 @@ export type Filtros = {
 
 export function extrairFiltros(params: SearchParams): Filtros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
     coletorDados: primeiro(params.coletor_dados),
     funcionario: primeiro(params.funcionario),
     checkpoint: primeiro(params.checkpoint),
@@ -160,107 +162,45 @@ export type LinhaMapa = {
   total: number;
 };
 
-type LeituraBruta = {
-  visita_id: number;
-  data_hora: string;
-  evento_id: number | null;
-  qr_code_id: number | null;
-  acao_id: number | null;
-  visitas: { site_id: number } | null;
-};
+/** Uma linha de `relatorio_mapa_de_locais` (migration 0049). `dia` chega como
+ * "yyyy-mm-dd" (tipo `date` do Postgres). */
+export type ContagemDoBanco = { site_id: number; dia: string; quantidade: number };
 
 /**
- * Evento/Checkpoint/Atividade nao entram na consulta de leituras: cada um so
- * exclui a leitura que nao carrega aquele valor, e uma visita normalmente tem
- * mais de uma leitura (Inicio/Termino) -- mesmo motivo de
- * combinaFiltrosDeDetalhe em registro-de-rondas/queries.ts. Aqui funciona
- * como "esta visita teve alguma leitura com este valor".
+ * Sites base + contagens do banco -> linhas da tela.
+ *
+ * `sitesBase` decide quais linhas existem (todo Local aparece, mesmo com zero
+ * visitas -- e o ponto do relatorio, mapear cobertura); as contagens por dia
+ * vem prontas do banco desde a 0049. La tambem ficaram as regras que antes
+ * moravam aqui: visita distinta e nao leitura, dia da leitura mais antiga no
+ * fuso da operacao, e filtros de detalhe em qualquer leitura da visita.
+ *
+ * `total` e a soma dos dias: cada visita conta num dia so (o da leitura mais
+ * antiga), entao somar nao conta visita duas vezes. Pura, para ser testada
+ * sem mockar o Supabase.
  */
-export function combinaFiltrosDeDetalhe(grupo: LeituraBruta[], filtros: Filtros): boolean {
-  const semFiltroDeDetalhe = !filtros.evento && !filtros.checkpoint && !filtros.atividade;
-  if (semFiltroDeDetalhe) return true;
-
-  return grupo.some((leitura) => {
-    if (filtros.evento && String(leitura.evento_id) !== filtros.evento) return false;
-    if (filtros.checkpoint && String(leitura.qr_code_id) !== filtros.checkpoint) return false;
-    if (filtros.atividade && String(leitura.acao_id) !== filtros.atividade) return false;
-    return true;
-  });
-}
-
-/** Dia (yyyy-mm-dd) de um timestamp, no fuso da operacao (-03:00). */
-function diaNoFusoOperacional(iso: string): string {
-  const local = new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000);
-  return `${local.getUTCFullYear()}-${String(local.getUTCMonth() + 1).padStart(2, "0")}-${String(local.getUTCDate()).padStart(2, "0")}`;
-}
-
-/**
- * Conta visitas distintas por Local e por dia -- o dia de uma visita e o da
- * sua leitura mais antiga dentro do periodo buscado. `sitesBase` decide quais
- * linhas existem (todo Local ativo aparece, mesmo com zero visitas -- e o
- * ponto do relatorio, mapear cobertura); `leituras` decide as contagens.
- * Exportada pura para ser testada com dados fabricados, sem mockar o
- * Supabase.
- */
-export function contarInspecoesPorSiteEDia(
+export function montarLinhasDoMapa(
   sitesBase: { id: number; nome: string }[],
-  leituras: LeituraBruta[],
-  filtros: Filtros,
+  contagens: ContagemDoBanco[],
 ): LinhaMapa[] {
-  const porVisita = new Map<number, LeituraBruta[]>();
-  for (const leitura of leituras) {
-    if (!leitura.visitas) continue;
-    const grupo = porVisita.get(leitura.visita_id) ?? [];
-    grupo.push(leitura);
-    porVisita.set(leitura.visita_id, grupo);
-  }
-
-  const porSiteEDia = new Map<number, Map<string, Set<number>>>();
-  const totalPorSite = new Map<number, Set<number>>();
-
-  for (const [visitaId, grupo] of porVisita) {
-    if (!combinaFiltrosDeDetalhe(grupo, filtros)) continue;
-
-    const siteId = grupo[0].visitas!.site_id;
-    const dataMaisAntiga = grupo.map((l) => l.data_hora).sort()[0];
-    const dia = diaNoFusoOperacional(dataMaisAntiga);
-
-    if (!porSiteEDia.has(siteId)) porSiteEDia.set(siteId, new Map());
-    const diasDoSite = porSiteEDia.get(siteId)!;
-    if (!diasDoSite.has(dia)) diasDoSite.set(dia, new Set());
-    diasDoSite.get(dia)!.add(visitaId);
-
-    if (!totalPorSite.has(siteId)) totalPorSite.set(siteId, new Set());
-    totalPorSite.get(siteId)!.add(visitaId);
+  const porSite = new Map<number, Record<string, number>>();
+  for (const contagem of contagens) {
+    const dias = porSite.get(contagem.site_id) ?? {};
+    dias[contagem.dia] = contagem.quantidade;
+    porSite.set(contagem.site_id, dias);
   }
 
   return sitesBase
     .map((site) => {
-      const diasDoSite = porSiteEDia.get(site.id);
-      const porDia: Record<string, number> = {};
-      if (diasDoSite) {
-        for (const [dia, visitas] of diasDoSite) porDia[dia] = visitas.size;
-      }
+      const porDia = porSite.get(site.id) ?? {};
       return {
         siteId: site.id,
         siteNome: site.nome,
         porDia,
-        total: totalPorSite.get(site.id)?.size ?? 0,
+        total: Object.values(porDia).reduce((soma, n) => soma + n, 0),
       };
     })
     .sort((a, b) => a.siteNome.localeCompare(b.siteNome, "pt-BR"));
-}
-
-const FUSO_OPERACIONAL = "-03:00";
-
-function montarSelectLeituras(precisaGrupoUsuario: boolean): string {
-  return `
-    visita_id, data_hora, evento_id, qr_code_id, acao_id,
-    visitas!inner (
-      site_id, funcionario_id, motivo_visita_id, coletor_dados_id
-      ${precisaGrupoUsuario ? ", profiles!inner ( grupos_usuarios_membros!inner ( grupo_id ) )" : ""}
-    )
-  `;
 }
 
 /** `query: any` pelo mesmo motivo das demais telas: o cliente aqui nao
@@ -274,27 +214,10 @@ function aplicarFiltrosDeSite(query: any, filtros: Filtros) {
   return q;
 }
 
-function aplicarFiltrosDeLeitura(query: any, filtros: Filtros, diaInicial: string, diaFinal: string) {
-  let q = query;
-  if (filtros.funcionario) q = q.eq("visitas.funcionario_id", filtros.funcionario);
-  if (filtros.motivo) q = q.eq("visitas.motivo_visita_id", filtros.motivo);
-  if (filtros.coletorDados) q = q.eq("visitas.coletor_dados_id", filtros.coletorDados);
-  if (filtros.grupoUsuario) {
-    q = q.eq("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.grupoUsuario);
-  }
-
-  q = q.gte("data_hora", `${diaInicial}T00:00:00${FUSO_OPERACIONAL}`);
-  q = q.lte("data_hora", `${diaFinal}T23:59:59${FUSO_OPERACIONAL}`);
-  return q;
-}
-
 export type MapaDeLocaisInspecionados = {
   dias: string[];
   linhas: LinhaMapa[];
   diasExcedidos: boolean;
-  /** A busca parou no teto de agregacao: as contagens saem por baixo. Nao
-   * confundir com `diasExcedidos`, que corta colunas (dias) e nao linhas. */
-  truncado: boolean;
 };
 
 /** null quando o periodo (Data Inicial/Final) nao foi informado -- a tela
@@ -306,46 +229,45 @@ export async function getMapaDeLocaisInspecionados(filtros: Filtros): Promise<Ma
   const dias = listarDias(filtros.dataInicial, filtros.dataFinal);
   const diasExcedidos = dias.length > LIMITE_DIAS;
   const diasConsultados = diasExcedidos ? dias.slice(0, LIMITE_DIAS) : dias;
+  const { inicio, fim } = periodoEntreDatas(diasConsultados[0], diasConsultados[diasConsultados.length - 1]);
 
   const supabase = await createClient();
-  const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
 
-  const [sitesResultado, leituras] = await Promise.all([
+  // Os filtros de site (Local, Sites, Grupo de Sites, inativos) recortam a
+  // lista de LINHAS, em `aplicarFiltrosDeSite`; o banco conta para todos os
+  // sites e so aparecem os da base. Os demais recortam as contagens.
+  const p_filtros = filtrosParaRpc({
+    funcionario: filtros.funcionario,
+    motivo: filtros.motivo,
+    coletor_dados: filtros.coletorDados,
+    grupo_usuario: filtros.grupoUsuario,
+    evento: filtros.evento,
+    checkpoint: filtros.checkpoint,
+    atividade: filtros.atividade,
+  });
+
+  const [sitesResultado, contagens] = await Promise.all([
     aplicarFiltrosDeSite(supabase.from("sites").select("id, nome").order("nome"), filtros),
-    // Paginado pelo mesmo motivo de horas-por-usuario: a consulta parava no
-    // `max_rows` do PostgREST e a contagem por Local x dia saia por baixo, sem
-    // erro. Ordenacao obrigatoria para `.range()` nao repetir nem pular linha.
-    buscarEmPaginas<LeituraBruta>((de, ate) =>
-      aplicarFiltrosDeLeitura(
-        supabase
-          .from("leituras")
-          .select(montarSelectLeituras(precisaGrupoUsuario))
-          .order("data_hora", { ascending: true })
-          .order("id", { ascending: true })
-          .range(de, ate),
-        filtros,
-        diasConsultados[0],
-        diasConsultados[diasConsultados.length - 1],
-      ),
+    // Paginado: sao ate sites x 62 dias linhas, e o PostgREST corta em
+    // `max_rows` sem avisar. Ordenacao estavel, que `buscarEmPaginas` exige.
+    buscarEmPaginas<ContagemDoBanco>((de, ate) =>
+      supabase
+        .rpc("relatorio_mapa_de_locais", { p_inicio: inicio, p_fim: fim, p_filtros })
+        .order("site_id", { ascending: true })
+        .order("dia", { ascending: true })
+        .range(de, ate),
     ),
   ]);
 
   if (sitesResultado.error) throw sitesResultado.error;
 
-  if (leituras.atingiuTeto) {
-    erro(
-      gerarIdDeRequisicao(),
-      `Mapa de Locais Inspecionados: teto de ${TETO_DE_AGREGACAO} leituras atingido; as contagens exibidas estão incompletas.`,
-    );
+  if (contagens.atingiuTeto) {
+    erro(gerarIdDeRequisicao(), "Mapa de Locais Inspecionados: teto de agregação atingido; as contagens estão incompletas.");
   }
 
-  const linhas = contarInspecoesPorSiteEDia(
-    (sitesResultado.data ?? []) as { id: number; nome: string }[],
-    leituras.linhas,
-    filtros,
-  );
+  const linhas = montarLinhasDoMapa((sitesResultado.data ?? []) as { id: number; nome: string }[], contagens.linhas);
 
-  return { dias: diasConsultados, linhas, diasExcedidos, truncado: leituras.atingiuTeto };
+  return { dias: diasConsultados, linhas, diasExcedidos };
 }
 
 export function paraLinhaDeExportacao(linha: LinhaMapa, dias: string[]): string[] {

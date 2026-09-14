@@ -1,4 +1,10 @@
-import { formatarDataHora } from "@/lib/data-hora";
+import {
+  dataValida,
+  fimExclusivoDoFiltro,
+  formatarDataHora,
+  horaValida,
+  inicioDoFiltro,
+} from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
 
@@ -40,10 +46,10 @@ export function primeiro(valor: string | string[] | undefined): string | undefin
  */
 export function extrairFiltros(params: SearchParams): ColetaFiltros {
   return {
-    dataInicial: primeiro(params.data_inicial),
-    dataFinal: primeiro(params.data_final),
-    horaInicial: primeiro(params.hora_inicial),
-    horaFinal: primeiro(params.hora_final),
+    dataInicial: dataValida(primeiro(params.data_inicial)),
+    dataFinal: dataValida(primeiro(params.data_final)),
+    horaInicial: horaValida(primeiro(params.hora_inicial)),
+    horaFinal: horaValida(primeiro(params.hora_final)),
     coletorDados: primeiro(params.coletor_dados),
     qualificador: primeiro(params.qualificador),
     motivoVisita: primeiro(params.motivo_visita),
@@ -85,7 +91,7 @@ export type ColetaRow = {
   qualificadores: { nome: string } | null;
   qr_codes: { codigo: string } | null;
   visitas: {
-    numero_coleta: number;
+    numero_coleta: string;
     profiles: { nome_completo: string } | null;
     coletores_dados: { nome: string } | null;
     sites: { nome: string } | null;
@@ -214,31 +220,6 @@ export function __limparCacheDeReferencias() {
 }
 
 /**
- * Fuso da operacao (Brasilia). Fixo em -03:00: o Brasil nao observa mais
- * horario de verao desde 2019, entao o deslocamento nao varia ao longo do
- * ano -- nao ha caso em que -02:00 se aplicaria.
- */
-const FUSO_OPERACIONAL = "-03:00";
-
-/**
- * Combina data (yyyy-mm-dd) e hora (HH:MM) num timestamp para o filtro de
- * periodo. Sem data, nao ha limite para aplicar.
- *
- * O deslocamento vai explicito no timestamp -- sem ele, o Postgres
- * interpretaria o horario conforme o fuso da conexao, nao o fuso em que a
- * visita realmente aconteceu. Funciona por coincidencia quando os dois
- * fusos combinam; diverge em silencio quando nao combinam.
- */
-export function combinarDataHora(
-  data: string | undefined,
-  hora: string | undefined,
-  horaPadrao: string,
-) {
-  if (!data) return null;
-  return `${data}T${hora ? `${hora}:00` : horaPadrao}${FUSO_OPERACIONAL}`;
-}
-
-/**
  * O `!inner` entra so quando ha filtro naquele nivel. Ligado sempre, ele
  * excluiria leituras validas cuja visita nao tem funcionario, motivo ou
  * coletor preenchido -- FKs opcionais -- por causa de um join que ninguem
@@ -284,7 +265,7 @@ function precisaJoins(filtros: ColetaFiltrosSemPagina) {
  * `query: any`: o cliente do Supabase aqui nao carrega o generic `Database`
  * (nenhum arquivo em `lib/supabase/` declara um), entao o builder do
  * PostgREST nao tem um tipo proprio para expor "o mesmo builder de volta" a
- * cada `.eq()`/`.not()`/`.is()`/`.gte()`/`.lte()` encadeado -- reencadear
+ * cada `.eq()`/`.not()`/`.is()`/`.gte()`/`.lt()` encadeado -- reencadear
  * tipado exigiria repetir cada metodo na assinatura da funcao so para isto.
  */
 function aplicarFiltrosDeColeta(query: any, filtros: ColetaFiltrosSemPagina) {
@@ -305,10 +286,13 @@ function aplicarFiltrosDeColeta(query: any, filtros: ColetaFiltrosSemPagina) {
   if (filtros.localizacao === "sem") q = q.eq("tem_localizacao", false);
   if (filtros.checkpoint) q = q.eq("qr_code_id", filtros.checkpoint);
 
-  const inicio = combinarDataHora(filtros.dataInicial, filtros.horaInicial, "00:00:00");
-  const fim = combinarDataHora(filtros.dataFinal, filtros.horaFinal, "23:59:59");
-  if (inicio) q = q.gte("data_hora", inicio);
-  if (fim) q = q.lte("data_hora", fim);
+  // Limite superior exclusivo: ver `fimExclusivoDoFiltro`.
+  if (filtros.dataInicial) {
+    q = q.gte("data_hora", inicioDoFiltro(filtros.dataInicial, filtros.horaInicial));
+  }
+  if (filtros.dataFinal) {
+    q = q.lt("data_hora", fimExclusivoDoFiltro(filtros.dataFinal, filtros.horaFinal));
+  }
 
   return q;
 }
@@ -401,7 +385,7 @@ export { formatarDataHora };
  */
 export function toTableRow(leitura: ColetaRow): string[] {
   return [
-    leitura.visitas ? String(leitura.visitas.numero_coleta) : "",
+    leitura.visitas?.numero_coleta ?? "",
     formatarDataHora(leitura.data_hora),
     leitura.visitas?.coletores_dados?.nome ?? "",
     leitura.visitas?.profiles?.nome_completo ?? "",
