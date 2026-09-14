@@ -911,15 +911,10 @@ export type Database = {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number
       }
-      e_cliente: { Args: never; Returns: boolean }
-      e_inspetor: { Args: never; Returns: boolean }
-      nivel_acesso_atual: { Args: never; Returns: string }
       pode_administrar_cadastros: { Args: never; Returns: boolean }
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
-      pode_ver_grupo_site: { Args: { id_do_grupo: number }; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
-      pode_ver_visita: { Args: { id_da_visita: number }; Returns: boolean }
       registrar_checklist: {
         Args: {
           p_assinatura_path: string
@@ -993,7 +988,6 @@ export type Database = {
         Args: { p_grupo_id: number; p_membros: string[] }
         Returns: undefined
       }
-      usuario_ativo: { Args: never; Returns: boolean }
       visitas_do_periodo: {
         Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
         Returns: {
