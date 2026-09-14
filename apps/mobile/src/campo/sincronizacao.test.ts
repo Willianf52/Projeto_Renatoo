@@ -37,7 +37,12 @@ const estado = vi.hoisted(() => ({
 }));
 
 vi.mock("./fila", () => ({
-  visitasPendentes: async () => estado.visitas,
+  // O duble HONRA o recorte por inspetor em vez de devolver a fila inteira:
+  // se ele ignorasse o parametro, o teste de aparelho compartilhado passaria
+  // mesmo com `sincronizar` esquecendo de repassa-lo -- que e exatamente a
+  // regressao que ele existe para pegar.
+  visitasPendentes: async (funcionarioId: string) =>
+    estado.visitas.filter((v) => v.funcionarioId === funcionarioId),
   leiturasPendentes: async (chave: string) =>
     (estado.leituras.get(chave) ?? []).map((l) => ({ ...l, chaveDaVisita: chave, temLocalizacao: false, enviada: false })),
   marcarVisitaEnviada: async (chave: string, visitaId: number) => {
@@ -136,7 +141,7 @@ describe("ronda aberta, ainda sem leitura", () => {
   it("nao vira falha: nao ha o que enviar, e isso nao e erro", async () => {
     enfileirarRonda({ visitaId: null });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.falhas).toEqual([]);
     expect(estado.gravado.falhas).toEqual([]);
@@ -148,7 +153,7 @@ describe("ronda aberta, ainda sem leitura", () => {
     const upsert = vi.fn(() => ({ data: { id: 500 }, error: null }) as Resposta);
     servidor.upsertVisita = upsert;
 
-    await sincronizar();
+    await sincronizar(FUNCIONARIO);
 
     expect(upsert).not.toHaveBeenCalled();
     expect(estado.gravado.visitasEnviadas).toEqual([]);
@@ -163,7 +168,7 @@ describe("ronda aberta, ainda sem leitura", () => {
   it("deixa o carimbo de sincronizacao ser escrito", async () => {
     enfileirarRonda({ visitaId: null });
 
-    await sincronizar();
+    await sincronizar(FUNCIONARIO);
 
     expect(estado.gravado.sincronizadoEm).not.toBeNull();
   });
@@ -171,7 +176,7 @@ describe("ronda aberta, ainda sem leitura", () => {
   it("tambem pula a visita ja enviada que nao tem leitura pendente", async () => {
     enfileirarRonda({ visitaId: 500 });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.falhas).toEqual([]);
     expect(estado.gravado.visitasEnviadas).toEqual([]);
@@ -182,7 +187,7 @@ describe("ronda com leitura", () => {
   it("envia, marca a visita e marca as leituras", async () => {
     enfileirarRonda({ comLeitura: true });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.visitasCriadas).toBe(1);
     expect(resultado.leiturasCriadas).toBe(1);
@@ -202,7 +207,7 @@ describe("ronda com leitura", () => {
     servidor.buscarVisita = () => ({ data: { id: 777 }, error: null });
     servidor.upsertLeituras = () => ({ data: [], error: null });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.visitasCriadas).toBe(0);
     expect(resultado.visitasJaExistiam).toBe(1);
@@ -221,7 +226,7 @@ describe("ronda com leitura", () => {
     servidor.upsertVisita = () => ({ data: null, error: null });
     servidor.buscarVisita = () => ({ data: null, error: null });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.falhas).toHaveLength(1);
     expect(estado.gravado.visitasEnviadas).toEqual([]);
@@ -232,10 +237,50 @@ describe("ronda com leitura", () => {
     enfileirarRonda({ comLeitura: true });
     servidor.upsertLeituras = () => ({ data: null, error: { message: "rede caiu" } });
 
-    const resultado = await sincronizar();
+    const resultado = await sincronizar(FUNCIONARIO);
 
     expect(resultado.falhas).toEqual([{ chave: CHAVE, erro: "rede caiu" }]);
     expect(estado.gravado.leiturasEnviadas).toEqual([]);
     expect(estado.gravado.sincronizadoEm).toBeNull();
+  });
+});
+
+describe("aparelho compartilhado", () => {
+  /**
+   * O bug que este bloco fecha, e por que ele e de PERDA DE DADO e nao de tela.
+   *
+   * O arquivo SQLite e do aparelho, e o aparelho roda entre quinze inspetores.
+   * Antes do recorte, `sincronizar` drenava a fila inteira com o token de quem
+   * estivesse logado: a ronda que A deixou pendente ao sair saia num insert
+   * assinado por B, carregando `funcionario_id = A`. A policy da migration
+   * 0036 (`with check (... and funcionario_id = auth.uid())`) recusa, e a
+   * ronda de A ficava presa atras de um erro que B nao tinha como resolver --
+   * para sempre, porque toda sincronizacao seguinte repetia a tentativa.
+   */
+  const OUTRO = "99999999-8888-4777-8666-555555555555";
+
+  it("nao drena a ronda de outro inspetor", async () => {
+    enfileirarRonda({ comLeitura: true });
+
+    const upsert = vi.fn(() => ({ data: { id: 500 }, error: null }) as Resposta);
+    servidor.upsertVisita = upsert;
+
+    const resultado = await sincronizar(OUTRO);
+
+    expect(upsert).not.toHaveBeenCalled();
+    expect(resultado.visitasCriadas).toBe(0);
+    // E, principalmente: nao vira falha na fila de ninguem. A ronda de A
+    // continua intacta, pendente, esperando A entrar de novo.
+    expect(estado.gravado.falhas).toEqual([]);
+    expect(estado.gravado.visitasEnviadas).toEqual([]);
+  });
+
+  it("a ronda volta a subir quando o dono da sessao e o dono da ronda", async () => {
+    enfileirarRonda({ comLeitura: true });
+
+    const resultado = await sincronizar(FUNCIONARIO);
+
+    expect(resultado.visitasCriadas).toBe(1);
+    expect(estado.gravado.visitasEnviadas).toEqual([{ chave: CHAVE, visitaId: 500 }]);
   });
 });

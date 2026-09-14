@@ -134,7 +134,7 @@ async function rodarRoteiro(anotar: (linha: string) => void) {
   // ---------------------------------------------------------------------
   // 4) Sincronizar sem rede tem que falhar SEM perder nada.
   // ---------------------------------------------------------------------
-  const semRede = await sincronizar();
+  const semRede = await sincronizar(sessao.user.id);
   anotarEnarrar(
     `4/6 sync offline: criou ${semRede.visitasCriadas} visita(s), ${semRede.leiturasCriadas} leitura(s), falhas=${semRede.falhas.length} (esperado 0/0/1)`,
   );
@@ -149,7 +149,7 @@ async function rodarRoteiro(anotar: (linha: string) => void) {
     return;
   }
 
-  const comRede = await sincronizar();
+  const comRede = await sincronizar(sessao.user.id);
   anotarEnarrar(
     `5/6 sync: criou ${comRede.visitasCriadas} visita(s) e ${comRede.leiturasCriadas} leitura(s); ja existiam ${comRede.visitasJaExistiam}/${comRede.leiturasJaExistiam}; falhas=${comRede.falhas.length}`,
   );
@@ -161,7 +161,7 @@ async function rodarRoteiro(anotar: (linha: string) => void) {
   // tudo de novo.
   // ---------------------------------------------------------------------
   await reabrirParaReenvio();
-  const reenvio = await sincronizar();
+  const reenvio = await sincronizar(sessao.user.id);
   anotarEnarrar(
     `6/6 REENVIO: criou ${reenvio.visitasCriadas} visita(s) e ${reenvio.leiturasCriadas} leitura(s); ja existiam ${reenvio.visitasJaExistiam}/${reenvio.leiturasJaExistiam}; falhas=${reenvio.falhas.length}`,
   );

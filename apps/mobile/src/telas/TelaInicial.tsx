@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CARGO_INSPETOR } from "@projeto-renatoo/shared";
 
@@ -55,10 +55,11 @@ export function TelaInicial() {
   const soAsMinhas = perfil?.cargo === CARGO_INSPETOR;
 
   const atualizarRodape = useCallback(async () => {
-    const rodape = await lerRodapeDaFila();
+    if (!idDoUsuario) return;
+    const rodape = await lerRodapeDaFila(idDoUsuario);
     setPendentes(rodape.pendentes);
     setSincronizadoEm(rodape.sincronizadoEm);
-  }, []);
+  }, [idDoUsuario]);
 
   useEffect(() => {
     if (!idDoUsuario) return;
@@ -67,7 +68,7 @@ export function TelaInicial() {
     // nao pode pintar o contador do inspetor anterior.
     let ativo = true;
 
-    lerRodapeDaFila()
+    lerRodapeDaFila(idDoUsuario)
       .then((rodape) => {
         if (!ativo) return;
         setPendentes(rodape.pendentes);
@@ -96,13 +97,15 @@ export function TelaInicial() {
   }, [idDoUsuario, soAsMinhas]);
 
   const sincronizarAgora = useCallback(async () => {
-    if (sincronizando) return;
+    if (sincronizando || !idDoUsuario) return;
 
     setSincronizando(true);
     setAviso(null);
 
     try {
-      const resultado = await sincronizar();
+      // O id da SESSAO, nunca o gravado na linha da fila: e o mesmo token que
+      // assina o insert, e a policy da 0036 exige que os dois batam.
+      const resultado = await sincronizar(idDoUsuario);
       const enviadas = resultado.visitasCriadas + resultado.leiturasCriadas;
 
       if (resultado.falhas.length > 0) {
@@ -123,7 +126,64 @@ export function TelaInicial() {
       setSincronizando(false);
       await atualizarRodape();
     }
-  }, [sincronizando, atualizarRodape]);
+  }, [sincronizando, idDoUsuario, atualizarRodape]);
+
+  /**
+   * `sair()` pode rejeitar -- `signOut` fala com a rede, e a limpeza da sessao
+   * passa pelo SecureStore. Antes o botao chamava `sair` direto e a rejeicao
+   * virava unhandled rejection: o inspetor tocava em "Sair", nada acontecia, e
+   * nao havia nada na tela dizendo por que.
+   */
+  const sairAgora = useCallback(async () => {
+    try {
+      await sair();
+    } catch {
+      setAviso({ mensagem: "Não foi possível sair agora. Verifique a conexão.", tom: "erro" });
+    }
+  }, [sair]);
+
+  /**
+   * Sair com ronda pendente pede confirmacao.
+   *
+   * Nao e travar por travar: sair NAO apaga a fila, e a ronda continua no
+   * aparelho esperando o mesmo inspetor voltar. O problema e que ela para de
+   * ser drenavel enquanto outra pessoa estiver na sessao -- o recorte por
+   * `funcionario_id` em `visitasPendentes` e justamente o que impede a sessao
+   * seguinte de tentar envia-la e recebe-la de volta pelo RLS.
+   *
+   * Ou seja: sair aqui nao perde dado, atrasa dado. Quem esta em campo no fim
+   * do dia precisa saber disso ANTES de passar o aparelho adiante, e nao
+   * depois -- e o momento em que ainda da para pegar sinal e sincronizar.
+   *
+   * `Alert` e nao um estado de tela: e uma decisao de tres saidas, tomada uma
+   * vez, e um modal do sistema e o que o inspetor ja reconhece.
+   */
+  const sairComGuarda = useCallback(async () => {
+    let pendentesAgora = 0;
+    try {
+      pendentesAgora = idDoUsuario ? (await lerRodapeDaFila(idDoUsuario)).pendentes : 0;
+    } catch {
+      // Fila ilegivel nao pode prender o inspetor dentro do app: sem o numero,
+      // sai direto. Travar a saida por causa da contagem seria pior que a
+      // contagem faltar.
+      pendentesAgora = 0;
+    }
+
+    if (pendentesAgora === 0) {
+      await sairAgora();
+      return;
+    }
+
+    Alert.alert(
+      "Há ronda não sincronizada",
+      `${pendentesAgora} registro(s) ainda não chegaram ao servidor. Eles ficam guardados neste aparelho e só voltam a subir quando você entrar de novo.`,
+      [
+        { text: "Sincronizar agora", onPress: () => void sincronizarAgora() },
+        { text: "Sair mesmo assim", style: "destructive", onPress: () => void sairAgora() },
+        { text: "Cancelar", style: "cancel" },
+      ],
+    );
+  }, [idDoUsuario, sairAgora, sincronizarAgora]);
 
   const nome = perfil?.nome_completo?.trim() || perfil?.email || "Sem nome";
 
@@ -133,7 +193,7 @@ export function TelaInicial() {
         <View style={estilos.barra}>
           <Marca altura={28} />
           <Pressable
-            onPress={sair}
+            onPress={() => void sairComGuarda()}
             accessibilityRole="button"
             hitSlop={8}
             style={({ pressed }) => [estilos.sair, pressed && estilos.sairPressionado]}
@@ -272,8 +332,16 @@ async function contarAInspecionar(idDoUsuario: string, soAsMinhas: boolean): Pro
  * APARELHO. Fora do componente e sem `setState`, como `lerVisitas` em
  * `TelaDeInspecoes` -- devolve o que leu e deixa a tela decidir o que pintar.
  */
-async function lerRodapeDaFila(): Promise<{ pendentes: number; sincronizadoEm: string | null }> {
-  const [fila, ultima] = await Promise.all([contarPendentes(), ultimaSincronizacao()]);
+async function lerRodapeDaFila(
+  funcionarioId: string,
+): Promise<{ pendentes: number; sincronizadoEm: string | null }> {
+  // `contarPendentes` recortado pelo inspetor da sessao; `ultimaSincronizacao`
+  // nao, e de proposito: o carimbo responde "quando este APARELHO falou com o
+  // servidor pela ultima vez", que e um fato do aparelho e nao de uma conta.
+  const [fila, ultima] = await Promise.all([
+    contarPendentes(funcionarioId),
+    ultimaSincronizacao(),
+  ]);
   return { pendentes: fila.visitas + fila.leituras, sincronizadoEm: ultima };
 }
 
