@@ -54,12 +54,14 @@ test.describe("Acessibilidade sem sessao", () => {
 });
 
 /**
- * As telas que a operacao mais abre: o painel inicial, as duas listagens de
- * Inspecoes com mais filtro, um cadastro com formulario e o historico de
- * checklist. Precisam do stack local pela sessao do GESTOR (auth.setup.ts).
+ * As telas que a operacao mais abre: as duas listagens de Inspecoes com mais
+ * filtro, um cadastro com formulario e o historico de checklist. Precisam do
+ * stack local pela sessao do GESTOR (auth.setup.ts).
+ *
+ * `/dashboard` fica de fora: so redireciona para Coletas Importadas, e o axe
+ * rodando no meio da troca audita uma pagina que esta sumindo.
  */
 const TELAS_COM_SESSAO: [nome: string, caminho: string][] = [
-  ["dashboard", "/dashboard"],
   ["coletas-importadas", "/dashboard/inspecoes/coletas-importadas"],
   ["registro-de-rondas", "/dashboard/inspecoes/relatorios/registro-de-rondas"],
   ["site-planta", "/dashboard/cadastros/site-planta"],

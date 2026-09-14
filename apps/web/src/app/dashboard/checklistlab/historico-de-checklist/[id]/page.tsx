@@ -215,7 +215,14 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
   }
 
   return (
-    <div className="overflow-x-auto">
+    // Focavel por teclado pelo mesmo motivo da `DataTable`: a tabela rola na
+    // horizontal abaixo de 720px.
+    <div
+      role="region"
+      aria-label="Respostas do checklist"
+      tabIndex={0}
+      className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green"
+    >
       <table className="w-full min-w-[720px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-brand-muted">
