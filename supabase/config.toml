@@ -239,12 +239,17 @@ web3 = 30
 [auth.email]
 # Allow/disallow new user signups via email to your project.
 #
-# Redundante com `enable_signup = false` na secao [auth], e mantido explicito
-# pelo mesmo motivo dos revokes redundantes das migrations 0033/0034: quem le
-# so este bloco precisa ver a decisao. Nao afeta a criacao de conta pela tela
-# de administracao -- `admin.createUser()` usa a service_role, que nao passa
-# pelo endpoint de signup.
-enable_signup = false
+# `true` AQUI NAO REABRE O SIGNUP. Apesar do nome, a CLI traduz esta chave para
+# `GOTRUE_EXTERNAL_EMAIL_ENABLED` -- o provedor de e-mail inteiro, login
+# incluido. Quem fecha o signup e o `enable_signup = false` da secao [auth]
+# (`GOTRUE_DISABLE_SIGNUP`), que vale para todo provedor.
+#
+# Ja esteve `false` aqui, com um comentario dizendo que era redundante com a
+# secao [auth]. Nao era: o stack local recusava todo login por senha com
+# `email_provider_disabled` (422). Ninguem notou porque nada logava contra o
+# stack local -- descoberto em 13/09, quando o job `e2e` passou a rodar contra
+# ele. Producao nao era afetada: o painel da plataforma nao le este arquivo.
+enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true

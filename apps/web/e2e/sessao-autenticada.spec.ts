@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { CONTAS, STACK_LOCAL } from "./suporte/ambiente";
+import { createClient } from "@supabase/supabase-js";
+import { CONTAS, MOTIVO_SEM_STACK, STACK_LOCAL, sufixoUnico } from "./suporte/ambiente";
 
 /**
  * Cobre login -> dashboard e conta inativa barrada com a mensagem certa.
@@ -67,5 +68,31 @@ test.describe("Login com conta desativada", () => {
     // middleware, ao consultar profiles.ativo na requisicao seguinte.
     await expect(page).toHaveURL(/erro=acesso-indisponivel/);
     await expect(page.getByText("Esta conta está desativada. Procure o administrador.")).toBeVisible();
+  });
+});
+
+/**
+ * Par do `[auth.email] enable_signup = true` do config.toml: aquela chave
+ * liga o LOGIN por e-mail no stack local, e o nome dela sugere o contrario do
+ * que faz. Este teste e o que garante que ligar o login nao reabriu o
+ * cadastro publico com a anon key -- que continua no bundle e no APK.
+ */
+test.describe("Cadastro publico", () => {
+  test.skip(!STACK_LOCAL, MOTIVO_SEM_STACK);
+
+  test("signup com a anon key e recusado", async () => {
+    const anonimo = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+
+    const { data, error } = await anonimo.auth.signUp({
+      email: `intruso-${sufixoUnico()}@teste.local`,
+      password: "Intruso-e2e-2026!",
+    });
+
+    expect(data.user).toBeNull();
+    expect(error?.code).toBe("signup_disabled");
   });
 });
