@@ -17,8 +17,10 @@ name: Ensaio de restauracao
 #
 # O QUE ELE NAO FAZ: GUARDAR BACKUP. Decisao do dono do produto (13/09): o
 # repositorio e publico, e artifact de repositorio publico pode ser baixado por
-# qualquer conta do GitHub. O dump nasce e morre neste runner. Este workflow
-# prova que restaurar funciona; nao protege contra perda de dado.
+# qualquer conta do GitHub. O dump nasce e morre neste runner. Quem guarda e o
+# `backup-do-banco.yml` (Cloudflare R2, desde 14/09) -- e o passo "Backup mais
+# recente do R2 abre?" abaixo confere, uma vez por mes, que o que esta la
+# decripta e esta inteiro.
 #
 # LOG PUBLICO. Tudo que este job imprime e visivel para qualquer pessoa. Por
 # isso: nada de `cat` em arquivo de dump, `psql` com VERBOSITY=sqlstate (so o
@@ -186,6 +188,50 @@ jobs:
           done
           echo "$novas migration(s) nova(s) aplicada(s) sobre a copia de producao."
 
+      # Backup guardado que nunca foi aberto e hipotese. Fora de PR (o secret
+      # da chave nao precisa circular em todo PR de migration): baixa o objeto
+      # mais recente, decripta com BACKUP_CHAVE e confere que os cinco arquivos
+      # estao la e nao vazios. Nao restaura -- a restauracao ja foi provada
+      # acima com um dump do mesmo formato.
+      - name: Backup mais recente do R2 abre?
+        if: steps.pre.outputs.rodar == 'sim' && github.event_name != 'pull_request'
+        working-directory: ${{ runner.temp }}
+        env:
+          BACKUP_CHAVE: ${{ secrets.BACKUP_CHAVE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_CHAVE" ] || [ -z "$R2_BUCKET" ]; then
+            echo "::notice::Secrets do R2 ausentes -- conferencia do backup pulada."
+            exit 0
+          fi
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          ultimo=$(aws s3 ls "s3://${R2_BUCKET}/banco/" --recursive --endpoint-url "$endpoint" \
+            | sort | tail -n1 | awk '{print $4}')
+          if [ -z "$ultimo" ]; then
+            echo "::error::Nenhum backup encontrado no R2."
+            exit 1
+          fi
+          aws s3 cp "s3://${R2_BUCKET}/${ultimo}" ultimo.tar.gz.gpg \
+            --endpoint-url "$endpoint" --no-progress --only-show-errors
+          mkdir conferencia
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 --decrypt ultimo.tar.gz.gpg 3<<< "$BACKUP_CHAVE" \
+            | tar -xzf - -C conferencia
+          for arquivo in roles.sql schema.sql data.sql contagem.txt manifesto.txt; do
+            if [ ! -s "conferencia/backup/$arquivo" ]; then
+              echo "::error::Backup $ultimo sem $arquivo (ou vazio)."
+              exit 1
+            fi
+          done
+          echo "Backup $ultimo decripta e esta inteiro ($(wc -l < conferencia/backup/contagem.txt) tabelas na contagem)."
+          rm -rf conferencia ultimo.tar.gz.gpg
+
       - name: Resumo
         if: always() && steps.pre.outputs.rodar == 'sim'
         run: |
@@ -196,5 +242,5 @@ jobs:
             echo "|---|---|"
             echo "| Tempo de restauracao (RTO medido) | ${{ steps.restauracao.outputs.duracao || '—' }} s |"
             echo "| Tabelas conferidas | $(wc -l < "$RUNNER_TEMP/antes.txt" 2>/dev/null || echo —) |"
-            echo "| Backup guardado | nao (decisao registrada em docs/backup-e-restauracao.md) |"
+            echo "| Backup guardado | pelo workflow Backup do banco, no R2 (ver docs/backup-e-restauracao.md) |"
           } >> "$GITHUB_STEP_SUMMARY"
