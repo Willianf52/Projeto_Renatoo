@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { FormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { QrCodeIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { QrCodeForm } from "../QrCodeForm";
@@ -12,15 +14,8 @@ const VALORES_VAZIOS = {
   ativo: true,
 };
 
-export default async function NovoQrCodePage() {
-  // O RLS ja recusaria o insert, mas seria depois de preencher o formulario
-  // inteiro. Quem nao administra nem chega a ver a tela.
-  if (!(await podeAdministrarCadastros())) {
-    redirect("/dashboard/cadastros/qr-code");
-  }
-
-  const opcoes = await getOpcoes();
-
+/** Pagina sem `async` -- ver o cabecalho de `site-planta/novo/page.tsx`. */
+export default function NovoQrCodePage() {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
@@ -38,8 +33,22 @@ export default async function NovoQrCodePage() {
           </h1>
         </div>
 
-        <QrCodeForm valoresIniciais={VALORES_VAZIOS} sites={opcoes.sites} />
+        <Suspense fallback={<FormularioEsqueleto campos={4} />}>
+          <Formulario />
+        </Suspense>
       </div>
     </div>
   );
+}
+
+async function Formulario() {
+  // O RLS ja recusaria o insert, mas seria depois de preencher o formulario
+  // inteiro. Quem nao administra nem chega a ver a tela.
+  if (!(await podeAdministrarCadastros())) {
+    redirect("/dashboard/cadastros/qr-code");
+  }
+
+  const opcoes = await getOpcoes();
+
+  return <QrCodeForm valoresIniciais={VALORES_VAZIOS} sites={opcoes.sites} />;
 }

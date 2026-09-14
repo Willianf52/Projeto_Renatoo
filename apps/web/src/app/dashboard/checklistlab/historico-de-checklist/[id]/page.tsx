@@ -18,22 +18,58 @@ import {
 
 const LISTAGEM = "/dashboard/checklistlab/historico-de-checklist";
 
-/**
- * `async` no corpo da pagina, ao contrario da listagem: aqui o `await` e de
- * `params`, nao de `searchParams`. Uma rota com segmento dinamico ja e
- * renderizada sob demanda, entao nao ha casca estatica a preservar -- mesma
- * forma de `perguntas/[id]/editar/page.tsx`. O unico pedaco que depende de
- * `searchParams` (o link de voltar, que carrega os filtros da listagem) fica
- * na sua propria fronteira de `<Suspense>`, que e o que o Cache Components
- * exige.
- */
-export default async function DetalheDoChecklistPage({
-  params,
-  searchParams,
-}: {
+type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<SearchParams>;
-}) {
+};
+
+/**
+ * Pagina sem `async`. Antes ela dava `await` de `params` e do checklist no
+ * corpo, supondo que segmento dinamico nao tem casca a preservar -- mas o
+ * `next dev` acusava "uncached data": a navegacao ficava parada na listagem
+ * ate a consulta voltar. Agora o esqueleto da tela sai na hora e o detalhe
+ * entra pelo `<Suspense>`. O link de voltar, que depende de `searchParams`,
+ * continua na sua propria fronteira.
+ *
+ * `notFound()` dentro da fronteira responde igual para "nao existe" e "o RLS
+ * nao deixa ver" -- a mesma resposta de antes, sem oraculo de ids.
+ */
+export default function DetalheDoChecklistPage({ params, searchParams }: Props) {
+  return (
+    <Suspense fallback={<DetalheEsqueleto />}>
+      <Detalhe params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+function DetalheEsqueleto() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-3" />
+        <Skeleton className="h-4 w-36" />
+      </div>
+      <div className="overflow-hidden rounded-lg bg-brand-surface shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
+          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-10 w-44" />
+        </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 11 }).map((_, indice) => (
+            <div key={indice} className="space-y-1.5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <Skeleton className="h-48 w-full rounded-lg" />
+    </div>
+  );
+}
+
+async function Detalhe({ params, searchParams }: Props) {
   const { id } = await params;
   const idNumerico = idValido(id);
   if (idNumerico === null) notFound();
