@@ -6,6 +6,7 @@ import {
   SaudacaoSidebar,
   SaudacaoSidebarSkeleton,
 } from "@/components/dashboard/IdentidadeDoUsuario";
+import { RegistroDeTelaAberta } from "@/components/dashboard/RegistroDeTelaAberta";
 import { RodapeDoDashboard } from "@/components/dashboard/RodapeDoDashboard";
 
 /**
@@ -35,6 +36,10 @@ export default function DashboardLayout({
       organization="UP SERVIÇOS (SUPERVISÃO) - Nova (1876)"
     >
       {children}
+      {/* Telemetria de uso (P2-4). Fronteira propria: ver o componente. */}
+      <Suspense fallback={null}>
+        <RegistroDeTelaAberta />
+      </Suspense>
     </DashboardChrome>
   );
 }
