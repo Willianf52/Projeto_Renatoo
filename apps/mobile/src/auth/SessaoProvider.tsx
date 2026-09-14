@@ -5,6 +5,7 @@ import type { Tables } from "@projeto-renatoo/shared";
 
 import { esquecerInspetor, identificarInspetor } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
+import { AVISO_DE_SESSAO_EXPIRADA, deveEncerrarPorPrazo } from "./prazo-da-sessao";
 import { useCicloDeVidaDaSessao } from "./useCicloDeVidaDaSessao";
 
 /**
@@ -29,6 +30,9 @@ type EstadoDaSessao = {
    * `useCicloDeVidaDaSessao`, que so consome a janela de throttle no sucesso. */
   recarregarPerfil: () => Promise<boolean>;
   sair: () => Promise<void>;
+  /** Por que a sessao anterior foi encerrada pelo app (hoje: prazo de 30 dias).
+   * A TelaDeLogin mostra; some no proximo login. */
+  avisoDeSaida: string | null;
 };
 
 const ContextoDeSessao = createContext<EstadoDaSessao | null>(null);
@@ -116,6 +120,32 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     };
   }, [idDoUsuario]);
 
+  /**
+   * Prazo de 30 dias desde o ultimo login (`prazo-da-sessao.ts`).
+   *
+   * Aplicado no MESMO callback que recebe a leitura do perfil -- na abertura e
+   * em cada volta ao primeiro plano --, e nao num efeito que reage ao perfil
+   * depois: setState dentro de efeito e o render em cascata que o lint do
+   * projeto (`set-state-in-effect`) recusa. So encerra com a leitura
+   * bem-sucedida, isto e, com sinal.
+   *
+   * O ultimo login vai por ref para o callback ler sempre a sessao atual sem
+   * entrar nas dependencias dos efeitos que o chamam.
+   */
+  const [avisoDeSaida, setAvisoDeSaida] = useState<string | null>(null);
+  const ultimoLoginEm = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    ultimoLoginEm.current = sessao?.user.last_sign_in_at;
+  });
+
+  const aplicarPrazoDaSessao = useCallback((perfilLidoComSucesso: boolean) => {
+    if (!deveEncerrarPorPrazo({ ultimoLoginEm: ultimoLoginEm.current, perfilLidoComSucesso })) {
+      return;
+    }
+    setAvisoDeSaida(AVISO_DE_SESSAO_EXPIRADA);
+    void supabase.auth.signOut().then(() => setPerfilCarregado(null));
+  }, []);
+
   useEffect(() => {
     if (!idDoUsuario) return;
 
@@ -128,6 +158,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       .then((resultado) => {
         if (!ativo) return;
         setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
+        aplicarPrazoDaSessao(resultado.erro === null);
       })
       .catch(() => {
         // `lerPerfil` traduz erro do PostgREST, mas nao cobre rejeicao da
@@ -140,7 +171,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     return () => {
       ativo = false;
     };
-  }, [idDoUsuario]);
+  }, [idDoUsuario, aplicarPrazoDaSessao]);
 
   /**
    * Vivo enquanto o provider estiver montado.
@@ -185,8 +216,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     if (!montado.current) return false;
 
     setPerfilCarregado({ id: idDoUsuario, perfil: resultado.perfil, erro: resultado.erro });
+    aplicarPrazoDaSessao(resultado.erro === null);
     return resultado.erro === null;
-  }, [idDoUsuario]);
+  }, [idDoUsuario, aplicarPrazoDaSessao]);
 
   /**
    * Refresh de token amarrado ao AppState e revalidacao de `ativo`/`cargo` ao
@@ -216,8 +248,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       erroDePerfil: doUsuarioAtual?.erro ?? null,
       recarregarPerfil,
       sair,
+      // Novo login limpa o aviso: com sessao ativa ele nao aparece.
+      avisoDeSaida: idDoUsuario ? null : avisoDeSaida,
     }),
-    [sessao, doUsuarioAtual, carregando, recarregarPerfil, sair],
+    [sessao, doUsuarioAtual, carregando, recarregarPerfil, sair, idDoUsuario, avisoDeSaida],
   );
 
   return <ContextoDeSessao.Provider value={valor}>{children}</ContextoDeSessao.Provider>;

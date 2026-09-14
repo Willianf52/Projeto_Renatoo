@@ -219,6 +219,34 @@ describe("updateSession", () => {
     expect(redirectLocation(response)?.searchParams.get("erro")).toBe("perfil-ausente");
   });
 
+  describe("prazo de 30 dias desde o ultimo login", () => {
+    const haDias = (dias: number) => new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
+
+    it("login ha mais de 30 dias: encerra a sessao e redireciona com erro=sessao-expirada", async () => {
+      getUserMock.mockResolvedValue({ data: { user: { ...USUARIO, last_sign_in_at: haDias(31) } } });
+
+      const response = await updateSession(
+        buildRequest("/dashboard", { cookie: "sb-access-token=abc" }),
+      );
+
+      expect(signOutMock).toHaveBeenCalledWith({ scope: "local" });
+      expect(redirectLocation(response)?.searchParams.get("erro")).toBe("sessao-expirada");
+      expect(response.cookies.get("sb-access-token")?.value).toBe("");
+      // Vencida nem chega a consultar o perfil.
+      expect(maybeSingleMock).not.toHaveBeenCalled();
+    });
+
+    it("login recente segue normalmente", async () => {
+      getUserMock.mockResolvedValue({ data: { user: { ...USUARIO, last_sign_in_at: haDias(2) } } });
+      maybeSingleMock.mockResolvedValue({ data: { ativo: true }, error: null });
+
+      const response = await updateSession(buildRequest("/dashboard"));
+
+      expect(signOutMock).not.toHaveBeenCalled();
+      expect(redirectLocation(response)).toBeNull();
+    });
+  });
+
   it("evita loop de redirecionamento: se ja esta em / com o mesmo erro sinalizado, so limpa cookies", async () => {
     getUserMock.mockResolvedValue({ data: { user: USUARIO } });
     maybeSingleMock.mockResolvedValue({ data: { ativo: false }, error: null });

@@ -17,6 +17,8 @@ type FieldErrors = {
 const URL_ERRORS: Record<string, string> = {
   "link-invalido": "O link expirou ou já foi utilizado. Solicite um novo abaixo.",
   "acesso-indisponivel": "Esta conta está desativada. Procure o administrador.",
+  // Prazo de 30 dias desde o último login (packages/shared/src/sessao.ts).
+  "sessao-expirada": "Sua sessão expirou. Entre novamente.",
   // Autenticacao valida, mas sem perfil correspondente: e um defeito de
   // cadastro, nao uma desativacao, e o administrador precisa saber a diferenca
   // para nao procurar por um `ativo = false` que nao existe.
