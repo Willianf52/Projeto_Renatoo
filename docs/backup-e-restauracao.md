@@ -25,24 +25,29 @@ executa.
 | **RTO** (em quanto tempo volta) | Medido a cada ensaio — ver o resumo do último run de *Ensaio de restauração* | Tempo de restaurar o dump num Postgres novo. Não inclui criar projeto nem reapontar a aplicação (~30 min a mais). |
 | **Quem executa** | Dono do projeto na organização `project_renato` do Supabase | Único com acesso ao painel e à senha do banco. |
 
-### Saída de emergência que existe (sem garantia)
+### Saída de emergência (paga, e só em último caso)
 
 A própria documentação do Supabase informa que, hoje, projetos Free têm até 7
 backups diários guardados internamente, que ficam **acessíveis ao fazer
-upgrade para Pro** (US$ 25/mês) — e avisa que isso pode deixar de valer. Em
-caso de perda de dado: **fazer o upgrade primeiro, antes de qualquer outra
-ação**, e então restaurar pelo painel em *Database → Backups*.
+upgrade para Pro** (US$ 25/mês) — e avisa que isso pode deixar de valer.
 
-Não é plano de backup; é a única rede que existe enquanto nenhuma das opções
-abaixo for adotada.
+**Decisão de 14/09/2026: o projeto não assina o Pro.** Esta saída fica
+registrada só como o que existe tecnicamente numa perda de dado grave — seria
+uma decisão de gasto a tomar na hora, não parte do plano.
 
-### Para ter backup de verdade (decisão em aberto)
+### Para ter backup de verdade, sem custo (decisão em aberto)
 
-1. **Plano Pro** — backup diário de 7 dias restaurável pelo painel.
-2. **Repositório privado** — aí o dump criptografado como artifact de 30 dias
-   volta a ser aceitável (o workflow muda pouco).
-3. **Bucket privado próprio** (ex.: Cloudflare R2, que tem cota gratuita) — o
-   dump criptografado vai para lá, nunca vira artifact.
+Com o Pro descartado, sobram as duas opções gratuitas:
+
+1. **Repositório privado** — repositório privado no GitHub não custa nada, e
+   aí o dump criptografado como artifact de 30 dias volta a ser aceitável (o
+   workflow muda pouco). Custo real: o repositório deixa de ser público, e os
+   minutos de Actions passam a contar na cota gratuita de repositório privado.
+2. **Bucket privado próprio** (ex.: Cloudflare R2, cota gratuita de 10 GB) — o
+   dump criptografado vai para lá, nunca vira artifact, e o repositório segue
+   público. Exige criar a conta e mais dois secrets.
+
+Qualquer uma das duas depende do secret `PRODUCAO_DB_URL` (seção abaixo).
 
 ## O ensaio (`.github/workflows/ensaio-de-restauracao.yml`)
 
