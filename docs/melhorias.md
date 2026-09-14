@@ -214,6 +214,16 @@ aparece hoje.
    volume que ainda não existe — mas é pré-requisito de qualquer painel executivo,
    que precisa de número agregado do período inteiro, sem teto.
 
+   > **Fechado em 13/09/2026 (P1-5 da auditoria de 11/09), migration 0049.**
+   > `visitas_do_periodo` faz no banco a etapa que as seis telas repetiam
+   > (uma linha por visita, par Início/Término, filtros de detalhe em qualquer
+   > leitura), e seis funções `relatorio_*` agregam em cima dela. Todas
+   > `security invoker`: o RLS de quem chama continua recortando. O TypeScript
+   > ficou só com formatação; os tetos de 5.000 leituras e os avisos de
+   > "truncado" saíram dos quatro relatórios agregados. Início/Fim continua
+   > sendo lista por visita, paginada. Regras testadas em
+   > `relatorios_agregados_no_banco_test.sql`.
+
 7. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
    `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
    preservar a estrutura de navegação do sistema de referência. Não têm tabela

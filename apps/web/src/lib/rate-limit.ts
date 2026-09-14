@@ -23,13 +23,16 @@
  *
  * E esse **e** o ambiente atual, nao uma hipotese futura: producao roda
  * serverless na Vercel, e cada invocacao pode cair numa instancia diferente,
- * cada uma com o seu proprio `Map`. Nenhum numero configurado aqui vale
- * literalmente -- o limite real e sempre maior, e quanto maior depende de
- * quantas instancias a plataforma mantiver quentes, que nao esta sob controle
- * deste codigo. A decisao de nao pagar um round-trip ao Postgres por
- * requisicao segue de pe pelo motivo do paragrafo anterior; o que nao vale e
- * ler o limite como exato. Quando o volume justificar, a correcao e mover o
- * contador para armazenamento compartilhado.
+ * cada uma com o seu proprio `Map`.
+ *
+ * ATUALIZACAO 13/09 (P1-3 da auditoria de 11/09): as rotas nao chamam mais
+ * este contador direto. `lib/limite-compartilhado.ts` guarda o balde no
+ * Postgres (migration 0048), onde todas as instancias contam juntas, e o
+ * argumento do "round-trip caro" acima perdeu para o de "limite que nao vale
+ * o numero configurado". Este `Map` ficou como CONTINGENCIA: se o banco nao
+ * responder ou a service_role faltar no ambiente, a rota volta ao limite por
+ * instancia em vez de ficar sem limite nenhum -- ou, pior, de devolver erro
+ * porque o limitador caiu.
  */
 
 type Balde = { contagem: number; expiraEm: number };
@@ -41,10 +44,13 @@ export type ResultadoDoLimite =
   | { permitido: false; tenteNovamenteEmSegundos: number };
 
 /**
+ * Contador por processo. Nao chame das rotas -- use `limitarTaxa` de
+ * `lib/limite-compartilhado.ts`, que cai aqui sozinho quando precisa.
+ *
  * `chave` tipicamente combina a rota com o identificador de quem chama (IP),
  * para o limite de uma rota nao consumir o de outra por engano.
  */
-export function limitarTaxa(chave: string, limite: number, janelaMs: number): ResultadoDoLimite {
+export function limitarTaxaEmMemoria(chave: string, limite: number, janelaMs: number): ResultadoDoLimite {
   const agora = Date.now();
   const atual = baldes.get(chave);
 

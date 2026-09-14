@@ -12,15 +12,8 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const filtros = extrairFiltros(Object.fromEntries(searchParams));
 
-  const { linhas, truncado } = await getRegistroDeRondas(filtros);
-  const dados = linhas.map(paraLinhaDeExportacao);
-  if (truncado) {
-    dados.push([
-      "…",
-      "Resultado truncado — ajuste os filtros para reduzir o total",
-      ...Array(TABLE_COLUMNS.length - 2).fill(""),
-    ]);
-  }
+  // Sem aviso de truncado desde a 0049: o mes e agregado inteiro no banco.
+  const dados = (await getRegistroDeRondas(filtros)).map(paraLinhaDeExportacao);
 
   return new Response(paraCsv(TABLE_COLUMNS, dados), {
     headers: {

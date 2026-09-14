@@ -5,7 +5,7 @@ import {
   montarMensagemDeSilencio,
 } from "@/lib/importacao-alerta";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
 
 /**
  * Alvo de um Vercel Cron Job (`vercel.json`), rodando uma vez por dia.
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
   // Defesa em profundidade, mesmo com o segredo: um vazamento do CRON_SECRET
   // nao deveria virar disparo ilimitado de e-mail.
-  const limite = limitarTaxa("cron-verificar-importacoes", LIMITE_DE_REQUISICOES, JANELA_MS);
+  const limite = await limitarTaxa("cron-verificar-importacoes", LIMITE_DE_REQUISICOES, JANELA_MS);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },

@@ -147,9 +147,9 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 
 async function TabelaDeHoras({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
-  const resultado = await getHorasPorUsuario(filtros);
+  const linhas = await getHorasPorUsuario(filtros);
 
-  if (!resultado) {
+  if (!linhas) {
     return (
       <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
         <p className="text-sm font-medium text-white">Selecione um período</p>
@@ -161,28 +161,19 @@ async function TabelaDeHoras({ searchParams }: { searchParams: SearchParamsPromi
   }
 
   return (
-    <>
-      {resultado.truncado && (
-        <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Período com mais leituras do que o suportado — os totais abaixo estão incompletos. Reduza o período para
-          ver as horas corretas.
-        </p>
-      )}
-
-      <DataTable
-        columns={TABLE_COLUMNS}
-        rows={resultado.linhas.map((linha) => [
-          linha.nome,
-          formatarDuracao(linha.totalMs),
-          formatarMedia(linha.totalMs, linha.visitas),
-          String(linha.visitas),
-        ])}
-        page={1}
-        totalPages={resultado.linhas.length > 0 ? 1 : 0}
-        totalItems={resultado.linhas.length}
-        emptyTitle="Nenhum usuário encontrado"
-        emptyDescription="Ajuste os filtros acima para localizar registros."
-      />
-    </>
+    <DataTable
+      columns={TABLE_COLUMNS}
+      rows={linhas.map((linha) => [
+        linha.nome,
+        formatarDuracao(linha.totalMs),
+        formatarMedia(linha.totalMs, linha.visitas),
+        String(linha.visitas),
+      ])}
+      page={1}
+      totalPages={linhas.length > 0 ? 1 : 0}
+      totalItems={linhas.length}
+      emptyTitle="Nenhum usuário encontrado"
+      emptyDescription="Ajuste os filtros acima para localizar registros."
+    />
   );
 }
