@@ -31,15 +31,24 @@ type Orcamento = { jsKb: number; requisicoes: number };
 const CLS_MAXIMO = 0.1;
 
 /**
- * `null` = ainda sem numero medido: a tela so registra. Preenchido a partir da
- * primeira execucao na CI (anotacoes `js-kb` e `requisicoes` do relatorio).
+ * Medido na CI em 14/09/2026 (job `desempenho` do PR #72), + 10% arredondado
+ * para cima:
+ *
+ *   tela                    JS (kB)   requisicoes
+ *   login                   325       20
+ *   coletas-importadas      322       22
+ *   registro-de-rondas      324       25
+ *   site-planta             328       28
+ *   historico-de-checklist  324       25
+ *
+ * `null` = tela nova ainda sem numero: so registra ate a primeira medicao.
  */
 const ORCAMENTOS: Record<string, Orcamento | null> = {
-  login: null,
-  "coletas-importadas": null,
-  "registro-de-rondas": null,
-  "site-planta": null,
-  "historico-de-checklist": null,
+  login: { jsKb: 358, requisicoes: 22 },
+  "coletas-importadas": { jsKb: 355, requisicoes: 25 },
+  "registro-de-rondas": { jsKb: 357, requisicoes: 28 },
+  "site-planta": { jsKb: 361, requisicoes: 31 },
+  "historico-de-checklist": { jsKb: 357, requisicoes: 28 },
 };
 
 type Medicao = {
