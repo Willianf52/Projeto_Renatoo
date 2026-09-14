@@ -13,6 +13,7 @@
 | Nome completo, e-mail, cargo | `profiles` | Usuários do sistema (operadores, gestores, clientes) |
 | Coordenadas de leitura, horário de visita | `leituras`, `visitas` | Indiretamente ligado ao operador que fez a coleta |
 | Nome/e-mail de contato de cliente | `grupos_sites_clientes` (via `profiles` de nível CLIENTE) | Contato de cliente/holding |
+| Login e telas abertas no painel (rota e **nomes** dos filtros, nunca os valores), com cargo | `eventos_de_uso` (migration 0051) | Usuários do sistema. Leitura só por quem vê a operação inteira |
 
 Não há coleta de dado sensível (saúde, biometria, origem racial, opinião
 política) no schema atual — vale reconfirmar isso a cada tabela nova antes de
@@ -21,7 +22,9 @@ criar a migration, porque dado sensível muda a base legal exigida.
 ## Retenção de dados
 
 **Pendente de decisão de produto.** Hoje `leituras`/`visitas` não têm rotina
-de expurgo — crescem indefinidamente. Antes de definir um prazo, confirmar:
+de expurgo — crescem indefinidamente. `eventos_de_uso` (telemetria, 0051)
+também não: por ser dado de uso e não de operação, o prazo dela tende a ser
+bem mais curto (ex.: 12 meses) e pode ser decidido separado. Antes de definir um prazo, confirmar:
 
 - Por quanto tempo o negócio realmente precisa consultar uma leitura antiga
   (auditoria interna, contestação de cliente, obrigação contratual)?

@@ -10,6 +10,9 @@
 -- justamente o caso que este arquivo existe para pegar. Contar as que
 -- DESCUMPREM a regra cobre o que ainda nem foi escrito.
 --
+-- Desde a 0050, `autorizacao` entra na mesma varredura: e onde estao as
+-- auxiliares de RLS `security definer`, exatamente o caso que a regra protege.
+--
 -- A regra: toda funcao de `public` declara `search_path` terminando em
 -- `pg_temp`. O Postgres pesquisa o schema temporario antes do search_path
 -- explicito quando `pg_temp` nao esta na lista, e `authenticated` tem
@@ -32,7 +35,7 @@ select is(
   (select count(*)::int
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
+    where n.nspname in ('public', 'autorizacao')
       and p.prokind = 'f'
       and coalesce(array_to_string(p.proconfig, ','), '') !~ 'search_path'),
   0,
@@ -46,7 +49,7 @@ select is(
   (select count(*)::int
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
+    where n.nspname in ('public', 'autorizacao')
       and p.prokind = 'f'
       and coalesce(array_to_string(p.proconfig, ','), '') !~ 'pg_temp'),
   0,
@@ -65,7 +68,7 @@ select is(
   (select count(*)::int
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
+    where n.nspname in ('public', 'autorizacao')
       and p.prokind = 'f'
       and coalesce(array_to_string(p.proconfig, ','), '') !~ 'pg_temp\s*$'),
   0,
@@ -84,7 +87,7 @@ select cmp_ok(
   (select count(*)::int
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.prokind = 'f'),
+    where n.nspname in ('public', 'autorizacao') and p.prokind = 'f'),
   '>=',
   12,
   'a varredura alcanca as funcoes de public (nao passa por vacuidade)'
