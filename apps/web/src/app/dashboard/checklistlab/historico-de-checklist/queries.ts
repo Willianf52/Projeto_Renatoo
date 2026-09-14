@@ -1,4 +1,4 @@
-import { dataValida, formatarDataHora } from "@/lib/data-hora";
+import { dataValida, fimExclusivoDoFiltro, formatarDataHora, inicioDoFiltro } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
@@ -388,14 +388,6 @@ export function montarSelect(precisaProfile: boolean): string {
 }
 
 /**
- * Fuso da operacao (Brasilia). Fixo em -03:00 pelo mesmo motivo escrito em
- * `coletas-importadas/queries.ts`: o Brasil nao observa horario de verao desde
- * 2019, e sem o deslocamento explicito o Postgres interpretaria o limite do
- * periodo no fuso da conexao.
- */
-const FUSO_OPERACIONAL = "-03:00";
-
-/**
  * `query: any` pelo mesmo motivo de `aplicarFiltrosDeColeta`: o builder do
  * PostgREST nao expoe um tipo para "o mesmo builder de volta" a cada `.eq()`
  * reencadeado condicionalmente.
@@ -420,8 +412,10 @@ function aplicarFiltros(query: any, filtros: Filtros) {
   // Qual coluna o periodo recorta depende do que a pessoa escolheu no primeiro
   // select da tela, exatamente como na referencia.
   const coluna = filtros.campoData === "visita" ? "visitas.criado_em" : "criado_em";
-  if (filtros.dataInicial) q = q.gte(coluna, `${filtros.dataInicial}T00:00:00${FUSO_OPERACIONAL}`);
-  if (filtros.dataFinal) q = q.lte(coluna, `${filtros.dataFinal}T23:59:59${FUSO_OPERACIONAL}`);
+  // `criado_em` tem fracao de segundo: limite superior exclusivo, ver
+  // `fimExclusivoDoFiltro`.
+  if (filtros.dataInicial) q = q.gte(coluna, inicioDoFiltro(filtros.dataInicial));
+  if (filtros.dataFinal) q = q.lt(coluna, fimExclusivoDoFiltro(filtros.dataFinal));
 
   return q;
 }
