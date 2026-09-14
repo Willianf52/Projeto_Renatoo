@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UsersIcon } from "@/components/dashboard/icons";
 import { podeAdministrarGruposDeUsuarios } from "@/lib/permissoes";
 import { GrupoUsuariosForm } from "../../GrupoUsuariosForm";
@@ -7,11 +9,20 @@ import { getCandidatosAMembro, getGrupoUsuarios, getMembros } from "../../querie
 
 const LISTAGEM = "/dashboard/cadastros/grupo-de-usuarios";
 
-export default async function EditarGrupoDeUsuariosPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function EditarGrupoDeUsuariosPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={3} />}>
+      <Conteudo params={params} />
+    </Suspense>
+  );
+}
+
+async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const idNumerico = Number(id);
 

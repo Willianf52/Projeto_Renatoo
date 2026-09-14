@@ -78,7 +78,7 @@ function textoOpcional(
 /**
  * Timestamp com deslocamento de fuso obrigatorio. A regra em si e
  * `normalizarInstante` do pacote compartilhado -- o mesmo cuidado que
- * `combinarDataHora` toma nos filtros da tela (coletas-importadas/queries.ts).
+ * `inicioDoFiltro` toma nos filtros da tela (lib/data-hora.ts).
  * Aqui so a traducao do motivo para a mensagem desta rota.
  */
 function instante(

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { identificarChamador, limitarTaxa } from "./rate-limit";
+import { identificarChamador, limitarTaxaEmMemoria as limitarTaxa } from "./rate-limit";
 
-describe("limitarTaxa", () => {
+describe("limitarTaxaEmMemoria", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));

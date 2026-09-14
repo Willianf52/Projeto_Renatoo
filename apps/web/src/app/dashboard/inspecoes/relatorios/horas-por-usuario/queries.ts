@@ -1,7 +1,6 @@
-import { dataValida } from "@/lib/data-hora";
-import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
+import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
-import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -93,167 +92,79 @@ export type LinhaHoras = {
   visitas: number;
 };
 
-type LeituraBruta = {
-  visita_id: number;
-  data_hora: string;
-  qr_code_id: number | null;
-  areas: { nome: string } | null;
-  visitas: { funcionario_id: string | null } | null;
-};
-
-const NOME_AREA_INICIO = "Início";
-const NOME_AREA_TERMINO = "Término";
-
-/** Checkpoint e o unico filtro de detalhe desta tela (sem Evento/Atividade
- * aqui) -- mesma logica de "alguma leitura da visita bate" das outras
- * telas: filtrar a consulta diretamente excluiria a leitura de Inicio OU a
- * de Termino, quebrando o calculo de duracao. */
-export function combinaFiltroDeDetalhe(grupo: LeituraBruta[], filtros: Filtros): boolean {
-  if (!filtros.checkpoint) return true;
-  return grupo.some((leitura) => String(leitura.qr_code_id) === filtros.checkpoint);
-}
+/** Uma linha de `relatorio_horas_por_usuario` (migration 0049). */
+export type HorasDoBanco = { funcionario_id: string; total_ms: number; visitas: number };
 
 /**
- * Soma a duracao (Termino - Inicio) de cada visita por funcionario, e conta
- * quantas visitas entraram na soma -- "Visitas" na referencia e exatamente
- * o denominador da "Média" (Total / Visitas), nao a contagem de toda visita
- * do funcionario: uma visita sem par Inicio/Termino completo nao tem duracao
- * para somar, e por isso tambem nao conta. `profilesBase` decide quais
- * linhas existem (todo funcionario ativo aparece, mesmo com zero visitas --
- * mesmo criterio de sitesBase em mapa-de-locais-inspecionados/queries.ts).
- * Exportada pura para ser testada com dados fabricados.
+ * Perfis + somas do banco -> linhas da tela.
+ *
+ * `profilesBase` decide quais linhas existem: todo funcionario ativo aparece,
+ * mesmo com zero visitas -- mesmo criterio de sitesBase no Mapa de Locais. As
+ * somas vem prontas do banco desde a 0049 (par Inicio/Termino, duracao
+ * positiva e filtro de checkpoint sao testados em
+ * `relatorios_agregados_no_banco_test.sql`). Pura, para ser testada sem mockar
+ * o Supabase.
  */
-export function somarHorasPorFuncionario(
+export function juntarHorasAosPerfis(
   profilesBase: { id: string; nome_completo: string }[],
-  leituras: LeituraBruta[],
-  filtros: Filtros,
+  horas: HorasDoBanco[],
 ): LinhaHoras[] {
-  const porVisita = new Map<number, LeituraBruta[]>();
-  for (const leitura of leituras) {
-    if (!leitura.visitas?.funcionario_id) continue;
-    const grupo = porVisita.get(leitura.visita_id) ?? [];
-    grupo.push(leitura);
-    porVisita.set(leitura.visita_id, grupo);
-  }
-
-  const totalMsPorFuncionario = new Map<string, number>();
-  const visitasPorFuncionario = new Map<string, number>();
-
-  for (const grupo of porVisita.values()) {
-    if (!combinaFiltroDeDetalhe(grupo, filtros)) continue;
-
-    const inicios = grupo.filter((l) => l.areas?.nome === NOME_AREA_INICIO).map((l) => l.data_hora).sort();
-    const terminos = grupo.filter((l) => l.areas?.nome === NOME_AREA_TERMINO).map((l) => l.data_hora).sort();
-    const dataInicio = inicios[0];
-    const dataTermino = terminos[terminos.length - 1];
-    if (!dataInicio || !dataTermino) continue;
-
-    const duracaoMs = new Date(dataTermino).getTime() - new Date(dataInicio).getTime();
-    if (duracaoMs <= 0) continue;
-
-    const funcionarioId = grupo[0].visitas!.funcionario_id!;
-    totalMsPorFuncionario.set(funcionarioId, (totalMsPorFuncionario.get(funcionarioId) ?? 0) + duracaoMs);
-    visitasPorFuncionario.set(funcionarioId, (visitasPorFuncionario.get(funcionarioId) ?? 0) + 1);
-  }
+  const porFuncionario = new Map(horas.map((h) => [h.funcionario_id, h]));
 
   return profilesBase
     .map((profile) => ({
       funcionarioId: profile.id,
       nome: profile.nome_completo,
-      totalMs: totalMsPorFuncionario.get(profile.id) ?? 0,
-      visitas: visitasPorFuncionario.get(profile.id) ?? 0,
+      totalMs: porFuncionario.get(profile.id)?.total_ms ?? 0,
+      visitas: porFuncionario.get(profile.id)?.visitas ?? 0,
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-const FUSO_OPERACIONAL = "-03:00";
-
-function montarSelectLeituras(precisaGrupoUsuario: boolean): string {
-  return `
-    visita_id, data_hora, qr_code_id,
-    areas ( nome ),
-    visitas!inner (
-      funcionario_id, site_id, coletor_dados_id
-      ${precisaGrupoUsuario ? ", profiles!inner ( grupos_usuarios_membros!inner ( grupo_id ) )" : ""}
-    )
-  `;
-}
-
-/** `query: any` pelo mesmo motivo das demais telas: o cliente aqui nao
- * carrega o generic `Database`. */
-function aplicarFiltrosDeProfile(query: any, filtros: Filtros) {
-  let q = query;
-  if (filtros.funcionario) q = q.eq("id", filtros.funcionario);
-  return q;
-}
-
-function aplicarFiltrosDeLeitura(query: any, filtros: Filtros) {
-  let q = query;
-  if (filtros.funcionario) q = q.eq("visitas.funcionario_id", filtros.funcionario);
-  if (filtros.coletorDados) q = q.eq("visitas.coletor_dados_id", filtros.coletorDados);
-  if (filtros.local) q = q.eq("visitas.site_id", filtros.local);
-  if (filtros.sites) q = q.eq("visitas.site_id", filtros.sites);
-  if (filtros.grupoUsuario) {
-    q = q.eq("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.grupoUsuario);
-  }
-
-  q = q.gte("data_hora", `${filtros.dataInicial}T00:00:00${FUSO_OPERACIONAL}`);
-  q = q.lte("data_hora", `${filtros.dataFinal}T23:59:59${FUSO_OPERACIONAL}`);
-  return q;
-}
-
-/** O que a tela recebe: as linhas mais o aviso de que a soma saiu incompleta.
- * `truncado` fica fora de `LinhaHoras[]` porque `somarHorasPorFuncionario` so
- * soma o que recebeu -- nao tem como saber se a busca parou antes do fim. */
-export type ResultadoHoras = { linhas: LinhaHoras[]; truncado: boolean };
-
 /** null quando o periodo (Data Inicial/Final) nao foi informado -- mesmo
  * gate de mapa-de-locais-inspecionados. */
-export async function getHorasPorUsuario(filtros: Filtros): Promise<ResultadoHoras | null> {
+export async function getHorasPorUsuario(filtros: Filtros): Promise<LinhaHoras[] | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
 
   const supabase = await createClient();
-  const precisaGrupoUsuario = Boolean(filtros.grupoUsuario);
+  const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
 
-  const [profilesResultado, leituras] = await Promise.all([
-    aplicarFiltrosDeProfile(
-      supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
-      filtros,
-    ),
-    // Paginado: sem isto a consulta parava no `max_rows` do PostgREST e a soma
-    // saia por baixo, sem erro nenhum -- subnotificando justamente quem tem
-    // mais leituras. Ver `buscarEmPaginas`. A ordenacao nao e cosmetica: sem
-    // ela `.range()` pode repetir ou pular linha entre paginas.
-    buscarEmPaginas<LeituraBruta>((de, ate) =>
-      aplicarFiltrosDeLeitura(
-        supabase
-          .from("leituras")
-          .select(montarSelectLeituras(precisaGrupoUsuario))
-          .order("data_hora", { ascending: true })
-          .order("id", { ascending: true })
-          .range(de, ate),
-        filtros,
-      ),
-    ),
+  let perfisFiltrados = supabase.from("profiles").select("id, nome_completo").eq("ativo", true);
+  if (filtros.funcionario) perfisFiltrados = perfisFiltrados.eq("id", filtros.funcionario);
+  const perfis = perfisFiltrados.order("nome_completo");
+
+  // "Local" e "Sites" sao dois selects da tela que resolvem para o mesmo
+  // `sites.id` (ver Filtros). Os dois preenchidos com valores diferentes nunca
+  // casaram visita nenhuma -- eram dois `.eq` na mesma coluna --, e mandar so
+  // um deles esconderia isso. Aqui a regra continua: diferentes, nada casa.
+  const conflitoDeSite = Boolean(filtros.local && filtros.sites && filtros.local !== filtros.sites);
+
+  // Uma linha por funcionario: nunca chega perto do `max_rows`, entao sem
+  // paginacao.
+  const [perfisResultado, horasResultado] = await Promise.all([
+    perfis,
+    conflitoDeSite
+      ? Promise.resolve({ data: [] as HorasDoBanco[], error: null })
+      : supabase.rpc("relatorio_horas_por_usuario", {
+          p_inicio: inicio,
+          p_fim: fim,
+          p_filtros: filtrosParaRpc({
+            site: filtros.local ?? filtros.sites,
+            funcionario: filtros.funcionario,
+            coletor_dados: filtros.coletorDados,
+            grupo_usuario: filtros.grupoUsuario,
+            checkpoint: filtros.checkpoint,
+          }),
+        }),
   ]);
 
-  if (profilesResultado.error) throw profilesResultado.error;
+  if (perfisResultado.error) throw perfisResultado.error;
+  if (horasResultado.error) throw horasResultado.error;
 
-  if (leituras.atingiuTeto) {
-    erro(
-      gerarIdDeRequisicao(),
-      `Horas por Usuário: teto de ${TETO_DE_AGREGACAO} leituras atingido; o total exibido está incompleto.`,
-    );
-  }
-
-  return {
-    linhas: somarHorasPorFuncionario(
-      (profilesResultado.data ?? []) as { id: string; nome_completo: string }[],
-      leituras.linhas,
-      filtros,
-    ),
-    truncado: leituras.atingiuTeto,
-  };
+  return juntarHorasAosPerfis(
+    (perfisResultado.data ?? []) as { id: string; nome_completo: string }[],
+    (horasResultado.data ?? []) as HorasDoBanco[],
+  );
 }
 
 /** "HH:MM:SS", sem teto em 24h -- mesmo formato de

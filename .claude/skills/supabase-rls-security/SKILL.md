@@ -13,17 +13,21 @@ foi substituído por RPC para função `security definer`. Não reintroduza.
 
 ## 1. Regra de autorização mora no banco, chamada por RPC
 
+Desde a migration 0050, as auxiliares `security definer` moram no schema
+**`autorizacao`**, que o PostgREST não expõe (advisor 0029). Policy nova chama
+`autorizacao.x()` qualificado.
+
 ```sql
 -- supabase/migrations/NNNN_descricao.sql
-create or replace function public.pode_administrar_cadastros()
+create or replace function autorizacao.pode_administrar_cadastros()
 returns boolean
 language sql
 security definer
 stable                          -- SEMPRE stable: permite o planner cachear
                                  -- dentro da mesma transação/policy.
-set search_path = public        -- SEMPRE, em toda security definer: evita
-                                 -- sequestro de search_path (escalada via
-                                 -- schema malicioso na frente do público).
+set search_path = autorizacao, public, pg_temp
+                                 -- SEMPRE, em toda função: pg_temp por
+                                 -- ÚLTIMO (0041, pgTAP search_path).
 as $$
   select exists (
     select 1 from public.profiles
@@ -31,9 +35,15 @@ as $$
   );
 $$;
 
-revoke all on function public.pode_administrar_cadastros() from public;
-grant execute on function public.pode_administrar_cadastros() to authenticated;
+revoke all on function autorizacao.pode_administrar_cadastros() from public, anon;
+grant execute on function autorizacao.pode_administrar_cadastros() to authenticated;
 ```
+
+Se a tela precisar perguntar "eu posso?" por RPC, crie em `public` um
+envelope **`security invoker`** de mesmo nome (`select autorizacao.x()`), com
+`search_path = public, pg_temp` e sem EXECUTE para `anon`. Nunca exponha a
+`security definer` em `public` — o pgTAP `funcoes_de_rls_fora_da_api_test.sql`
+reprova.
 
 ```ts
 // Do lado do TypeScript, SÓ chame — nunca reimplemente a regra:

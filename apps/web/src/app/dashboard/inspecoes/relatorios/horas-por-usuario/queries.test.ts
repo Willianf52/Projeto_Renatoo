@@ -1,34 +1,41 @@
-import { describe, expect, it } from "vitest";
-import {
-  combinaFiltroDeDetalhe,
-  extrairFiltros,
-  formatarDuracao,
-  formatarMedia,
-  somarHorasPorFuncionario,
-  type Filtros,
-} from "./queries";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const AREA_INICIO = { nome: "Início" };
-const AREA_TERMINO = { nome: "Término" };
+// O calculo das horas (par Inicio/Termino, duracao positiva, filtro de
+// checkpoint em qualquer leitura da visita) desceu para o banco na 0049 e e
+// testado la: supabase/tests/database/relatorios_agregados_no_banco_test.sql.
 
-function leitura(
-  visitaId: number,
-  funcionarioId: string | null,
-  dataHora: string,
-  area: { nome: string } | null,
-  extra: Record<string, unknown> = {},
-) {
-  return {
-    visita_id: visitaId,
-    data_hora: dataHora,
-    qr_code_id: null,
-    areas: area,
-    visitas: funcionarioId ? { funcionario_id: funcionarioId } : null,
-    ...extra,
+const { rpcMock, perfisMock } = vi.hoisted(() => ({ rpcMock: vi.fn(), perfisMock: vi.fn() }));
+
+/** `from("profiles").select().eq()...order()` resolve na propria cadeia. */
+function cadeiaDePerfis() {
+  const cadeia = {
+    select: () => cadeia,
+    eq: (coluna: string, valor: unknown) => {
+      perfisMock(coluna, valor);
+      return cadeia;
+    },
+    order: () => cadeia,
+    then: (resolver: (valor: unknown) => unknown) =>
+      Promise.resolve({ data: [{ id: "f1", nome_completo: "Eric" }, { id: "f2", nome_completo: "Ana" }], error: null }).then(
+        resolver,
+      ),
   };
+  return cadeia;
 }
 
-const SEM_FILTROS: Filtros = {};
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({ from: () => cadeiaDePerfis(), rpc: rpcMock }),
+}));
+
+const { extrairFiltros, formatarDuracao, formatarMedia, getHorasPorUsuario, juntarHorasAosPerfis } = await import(
+  "./queries"
+);
+
+beforeEach(() => {
+  rpcMock.mockReset();
+  perfisMock.mockReset();
+  rpcMock.mockResolvedValue({ data: [], error: null });
+});
 
 describe("extrairFiltros", () => {
   it("le todos os filtros da querystring", () => {
@@ -81,63 +88,79 @@ describe("formatarMedia", () => {
   });
 });
 
-describe("combinaFiltroDeDetalhe", () => {
-  it("sem checkpoint, todo grupo combina", () => {
-    expect(combinaFiltroDeDetalhe([leitura(1, "f1", "2026-08-11T09:00:00-03:00", AREA_INICIO)], SEM_FILTROS)).toBe(
-      true,
-    );
-  });
-
-  it("combina se qualquer leitura do grupo tiver o checkpoint, nao precisa ser a mesma do Inicio", () => {
-    const grupo = [
-      leitura(1, "f1", "2026-08-11T09:00:00-03:00", AREA_INICIO, { qr_code_id: 5 }),
-      leitura(1, "f1", "2026-08-11T09:45:00-03:00", AREA_TERMINO, { qr_code_id: 7 }),
-    ];
-    expect(combinaFiltroDeDetalhe(grupo, { ...SEM_FILTROS, checkpoint: "7" })).toBe(true);
-    expect(combinaFiltroDeDetalhe(grupo, { ...SEM_FILTROS, checkpoint: "9" })).toBe(false);
-  });
-});
-
-describe("somarHorasPorFuncionario", () => {
+describe("juntarHorasAosPerfis", () => {
   const profilesBase = [
     { id: "f1", nome_completo: "Eric" },
     { id: "f2", nome_completo: "Ana" },
   ];
 
-  it("soma a duracao das visitas do funcionario e conta quantas entraram na soma", () => {
-    const leituras = [
-      leitura(1, "f1", "2026-08-11T09:00:00-03:00", AREA_INICIO),
-      leitura(1, "f1", "2026-08-11T09:45:07-03:00", AREA_TERMINO),
-      leitura(2, "f1", "2026-08-12T08:00:00-03:00", AREA_INICIO),
-      leitura(2, "f1", "2026-08-12T08:30:00-03:00", AREA_TERMINO),
-    ];
+  it("usa a soma e a contagem que o banco devolveu", () => {
+    const eric = juntarHorasAosPerfis(profilesBase, [{ funcionario_id: "f1", total_ms: 4_507_000, visitas: 2 }]).find(
+      (l) => l.funcionarioId === "f1",
+    )!;
 
-    const linhas = somarHorasPorFuncionario(profilesBase, leituras, SEM_FILTROS);
-    const eric = linhas.find((l) => l.funcionarioId === "f1")!;
-
-    expect(eric.visitas).toBe(2);
-    expect(eric.totalMs).toBe(45 * 60 * 1000 + 7000 + 30 * 60 * 1000);
+    expect(eric).toEqual({ funcionarioId: "f1", nome: "Eric", totalMs: 4_507_000, visitas: 2 });
   });
 
-  it("todo funcionario de profilesBase aparece, mesmo com zero visitas", () => {
-    const linhas = somarHorasPorFuncionario(profilesBase, [], SEM_FILTROS);
+  it("todo funcionario de profilesBase aparece, mesmo sem linha no banco", () => {
+    const linhas = juntarHorasAosPerfis(profilesBase, []);
 
     expect(linhas).toHaveLength(2);
     expect(linhas.every((l) => l.totalMs === 0 && l.visitas === 0)).toBe(true);
   });
 
-  it("visita sem par Inicio/Termino completo nao soma nem conta", () => {
-    const leituras = [leitura(1, "f1", "2026-08-11T09:00:00-03:00", AREA_INICIO)];
+  it("funcionario que o banco devolveu mas nao esta na base (inativo) nao vira linha", () => {
+    const linhas = juntarHorasAosPerfis(profilesBase, [{ funcionario_id: "inativo", total_ms: 1, visitas: 1 }]);
 
-    const eric = somarHorasPorFuncionario(profilesBase, leituras, SEM_FILTROS).find((l) => l.funcionarioId === "f1")!;
-
-    expect(eric.visitas).toBe(0);
-    expect(eric.totalMs).toBe(0);
+    expect(linhas.map((l) => l.funcionarioId).sort()).toEqual(["f1", "f2"]);
   });
 
   it("ordena as linhas por nome", () => {
-    const linhas = somarHorasPorFuncionario(profilesBase, [], SEM_FILTROS);
-    expect(linhas.map((l) => l.nome)).toEqual(["Ana", "Eric"]);
+    expect(juntarHorasAosPerfis(profilesBase, []).map((l) => l.nome)).toEqual(["Ana", "Eric"]);
+  });
+});
+
+describe("getHorasPorUsuario", () => {
+  it("sem periodo completo, nao consulta nada", async () => {
+    expect(await getHorasPorUsuario({ dataInicial: "2026-08-01" })).toBeNull();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("dia final inclusivo vira periodo meio-aberto, e Local vira `site`", async () => {
+    await getHorasPorUsuario({ dataInicial: "2026-08-01", dataFinal: "2026-08-31", local: "6", checkpoint: "3" });
+
+    expect(rpcMock).toHaveBeenCalledWith("relatorio_horas_por_usuario", {
+      p_inicio: "2026-08-01T00:00:00-03:00",
+      p_fim: "2026-09-01T00:00:00-03:00",
+      p_filtros: { site: "6", checkpoint: "3" },
+    });
+  });
+
+  it("Sites sozinho tambem vira `site`", async () => {
+    await getHorasPorUsuario({ dataInicial: "2026-08-01", dataFinal: "2026-08-01", sites: "5" });
+
+    expect(rpcMock.mock.calls[0][1].p_filtros).toEqual({ site: "5" });
+  });
+
+  it("Local e Sites diferentes nao casam visita nenhuma -- nem chega a consultar horas", async () => {
+    const linhas = await getHorasPorUsuario({ dataInicial: "2026-08-01", dataFinal: "2026-08-01", sites: "5", local: "6" });
+
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(linhas?.every((l) => l.visitas === 0)).toBe(true);
+  });
+
+  it("filtro de funcionario recorta tambem a lista de perfis", async () => {
+    await getHorasPorUsuario({ dataInicial: "2026-08-01", dataFinal: "2026-08-01", funcionario: "f1" });
+
+    expect(perfisMock).toHaveBeenCalledWith("id", "f1");
+  });
+
+  it("erro da RPC sobe, em vez de mostrar todo mundo zerado", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: "permission denied" } });
+
+    await expect(getHorasPorUsuario({ dataInicial: "2026-08-01", dataFinal: "2026-08-01" })).rejects.toEqual({
+      message: "permission denied",
+    });
   });
 });
 

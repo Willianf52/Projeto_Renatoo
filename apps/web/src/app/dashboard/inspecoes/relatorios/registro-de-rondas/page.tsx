@@ -204,11 +204,11 @@ async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPro
   const filtros = extrairFiltros(params);
   const pagina = Math.max(1, Number(primeiro(params.pagina)) || 1);
 
-  const registro = await getRegistroDeRondas(filtros);
+  const linhas = await getRegistroDeRondas(filtros);
 
-  const totalItems = registro.linhas.length;
+  const totalItems = linhas.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const linhasPagina = registro.linhas.slice((pagina - 1) * PAGE_SIZE, (pagina - 1) * PAGE_SIZE + PAGE_SIZE);
+  const linhasPagina = linhas.slice((pagina - 1) * PAGE_SIZE, (pagina - 1) * PAGE_SIZE + PAGE_SIZE);
 
   const buildPageHref = (novaPagina: number) => {
     const query = new URLSearchParams();
@@ -226,13 +226,6 @@ async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPro
 
   return (
     <>
-      {registro.truncado && (
-        <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Mês com mais leituras do que o exibido — ajuste os filtros para reduzir o total. Os valores acima podem
-          estar incompletos.
-        </p>
-      )}
-
       {linhasPagina.length === 0 ? (
         <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
           <div className="rounded-full bg-brand-navy p-3 text-brand-muted">

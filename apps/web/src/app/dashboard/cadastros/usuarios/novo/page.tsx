@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UserIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../UsuarioForm";
@@ -26,7 +28,20 @@ const VALORES_VAZIOS = {
   gruposDoCliente: [] as string[],
 };
 
-export default async function NovoUsuarioPage() {
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function NovoUsuarioPage() {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-3xl" campos={8} />}>
+      <Conteudo />
+    </Suspense>
+  );
+}
+
+async function Conteudo() {
   // A action confere de novo -- ela e o unico portao de verdade, porque
   // escreve com service_role. Aqui e so para nao mostrar um formulario que
   // sera recusado no envio.

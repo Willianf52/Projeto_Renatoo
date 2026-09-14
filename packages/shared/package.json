@@ -9,14 +9,16 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:cobertura": "vitest run --coverage"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.112.2",
-    "zod": "^4.4.3"
+    "@supabase/supabase-js": "^2.116.0",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.0",
     "typescript": "^5",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.0"
   }
 }

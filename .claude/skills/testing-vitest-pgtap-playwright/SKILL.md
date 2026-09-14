@@ -196,12 +196,22 @@ projeto quando não há Docker nem branch de desenvolvimento disponível
 
 ## 4. Playwright (e2e/)
 
-- Specs pulam sozinhas sem `E2E_EMAIL`/`E2E_PASSWORD`/`E2E_INACTIVE_EMAIL`/
-  `E2E_INACTIVE_PASSWORD` — de propósito, para não gastar rate limit do
-  Supabase Auth a cada push de CI.
-- Não rode e2e contra produção sem credencial de teste dedicada.
-- `pnpm test:e2e` roda local; não está no workflow de CI por decisão
-  explícita (custo de rate limit).
+- O job `e2e` da CI é check obrigatório e roda contra um **Supabase local**
+  (`supabase start` com storage), nunca contra produção. As credenciais saem
+  de `supabase status -o env`.
+- O projeto `setup` (`e2e/auth.setup.ts`) cria as contas GESTOR, INSPETOR e
+  inativa com a service_role local e grava a sessão do gestor em
+  `e2e/.auth/gestor.json`. Spec de tela autenticada usa
+  `test.use({ storageState: SESSAO_DO_GESTOR })` em vez de logar de novo — o
+  GoTrue limita logins por IP.
+- Spec que **escreve** no banco começa com `test.skip(!STACK_LOCAL, ...)`
+  (`e2e/suporte/ambiente.ts`): a guarda olha o host da URL. Sem Docker local
+  ele se pula; a validação é a CI do PR.
+- O lado do app de campo é reproduzido em `e2e/suporte/campo.ts` com as
+  mesmas chamadas do mobile. Mudou o contrato de escrita do app? Mude lá.
+- Nomes com `sufixoUnico()`: o stack local não é zerado entre execuções.
+- `expect.poll` precisa devolver sempre o mesmo tipo, e a primeira ida a uma
+  rota no `next dev` frio inclui compilá-la — dê folga de timeout aí.
 
 ## 5. Antes de abrir mão de escrever um teste
 

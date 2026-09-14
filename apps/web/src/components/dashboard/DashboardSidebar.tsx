@@ -167,11 +167,6 @@ const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
       },
-      {
-        label: "Perguntas do Checklist",
-        href: "/dashboard/checklistlab/perguntas",
-        icon: ClipboardListIcon,
-      },
     ],
   },
   // Modulos ainda sem telas definidas: mantidos visiveis para preservar a

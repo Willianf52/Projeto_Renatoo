@@ -28,10 +28,26 @@ export default defineConfig({
     baseURL: "http://localhost:3100",
     trace: "on-first-retry",
   },
+  /**
+   * `setup` antes de tudo: cria as contas do stack local e grava a sessao do
+   * GESTOR (e2e/auth.setup.ts). Fora do stack local ele se pula, e um projeto
+   * pulado nao segura os dependentes -- os specs sem credencial rodam igual.
+   *
+   * Os specs de fluxo de negocio (cadastro, checklist, relatorio) escrevem no
+   * banco e por isso so rodam contra Supabase em 127.0.0.1 -- ver a guarda em
+   * e2e/suporte/ambiente.ts.
+   */
   projects: [
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+    },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // Mede bundle de producao; roda pela playwright.desempenho.config.ts.
+      testIgnore: /desempenho\.spec\.ts/,
+      dependencies: ["setup"],
     },
   ],
   webServer: {

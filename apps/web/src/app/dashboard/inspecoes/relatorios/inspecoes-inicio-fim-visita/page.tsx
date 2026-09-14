@@ -185,7 +185,7 @@ async function TabelaDeInspecoes({ searchParams }: { searchParams: SearchParamsP
     <>
       {resultado.truncado && (
         <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Período com mais leituras do que o exibido — ajuste os filtros para reduzir o total.
+          Período com mais visitas do que o exibido — ajuste os filtros para reduzir o total.
         </p>
       )}
 

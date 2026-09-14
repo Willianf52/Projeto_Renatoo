@@ -107,6 +107,61 @@ export function CorpoDeRelatorioEsqueleto({ altura = "h-72" }: { altura?: string
 }
 
 /**
+ * Pagina inteira de formulario: breadcrumb, cartao com cabecalho e o
+ * formulario. Para as telas de `editar`, cujo breadcrumb traz o nome do
+ * registro e por isso so sai depois da consulta.
+ *
+ * `largura` vai como classe INTEIRA (`max-w-2xl`, `max-w-3xl`) pelo mesmo
+ * motivo de `gradeInterna` acima.
+ */
+export function PaginaDeFormularioEsqueleto({
+  largura,
+  campos,
+}: {
+  largura: string;
+  campos: number;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-3" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+      <div className={`${largura} overflow-hidden rounded-lg bg-brand-surface shadow-sm`}>
+        <div className="border-b border-slate-800 px-4 py-3">
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <FormularioEsqueleto campos={campos} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Formulario de cadastro (`novo`/`editar`): rotulo + campo em grade de duas
+ * colunas, com os botoes no pe -- a moldura de `QrCodeForm` e `SiteForm`.
+ */
+export function FormularioEsqueleto({ campos }: { campos: number }) {
+  return (
+    <div className="space-y-4 p-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {Array.from({ length: campos }).map((_, indice) => (
+          <div key={indice} className="space-y-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-10 w-24" />
+        <Skeleton className="h-10 w-24" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Corpo da tabela. `minWidth` acompanha o mesmo valor passado ao `DataTable`
  * da tela -- divergir faria a largura mudar no instante em que o dado chega,
  * que e exatamente o salto que o esqueleto existe para evitar.

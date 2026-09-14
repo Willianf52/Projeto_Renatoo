@@ -35,7 +35,7 @@ jobs:
       # Sem `version:`: o action le o campo `packageManager` do package.json.
       # Local e CI passam a concordar sozinhos, sem manter os dois em sincronia
       # na mao.
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       # Depois do action-setup de proposito: o cache pnpm do setup-node
       # precisa do pnpm ja no PATH para resolver o diretorio do store.
@@ -116,7 +116,11 @@ jobs:
       - run: pnpm --filter @projeto-renatoo/shared exec tsc --noEmit
       - run: pnpm --filter mobile exec tsc --noEmit
 
-      - run: pnpm test
+      # Os mesmos testes de `pnpm test`, medindo cobertura. Cada pacote tem o
+      # seu piso no proprio vitest.config.mts, fixado no numero de 13/09 -- o
+      # passo falha quando a cobertura CAI abaixo dele, nao quando fica longe
+      # de uma meta. Subiu? Suba o piso no mesmo PR.
+      - run: pnpm run test:cobertura
 
       # NEXT_PUBLIC_* sao valores publicos (protegidos pelo RLS no Supabase),
       # mas ficam como secret do repositorio para nao cravar a URL/chave reais
@@ -145,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
@@ -202,7 +206,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
@@ -210,22 +214,43 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # CONTRA UM SUPABASE LOCAL, NAO CONTRA PRODUCAO. Ate aqui o job usava os
+      # secrets NEXT_PUBLIC_* -- o projeto de producao -- e por isso so podia
+      # exercitar o que nao escreve nada: os specs de conta real ficavam
+      # pulados por falta de secret. Os specs de fluxo de negocio (P0-4 da
+      # auditoria de 11/09) cadastram site, gravam visita e enviam checklist;
+      # contra producao isso seria dado de teste na operacao a cada push.
+      #
+      # `storage-api` fica LIGADO, ao contrario do job `banco`: o spec de
+      # checklist sobe a assinatura no bucket e o painel a le de volta. O
+      # `seed.sql` roda sozinho no start e traz os sites e QR codes em que os
+      # specs se apoiam.
+      - run: pnpm exec supabase start -x studio,realtime,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta
+
+      # `status -o env` escreve `NOME="valor"`; o $GITHUB_ENV guardaria as
+      # aspas como parte do valor, entao elas saem aqui. Tudo local e
+      # descartavel -- a service_role deste stack nao abre nada fora do runner.
+      - name: Credenciais do stack local
+        run: |
+          pnpm exec supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          ler() { grep -E "^$1=" "$RUNNER_TEMP/supabase.env" | head -n1 | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/'; }
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(ler API_URL)"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(ler ANON_KEY)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(ler SERVICE_ROLE_KEY)"
+          } >> "$GITHUB_ENV"
+
       # So o chromium: e o unico projeto declarado no playwright.config.ts.
       # `--with-deps` instala as bibliotecas de sistema que o runner nao traz.
       - run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: Playwright (login de ponta a ponta)
+      - name: Playwright (login e fluxos de negocio)
         run: pnpm run test:e2e
         env:
-          # O `next dev` que o Playwright sobe passa por `lib/env.ts`, que
-          # lanca erro se estas faltarem -- sem elas o webServer nem inicia.
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          # Opcionais: ausentes, os specs de conta real se pulam sozinhos.
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-          E2E_INACTIVE_EMAIL: ${{ secrets.E2E_INACTIVE_EMAIL }}
-          E2E_INACTIVE_PASSWORD: ${{ secrets.E2E_INACTIVE_PASSWORD }}
+          # As tres do Supabase vem do passo anterior, via $GITHUB_ENV. As
+          # E2E_* nao sao mais necessarias: o projeto `setup` cria as contas
+          # no stack local (apps/web/e2e/auth.setup.ts).
+          #
           # O reporter `html` abre o relatorio no navegador quando ha falha.
           # Em CI nao ha navegador para abrir, e o passo ficaria esperando.
           PLAYWRIGHT_HTML_OPEN: never
@@ -239,3 +264,54 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # Orcamento de desempenho (P2-3 da auditoria de 11/09). Mede bundle de JS,
+  # requisicoes e CLS das telas mais usadas contra o BUILD DE PRODUCAO -- o
+  # `e2e` roda sobre `next dev`, cujos numeros nao dizem nada do que o
+  # inspetor recebe. Ver o cabecalho de apps/web/e2e/desempenho.spec.ts para
+  # o que trava e o que so informa.
+  #
+  # Job proprio, e fora dos checks obrigatorios por enquanto: entra na
+  # protecao da `main` depois de algumas execucoes confirmarem que o numero e
+  # estavel.
+  desempenho:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Mesmo stack do `e2e`, sem storage: nenhuma das telas medidas le midia.
+      - run: pnpm exec supabase start -x studio,realtime,storage-api,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta
+
+      - name: Credenciais do stack local
+        run: |
+          pnpm exec supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          ler() { grep -E "^$1=" "$RUNNER_TEMP/supabase.env" | head -n1 | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/'; }
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(ler API_URL)"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(ler ANON_KEY)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(ler SERVICE_ROLE_KEY)"
+          } >> "$GITHUB_ENV"
+
+      # Build apontando para o stack local: NEXT_PUBLIC_* entra no bundle em
+      # tempo de build.
+      - run: pnpm run build
+
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Orcamento de desempenho
+        run: pnpm --filter web test:desempenho
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: relatorio-desempenho
+          path: apps/web/playwright-report-desempenho/
+          retention-days: 14

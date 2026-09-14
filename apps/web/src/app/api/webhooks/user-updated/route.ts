@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { identificarChamador } from "@/lib/rate-limit";
 import { enviarAvisoSenhaAlterada } from "@/lib/resend";
 import {
   isEventoRelevante,
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const limite = limitarTaxa(`webhook-user-updated:${identificarChamador(request)}`, LIMITE_DE_REQUISICOES, JANELA_MS);
+  const limite = await limitarTaxa(`webhook-user-updated:${identificarChamador(request)}`, LIMITE_DE_REQUISICOES, JANELA_MS);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },

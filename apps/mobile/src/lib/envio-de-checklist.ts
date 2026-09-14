@@ -6,6 +6,7 @@ import {
   type TipoDeVisita,
 } from "@projeto-renatoo/shared";
 
+import { capturarErro, capturarFalhaDeCampo } from "./observabilidade";
 import { supabase } from "./supabase";
 
 /**
@@ -124,15 +125,27 @@ export async function enviarChecklist(envio: EnvioDeChecklist): Promise<Resultad
         return { ok: false, erro: "Esta visita já foi finalizada." };
       }
 
+      // Recusa do RPC que NAO e a unique conhecida: policy, check do banco,
+      // contrato fora de sincronia. Vale como aviso agregado -- se aparecer
+      // em varios aparelhos ao mesmo tempo, o problema nao esta no aparelho.
+      capturarFalhaDeCampo("checklist", String(envio.visitaId), error.message);
+
       return { ok: false, erro: "Não foi possível enviar o checklist." };
     }
 
     return { ok: true, checklistId: Number(data) };
-  } catch {
+  } catch (excecao) {
     // Rejeicao da camada de rede ou de leitura de arquivo -- o `error` do
     // PostgREST ja foi tratado acima. Sem este ramo a tela ficaria com o botao
     // em "enviando" para sempre, que e o mesmo bug do spinner eterno que
     // `TelaDeInspecoes` documenta.
+    //
+    // Era daqui que NADA saia. Este `catch` cobre a assinatura, as fotos, o
+    // disco e a rede -- o checklist inteiro --, e ate agora transformava
+    // qualquer um desses em uma frase de tela e mais nada: sem stack, sem
+    // aparelho, sem o que aconteceu. Era o ponto cego mais caro do app.
+    capturarErro(excecao, { onde: "enviarChecklist", visita: String(envio.visitaId) });
+
     return { ok: false, erro: "Não foi possível enviar o checklist." };
   }
 }

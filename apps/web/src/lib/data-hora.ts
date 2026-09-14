@@ -78,8 +78,8 @@ export function mesAtual(agora: Date = new Date()): string {
  * uma data.
  *
  * POR QUE ISTO EXISTE. Os filtros de periodo montam o limite da consulta por
- * interpolacao -- `${data}T00:00:00-03:00` em `combinarDataHora` e nas quatro
- * telas de relatorio. O `FilterDatePicker` so emite "yyyy-mm-dd", mas a
+ * interpolacao -- `${data}T00:00:00-03:00` em `inicioDoFiltro` e
+ * `fimExclusivoDoFiltro`. O `FilterDatePicker` so emite "yyyy-mm-dd", mas a
  * querystring e editavel a mao: `?data_inicial=abc` vira o literal
  * `abcT00:00:00-03:00` num `gte` de timestamptz, ou seja, erro 22007 do
  * Postgres subindo como erro de tela em vez de filtro ignorado.
@@ -101,9 +101,87 @@ export function dataValida(valor: string | undefined): string | undefined {
 }
 
 /**
+ * Deslocamento fixo da operacao. Os relatorios recortam periodo com ele, e nao
+ * com `FUSO_DO_PROJETO`, porque montam literal ISO -- e o Brasil nao observa
+ * horario de verao desde 2019, entao -03:00 e o fuso de Brasilia o ano todo.
+ */
+export const FUSO_OPERACIONAL = "-03:00";
+
+/** Intervalo meio-aberto `[inicio, fim)`, como as funcoes `relatorio_*` da
+ * migration 0049 recebem. */
+export type Periodo = { inicio: string; fim: string };
+
+/**
+ * "yyyy-mm" -> do dia 1 as 00:00 ate o dia 1 do mes seguinte, em -03:00.
+ *
+ * Meio-aberto de proposito: `fim` e o primeiro instante que NAO entra. Fechar
+ * em "ultimo dia 23:59:59" (como as telas faziam) perde leitura no ultimo
+ * segundo com fracao.
+ */
+export function periodoDoMes(mes: string): Periodo {
+  const [ano, numero] = mes.split("-").map(Number);
+  const anoFim = numero === 12 ? ano + 1 : ano;
+  const mesFim = numero === 12 ? 1 : numero + 1;
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return {
+    inicio: `${ano}-${pad(numero)}-01T00:00:00${FUSO_OPERACIONAL}`,
+    fim: `${anoFim}-${pad(mesFim)}-01T00:00:00${FUSO_OPERACIONAL}`,
+  };
+}
+
+/**
+ * "yyyy-mm-dd" inicial e final, AMBOS inclusivos na tela -> `[inicio do dia
+ * inicial, inicio do dia seguinte ao final)`.
+ *
+ * O dia seguinte e calculado por `Date.UTC` sobre os componentes, nao somando
+ * 24h a um instante local: a conta e de calendario, e assim nao depende do
+ * fuso do processo. Recebe datas ja validadas por `dataValida`.
+ */
+export function periodoEntreDatas(dataInicial: string, dataFinal: string): Periodo {
+  return { inicio: inicioDoFiltro(dataInicial), fim: fimExclusivoDoFiltro(dataFinal) };
+}
+
+/**
+ * Limite inferior (inclusivo, use com `gte`) de um filtro "yyyy-mm-dd" com
+ * "HH:MM" opcional. Recebe valores ja validados por `dataValida`/`horaValida`.
+ *
+ * O deslocamento vai explicito no literal: sem ele o Postgres interpretaria o
+ * horario no fuso da conexao, nao no fuso em que a visita aconteceu.
+ */
+export function inicioDoFiltro(data: string, hora?: string): string {
+  return `${data}T${hora ?? "00:00"}:00${FUSO_OPERACIONAL}`;
+}
+
+/**
+ * Limite superior EXCLUSIVO (use com `lt`, nunca `lte`) de um filtro
+ * "yyyy-mm-dd" com "HH:MM" opcional: o primeiro instante depois da menor
+ * unidade que a pessoa declarou.
+ *
+ *   so data  ("ate 08/09")        ->  09/09 00:00
+ *   com hora ("ate 08/09 17:30")  ->  08/09 17:31
+ *
+ * Fechar em `lte ...T23:59:59` (como Coletas Importadas e Historico de
+ * Checklist faziam) descartava em silencio a leitura das 23:59:59.437: as
+ * colunas sao `timestamptz` com fracao de segundo e o app de campo grava com
+ * milissegundo. Com hora, `lte 17:30:00` perdia tudo de 17:30:00.001 a
+ * 17:30:59.999 -- o minuto que a pessoa pediu.
+ *
+ * A virada (minuto, hora, dia, mes, ano, bissexto) fica com `Date.UTC` sobre
+ * os componentes: e conta de calendario, entao nao depende do fuso do processo.
+ */
+export function fimExclusivoDoFiltro(data: string, hora?: string): string {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const [horas, minutos] = hora ? hora.split(":").map(Number) : [24, -1];
+  const seguinte = new Date(Date.UTC(ano, mes - 1, dia, horas, minutos + 1));
+
+  return `${seguinte.toISOString().slice(0, 16)}:00${FUSO_OPERACIONAL}`;
+}
+
+/**
  * "HH:MM" vindo da querystring, ou `undefined`.
  *
- * Mesma armadilha da `dataValida`, um campo adiante: `combinarDataHora`
+ * Mesma armadilha da `dataValida`, um campo adiante: `inicioDoFiltro`
  * concatena a hora no mesmo literal (`${data}T${hora}:00-03:00`), entao
  * `?hora_inicial=zz` derruba a consulta exatamente como uma data torta. O
  * `FilterTimePicker` emite "HH:MM" e nada mais.

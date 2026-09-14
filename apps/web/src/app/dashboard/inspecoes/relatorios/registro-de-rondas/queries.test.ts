@@ -1,40 +1,27 @@
-import { describe, expect, it } from "vitest";
-import {
-  agruparEmLinhas,
-  combinaFiltrosDeDetalhe,
-  extrairFiltros,
-  formatarDuracao,
-  paraLinhaDeExportacao,
-  type Filtros,
-} from "./queries";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const AREA_INICIO = { nome: "Início" };
-const AREA_TERMINO = { nome: "Término" };
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
 
-function leitura(
-  visitaId: number,
-  siteId: number,
-  siteNome: string,
-  dataHora: string,
-  area: { nome: string } | null,
-  extra: Record<string, unknown> = {},
-) {
-  return {
-    id: Math.random(),
-    visita_id: visitaId,
-    data_hora: dataHora,
-    area_id: null,
-    evento_id: null,
-    qualificador_id: null,
-    qr_code_id: null,
-    acao_id: null,
-    areas: area,
-    visitas: { site_id: siteId, sites: { id: siteId, nome: siteNome, grupo_site_id: 1 } },
-    ...extra,
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: rpcMock }) }));
+vi.mock("@/lib/log", () => ({ erro: vi.fn(), gerarIdDeRequisicao: () => "teste" }));
+
+const { extrairFiltros, formatarDuracao, getRegistroDeRondas, montarLinhas, paraLinhaDeExportacao } = await import(
+  "./queries"
+);
+
+/** O que `.rpc()` devolve: encadeia `.order()` e resolve no `.range()`, como o
+ * builder do PostgREST que `buscarEmPaginas` usa. */
+function construtor(data: unknown, error: unknown = null) {
+  const builder = {
+    order: () => builder,
+    range: () => Promise.resolve({ data, error }),
   };
+  return builder;
 }
 
-const SEM_FILTROS: Filtros = { mes: "2026-08" };
+beforeEach(() => {
+  rpcMock.mockReset();
+});
 
 describe("extrairFiltros", () => {
   it("le mes e os filtros de detalhe da querystring", () => {
@@ -73,83 +60,76 @@ describe("formatarDuracao", () => {
   });
 });
 
-describe("agruparEmLinhas", () => {
-  it("calcula a duracao da ronda como Termino menos Inicio, no dia do Inicio", () => {
-    const leituras = [
-      leitura(1, 10, "ACE Limpeza", "2026-08-08T09:00:00-03:00", AREA_INICIO),
-      leitura(1, 10, "ACE Limpeza", "2026-08-08T09:45:07-03:00", AREA_TERMINO),
-    ];
+// O agrupamento de leituras em rondas (par Inicio/Termino, dia em -03:00,
+// filtros de detalhe na mesma leitura) desceu para o banco na 0049 e e testado
+// la: supabase/tests/database/relatorios_agregados_no_banco_test.sql. Aqui fica
+// o que continua no TypeScript.
 
-    const linhas = agruparEmLinhas(leituras, SEM_FILTROS);
+describe("montarLinhas", () => {
+  it("espalha as duracoes na coluna do dia e soma o Total", () => {
+    const linhas = montarLinhas([{ site_id: 10, site_nome: "ACE Limpeza", dia: 8, duracoes_ms: [2_707_000] }]);
 
     expect(linhas).toHaveLength(1);
     expect(linhas[0].siteNome).toBe("ACE Limpeza");
-    expect(linhas[0].duracoesPorDia[7]).toEqual([45 * 60 * 1000 + 7000]); // dia 8 -> indice 7
-    expect(linhas[0].totalMs).toBe(45 * 60 * 1000 + 7000);
+    expect(linhas[0].duracoesPorDia[7]).toEqual([2_707_000]); // dia 8 -> indice 7
+    expect(linhas[0].totalMs).toBe(2_707_000);
   });
 
-  it("empilha mais de uma ronda no mesmo Local e mesmo dia, e soma tudo no Total", () => {
-    const leituras = [
-      leitura(1, 10, "Condomínio Campos do Conde", "2026-08-11T08:00:00-03:00", AREA_INICIO),
-      leitura(1, 10, "Condomínio Campos do Conde", "2026-08-11T10:02:49-03:00", AREA_TERMINO),
-      leitura(2, 10, "Condomínio Campos do Conde", "2026-08-11T14:00:00-03:00", AREA_INICIO),
-      leitura(2, 10, "Condomínio Campos do Conde", "2026-08-11T14:33:20-03:00", AREA_TERMINO),
-    ];
+  it("junta dias diferentes do mesmo Local numa linha so", () => {
+    const linhas = montarLinhas([
+      { site_id: 10, site_nome: "Campos do Conde", dia: 11, duracoes_ms: [7_369_000, 2_000_000] },
+      { site_id: 10, site_nome: "Campos do Conde", dia: 12, duracoes_ms: [60_000] },
+    ]);
 
-    const linhas = agruparEmLinhas(leituras, SEM_FILTROS);
-
-    const primeiraDuracao = (2 * 3600 + 2 * 60 + 49) * 1000; // 08:00:00 -> 10:02:49
-    const segundaDuracao = 33 * 60 * 1000 + 20 * 1000; // 14:00:00 -> 14:33:20
-    expect(linhas[0].duracoesPorDia[10]).toEqual([primeiraDuracao, segundaDuracao]);
-    expect(linhas[0].totalMs).toBe(primeiraDuracao + segundaDuracao);
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].duracoesPorDia[10]).toEqual([7_369_000, 2_000_000]);
+    expect(linhas[0].duracoesPorDia[11]).toEqual([60_000]);
+    expect(linhas[0].totalMs).toBe(9_429_000);
   });
 
-  it("ignora visita sem par Inicio/Termino completo", () => {
-    const leituras = [leitura(1, 10, "Site Solo", "2026-08-08T09:00:00-03:00", AREA_INICIO)];
-
-    expect(agruparEmLinhas(leituras, SEM_FILTROS)).toEqual([]);
+  it("sem linha do banco, sem linha na tela", () => {
+    expect(montarLinhas([])).toEqual([]);
   });
 
-  it("ordena as linhas por nome do Local", () => {
-    const leituras = [
-      leitura(1, 20, "Zeta", "2026-08-01T09:00:00-03:00", AREA_INICIO),
-      leitura(1, 20, "Zeta", "2026-08-01T09:10:00-03:00", AREA_TERMINO),
-      leitura(2, 10, "Alfa", "2026-08-01T09:00:00-03:00", AREA_INICIO),
-      leitura(2, 10, "Alfa", "2026-08-01T09:10:00-03:00", AREA_TERMINO),
-    ];
+  it("ordena por nome do Local em pt-BR, nao pela ordem que o banco devolveu", () => {
+    const linhas = montarLinhas([
+      { site_id: 20, site_nome: "Zeta", dia: 1, duracoes_ms: [1] },
+      { site_id: 30, site_nome: "Água Branca", dia: 1, duracoes_ms: [1] },
+      { site_id: 10, site_nome: "Alfa", dia: 1, duracoes_ms: [1] },
+    ]);
 
-    expect(agruparEmLinhas(leituras, SEM_FILTROS).map((l) => l.siteNome)).toEqual(["Alfa", "Zeta"]);
+    expect(linhas.map((l) => l.siteNome)).toEqual(["Água Branca", "Alfa", "Zeta"]);
   });
 });
 
-describe("combinaFiltrosDeDetalhe", () => {
-  it("sem filtro de detalhe, toda visita combina", () => {
-    const grupo = [leitura(1, 10, "Site", "2026-08-08T09:00:00-03:00", AREA_INICIO)];
-    expect(combinaFiltrosDeDetalhe(grupo, SEM_FILTROS)).toBe(true);
+describe("getRegistroDeRondas", () => {
+  it("manda o mes como periodo meio-aberto e so os filtros escolhidos", async () => {
+    rpcMock.mockReturnValue(construtor([]));
+
+    await getRegistroDeRondas({ mes: "2026-12", local: "3", evento: "5", area: "" });
+
+    expect(rpcMock).toHaveBeenCalledWith("relatorio_registro_de_rondas", {
+      p_inicio: "2026-12-01T00:00:00-03:00",
+      p_fim: "2027-01-01T00:00:00-03:00",
+      p_filtros: { site: "3", evento: "5" },
+    });
   });
 
-  it("visita combina se QUALQUER leitura do grupo bater com o filtro -- nao precisa ser a mesma leitura do Inicio", () => {
-    const grupo = [
-      leitura(1, 10, "Site", "2026-08-08T09:00:00-03:00", AREA_INICIO, { evento_id: null }),
-      leitura(1, 10, "Site", "2026-08-08T09:45:00-03:00", AREA_TERMINO, { evento_id: 5 }),
-    ];
+  it("monta a grade a partir do que a RPC devolveu", async () => {
+    rpcMock
+      .mockReturnValueOnce(construtor([{ site_id: 1, site_nome: "Loja", dia: 2, duracoes_ms: [1000] }]))
+      .mockReturnValueOnce(construtor([]));
 
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "5" })).toBe(true);
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "9" })).toBe(false);
+    const linhas = await getRegistroDeRondas({ mes: "2026-08" });
+
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].duracoesPorDia[1]).toEqual([1000]);
   });
 
-  it("mais de um filtro de detalhe exige que a MESMA leitura bata com todos ao mesmo tempo", () => {
-    const grupo = [
-      leitura(1, 10, "Site", "2026-08-08T09:00:00-03:00", AREA_INICIO, { evento_id: 5, qualificador_id: 1 }),
-      leitura(1, 10, "Site", "2026-08-08T09:45:00-03:00", AREA_TERMINO, { evento_id: 9, qualificador_id: 1 }),
-    ];
+  it("erro da RPC sobe, em vez de virar 'nenhuma ronda'", async () => {
+    rpcMock.mockReturnValue(construtor(null, { message: "permission denied" }));
 
-    // evento=5 e qualificador=1 juntos so estao na leitura de Inicio.
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "5", qualificador: "1" })).toBe(true);
-    // evento=9 so aparece com qualificador=1 tambem -- ok.
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "9", qualificador: "1" })).toBe(true);
-    // combinacao que nenhuma leitura isolada satisfaz.
-    expect(combinaFiltrosDeDetalhe(grupo, { ...SEM_FILTROS, evento: "5", qualificador: "2" })).toBe(false);
+    await expect(getRegistroDeRondas({ mes: "2026-08" })).rejects.toEqual({ message: "permission denied" });
   });
 });
 

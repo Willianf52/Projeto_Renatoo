@@ -1,0 +1,246 @@
+name: Ensaio de restauracao
+
+# P1-1 e P1-2 da auditoria de 11/09, no plano Free do Supabase. Registro
+# completo das decisoes em docs/backup-e-restauracao.md -- leia la antes de
+# mexer aqui.
+#
+# O QUE ESTE WORKFLOW FAZ
+#
+#   1) Tira um dump de PRODUCAO (roles, schema e dados), como a documentacao do
+#      Supabase manda: `supabase db dump`, tres arquivos.
+#   2) Restaura o dump num Supabase DESCARTAVEL, subido dentro deste runner, e
+#      cronometra -- e o RTO medido.
+#   3) Confere a contagem de linhas de cada tabela contra producao.
+#   4) Em PR que mexe em `supabase/migrations/`, aplica por cima as migrations
+#      que ainda nao estao em producao. E o "migration roda contra dado antes de
+#      rodar contra a operacao" do P1-1, sem projeto de staging.
+#
+# O QUE ELE NAO FAZ: GUARDAR BACKUP. Decisao do dono do produto (13/09): o
+# repositorio e publico, e artifact de repositorio publico pode ser baixado por
+# qualquer conta do GitHub. O dump nasce e morre neste runner. Quem guarda e o
+# `backup-do-banco.yml` (Cloudflare R2, desde 14/09) -- e o passo "Backup mais
+# recente do R2 abre?" abaixo confere, uma vez por mes, que o que esta la
+# decripta e esta inteiro.
+#
+# LOG PUBLICO. Tudo que este job imprime e visivel para qualquer pessoa. Por
+# isso: nada de `cat` em arquivo de dump, `psql` com VERBOSITY=sqlstate (so o
+# codigo do erro -- a mensagem padrao carrega valor de linha, como
+# `Key (email)=(...) already exists`), e a comparacao de contagens imprime so
+# nome de tabela e numero.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Dia 1 de cada mes, 06:00 em Brasilia.
+    - cron: "0 9 1 * *"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/ensaio-de-restauracao.yml"
+
+permissions:
+  contents: read
+
+# Dois ensaios ao mesmo tempo seriam dois dumps de producao ao mesmo tempo.
+concurrency:
+  group: ensaio-de-restauracao
+  cancel-in-progress: false
+
+jobs:
+  ensaio:
+    # PR de fork e do Dependabot nao recebe secret de Actions: pular e melhor
+    # que falhar e parecer defeito da migration.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Session pooler (IPv4), nao a conexao direta: o runner do GitHub nao tem
+      # IPv6, e o host direto do Supabase so responde em IPv6.
+      PRODUCAO_DB_URL: ${{ secrets.PRODUCAO_DB_URL }}
+      LOCAL_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - name: Secret configurado?
+        id: pre
+        run: |
+          if [ -z "$PRODUCAO_DB_URL" ]; then
+            echo "::notice::PRODUCAO_DB_URL nao configurado -- ensaio pulado. Ver docs/backup-e-restauracao.md."
+            echo "rodar=nao" >> "$GITHUB_OUTPUT"
+          else
+            echo "rodar=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - if: steps.pre.outputs.rodar == 'sim'
+        run: pnpm install --frozen-lockfile
+
+      # Contagem ANTES do dump. Producao continua recebendo escrita enquanto o
+      # dump roda; a restauracao e aceita se cada tabela ficar entre a
+      # contagem de antes e a de depois.
+      - name: Contagem de producao (antes)
+        if: steps.pre.outputs.rodar == 'sim'
+        run: bash .github/scripts/contar-linhas.sh "$PRODUCAO_DB_URL" > "$RUNNER_TEMP/antes.txt"
+
+      - name: Dump de producao
+        if: steps.pre.outputs.rodar == 'sim'
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          cli="$GITHUB_WORKSPACE/node_modules/.bin/supabase"
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f roles.sql --role-only
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f schema.sql
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f data.sql --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          # Tamanho e o unico dado do dump que vai para o log.
+          ls -l roles.sql schema.sql data.sql | awk '{print $5, $9}'
+
+      - name: Contagem de producao (depois)
+        if: steps.pre.outputs.rodar == 'sim'
+        run: bash .github/scripts/contar-linhas.sh "$PRODUCAO_DB_URL" > "$RUNNER_TEMP/depois.txt"
+
+      # Banco descartavel VAZIO: sem migrations e sem seed, senao o schema.sql
+      # de producao encontra as tabelas ja criadas. As migrations do checkout
+      # vao para o lado -- o passo do PR as usa depois. `auth` e `storage`
+      # ficam de pe: sao eles que criam os schemas que o data.sql preenche.
+      - name: Supabase descartavel, vazio
+        if: steps.pre.outputs.rodar == 'sim'
+        run: |
+          set -euo pipefail
+          mv supabase/migrations "$RUNNER_TEMP/migrations"
+          mkdir supabase/migrations
+          sed -i '/^\[db.seed\]/,/^\[/ s/^enabled = true/enabled = false/' supabase/config.toml
+          pnpm exec supabase start -x studio,realtime,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta
+
+      - name: Restauracao (cronometrada)
+        if: steps.pre.outputs.rodar == 'sim'
+        id: restauracao
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -uo pipefail
+          # Os dois ajustes documentados pelo Supabase para restaurar dump de
+          # projeto da plataforma: o GRANT do papel de login da CLI e a posse
+          # por `supabase_admin`, que o `postgres` local nao pode conceder.
+          sed -i -E 's/^(GRANT "postgres" TO "cli_login_postgres".*)$/-- \1/' roles.sql
+          sed -i -E 's/^(ALTER .* OWNER TO "supabase_admin";)$/-- \1/' schema.sql
+
+          inicio=$(date +%s)
+          psql \
+            --single-transaction \
+            --quiet \
+            --variable ON_ERROR_STOP=1 \
+            --variable VERBOSITY=sqlstate \
+            --file roles.sql \
+            --file schema.sql \
+            --command 'SET session_replication_role = replica' \
+            --file data.sql \
+            --dbname "$LOCAL_DB_URL" > restauracao.log 2>&1
+          status=$?
+          duracao=$(( $(date +%s) - inicio ))
+          echo "duracao=$duracao" >> "$GITHUB_OUTPUT"
+
+          if [ "$status" -ne 0 ]; then
+            # So "arquivo:linha: ERROR: CODIGO". Nada da mensagem.
+            grep -E '^psql:[^:]+:[0-9]+: ERROR:\s+[0-9A-Z]{5}$' restauracao.log || true
+            echo "::error::Restauracao falhou (psql saiu com $status) apos ${duracao}s."
+            exit 1
+          fi
+          echo "Restauracao concluida em ${duracao}s."
+
+      - name: Contagens batem?
+        if: steps.pre.outputs.rodar == 'sim'
+        run: |
+          set -euo pipefail
+          bash .github/scripts/contar-linhas.sh "$LOCAL_DB_URL" > "$RUNNER_TEMP/restaurado.txt"
+          bash .github/scripts/comparar-contagens.sh \
+            "$RUNNER_TEMP/antes.txt" "$RUNNER_TEMP/depois.txt" "$RUNNER_TEMP/restaurado.txt"
+
+      # P1-1: so em PR. Migrations do checkout cuja versao (prefixo do nome do
+      # arquivo, a mesma chave da CLI) ainda nao esta no historico de producao,
+      # em ordem, cada uma na sua transacao.
+      - name: Migrations novas contra dado de producao
+        if: steps.pre.outputs.rodar == 'sim' && github.event_name == 'pull_request'
+        run: |
+          set -uo pipefail
+          aplicadas=$(psql "$PRODUCAO_DB_URL" -At -c "select version from supabase_migrations.schema_migrations")
+          novas=0
+          for arquivo in $(ls "$RUNNER_TEMP"/migrations/*.sql | sort); do
+            versao=$(basename "$arquivo" | cut -d_ -f1)
+            if grep -qx "$versao" <<< "$aplicadas"; then continue; fi
+            novas=$((novas + 1))
+            echo "Aplicando $(basename "$arquivo")"
+            if ! psql --single-transaction --quiet \
+                 --variable ON_ERROR_STOP=1 --variable VERBOSITY=sqlstate \
+                 --file "$arquivo" --dbname "$LOCAL_DB_URL" > migracao.log 2>&1; then
+              grep -E '^psql:[^:]+:[0-9]+: ERROR:\s+[0-9A-Z]{5}$' migracao.log || true
+              echo "::error file=supabase/migrations/$(basename "$arquivo")::Migration falhou contra a copia de producao."
+              exit 1
+            fi
+          done
+          echo "$novas migration(s) nova(s) aplicada(s) sobre a copia de producao."
+
+      # Backup guardado que nunca foi aberto e hipotese. Fora de PR (o secret
+      # da chave nao precisa circular em todo PR de migration): baixa o objeto
+      # mais recente, decripta com BACKUP_CHAVE e confere que os cinco arquivos
+      # estao la e nao vazios. Nao restaura -- a restauracao ja foi provada
+      # acima com um dump do mesmo formato.
+      - name: Backup mais recente do R2 abre?
+        if: steps.pre.outputs.rodar == 'sim' && github.event_name != 'pull_request'
+        working-directory: ${{ runner.temp }}
+        env:
+          BACKUP_CHAVE: ${{ secrets.BACKUP_CHAVE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          set -euo pipefail
+          if [ -z "$BACKUP_CHAVE" ] || [ -z "$R2_BUCKET" ]; then
+            echo "::notice::Secrets do R2 ausentes -- conferencia do backup pulada."
+            exit 0
+          fi
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          ultimo=$(aws s3 ls "s3://${R2_BUCKET}/banco/" --recursive --endpoint-url "$endpoint" \
+            | sort | tail -n1 | awk '{print $4}')
+          if [ -z "$ultimo" ]; then
+            echo "::error::Nenhum backup encontrado no R2."
+            exit 1
+          fi
+          aws s3 cp "s3://${R2_BUCKET}/${ultimo}" ultimo.tar.gz.gpg \
+            --endpoint-url "$endpoint" --no-progress --only-show-errors
+          mkdir conferencia
+          gpg --batch --pinentry-mode loopback --passphrase-fd 3 --decrypt ultimo.tar.gz.gpg 3<<< "$BACKUP_CHAVE" \
+            | tar -xzf - -C conferencia
+          for arquivo in roles.sql schema.sql data.sql contagem.txt manifesto.txt; do
+            if [ ! -s "conferencia/backup/$arquivo" ]; then
+              echo "::error::Backup $ultimo sem $arquivo (ou vazio)."
+              exit 1
+            fi
+          done
+          echo "Backup $ultimo decripta e esta inteiro ($(wc -l < conferencia/backup/contagem.txt) tabelas na contagem)."
+          rm -rf conferencia ultimo.tar.gz.gpg
+
+      - name: Resumo
+        if: always() && steps.pre.outputs.rodar == 'sim'
+        run: |
+          {
+            echo "### Ensaio de restauracao"
+            echo ""
+            echo "| Medida | Valor |"
+            echo "|---|---|"
+            echo "| Tempo de restauracao (RTO medido) | ${{ steps.restauracao.outputs.duracao || '—' }} s |"
+            echo "| Tabelas conferidas | $(wc -l < "$RUNNER_TEMP/antes.txt" 2>/dev/null || echo —) |"
+            echo "| Backup guardado | pelo workflow Backup do banco, no R2 (ver docs/backup-e-restauracao.md) |"
+          } >> "$GITHUB_STEP_SUMMARY"

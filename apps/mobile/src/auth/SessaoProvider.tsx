@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@projeto-renatoo/shared";
 
+import { esquecerInspetor, identificarInspetor } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
 import { useCicloDeVidaDaSessao } from "./useCicloDeVidaDaSessao";
 
@@ -93,6 +94,27 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const idDoUsuario = sessao?.user.id ?? null;
+
+  /**
+   * Amarra os eventos do Sentry a conta -- so o uuid, nunca nome ou e-mail
+   * (ver `lib/observabilidade.ts`).
+   *
+   * Efeito proprio, com limpeza, e nao uma chamada solta no login: o aparelho
+   * e compartilhado entre turnos, e sem o `esquecerInspetor` do retorno o erro
+   * do inspetor da noite chegaria etiquetado com o uuid do inspetor da manha.
+   */
+  useEffect(() => {
+    if (!idDoUsuario) {
+      esquecerInspetor();
+      return;
+    }
+
+    identificarInspetor(idDoUsuario);
+
+    return () => {
+      esquecerInspetor();
+    };
+  }, [idDoUsuario]);
 
   useEffect(() => {
     if (!idDoUsuario) return;

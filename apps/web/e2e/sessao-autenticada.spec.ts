@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import { CONTAS, MOTIVO_SEM_STACK, STACK_LOCAL, sufixoUnico } from "./suporte/ambiente";
 
 /**
  * Cobre login -> dashboard e conta inativa barrada com a mensagem certa.
- * As duas pontas exigem uma conta real no projeto Supabase configurado em
- * `.env.local` -- não há service_role neste ambiente para criar usuários de
- * teste na hora, então os specs pulam sozinhos quando as env vars faltam.
+ * As duas pontas exigem uma conta real. Contra o Supabase local (a CI) as
+ * contas vem do projeto `setup`; contra qualquer outro projeto elas vem das
+ * env vars abaixo, e sem elas os specs pulam sozinhos.
  *
- * Para rodar de verdade:
+ * Para rodar contra outro projeto:
  *   E2E_EMAIL=... E2E_PASSWORD=... npx playwright test sessao-autenticada
  *   E2E_INACTIVE_EMAIL=... E2E_INACTIVE_PASSWORD=... npx playwright test sessao-autenticada
  *
@@ -14,10 +16,16 @@ import { expect, test } from "@playwright/test";
  * E2E_INACTIVE_EMAIL precisa existir com profiles.ativo = false.
  */
 
-const EMAIL = process.env.E2E_EMAIL;
-const PASSWORD = process.env.E2E_PASSWORD;
-const INATIVO_EMAIL = process.env.E2E_INACTIVE_EMAIL;
-const INATIVO_PASSWORD = process.env.E2E_INACTIVE_PASSWORD;
+// No stack local as contas existem sempre -- o projeto `setup` as cria (ver
+// auth.setup.ts) --, entao estes specs deixam de depender de secret. As env
+// vars continuam tendo precedencia, para rodar contra outro projeto com conta
+// de teste dedicada.
+const EMAIL = process.env.E2E_EMAIL ?? (STACK_LOCAL ? CONTAS.gestor.email : undefined);
+const PASSWORD = process.env.E2E_PASSWORD ?? (STACK_LOCAL ? CONTAS.gestor.senha : undefined);
+const INATIVO_EMAIL =
+  process.env.E2E_INACTIVE_EMAIL ?? (STACK_LOCAL ? CONTAS.inativo.email : undefined);
+const INATIVO_PASSWORD =
+  process.env.E2E_INACTIVE_PASSWORD ?? (STACK_LOCAL ? CONTAS.inativo.senha : undefined);
 
 test.describe("Login com conta ativa", () => {
   test.skip(!EMAIL || !PASSWORD, "requer E2E_EMAIL e E2E_PASSWORD");
@@ -60,5 +68,31 @@ test.describe("Login com conta desativada", () => {
     // middleware, ao consultar profiles.ativo na requisicao seguinte.
     await expect(page).toHaveURL(/erro=acesso-indisponivel/);
     await expect(page.getByText("Esta conta está desativada. Procure o administrador.")).toBeVisible();
+  });
+});
+
+/**
+ * Par do `[auth.email] enable_signup = true` do config.toml: aquela chave
+ * liga o LOGIN por e-mail no stack local, e o nome dela sugere o contrario do
+ * que faz. Este teste e o que garante que ligar o login nao reabriu o
+ * cadastro publico com a anon key -- que continua no bundle e no APK.
+ */
+test.describe("Cadastro publico", () => {
+  test.skip(!STACK_LOCAL, MOTIVO_SEM_STACK);
+
+  test("signup com a anon key e recusado", async () => {
+    const anonimo = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+
+    const { data, error } = await anonimo.auth.signUp({
+      email: `intruso-${sufixoUnico()}@teste.local`,
+      password: "Intruso-e2e-2026!",
+    });
+
+    expect(data.user).toBeNull();
+    expect(error?.code).toBe("signup_disabled");
   });
 });
