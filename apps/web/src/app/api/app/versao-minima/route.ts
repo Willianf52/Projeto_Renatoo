@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { identificarChamador } from "@/lib/rate-limit";
 
 /**
  * Piso de versao do app de campo.
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   // Limite generoso: a chamada acontece uma vez por login, e 15 inspetores
   // entrando junto no inicio do turno nao podem esbarrar nele. O que ele
   // barra e laco -- app com bug de retry inundando a rota.
-  const limite = limitarTaxa(`versao-minima:${identificarChamador(request)}`, 60, 60_000);
+  const limite = await limitarTaxa(`versao-minima:${identificarChamador(request)}`, 60, 60_000);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },

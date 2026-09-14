@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { identificarChamador } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const limite = limitarTaxa(`cep:${identificarChamador(request)}`, 30, 60_000);
+  const limite = await limitarTaxa(`cep:${identificarChamador(request)}`, 30, 60_000);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },

@@ -483,6 +483,24 @@ export type Database = {
           },
         ]
       }
+      limites_de_taxa: {
+        Row: {
+          chave: string
+          contagem: number
+          expira_em: string
+        }
+        Insert: {
+          chave: string
+          contagem: number
+          expira_em: string
+        }
+        Update: {
+          chave?: string
+          contagem?: number
+          expira_em?: string
+        }
+        Relationships: []
+      }
       metas_visitas: {
         Row: {
           competencia: string
@@ -889,6 +907,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consumir_limite_de_taxa: {
+        Args: { p_chave: string; p_janela_ms: number; p_limite: number }
+        Returns: number
+      }
       e_cliente: { Args: never; Returns: boolean }
       e_inspetor: { Args: never; Returns: boolean }
       nivel_acesso_atual: { Args: never; Returns: string }
