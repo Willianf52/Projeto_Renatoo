@@ -107,6 +107,29 @@ export function CorpoDeRelatorioEsqueleto({ altura = "h-72" }: { altura?: string
 }
 
 /**
+ * Formulario de cadastro (`novo`/`editar`): rotulo + campo em grade de duas
+ * colunas, com os botoes no pe -- a moldura de `QrCodeForm` e `SiteForm`.
+ */
+export function FormularioEsqueleto({ campos }: { campos: number }) {
+  return (
+    <div className="space-y-4 p-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {Array.from({ length: campos }).map((_, indice) => (
+          <div key={indice} className="space-y-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Skeleton className="h-10 w-24" />
+        <Skeleton className="h-10 w-24" />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Corpo da tabela. `minWidth` acompanha o mesmo valor passado ao `DataTable`
  * da tela -- divergir faria a largura mudar no instante em que o dado chega,
  * que e exatamente o salto que o esqueleto existe para evitar.
