@@ -1,0 +1,148 @@
+name: Backup do banco
+
+# Backup diario do banco de producao no Cloudflare R2. Decisao de 14/09: o
+# projeto fica no plano Free do Supabase (sem backup restauravel pelo painel)
+# e o repositorio continua publico, entao o dump vai para um bucket privado
+# proprio, criptografado. Registro completo e passo a passo de restauracao em
+# docs/backup-e-restauracao.md.
+#
+# O QUE ESTE WORKFLOW FAZ
+#
+#   1) `supabase db dump` de producao em tres arquivos (roles, schema, dados),
+#      o mesmo formato que o ensaio de restauracao ja prova que restaura.
+#   2) Junta a contagem de linhas por tabela (so nome e numero), para conferir
+#      a restauracao contra o momento do backup.
+#   3) Empacota e CRIPTOGRAFA com GPG simetrico (AES-256). A senha so existe no
+#      secret BACKUP_CHAVE -- quem tiver acesso ao bucket sem ela tem um arquivo
+#      ilegivel. Perder a senha e perder todos os backups: guarde-a fora do
+#      GitHub tambem (gerenciador de senhas).
+#   4) Sobe para o R2 e confere o tamanho do objeto la.
+#
+# RETENCAO: quem apaga backup velho e a regra de ciclo de vida do bucket
+# (configurada no painel do Cloudflare), nao este workflow -- assim um bug aqui
+# nao consegue apagar historico.
+#
+# LOG PUBLICO. Mesmas regras do ensaio: nada de conteudo de dump no log, so
+# tamanho, nome do objeto e contagem de tabelas.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Todo dia, 06:00 em Brasilia.
+    - cron: "0 9 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-do-banco
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PRODUCAO_DB_URL: ${{ secrets.PRODUCAO_DB_URL }}
+      BACKUP_CHAVE: ${{ secrets.BACKUP_CHAVE }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      # R2 aceita `auto` como regiao.
+      AWS_DEFAULT_REGION: auto
+      # O AWS CLI v2 recente manda checksums CRC por padrao, que o R2 pode
+      # recusar no upload. "Quando exigido" volta ao comportamento classico.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+    steps:
+      - name: Secrets configurados?
+        id: pre
+        run: |
+          faltando=""
+          for nome in PRODUCAO_DB_URL BACKUP_CHAVE R2_ACCOUNT_ID R2_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!nome}" ]; then faltando="$faltando $nome"; fi
+          done
+          if [ -n "$faltando" ]; then
+            echo "::notice::Backup pulado -- secrets ausentes:$faltando. Ver docs/backup-e-restauracao.md."
+            echo "rodar=nao" >> "$GITHUB_OUTPUT"
+          else
+            echo "rodar=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - if: steps.pre.outputs.rodar == 'sim'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # A CLI do Supabase vem do lockfile, a mesma versao do ensaio.
+      - if: steps.pre.outputs.rodar == 'sim'
+        run: pnpm install --frozen-lockfile
+
+      - name: Dump de producao
+        if: steps.pre.outputs.rodar == 'sim'
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          mkdir backup
+          cli="$GITHUB_WORKSPACE/node_modules/.bin/supabase"
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f backup/roles.sql --role-only
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f backup/schema.sql
+          "$cli" db dump --db-url "$PRODUCAO_DB_URL" -f backup/data.sql --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          bash "$GITHUB_WORKSPACE/.github/scripts/contar-linhas.sh" "$PRODUCAO_DB_URL" > backup/contagem.txt
+          {
+            echo "criado_em=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit=$GITHUB_SHA"
+            echo "migration_mais_recente=$(psql "$PRODUCAO_DB_URL" -At -c "select max(version) from supabase_migrations.schema_migrations")"
+          } > backup/manifesto.txt
+          ls -l backup | awk 'NR>1 {print $5, $9}'
+
+      - name: Empacota e criptografa
+        if: steps.pre.outputs.rodar == 'sim'
+        id: pacote
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          nome="banco-$(date -u +%Y%m%d-%H%M%S).tar.gz.gpg"
+          tar -czf - backup \
+            | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 --output "$nome" 3<<< "$BACKUP_CHAVE"
+          # O dump em claro nao fica nem no disco do runner depois daqui.
+          rm -rf backup
+          echo "nome=$nome" >> "$GITHUB_OUTPUT"
+          echo "tamanho=$(stat -c %s "$nome")" >> "$GITHUB_OUTPUT"
+
+      - name: Envia para o R2
+        if: steps.pre.outputs.rodar == 'sim'
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          chave="banco/$(date -u +%Y/%m)/${{ steps.pacote.outputs.nome }}"
+          aws s3 cp "${{ steps.pacote.outputs.nome }}" "s3://${R2_BUCKET}/${chave}" \
+            --endpoint-url "$endpoint" --no-progress --only-show-errors
+
+          remoto=$(aws s3api head-object --bucket "$R2_BUCKET" --key "$chave" \
+            --endpoint-url "$endpoint" --query ContentLength --output text)
+          if [ "$remoto" != "${{ steps.pacote.outputs.tamanho }}" ]; then
+            echo "::error::Tamanho no R2 ($remoto) difere do arquivo enviado (${{ steps.pacote.outputs.tamanho }})."
+            exit 1
+          fi
+          echo "chave=$chave" >> "$GITHUB_ENV"
+
+      - name: Resumo
+        if: always() && steps.pre.outputs.rodar == 'sim'
+        run: |
+          {
+            echo "### Backup do banco"
+            echo ""
+            echo "| Medida | Valor |"
+            echo "|---|---|"
+            echo "| Objeto no R2 | \`${chave:-— (falhou antes do envio)}\` |"
+            echo "| Tamanho (criptografado) | ${{ steps.pacote.outputs.tamanho || '—' }} bytes |"
+          } >> "$GITHUB_STEP_SUMMARY"
