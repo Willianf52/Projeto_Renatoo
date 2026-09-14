@@ -7,6 +7,7 @@ import { Button } from "./Button";
 import { EMAIL_REGEX, FormField } from "./FormField";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { registrarEvento } from "@/lib/telemetria";
 
 type FieldErrors = {
   email: string;
@@ -181,6 +182,9 @@ export function LoginForm() {
     }
 
     setTentativasFalhas(0);
+    // Telemetria (P2-4): o cargo quem grava e o banco, a partir da sessao que
+    // acabou de nascer. Nao espera o insert -- a navegacao nao depende dele.
+    registrarEvento("login");
     router.replace(safeRedirectPath(searchParams.get("redirectTo")));
     router.refresh();
   };
