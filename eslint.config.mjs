@@ -137,6 +137,8 @@ const config = defineConfig([
     ".pnpm-store/**",
     // Gerado pela CLI do Supabase a partir do schema; nao e codigo nosso.
     "packages/shared/src/database.types.ts",
+    // Relatorio HTML de `pnpm test:cobertura`, com JS minificado do istanbul.
+    "**/coverage/**",
   ]),
 ]);
 
