@@ -45,8 +45,9 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      // Mede bundle de producao; roda pela playwright.desempenho.config.ts.
-      testIgnore: /desempenho\.spec\.ts/,
+      // Os dois medem o build de producao, cada um pela sua config
+      // (playwright.desempenho.config.ts e playwright.carga.config.ts).
+      testIgnore: [/desempenho\.spec\.ts/, /carga\/carga\.spec\.ts/],
       dependencies: ["setup"],
     },
   ],

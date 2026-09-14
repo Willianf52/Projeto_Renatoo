@@ -11,6 +11,7 @@
     "test:cobertura": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:desempenho": "playwright test -c playwright.desempenho.config.ts",
+    "test:carga": "playwright test -c playwright.carga.config.ts",
     "check:env": "node scripts/check-env.mjs"
   },
   "dependencies": {

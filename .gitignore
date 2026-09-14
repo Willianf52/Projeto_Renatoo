@@ -22,6 +22,7 @@ coverage/
 test-results/
 playwright-report/
 playwright-report-desempenho/
+playwright-report-carga/
 blob-report/
 playwright/.cache/
 # sessao gravada pelo projeto `setup` do Playwright (apps/web/e2e/auth.setup.ts)
