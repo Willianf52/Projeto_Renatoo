@@ -909,11 +909,84 @@ export type Database = {
         }
         Returns: number
       }
+      relatorio_horas_por_usuario: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          funcionario_id: string
+          total_ms: number
+          visitas: number
+        }[]
+      }
+      relatorio_inspecoes_inicio_fim: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          duracao_ms: number
+          evento: string
+          inicio: string
+          regional: string
+          site: string
+          termino: string
+          usuario: string
+          visita_id: number
+        }[]
+      }
+      relatorio_mapa_de_locais: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          dia: string
+          quantidade: number
+          site_id: number
+        }[]
+      }
+      relatorio_ranking_de_inspecoes: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          funcionario_id: string
+          nome: string
+          quantidade: number
+        }[]
+      }
+      relatorio_registro_de_rondas: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          dia: number
+          duracoes_ms: number[]
+          site_id: number
+          site_nome: string
+        }[]
+      }
+      relatorio_visitas_de_supervisao: {
+        Args: { p_fim: string; p_inicio: string; p_site: number }
+        Returns: {
+          data_hora: string
+          funcionario: string
+          local: string
+          motivo_visita: string
+          observacao: string
+          tem_localizacao: boolean
+          visita_id: number
+        }[]
+      }
       sincronizar_membros_grupo_usuarios: {
         Args: { p_grupo_id: number; p_membros: string[] }
         Returns: undefined
       }
       usuario_ativo: { Args: never; Returns: boolean }
+      visitas_do_periodo: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          evento_id: number
+          funcionario_id: string
+          inicio: string
+          motivo_visita_id: number
+          observacao: string
+          primeira_leitura: string
+          site_id: number
+          tem_localizacao: boolean
+          termino: string
+          visita_id: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

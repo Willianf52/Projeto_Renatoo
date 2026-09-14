@@ -1,12 +1,25 @@
-import { describe, expect, it } from "vitest";
-import { contarPorFuncionario, extrairFiltros, getRankingDeInspecoes } from "./queries";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-function leitura(visitaId: number, funcionarioId: string | null, nome: string) {
-  return {
-    visita_id: visitaId,
-    visitas: funcionarioId ? { funcionario_id: funcionarioId, profiles: { nome_completo: nome } } : null,
-  };
-}
+// A contagem de visitas distintas por funcionario (uma visita com Inicio e
+// Termino conta uma vez; checkpoint em qualquer leitura) desceu para o banco
+// na 0049: supabase/tests/database/relatorios_agregados_no_banco_test.sql.
+
+const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
+
+vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: rpcMock }) }));
+
+const { extrairFiltros, getRankingDeInspecoes, ordenarRanking } = await import("./queries");
+
+beforeEach(() => {
+  rpcMock.mockReset();
+  rpcMock.mockResolvedValue({ data: [], error: null });
+});
+
+const linha = (funcionarioId: string, nome: string, quantidade: number) => ({
+  funcionario_id: funcionarioId,
+  nome,
+  quantidade,
+});
 
 describe("extrairFiltros", () => {
   it("le todos os filtros da querystring", () => {
@@ -41,63 +54,56 @@ describe("extrairFiltros", () => {
   });
 });
 
-describe("contarPorFuncionario", () => {
-  it("conta visitas distintas por funcionario e ordena do maior para o menor", () => {
-    const leituras = [
-      leitura(1, "f-eric", "Eric"),
-      leitura(1, "f-eric", "Eric"), // mesma visita, segunda leitura (Termino) -- nao conta 2x
-      leitura(2, "f-eric", "Eric"),
-      leitura(3, "f-odair", "Odair Viana Lima"),
-      leitura(4, "f-odair", "Odair Viana Lima"),
-    ];
-
-    const ranking = contarPorFuncionario(leituras);
-
-    expect(ranking.itens).toEqual([
-      { funcionarioId: "f-eric", nome: "Eric", quantidade: 2 },
-      { funcionarioId: "f-odair", nome: "Odair Viana Lima", quantidade: 2 },
+describe("ordenarRanking", () => {
+  it("reproduz o exemplo real: 7+4+3+2+2+1 = 19, do maior para o menor", () => {
+    const ranking = ordenarRanking([
+      linha("marcia", "Márcia Nascimento", 1),
+      linha("gesiel", "Gesiel", 2),
+      linha("eric", "Eric", 7),
+      linha("manasses", "Manassés Almeida Ferreira", 3),
+      linha("karina", "Karina Gomes", 2),
+      linha("odair", "Odair Viana Lima", 4),
     ]);
-    expect(ranking.total).toBe(4);
-  });
-
-  it("reproduz o exemplo real: 7+4+3+2+2+1 = 19, ordenado por quantidade", () => {
-    const leituras = [
-      ...Array.from({ length: 7 }, (_, i) => leitura(100 + i, "eric", "Eric")),
-      ...Array.from({ length: 4 }, (_, i) => leitura(200 + i, "odair", "Odair Viana Lima")),
-      ...Array.from({ length: 3 }, (_, i) => leitura(300 + i, "manasses", "Manassés Almeida Ferreira")),
-      ...Array.from({ length: 2 }, (_, i) => leitura(400 + i, "gesiel", "Gesiel")),
-      ...Array.from({ length: 2 }, (_, i) => leitura(500 + i, "karina", "Karina Gomes")),
-      ...Array.from({ length: 1 }, (_, i) => leitura(600 + i, "marcia", "Márcia Nascimento")),
-    ];
-
-    const ranking = contarPorFuncionario(leituras);
 
     expect(ranking.itens.map((item) => item.quantidade)).toEqual([7, 4, 3, 2, 2, 1]);
     expect(ranking.total).toBe(19);
   });
 
-  it("ignora leitura cuja visita nao tem funcionario", () => {
-    const leituras = [leitura(1, null, "")];
-    expect(contarPorFuncionario(leituras)).toEqual({ itens: [], total: 0 });
+  it("empate em quantidade desempata por nome em pt-BR", () => {
+    const ranking = ordenarRanking([linha("z", "Zeta", 2), linha("a", "Álvaro", 2), linha("b", "Beto", 2)]);
+
+    expect(ranking.itens.map((item) => item.nome)).toEqual(["Álvaro", "Beto", "Zeta"]);
   });
 
-  it("empate em quantidade desempata por nome", () => {
-    const leituras = [leitura(1, "z", "Zeta"), leitura(2, "a", "Alfa")];
-    expect(contarPorFuncionario(leituras).itens.map((item) => item.nome)).toEqual(["Alfa", "Zeta"]);
+  it("sem linha do banco, ranking vazio e total zero", () => {
+    expect(ordenarRanking([])).toEqual({ itens: [], total: 0 });
   });
 });
 
 describe("getRankingDeInspecoes", () => {
-  /**
-   * O gate vale mais que um detalhe de tela: sem periodo informado a consulta
-   * varre `leituras` desde o primeiro registro. Nao ha cliente Supabase
-   * mockado aqui de proposito -- se o gate deixar de existir, a funcao tenta
-   * abrir conexao e o teste quebra, que e exatamente o aviso desejado.
-   */
   it("sem periodo informado devolve null, sem consultar o banco", async () => {
     expect(await getRankingDeInspecoes({})).toBeNull();
     expect(await getRankingDeInspecoes({ dataInicial: "2026-08-01" })).toBeNull();
     expect(await getRankingDeInspecoes({ dataFinal: "2026-08-31" })).toBeNull();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("manda o periodo meio-aberto e traduz Tipo para `tipo_servico`", async () => {
+    await getRankingDeInspecoes({ dataInicial: "2026-08-01", dataFinal: "2026-08-31", tipo: "1", checkpoint: "" });
+
+    expect(rpcMock).toHaveBeenCalledWith("relatorio_ranking_de_inspecoes", {
+      p_inicio: "2026-08-01T00:00:00-03:00",
+      p_fim: "2026-09-01T00:00:00-03:00",
+      p_filtros: { tipo_servico: "1" },
+    });
+  });
+
+  it("erro da RPC sobe, em vez de virar ranking vazio", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: "timeout" } });
+
+    await expect(getRankingDeInspecoes({ dataInicial: "2026-08-01", dataFinal: "2026-08-31" })).rejects.toEqual({
+      message: "timeout",
+    });
   });
 });
 

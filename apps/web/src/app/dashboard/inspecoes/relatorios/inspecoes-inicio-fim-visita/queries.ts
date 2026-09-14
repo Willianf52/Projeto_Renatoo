@@ -1,5 +1,7 @@
-import { dataValida, FUSO_DO_PROJETO } from "@/lib/data-hora";
+import { dataValida, FUSO_DO_PROJETO, periodoEntreDatas } from "@/lib/data-hora";
+import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
+import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -97,124 +99,39 @@ export type LinhaInspecao = {
   evento: string;
 };
 
-type LeituraBruta = {
+/** Uma linha de `relatorio_inspecoes_inicio_fim` (migration 0049). */
+export type InspecaoDoBanco = {
   visita_id: number;
-  data_hora: string;
-  evento_id: number | null;
-  acao_id: number | null;
-  areas: { nome: string } | null;
-  eventos: { nome: string } | null;
-  visitas: {
-    profiles: { nome_completo: string } | null;
-    sites: { nome: string; regional: string | null } | null;
-  } | null;
+  inicio: string;
+  termino: string;
+  duracao_ms: number;
+  usuario: string;
+  regional: string;
+  site: string;
+  evento: string;
 };
 
-const NOME_AREA_INICIO = "Início";
-const NOME_AREA_TERMINO = "Término";
-
-/** Evento e Atividade sao os unicos filtros de detalhe desta tela (sem
- * Checkpoint/Qualificador aqui) -- mesma logica de "alguma leitura da visita
- * bate" das outras telas: filtrar a consulta diretamente excluiria a leitura
- * de Inicio OU a de Termino, quebrando o par usado no calculo de duracao. */
-export function combinaFiltrosDeDetalhe(grupo: LeituraBruta[], filtros: Filtros): boolean {
-  const semFiltroDeDetalhe = !filtros.evento && !filtros.atividade;
-  if (semFiltroDeDetalhe) return true;
-
-  return grupo.some((leitura) => {
-    if (filtros.evento && String(leitura.evento_id) !== filtros.evento) return false;
-    if (filtros.atividade && String(leitura.acao_id) !== filtros.atividade) return false;
-    return true;
-  });
-}
-
-/**
- * Uma linha por visita (nao por leitura): Data/Hora de Inicio e Termino, a
- * duracao entre eles, e os dados do funcionario/site. Exportada pura para
- * ser testada com leituras fabricadas, sem mockar o Supabase -- mesmo padrao
- * de agruparEmLinhas em registro-de-rondas/queries.ts.
- */
-export function montarLinhasDeInspecao(leituras: LeituraBruta[], filtros: Filtros): LinhaInspecao[] {
-  const porVisita = new Map<number, LeituraBruta[]>();
-  for (const leitura of leituras) {
-    if (!leitura.visitas?.sites) continue;
-    const grupo = porVisita.get(leitura.visita_id) ?? [];
-    grupo.push(leitura);
-    porVisita.set(leitura.visita_id, grupo);
-  }
-
-  const linhas: LinhaInspecao[] = [];
-
-  for (const [visitaId, grupo] of porVisita) {
-    if (!combinaFiltrosDeDetalhe(grupo, filtros)) continue;
-
-    const inicios = grupo.filter((l) => l.areas?.nome === NOME_AREA_INICIO).map((l) => l.data_hora).sort();
-    const terminos = grupo.filter((l) => l.areas?.nome === NOME_AREA_TERMINO).map((l) => l.data_hora).sort();
-    const dataHoraInicio = inicios[0];
-    const dataHoraTermino = terminos[terminos.length - 1];
-    if (!dataHoraInicio || !dataHoraTermino) continue;
-
-    const duracaoMs = new Date(dataHoraTermino).getTime() - new Date(dataHoraInicio).getTime();
-    if (duracaoMs <= 0) continue;
-
-    const visita = grupo[0].visitas!;
-    // Evento e campo de excecao: pode estar em qualquer leitura da visita,
-    // nao so na de Inicio -- mesmo criterio de observacao/localizacao em
-    // visitas-de-supervisao/queries.ts.
-    const eventoNome = grupo.find((l) => l.eventos?.nome)?.eventos?.nome ?? "";
-
-    linhas.push({
-      visitaId,
-      dataHoraInicio,
-      dataHoraTermino,
-      duracaoMs,
-      usuario: visita.profiles?.nome_completo ?? "",
-      regional: visita.sites!.regional ?? "",
-      site: visita.sites!.nome,
-      evento: eventoNome,
-    });
-  }
-
-  return linhas.sort((a, b) => a.dataHoraInicio.localeCompare(b.dataHoraInicio));
-}
-
-const FUSO_OPERACIONAL = "-03:00";
-
-/** Teto de leituras buscadas no periodo -- mesmo motivo de LIMITE_LEITURAS em
- * registro-de-rondas/queries.ts: a consulta nao pagina no banco (uma visita
- * vira uma linha so depois de agrupada em memoria). */
-export const LIMITE_LEITURAS = 5000;
-
-function montarSelect(): string {
-  return `
-    visita_id, data_hora, evento_id, acao_id,
-    areas ( nome ),
-    eventos ( nome ),
-    visitas!inner (
-      funcionario_id, motivo_visita_id,
-      profiles ( nome_completo ),
-      sites!inner ( nome, regional, grupo_site_id )
-    )
-  `;
-}
-
-/** `query: any` pelo mesmo motivo das demais telas: o cliente aqui nao
- * carrega o generic `Database`. */
-function aplicarFiltrosDeVisita(query: any, filtros: Filtros) {
-  let q = query;
-
-  if (filtros.funcionario) q = q.eq("visitas.funcionario_id", filtros.funcionario);
-  if (filtros.motivo) q = q.eq("visitas.motivo_visita_id", filtros.motivo);
-  if (filtros.grupoSite) q = q.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
-  if (filtros.sites) q = q.eq("visitas.sites.id", filtros.sites);
-
-  q = q.gte("data_hora", `${filtros.dataInicial}T00:00:00${FUSO_OPERACIONAL}`);
-  q = q.lte("data_hora", `${filtros.dataFinal}T23:59:59${FUSO_OPERACIONAL}`);
-  return q;
+/** Linha do banco -> linha da tela. So renomeia: o par Inicio/Termino, a
+ * duracao, o evento "de qualquer leitura da visita" e os filtros de detalhe
+ * vem prontos desde a 0049. */
+export function paraLinhaDeInspecao(linha: InspecaoDoBanco): LinhaInspecao {
+  return {
+    visitaId: linha.visita_id,
+    dataHoraInicio: linha.inicio,
+    dataHoraTermino: linha.termino,
+    duracaoMs: linha.duracao_ms,
+    usuario: linha.usuario,
+    regional: linha.regional,
+    site: linha.site,
+    evento: linha.evento,
+  };
 }
 
 export type InspecoesComInicioEFim = {
   linhas: LinhaInspecao[];
+  /** A lista passou do teto de agregacao (`TETO_DE_AGREGACAO` visitas). Aqui,
+   * diferente dos relatorios agregados, o aviso continua fazendo sentido: a
+   * tela e uma lista por visita, e uma lista pode mesmo nao caber. */
   truncado: boolean;
 };
 
@@ -224,19 +141,28 @@ export async function getInspecoesComInicioEFim(filtros: Filtros): Promise<Inspe
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
 
   const supabase = await createClient();
+  const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
 
-  const query = aplicarFiltrosDeVisita(
-    supabase.from("leituras").select(montarSelect()).order("data_hora", { ascending: true }).range(0, LIMITE_LEITURAS),
-    filtros,
+  const p_filtros = filtrosParaRpc({
+    site: filtros.sites,
+    grupo_site: filtros.grupoSite,
+    funcionario: filtros.funcionario,
+    motivo: filtros.motivo,
+    evento: filtros.evento,
+    atividade: filtros.atividade,
+  });
+
+  // Uma linha por visita: paginado, com ordenacao estavel (inicio e, no
+  // empate, a visita) -- a mesma ordem que a tela sempre mostrou.
+  const { linhas, atingiuTeto } = await buscarEmPaginas<InspecaoDoBanco>((de, ate) =>
+    supabase
+      .rpc("relatorio_inspecoes_inicio_fim", { p_inicio: inicio, p_fim: fim, p_filtros })
+      .order("inicio", { ascending: true })
+      .order("visita_id", { ascending: true })
+      .range(de, ate),
   );
 
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const leituras = (data ?? []) as unknown as LeituraBruta[];
-  const truncado = leituras.length > LIMITE_LEITURAS;
-
-  return { linhas: montarLinhasDeInspecao(leituras.slice(0, LIMITE_LEITURAS), filtros), truncado };
+  return { linhas: linhas.map(paraLinhaDeInspecao), truncado: atingiuTeto };
 }
 
 /** "yyyy-mm-ddThh:mm:ss+00:00" (o Postgres devolve com offset) -> "dd/mm/aaaa"

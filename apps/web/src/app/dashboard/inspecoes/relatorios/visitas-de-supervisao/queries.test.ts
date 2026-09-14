@@ -3,39 +3,57 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Chamada = { metodo: string; args: unknown[] };
 type Resposta = { data: unknown; error: { message: string } | null };
 
-/** Uma tabela mockada por `.from(tabela)`, cada uma com sua propria resposta
- * e lista de chamadas -- a query real faz `leituras` e `metas_visitas` em
- * paralelo (Promise.all), entao um mock generico de tabela unica nao serve. */
-const { createClientMock, erroMock, respostas, chamadasPorTabela } = vi.hoisted(() => {
-  const respostas = new Map<string, Resposta>();
-  const chamadasPorTabela = new Map<string, Chamada[]>();
-  const erroMock = vi.fn();
+/**
+ * Duas fontes mockadas: `.from(tabela)` (sites e metas_visitas), cada uma com
+ * sua resposta e lista de chamadas, e `.rpc()` (as visitas, desde a 0049), que
+ * devolve uma pagina por chamada da fila `respostasRpc` e resolve no
+ * `.range()` -- o formato que `buscarEmPaginas` consome.
+ */
+const { createClientMock, rpcMock, erroMock, respostas, chamadasPorTabela, respostasRpc, erroDaRpc } = vi.hoisted(
+  () => {
+    const respostas = new Map<string, Resposta>();
+    const chamadasPorTabela = new Map<string, Chamada[]>();
+    const respostasRpc: unknown[][] = [];
+    const erroDaRpc: { valor: { message: string } | null } = { valor: null };
+    const erroMock = vi.fn();
 
-  const createClientMock = vi.fn(async () => ({
-    from(tabela: string) {
-      const chamadas: Chamada[] = chamadasPorTabela.get(tabela) ?? [];
-      chamadasPorTabela.set(tabela, chamadas);
-
-      const chain: Record<string, unknown> = {};
-      for (const metodo of ["select", "eq", "gte", "lt", "order"]) {
-        chain[metodo] = (...args: unknown[]) => {
-          chamadas.push({ metodo, args });
-          return chain;
-        };
-      }
-      chain.maybeSingle = (...args: unknown[]) => {
-        chamadas.push({ metodo: "maybeSingle", args });
-        return Promise.resolve(respostas.get(tabela) ?? { data: null, error: null });
+    const rpcMock = vi.fn(() => {
+      const builder = {
+        order: () => builder,
+        range: () =>
+          Promise.resolve(
+            erroDaRpc.valor ? { data: null, error: erroDaRpc.valor } : { data: respostasRpc.shift() ?? [], error: null },
+          ),
       };
-      chain.then = (resolve: (resultado: Resposta) => void) =>
-        resolve(respostas.get(tabela) ?? { data: [], error: null });
+      return builder;
+    });
 
-      return chain;
-    },
-  }));
+    const createClientMock = vi.fn(async () => ({
+      rpc: rpcMock,
+      from(tabela: string) {
+        const chamadas: Chamada[] = chamadasPorTabela.get(tabela) ?? [];
+        chamadasPorTabela.set(tabela, chamadas);
 
-  return { createClientMock, erroMock, respostas, chamadasPorTabela };
-});
+        const chain: Record<string, unknown> = {};
+        for (const metodo of ["select", "eq", "gte", "lt", "order"]) {
+          chain[metodo] = (...args: unknown[]) => {
+            chamadas.push({ metodo, args });
+            return chain;
+          };
+        }
+        chain.maybeSingle = (...args: unknown[]) => {
+          chamadas.push({ metodo: "maybeSingle", args });
+          return Promise.resolve(respostas.get(tabela) ?? { data: null, error: null });
+        };
+        chain.then = (resolve: (resultado: Resposta) => void) => resolve(respostas.get(tabela) ?? { data: [], error: null });
+
+        return chain;
+      },
+    }));
+
+    return { createClientMock, rpcMock, erroMock, respostas, chamadasPorTabela, respostasRpc, erroDaRpc };
+  },
+);
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 vi.mock("@/lib/log", () => ({ erro: erroMock, gerarIdDeRequisicao: () => "id-teste" }));
@@ -45,25 +63,21 @@ const { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites } = await impor
 beforeEach(() => {
   respostas.clear();
   chamadasPorTabela.clear();
+  respostasRpc.length = 0;
+  erroDaRpc.valor = null;
   erroMock.mockClear();
+  rpcMock.mockClear();
 });
 
-function leitura(
-  visitaId: number,
-  dataHora: string,
-  extra: Record<string, unknown> = {},
-) {
+function visita(visitaId: number, dataHora: string, extra: Record<string, unknown> = {}) {
   return {
-    id: Math.random(),
+    visita_id: visitaId,
     data_hora: dataHora,
+    funcionario: "Odair Viana Lima",
+    local: "ACE Limpeza",
     tem_localizacao: false,
-    observacao: null,
-    visitas: {
-      id: visitaId,
-      profiles: { nome_completo: "Odair Viana Lima" },
-      motivos_visita: { nome: "Inspeção" },
-      sites: { nome: "ACE Limpeza" },
-    },
+    motivo_visita: "Inspeção",
+    observacao: "",
     ...extra,
   };
 }
@@ -118,40 +132,42 @@ describe("getOpcoesSites", () => {
 });
 
 describe("getHistoricoDeSupervisao", () => {
-  it("agrupa leituras da mesma visita numa linha so, usando a leitura mais antiga como Data/Hora", async () => {
-    respostas.set("leituras", {
-      data: [
-        leitura(10, "2026-08-08T12:45:00Z"), // Termino
-        leitura(10, "2026-08-08T09:45:00Z"), // Inicio -- mais antiga, vence
-        leitura(11, "2026-08-04T12:40:00Z"),
-      ],
-      error: null,
-    });
+  // O agrupamento por visita (data mais antiga; localizacao e observacao de
+  // qualquer leitura) desceu para o banco na 0049:
+  // supabase/tests/database/relatorios_agregados_no_banco_test.sql.
+
+  it("uma linha por visita vinda do banco, e Realizado e a quantidade delas", async () => {
+    respostasRpc.push(
+      [visita(10, "2026-08-08T09:45:00Z", { tem_localizacao: true, observacao: "Portão trancado" }), visita(11, "2026-08-04T12:40:00Z")],
+      [],
+    );
 
     const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     expect(historico.realizado).toBe(2);
-    expect(historico.visitas).toHaveLength(2);
-    expect(historico.visitas.find((v) => v.visitaId === 10)?.dataHora).toBe("2026-08-08T09:45:00Z");
+    expect(historico.visitas[0]).toEqual({
+      visitaId: 10,
+      dataHora: "2026-08-08T09:45:00Z",
+      funcionario: "Odair Viana Lima",
+      local: "ACE Limpeza",
+      temLocalizacao: true,
+      motivoVisita: "Inspeção",
+      observacao: "Portão trancado",
+    });
   });
 
-  it("localizacao e observacao vem de qualquer leitura da visita, nao so a mais antiga", async () => {
-    respostas.set("leituras", {
-      data: [
-        leitura(20, "2026-08-08T09:00:00Z", { tem_localizacao: false, observacao: null }),
-        leitura(20, "2026-08-08T09:30:00Z", { tem_localizacao: true, observacao: "Portão trancado" }),
-      ],
-      error: null,
+  it("manda o site e o mes como periodo meio-aberto", async () => {
+    await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
+
+    expect(rpcMock).toHaveBeenCalledWith("relatorio_visitas_de_supervisao", {
+      p_site: 3,
+      p_inicio: "2026-08-01T00:00:00-03:00",
+      p_fim: "2026-09-01T00:00:00-03:00",
     });
-
-    const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
-
-    expect(historico.visitas[0].temLocalizacao).toBe(true);
-    expect(historico.visitas[0].observacao).toBe("Portão trancado");
   });
 
   it("meta nula (sem linha em metas_visitas, ou usuario sem acesso a ela) vira null, nao erro", async () => {
-    respostas.set("leituras", { data: [leitura(30, "2026-08-08T09:45:00Z")], error: null });
+    respostasRpc.push([visita(30, "2026-08-08T09:45:00Z")], []);
     // metas_visitas sem resposta configurada -> maybeSingle devolve data: null.
 
     const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
@@ -161,7 +177,6 @@ describe("getHistoricoDeSupervisao", () => {
   });
 
   it("meta presente vem de metas_visitas.quantidade_esperada", async () => {
-    respostas.set("leituras", { data: [], error: null });
     respostas.set("metas_visitas", { data: { quantidade_esperada: 5 }, error: null });
 
     const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
@@ -170,25 +185,7 @@ describe("getHistoricoDeSupervisao", () => {
     expect(historico.realizado).toBe(0);
   });
 
-  it("filtra leituras pelo site (via visitas!inner) e pelo intervalo do mes", async () => {
-    respostas.set("leituras", { data: [], error: null });
-
-    await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
-
-    const chamadas = chamadasPorTabela.get("leituras") ?? [];
-    expect(chamadas).toContainEqual({ metodo: "eq", args: ["visitas.site_id", 3] });
-
-    const gte = chamadas.find((c) => c.metodo === "gte");
-    const lt = chamadas.find((c) => c.metodo === "lt");
-    expect(gte?.args[0]).toBe("data_hora");
-    expect(String(gte?.args[1])).toMatch(/^2026-08-01/);
-    expect(lt?.args[0]).toBe("data_hora");
-    expect(String(lt?.args[1])).toMatch(/^2026-09-01/);
-  });
-
   it("consulta metas_visitas pelo site e pelo primeiro dia do mes (competencia)", async () => {
-    respostas.set("leituras", { data: [], error: null });
-
     await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     const chamadas = chamadasPorTabela.get("metas_visitas") ?? [];
@@ -196,21 +193,20 @@ describe("getHistoricoDeSupervisao", () => {
     expect(chamadas).toContainEqual({ metodo: "eq", args: ["competencia", "2026-08-01"] });
   });
 
-  it("loga a falha de leituras e segue com lista vazia, em vez de confundir com 'sem visita'", async () => {
-    respostas.set("leituras", { data: null, error: { message: "RLS inesperado" } });
+  it("loga a falha das visitas e segue com lista vazia, em vez de confundir com 'sem visita'", async () => {
+    erroDaRpc.valor = { message: "RLS inesperado" };
 
     const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     expect(historico.visitas).toEqual([]);
     expect(erroMock).toHaveBeenCalledWith(
       "id-teste",
-      "Falha ao carregar leituras para o histórico de visitas de supervisão:",
+      "Falha ao carregar visitas para o histórico de visitas de supervisão:",
       "RLS inesperado",
     );
   });
 
   it("loga a falha de metas_visitas e segue com meta null", async () => {
-    respostas.set("leituras", { data: [], error: null });
     respostas.set("metas_visitas", { data: null, error: { message: "timeout" } });
 
     const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
@@ -220,8 +216,6 @@ describe("getHistoricoDeSupervisao", () => {
   });
 
   it("nao loga nada quando as duas consultas tem sucesso", async () => {
-    respostas.set("leituras", { data: [], error: null });
-
     await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
 
     expect(erroMock).not.toHaveBeenCalled();
