@@ -69,8 +69,15 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     // que a tag existe -- um 404 renderiza o mesmo <img> quebrado.
     const assinatura = page.getByRole("img", { name: `Assinatura do checklist ${checklistId}` });
     await expect(assinatura).toBeVisible();
+    //
+    // Sempre numero (0 enquanto carrega): `complete && naturalWidth` devolvia
+    // `false`, que o matcher recusa. Folga de 30s porque, no `next dev` frio da
+    // CI, a primeira ida a rota da assinatura inclui compila-la.
     await expect
-      .poll(() => assinatura.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth))
+      .poll(
+        () => assinatura.evaluate((img: HTMLImageElement) => (img.complete ? img.naturalWidth : 0)),
+        { timeout: 30_000 },
+      )
       .toBeGreaterThan(0);
   });
 
