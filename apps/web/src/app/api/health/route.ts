@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { identificarChamador, limitarTaxa } from "@/lib/rate-limit";
+import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { identificarChamador } from "@/lib/rate-limit";
 import { avaliar, envsAusentes } from "@/lib/saude";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
   // Generoso: um monitor a cada 5 minutos nao chega perto disto, e dois ou
   // tres monitores (mais o teste manual de quem investiga) cabem folgados. O
   // que ele barra e a rota virar alvo de inundacao por ser publica.
-  const limite = limitarTaxa(`health:${identificarChamador(request)}`, 60, 60_000);
+  const limite = await limitarTaxa(`health:${identificarChamador(request)}`, 60, 60_000);
   if (!limite.permitido) {
     return NextResponse.json(
       { error: "muitas requisições, tente novamente mais tarde" },
