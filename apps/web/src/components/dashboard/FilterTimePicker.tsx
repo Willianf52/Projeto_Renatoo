@@ -29,8 +29,8 @@ function lerValor(valor?: string): { hora: string; minuto: string } | null {
  * listas fechadas, sem grade de dias para desenhar.
  *
  * O valor que vai no FormData e o do `<input type="hidden">`, no formato
- * "HH:MM" -- o mesmo que o input nativo produzia, para `combinarDataHora`
- * (`coletas-importadas/queries.ts`) continuar recebendo exatamente o que
+ * "HH:MM" -- o mesmo que o input nativo produzia, para `inicioDoFiltro` e
+ * `fimExclusivoDoFiltro` (`lib/data-hora.ts`) continuarem recebendo exatamente o que
  * esperava.
  */
 export function FilterTimePicker({

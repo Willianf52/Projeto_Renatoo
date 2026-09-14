@@ -78,8 +78,8 @@ export function mesAtual(agora: Date = new Date()): string {
  * uma data.
  *
  * POR QUE ISTO EXISTE. Os filtros de periodo montam o limite da consulta por
- * interpolacao -- `${data}T00:00:00-03:00` em `combinarDataHora` e nas quatro
- * telas de relatorio. O `FilterDatePicker` so emite "yyyy-mm-dd", mas a
+ * interpolacao -- `${data}T00:00:00-03:00` em `inicioDoFiltro` e
+ * `fimExclusivoDoFiltro`. O `FilterDatePicker` so emite "yyyy-mm-dd", mas a
  * querystring e editavel a mao: `?data_inicial=abc` vira o literal
  * `abcT00:00:00-03:00` num `gte` de timestamptz, ou seja, erro 22007 do
  * Postgres subindo como erro de tela em vez de filtro ignorado.
@@ -139,19 +139,49 @@ export function periodoDoMes(mes: string): Periodo {
  * fuso do processo. Recebe datas ja validadas por `dataValida`.
  */
 export function periodoEntreDatas(dataInicial: string, dataFinal: string): Periodo {
-  const [ano, mes, dia] = dataFinal.split("-").map(Number);
-  const seguinte = new Date(Date.UTC(ano, mes - 1, dia + 1)).toISOString().slice(0, 10);
+  return { inicio: inicioDoFiltro(dataInicial), fim: fimExclusivoDoFiltro(dataFinal) };
+}
 
-  return {
-    inicio: `${dataInicial}T00:00:00${FUSO_OPERACIONAL}`,
-    fim: `${seguinte}T00:00:00${FUSO_OPERACIONAL}`,
-  };
+/**
+ * Limite inferior (inclusivo, use com `gte`) de um filtro "yyyy-mm-dd" com
+ * "HH:MM" opcional. Recebe valores ja validados por `dataValida`/`horaValida`.
+ *
+ * O deslocamento vai explicito no literal: sem ele o Postgres interpretaria o
+ * horario no fuso da conexao, nao no fuso em que a visita aconteceu.
+ */
+export function inicioDoFiltro(data: string, hora?: string): string {
+  return `${data}T${hora ?? "00:00"}:00${FUSO_OPERACIONAL}`;
+}
+
+/**
+ * Limite superior EXCLUSIVO (use com `lt`, nunca `lte`) de um filtro
+ * "yyyy-mm-dd" com "HH:MM" opcional: o primeiro instante depois da menor
+ * unidade que a pessoa declarou.
+ *
+ *   so data  ("ate 08/09")        ->  09/09 00:00
+ *   com hora ("ate 08/09 17:30")  ->  08/09 17:31
+ *
+ * Fechar em `lte ...T23:59:59` (como Coletas Importadas e Historico de
+ * Checklist faziam) descartava em silencio a leitura das 23:59:59.437: as
+ * colunas sao `timestamptz` com fracao de segundo e o app de campo grava com
+ * milissegundo. Com hora, `lte 17:30:00` perdia tudo de 17:30:00.001 a
+ * 17:30:59.999 -- o minuto que a pessoa pediu.
+ *
+ * A virada (minuto, hora, dia, mes, ano, bissexto) fica com `Date.UTC` sobre
+ * os componentes: e conta de calendario, entao nao depende do fuso do processo.
+ */
+export function fimExclusivoDoFiltro(data: string, hora?: string): string {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const [horas, minutos] = hora ? hora.split(":").map(Number) : [24, -1];
+  const seguinte = new Date(Date.UTC(ano, mes - 1, dia, horas, minutos + 1));
+
+  return `${seguinte.toISOString().slice(0, 16)}:00${FUSO_OPERACIONAL}`;
 }
 
 /**
  * "HH:MM" vindo da querystring, ou `undefined`.
  *
- * Mesma armadilha da `dataValida`, um campo adiante: `combinarDataHora`
+ * Mesma armadilha da `dataValida`, um campo adiante: `inicioDoFiltro`
  * concatena a hora no mesmo literal (`${data}T${hora}:00-03:00`), entao
  * `?hora_inicial=zz` derruba a consulta exatamente como uma data torta. O
  * `FilterTimePicker` emite "HH:MM" e nada mais.
