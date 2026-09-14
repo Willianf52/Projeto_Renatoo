@@ -196,9 +196,9 @@ async function CorpoDoHistorico({ searchParams }: { searchParams: SearchParamsPr
           visita.motivoVisita,
           visita.observacao,
         ])}
-        // Sem paginacao real (volume por mes/site e pequeno, ver comentario de
-        // agruparPorVisita em queries.ts): page/totalPages fixos refletem "uma
-        // pagina so", so pra rodape nao mostrar "0 de 0" com linhas visiveis.
+        // Sem paginacao na tela (volume por mes/site e pequeno; a consulta em
+        // queries.ts ja busca todas as paginas): page/totalPages fixos refletem
+        // "uma pagina so", so pra rodape nao mostrar "0 de 0" com linhas visiveis.
         page={1}
         totalPages={historico.visitas.length > 0 ? 1 : 0}
         totalItems={historico.visitas.length}

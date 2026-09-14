@@ -131,13 +131,6 @@ async function CorpoDoRanking({ searchParams }: { searchParams: SearchParamsProm
 
   return (
     <>
-      {ranking.truncado && (
-        <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Período com mais leituras do que o suportado — o Total de Inspeções abaixo está incompleto. Reduza o
-          período para ver o número correto.
-        </p>
-      )}
-
       <div className="p-4">
         <div className="mb-4 text-center animate-fade-in-up">
           <h2 className="text-base font-semibold text-white">Ranking de Inspeções</h2>

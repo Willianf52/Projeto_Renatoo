@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { dataValida, formatarDataHora, horaValida, mesAtual } from "./data-hora";
+import {
+  dataValida,
+  formatarDataHora,
+  horaValida,
+  mesAtual,
+  periodoDoMes,
+  periodoEntreDatas,
+} from "./data-hora";
 
 /**
  * O ponto desta suite nao e o formato -- e o FUSO.
@@ -101,5 +108,40 @@ describe("horaValida", () => {
     expect(horaValida("7:30")).toBeUndefined();
     expect(horaValida("24:00")).toBeUndefined();
     expect(horaValida("12:60")).toBeUndefined();
+  });
+});
+
+describe("periodoDoMes", () => {
+  it("vai do dia 1 ao dia 1 seguinte, em -03:00", () => {
+    expect(periodoDoMes("2026-03")).toEqual({
+      inicio: "2026-03-01T00:00:00-03:00",
+      fim: "2026-04-01T00:00:00-03:00",
+    });
+  });
+
+  it("dezembro vira o ano", () => {
+    expect(periodoDoMes("2026-12").fim).toBe("2027-01-01T00:00:00-03:00");
+  });
+});
+
+describe("periodoEntreDatas", () => {
+  it("o dia final e inclusivo: o fim e o comeco do dia seguinte", () => {
+    expect(periodoEntreDatas("2026-03-10", "2026-03-20")).toEqual({
+      inicio: "2026-03-10T00:00:00-03:00",
+      fim: "2026-03-21T00:00:00-03:00",
+    });
+  });
+
+  it("dia seguinte atravessa mes, ano e fevereiro de ano bissexto", () => {
+    expect(periodoEntreDatas("2026-01-01", "2026-01-31").fim).toBe("2026-02-01T00:00:00-03:00");
+    expect(periodoEntreDatas("2026-12-01", "2026-12-31").fim).toBe("2027-01-01T00:00:00-03:00");
+    expect(periodoEntreDatas("2028-02-01", "2028-02-28").fim).toBe("2028-02-29T00:00:00-03:00");
+  });
+
+  it("mesmo dia inicial e final cobre o dia inteiro", () => {
+    expect(periodoEntreDatas("2026-03-10", "2026-03-10")).toEqual({
+      inicio: "2026-03-10T00:00:00-03:00",
+      fim: "2026-03-11T00:00:00-03:00",
+    });
   });
 });

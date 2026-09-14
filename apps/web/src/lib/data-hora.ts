@@ -101,6 +101,54 @@ export function dataValida(valor: string | undefined): string | undefined {
 }
 
 /**
+ * Deslocamento fixo da operacao. Os relatorios recortam periodo com ele, e nao
+ * com `FUSO_DO_PROJETO`, porque montam literal ISO -- e o Brasil nao observa
+ * horario de verao desde 2019, entao -03:00 e o fuso de Brasilia o ano todo.
+ */
+export const FUSO_OPERACIONAL = "-03:00";
+
+/** Intervalo meio-aberto `[inicio, fim)`, como as funcoes `relatorio_*` da
+ * migration 0049 recebem. */
+export type Periodo = { inicio: string; fim: string };
+
+/**
+ * "yyyy-mm" -> do dia 1 as 00:00 ate o dia 1 do mes seguinte, em -03:00.
+ *
+ * Meio-aberto de proposito: `fim` e o primeiro instante que NAO entra. Fechar
+ * em "ultimo dia 23:59:59" (como as telas faziam) perde leitura no ultimo
+ * segundo com fracao.
+ */
+export function periodoDoMes(mes: string): Periodo {
+  const [ano, numero] = mes.split("-").map(Number);
+  const anoFim = numero === 12 ? ano + 1 : ano;
+  const mesFim = numero === 12 ? 1 : numero + 1;
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return {
+    inicio: `${ano}-${pad(numero)}-01T00:00:00${FUSO_OPERACIONAL}`,
+    fim: `${anoFim}-${pad(mesFim)}-01T00:00:00${FUSO_OPERACIONAL}`,
+  };
+}
+
+/**
+ * "yyyy-mm-dd" inicial e final, AMBOS inclusivos na tela -> `[inicio do dia
+ * inicial, inicio do dia seguinte ao final)`.
+ *
+ * O dia seguinte e calculado por `Date.UTC` sobre os componentes, nao somando
+ * 24h a um instante local: a conta e de calendario, e assim nao depende do
+ * fuso do processo. Recebe datas ja validadas por `dataValida`.
+ */
+export function periodoEntreDatas(dataInicial: string, dataFinal: string): Periodo {
+  const [ano, mes, dia] = dataFinal.split("-").map(Number);
+  const seguinte = new Date(Date.UTC(ano, mes - 1, dia + 1)).toISOString().slice(0, 10);
+
+  return {
+    inicio: `${dataInicial}T00:00:00${FUSO_OPERACIONAL}`,
+    fim: `${seguinte}T00:00:00${FUSO_OPERACIONAL}`,
+  };
+}
+
+/**
  * "HH:MM" vindo da querystring, ou `undefined`.
  *
  * Mesma armadilha da `dataValida`, um campo adiante: `combinarDataHora`
