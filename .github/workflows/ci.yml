@@ -116,7 +116,11 @@ jobs:
       - run: pnpm --filter @projeto-renatoo/shared exec tsc --noEmit
       - run: pnpm --filter mobile exec tsc --noEmit
 
-      - run: pnpm test
+      # Os mesmos testes de `pnpm test`, medindo cobertura. Cada pacote tem o
+      # seu piso no proprio vitest.config.mts, fixado no numero de 13/09 -- o
+      # passo falha quando a cobertura CAI abaixo dele, nao quando fica longe
+      # de uma meta. Subiu? Suba o piso no mesmo PR.
+      - run: pnpm run test:cobertura
 
       # NEXT_PUBLIC_* sao valores publicos (protegidos pelo RLS no Supabase),
       # mas ficam como secret do repositorio para nao cravar a URL/chave reais
