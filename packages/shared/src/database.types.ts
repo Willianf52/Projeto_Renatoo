@@ -234,6 +234,41 @@ export type Database = {
         }
         Relationships: []
       }
+      eventos_de_uso: {
+        Row: {
+          cargo: string | null
+          criado_em: string
+          detalhes: Json
+          evento: string
+          id: number
+          perfil_id: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          criado_em?: string
+          detalhes?: Json
+          evento: string
+          id?: never
+          perfil_id?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          criado_em?: string
+          detalhes?: Json
+          evento?: string
+          id?: never
+          perfil_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_de_uso_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupos_sites: {
         Row: {
           ativo: boolean
