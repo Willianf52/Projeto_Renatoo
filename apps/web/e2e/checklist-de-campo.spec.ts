@@ -56,7 +56,13 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
       new RegExp(`/dashboard/checklistlab/historico-de-checklist/${checklistId}\\?`),
     );
 
-    await expect(page.getByText(motivo, { exact: true })).toBeVisible();
+    // No cartao da corretiva, e nao em qualquer lugar da pagina: o motivo
+    // tambem aparece no resumo, e o que se quer provar e que o cartao proprio
+    // da CORRETIVA foi montado com o texto que o inspetor mandou.
+    const cartaoDoMotivo = page
+      .getByRole("heading", { name: "Motivo da visita corretiva" })
+      .locator("xpath=../following-sibling::p");
+    await expect(cartaoDoMotivo).toHaveText(motivo);
 
     // A assinatura vem do bucket privado pela rota do painel, com a sessao do
     // gestor. `naturalWidth` > 0 prova que chegaram bytes de imagem, e nao so
