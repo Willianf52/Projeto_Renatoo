@@ -107,6 +107,38 @@ export function CorpoDeRelatorioEsqueleto({ altura = "h-72" }: { altura?: string
 }
 
 /**
+ * Pagina inteira de formulario: breadcrumb, cartao com cabecalho e o
+ * formulario. Para as telas de `editar`, cujo breadcrumb traz o nome do
+ * registro e por isso so sai depois da consulta.
+ *
+ * `largura` vai como classe INTEIRA (`max-w-2xl`, `max-w-3xl`) pelo mesmo
+ * motivo de `gradeInterna` acima.
+ */
+export function PaginaDeFormularioEsqueleto({
+  largura,
+  campos,
+}: {
+  largura: string;
+  campos: number;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-3" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+      <div className={`${largura} overflow-hidden rounded-lg bg-brand-surface shadow-sm`}>
+        <div className="border-b border-slate-800 px-4 py-3">
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <FormularioEsqueleto campos={campos} />
+      </div>
+    </div>
+  );
+}
+
+/**
  * Formulario de cadastro (`novo`/`editar`): rotulo + campo em grade de duas
  * colunas, com os botoes no pe -- a moldura de `QrCodeForm` e `SiteForm`.
  */

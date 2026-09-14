@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { QrCodeIcon } from "@/components/dashboard/icons";
 import { gerarQrCodeDataUrl } from "@/lib/qrcode";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
@@ -8,7 +10,20 @@ import { getOpcoes, getQrCode } from "../../queries";
 
 const LISTAGEM = "/dashboard/cadastros/qr-code";
 
-export default async function EditarQrCodePage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function EditarQrCodePage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={4} />}>
+      <Conteudo params={params} />
+    </Suspense>
+  );
+}
+
+async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const idNumerico = Number(id);
 

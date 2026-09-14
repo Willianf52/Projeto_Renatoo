@@ -1,11 +1,26 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { PerguntaForm } from "../PerguntaForm";
 import { getProximaOrdem } from "../queries";
 
-export default async function NovaPerguntaPage() {
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function NovaPerguntaPage() {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={3} />}>
+      <Conteudo />
+    </Suspense>
+  );
+}
+
+async function Conteudo() {
   // O RLS (policy da 0043) ja recusaria o insert, mas seria depois de
   // preencher o formulario inteiro. Quem nao administra nem chega a ver a tela.
   if (!(await podeAdministrarCadastros())) {
