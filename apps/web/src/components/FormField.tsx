@@ -82,7 +82,10 @@ export function FormField({
             onClick={() => setVisible((atual) => !atual)}
             aria-label={visible ? "Ocultar senha" : "Mostrar senha"}
             aria-pressed={visible}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded text-brand-muted transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+            // h-8 w-8 e nao so o icone de 20px: WCAG 2.2 (2.5.8) pede alvo de
+            // toque de pelo menos 24px. `right-1.5` mantem o centro do icone
+            // onde estava, dentro do `pr-11` do input.
+            className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-brand-muted transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           >
             {visible ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
           </button>
