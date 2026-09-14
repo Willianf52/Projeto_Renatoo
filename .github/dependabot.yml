@@ -25,9 +25,46 @@ updates:
     # O custo: um pacote que quebra a CI segura o grupo inteiro. Nesse caso,
     # `@dependabot ignore <pacote>` no PR tira o culpado e o grupo segue --
     # e o pacote vira a investigacao da vez, em vez de sumir na fila.
+    #
+    # VITEST ANDA JUNTO. `vitest` e `@vitest/coverage-v8` precisam estar na
+    # mesma versao: separados, a cobertura quebra com "Expected string coverage
+    # payload" e zera o piso (PRs #59 e #60). O grupo vem antes do de
+    # patch/minor porque o Dependabot poe o pacote no PRIMEIRO grupo que casa.
+    # Sem `update-types`: um major do vitest tambem sai num PR so.
     groups:
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
       npm-patch-e-minor:
         update-types: ["patch", "minor"]
+    # QUEM MANDA NESSES PACOTES E O EXPO SDK, nao o Dependabot. O SDK 57 fixa
+    # `react-native`, `react`, `react-native-svg` e a major do
+    # `@sentry/react-native` que o app nativo embarca; fora disso o `tsc` do
+    # app de campo quebra (PR #57: react-native 0.87 + react 19.3) ou o build
+    # nativo sai com versao que o SDK nao testou (PR #58: Sentry 8). Eles sobem
+    # quando o SDK sobe (`npx expo install --fix`), num PR proprio.
+    #
+    # `react`/`react-dom` valem para o monorepo inteiro (um so `directory`),
+    # entao o web tambem deixa de receber minor/major automatico -- e
+    # proposital: `react` e `react-dom` precisam casar entre si, e o grupo
+    # subindo so um deles quebra em runtime. Patch continua entrando, para
+    # correcao de seguranca do React chegar ao web sem esperar o Expo.
+    ignore:
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-svg"
+      - dependency-name: "react"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "react-native-screens"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "react-native-safe-area-context"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@sentry/react-native"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
