@@ -15,7 +15,25 @@ updates:
       # exigir mudanca de codigo, como o Next 16 no PR #8.
       semver-major-days: 7
     open-pull-requests-limit: 10
+    # Patch e minor num PR so por semana; major continua um PR por pacote.
+    #
+    # Motivo operacional, nao estetico: a `main` exige branch em dia (`strict`)
+    # e o auto-merge (workflows/dependabot-auto-merge.yml) nao atualiza PR
+    # atrasado. Com um PR por pacote, o primeiro merge deixava todos os outros
+    # para tras e a fila travava. Com o grupo, ha um PR a mergear.
+    #
+    # O custo: um pacote que quebra a CI segura o grupo inteiro. Nesse caso,
+    # `@dependabot ignore <pacote>` no PR tira o culpado e o grupo segue --
+    # e o pacote vira a investigacao da vez, em vez de sumir na fila.
+    groups:
+      npm-patch-e-minor:
+        update-types: ["patch", "minor"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    # Mesmo arranjo do npm. As actions sao fixadas por SHA no ci.yml; o
+    # Dependabot atualiza o SHA e o comentario da versao juntos.
+    groups:
+      actions-patch-e-minor:
+        update-types: ["patch", "minor"]
