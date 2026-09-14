@@ -22,6 +22,7 @@ import {
   type EstadoDoLimite,
 } from "../auth/limite-de-tentativas";
 import { guardarLimite, lerLimiteGuardado } from "../auth/limite-guardado";
+import { useSessao } from "../auth/SessaoProvider";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
@@ -76,9 +77,12 @@ export function TelaDeLogin() {
   // O bloqueio tem prioridade sobre a mensagem de credencial: e ele que
   // responde "por que o botao nao funciona", que e a duvida de quem esta
   // olhando para a tela naquele momento.
+  // Por ultimo, o motivo de a sessao anterior ter sido encerrada (prazo de 30
+  // dias): sem ele, o inspetor cairia no login sem entender por que.
+  const { avisoDeSaida } = useSessao();
   const aviso = bloqueado
     ? `Muitas tentativas. Aguarde ${segundos}s para tentar de novo.`
-    : erro;
+    : (erro ?? avisoDeSaida);
 
   /**
    * Recupera o bloqueio que sobreviveu a um fechamento do app.

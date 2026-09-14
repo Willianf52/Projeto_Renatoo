@@ -1,3 +1,4 @@
+import { sessaoVencida } from "@projeto-renatoo/shared";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
@@ -108,9 +109,14 @@ export async function updateSession(request: NextRequest) {
 
   // O estado em auth.users indica que a pessoa autenticou, mas a aplicação
   // também respeita a desativação administrativa registrada em profiles.
-  let motivoBloqueio: "acesso-indisponivel" | "perfil-ausente" | null = null;
+  let motivoBloqueio: "acesso-indisponivel" | "perfil-ausente" | "sessao-expirada" | null =
+    null;
 
-  if (user) {
+  // Prazo de 30 dias desde o último login com senha (`packages/shared/src/sessao.ts`).
+  // Antes da consulta a profiles: sessão vencida não precisa gastar a ida ao banco.
+  if (user && sessaoVencida(user.last_sign_in_at)) {
+    motivoBloqueio = "sessao-expirada";
+  } else if (user) {
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("ativo")

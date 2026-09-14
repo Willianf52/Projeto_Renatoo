@@ -31,4 +31,17 @@ const EM_PRODUCAO = process.env.NODE_ENV === "production";
 
 export const COOKIE_OPTIONS = {
   secure: EM_PRODUCAO,
+  /**
+   * 30 dias, e nao os 400 do padrao do pacote: o mesmo prazo que o middleware
+   * cobra por `sessaoVencida` (`packages/shared/src/sessao.ts`). O middleware e
+   * quem de fato encerra a sessao; o `maxAge` faz o navegador descartar o
+   * cookie esquecido num computador compartilhado, em vez de guarda-lo por
+   * mais de um ano.
+   *
+   * Numero escrito aqui, e nao importado de `@projeto-renatoo/shared`: este
+   * arquivo entra no bundle do NAVEGADOR (lib/supabase/client.ts), e o indice
+   * do pacote arrastaria Zod e as regras de campo junto. O
+   * `cookie-options.test.ts` trava os dois valores iguais.
+   */
+  maxAge: 30 * 24 * 60 * 60,
 } as const;

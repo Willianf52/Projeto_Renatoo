@@ -24,23 +24,27 @@
 export const MIN_LENGTH = 8;
 
 /**
- * Teto definido pelo produto, em paridade com o sistema de origem.
+ * Teto de 64 caracteres (decisao de 14/09/2026, varredura de AppSec de 31/08,
+ * item B-3). Ate ali era 15, em paridade com o sistema de origem -- e recusava
+ * a saida padrao dos gerenciadores de senha (1Password e Chrome geram ~20) e
+ * qualquer passphrase de tres ou quatro palavras, empurrando o usuario para
+ * algo curto e memorizavel. Senha longa e mais forte, nao mais fraca.
  *
- * Registrando o custo, porque ele nao e obvio: um teto de 15 nao adiciona
- * seguranca -- senha longa e mais forte, nao mais fraca -- e recusa a saida
- * padrao de boa parte dos gerenciadores (1Password e Chrome geram ~20; o
- * Bitwarden, 14) e qualquer passphrase de tres ou quatro palavras. Na pratica
- * empurra o usuario para algo curto e memorizavel, que e justamente o que as
- * regras de composicao abaixo tentam evitar.
- *
- * Se um dia a paridade com o legado deixar de ser exigida, subir para 32 e o
- * suficiente para acomodar gerador e passphrase sem outro efeito.
- *
- * Nao ha guarda de bytes aqui de proposito: o bcrypt corta no 72o byte, e uma
- * senha de 15 caracteres chega no maximo a 45 bytes (3 bytes por unidade UTF-16
- * e o pior caso). O limite do bcrypt e inalcancavel enquanto o teto for 15.
+ * 64 cobre gerador e passphrase com folga; nao ha ganho em ir alem.
  */
-export const MAX_LENGTH = 15;
+export const MAX_LENGTH = 64;
+
+/**
+ * Teto em BYTES, alem do de caracteres. O GoTrue guarda a senha com bcrypt,
+ * que so considera os primeiros 72 bytes -- e recusa senha maior que isso.
+ * Com o teto antigo de 15 caracteres o limite era inalcancavel (45 bytes no
+ * pior caso). Com 64 nao e: 64 caracteres acentuados ("ã", "ç") ocupam 2
+ * bytes cada em UTF-8, e a senha passaria na tela para ser recusada pelo
+ * servidor com uma mensagem generica. A regra aqui recusa antes, com o motivo.
+ */
+export const MAX_BYTES = 72;
+
+const bytesEmUtf8 = (texto: string) => new TextEncoder().encode(texto).length;
 
 export type PasswordRule = {
   label: string;
@@ -50,7 +54,10 @@ export type PasswordRule = {
 export const PASSWORD_RULES: PasswordRule[] = [
   {
     label: `${MIN_LENGTH} a ${MAX_LENGTH} caracteres`,
-    test: (p) => p.length >= MIN_LENGTH && p.length <= MAX_LENGTH,
+    // `bytesEmUtf8` junto, e nao como regra separada na lista: so e alcancavel
+    // com senha longa e acentuada, e uma linha a mais na tela para um caso
+    // raro so poluiria a orientacao de todo mundo. Ver MAX_BYTES.
+    test: (p) => p.length >= MIN_LENGTH && p.length <= MAX_LENGTH && bytesEmUtf8(p) <= MAX_BYTES,
   },
   {
     label: "Pelo menos 1 letra maiúscula",

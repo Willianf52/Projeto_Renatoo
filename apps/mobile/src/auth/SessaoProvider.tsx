@@ -5,6 +5,7 @@ import type { Tables } from "@projeto-renatoo/shared";
 
 import { esquecerInspetor, identificarInspetor } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
+import { AVISO_DE_SESSAO_EXPIRADA, deveEncerrarPorPrazo } from "./prazo-da-sessao";
 import { useCicloDeVidaDaSessao } from "./useCicloDeVidaDaSessao";
 
 /**
@@ -29,6 +30,9 @@ type EstadoDaSessao = {
    * `useCicloDeVidaDaSessao`, que so consome a janela de throttle no sucesso. */
   recarregarPerfil: () => Promise<boolean>;
   sair: () => Promise<void>;
+  /** Por que a sessao anterior foi encerrada pelo app (hoje: prazo de 30 dias).
+   * A TelaDeLogin mostra; some no proximo login. */
+  avisoDeSaida: string | null;
 };
 
 const ContextoDeSessao = createContext<EstadoDaSessao | null>(null);
@@ -208,6 +212,25 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const doUsuarioAtual =
     perfilCarregado && perfilCarregado.id === idDoUsuario ? perfilCarregado : null;
 
+  /**
+   * Prazo de 30 dias desde o ultimo login. So avaliado depois de uma leitura
+   * de perfil bem-sucedida, isto e, com sinal -- ver `prazo-da-sessao.ts`.
+   * Roda a cada leitura: na abertura do app e em cada volta ao primeiro plano.
+   */
+  const [avisoDeSaida, setAvisoDeSaida] = useState<string | null>(null);
+  const ultimoLoginEm = sessao?.user.last_sign_in_at;
+  useEffect(() => {
+    if (
+      deveEncerrarPorPrazo({
+        ultimoLoginEm,
+        perfilLidoComSucesso: doUsuarioAtual !== null && doUsuarioAtual.erro === null,
+      })
+    ) {
+      setAvisoDeSaida(AVISO_DE_SESSAO_EXPIRADA);
+      void sair();
+    }
+  }, [doUsuarioAtual, ultimoLoginEm, sair]);
+
   const valor = useMemo<EstadoDaSessao>(
     () => ({
       sessao,
@@ -216,8 +239,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       erroDePerfil: doUsuarioAtual?.erro ?? null,
       recarregarPerfil,
       sair,
+      // Novo login limpa o aviso: com sessao ativa ele nao aparece.
+      avisoDeSaida: idDoUsuario ? null : avisoDeSaida,
     }),
-    [sessao, doUsuarioAtual, carregando, recarregarPerfil, sair],
+    [sessao, doUsuarioAtual, carregando, recarregarPerfil, sair, idDoUsuario, avisoDeSaida],
   );
 
   return <ContextoDeSessao.Provider value={valor}>{children}</ContextoDeSessao.Provider>;
