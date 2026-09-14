@@ -14,7 +14,7 @@
 
 begin;
 
-select plan(9);
+select plan(10);
 
 -- ---------------------------------------------------------------------------
 -- 1) O achado do advisor
@@ -50,6 +50,19 @@ select is(
     where n.nspname = 'autorizacao' and p.prosecdef),
   10,
   'as dez auxiliares estao em autorizacao como security definer'
+);
+
+-- Nenhum corpo de funcao ficou chamando `public.x()` para uma das seis que
+-- sairam de `public`. Corpo e texto: o erro so apareceria na execucao, dentro
+-- de alguma policy, e nao ao aplicar a migration.
+select is(
+  (select count(*)::int
+     from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname not in ('pg_catalog', 'information_schema')
+      and p.prosrc ~ 'public\.(usuario_ativo|nivel_acesso_atual|e_cliente|e_inspetor|pode_ver_grupo_site|pode_ver_visita)\('),
+  0,
+  'nenhum corpo de funcao referencia public.x() de uma auxiliar que saiu de public'
 );
 
 -- ---------------------------------------------------------------------------

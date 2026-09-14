@@ -30,9 +30,10 @@
 --   - CORPOS QUE CHAMAM PELO NOME: funcao `language sql` nao atomica e
 --     plpgsql guardam o corpo como TEXTO e resolvem o nome na execucao. Medido
 --     em producao hoje, sao nove auxiliares chamando umas as outras e o
---     trigger `impedir_escalacao_de_perfil` chamando `pode_administrar_usuarios`.
---     Todas ganham `autorizacao` no `search_path`. Nenhuma outra funcao do
---     banco (inclusive as `relatorio_*` da 0049) as referencia.
+--     trigger `impedir_escalacao_de_perfil` chamando `pode_administrar_usuarios`,
+--     todos com o nome qualificado (`public.x()`). Os corpos sao reescritos
+--     para `autorizacao.x()` (secao 2b). Nenhuma outra funcao do banco
+--     (inclusive as `relatorio_*` da 0049) as referencia.
 --
 --   - O PAINEL CHAMA QUATRO POR RPC: `lib/permissoes.ts` usa
 --     `pode_administrar_cadastros`, `pode_administrar_usuarios` e
@@ -101,6 +102,41 @@ alter function autorizacao.pode_administrar_usuarios() set search_path = autoriz
 alter function autorizacao.pode_administrar_grupos_usuarios() set search_path = autorizacao, public, pg_temp;
 
 alter function public.impedir_escalacao_de_perfil() set search_path = autorizacao, public, pg_temp;
+
+-- ---------------------------------------------------------------------------
+-- 2b) Corpos que chamam pelo nome QUALIFICADO
+--
+-- O `search_path` acima nao basta: os corpos escrevem `public.usuario_ativo()`,
+-- `public.pode_ver_toda_operacao()` etc. com o schema explicito, e nome
+-- qualificado nao passa pelo search_path. Sem isto, toda policy que passa por
+-- uma auxiliar composta falha com "function public.usuario_ativo() does not
+-- exist" -- foi o que o job `banco` mostrou na primeira versao desta migration.
+--
+-- A reescrita parte de `pg_get_functiondef`, que devolve a definicao completa
+-- (schema atual, `security definer`, `search_path`, volatilidade), e troca so
+-- o prefixo das dez auxiliares. `create or replace` com a mesma assinatura
+-- preserva OID, dono e ACL -- as policies nao percebem.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  funcao record;
+begin
+  for funcao in
+    select p.oid
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'autorizacao'
+        or (n.nspname = 'public' and p.proname = 'impedir_escalacao_de_perfil')
+  loop
+    execute regexp_replace(
+      pg_get_functiondef(funcao.oid),
+      'public\.(usuario_ativo|nivel_acesso_atual|e_cliente|e_inspetor|pode_ver_toda_operacao|pode_ver_grupo_site|pode_ver_visita|pode_administrar_cadastros|pode_administrar_usuarios|pode_administrar_grupos_usuarios)\(',
+      'autorizacao.\1(',
+      'g'
+    );
+  end loop;
+end
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 3) Envelopes em `public` para as quatro que o painel chama por RPC
