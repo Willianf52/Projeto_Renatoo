@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   dataValida,
+  fimExclusivoDoFiltro,
   formatarDataHora,
   horaValida,
+  inicioDoFiltro,
   mesAtual,
   periodoDoMes,
   periodoEntreDatas,
@@ -143,5 +145,42 @@ describe("periodoEntreDatas", () => {
       inicio: "2026-03-10T00:00:00-03:00",
       fim: "2026-03-11T00:00:00-03:00",
     });
+  });
+});
+
+describe("inicioDoFiltro", () => {
+  it("sem hora comeca a meia-noite; com hora, no minuto pedido", () => {
+    expect(inicioDoFiltro("2026-08-05")).toBe("2026-08-05T00:00:00-03:00");
+    expect(inicioDoFiltro("2026-08-05", "14:30")).toBe("2026-08-05T14:30:00-03:00");
+  });
+});
+
+/**
+ * Compara INSTANTES, nao so texto: o que precisa ficar provado e que a leitura
+ * com fracao de segundo no fim da unidade pedida cai dentro do intervalo.
+ */
+describe("fimExclusivoDoFiltro", () => {
+  it("so data: a leitura das 23:59:59.437 do ultimo dia entra", () => {
+    const fim = fimExclusivoDoFiltro("2026-09-08");
+
+    expect(fim).toBe("2026-09-09T00:00:00-03:00");
+    expect(Date.parse("2026-09-08T23:59:59.437-03:00")).toBeLessThan(Date.parse(fim));
+    expect(Date.parse("2026-09-09T00:00:00.000-03:00")).not.toBeLessThan(Date.parse(fim));
+  });
+
+  it("com hora: o minuto final entra inteiro, o seguinte nao", () => {
+    const fim = fimExclusivoDoFiltro("2026-09-08", "17:30");
+
+    expect(fim).toBe("2026-09-08T17:31:00-03:00");
+    expect(Date.parse("2026-09-08T17:30:59.999-03:00")).toBeLessThan(Date.parse(fim));
+    expect(Date.parse("2026-09-08T17:31:00.000-03:00")).not.toBeLessThan(Date.parse(fim));
+  });
+
+  it("a virada de minuto atravessa hora, dia, ano e bissexto", () => {
+    expect(fimExclusivoDoFiltro("2026-09-08", "17:59")).toBe("2026-09-08T18:00:00-03:00");
+    expect(fimExclusivoDoFiltro("2026-09-08", "23:59")).toBe("2026-09-09T00:00:00-03:00");
+    expect(fimExclusivoDoFiltro("2026-12-31", "23:59")).toBe("2027-01-01T00:00:00-03:00");
+    expect(fimExclusivoDoFiltro("2028-02-28", "23:59")).toBe("2028-02-29T00:00:00-03:00");
+    expect(fimExclusivoDoFiltro("2026-12-31")).toBe("2027-01-01T00:00:00-03:00");
   });
 });
