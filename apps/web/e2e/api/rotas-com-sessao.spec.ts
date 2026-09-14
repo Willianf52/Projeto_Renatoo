@@ -62,9 +62,12 @@ test.describe("rotas com sessao, logado como GESTOR", () => {
   test("POST /api/senha/verificar-vazamento com corpo que nao e JSON: 400", async ({ request }) => {
     const resposta = await request.post("/api/senha/verificar-vazamento", {
       headers: { ...ipDeTeste(), "content-type": "application/json" },
-      data: "nao e json",
+      // Buffer: string em `data` seria serializada como JSON valido (ver o
+      // mesmo caso em rotas-com-segredo.spec.ts).
+      data: Buffer.from("nao e json"),
     });
     expect(resposta.status()).toBe(400);
+    expect(await resposta.json()).toEqual({ error: "corpo inválido" });
   });
 
   test("POST /api/senha/verificar-vazamento sem o campo senha: 400", async ({ request }) => {

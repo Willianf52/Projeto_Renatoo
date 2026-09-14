@@ -72,7 +72,10 @@ test.describe("POST /api/importar/coletas", () => {
     const ip = ipDeTeste();
     const resposta = await request.post("/api/importar/coletas", {
       headers: { ...ip, "x-importacao-secret": SEGREDOS.importacao!, "content-type": "application/json" },
-      data: "isto nao e json",
+      // Buffer, e nao string: o Playwright serializa `data` string como JSON,
+      // e `"isto nao e json"` entre aspas E JSON valido -- a rota receberia um
+      // corpo bem-formado e responderia `lote_invalido`, nao `corpo_invalido`.
+      data: Buffer.from("isto nao e json"),
     });
     expect(resposta.status()).toBe(400);
 

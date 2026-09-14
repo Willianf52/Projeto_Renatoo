@@ -40,6 +40,20 @@ const LINHAS_POR_LOTE = 200;
 const ABAS_DO_PAINEL = 20;
 const RODADAS_DO_PAINEL = 5;
 
+/**
+ * Primeira medicao na CI (14/09/2026, PR #80), para saber a folga de cada teto:
+ *
+ *   cenario      requisicoes  p50     p95     max     req/s
+ *   campo        75           409 ms  639 ms  677 ms  34,5
+ *   importacao   20           127 ms  310 ms  313 ms  28,8
+ *   painel       100          2,3 s   3,9 s   4,1 s   8,1
+ *
+ * O painel e o que chega mais perto do teto. Contexto antes de concluir que ele
+ * e lento: no runner, Next, Postgres, PostgREST e GoTrue dividem os mesmos 2
+ * vCPUs com o proprio Playwright, e as 20 abas renderizam no servidor ao mesmo
+ * tempo. Se o p95 dele passar a encostar em 5 s com frequencia, o proximo passo
+ * e medir onde o tempo vai (consulta ou render), nao subir o teto.
+ */
 const TETO_P95_MS = {
   campo: 3_000,
   importacao: 10_000,
