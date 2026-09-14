@@ -1,15 +1,26 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { SitemapIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../../GrupoSiteForm";
 import { getGrupoSite, getGruposSitesParaPai, getSitesParaSelecao } from "../../queries";
 
-export default async function EditarGrupoDeSitesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function EditarGrupoDeSitesPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={5} />}>
+      <Conteudo params={params} />
+    </Suspense>
+  );
+}
+
+async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const idNumerico = Number(id);
 
