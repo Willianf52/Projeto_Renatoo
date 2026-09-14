@@ -541,6 +541,13 @@ local se comporte diferente da produção.
 
 - **Leaked password protection** segue exigindo plano Pro; a compensação na
   aplicação (`lib/senha-vazada.ts`) continua sendo a resposta.
+  **Decisão de 14/09/2026: o projeto não vai para o Pro**, então este achado do
+  advisor fica aberto de forma permanente e aceita. Conferido no mesmo dia: os
+  três caminhos de troca de senha da aplicação checam o HaveIBeenPwned antes de
+  gravar — `/nova-senha` (recuperação por e-mail), `trocar-senha` e
+  `usuarios/actions.ts` (criação e edição pelo administrador). O que sobra é
+  alguém chamar `PUT /auth/v1/user` direto com a própria sessão para trocar a
+  **própria** senha por uma vazada: não alcança conta de terceiro.
 - **"Require current password when updating" está desligado** (achado novo, da
   inspeção do painel). Quem cobre isso é a aplicação: `trocar-senha`
   reautentica com `signInWithPassword` contra a senha atual antes de chamar
