@@ -21,20 +21,39 @@ criar a migration, porque dado sensível muda a base legal exigida.
 
 ## Retenção de dados
 
-**Pendente de decisão de produto.** Hoje `leituras`/`visitas` não têm rotina
-de expurgo — crescem indefinidamente. `eventos_de_uso` (telemetria, 0051)
-também não: por ser dado de uso e não de operação, o prazo dela tende a ser
-bem mais curto (ex.: 12 meses) e pode ser decidido separado. Antes de definir um prazo, confirmar:
+### Telemetria de uso: 12 meses — decidido em 15/09/2026
+
+**Decisão do dono do produto:** `eventos_de_uso` (login e tela aberta, 0051)
+guarda **12 meses**. O prazo cobre a comparação de um mês contra o mesmo mês
+do ano anterior — que, num sistema de rondas mensais, é a pergunta que a
+telemetria existe para responder — e é curto o bastante para não virar achado
+numa auditoria de LGPD, já que é dado de uso, não de operação.
+
+**Implementado na migration 0052**, e não só escrito aqui:
+`manutencao.expurgar_eventos_de_uso()` apaga o que passou do prazo e devolve
+quantas linhas apagou; o `pg_cron` a dispara todo dia às **06:30 UTC**
+(03:30 de Brasília), meia hora depois do backup diário — de propósito, para o
+backup do dia guardar o estado antes do expurgo. A função mora no schema
+`manutencao`, fora da API e sem `usage` para `anon`/`authenticated`. O prazo é
+argumento com padrão, então mudá-lo é uma migration de uma linha. Regras
+cobertas em `supabase/tests/database/retencao_de_eventos_de_uso_test.sql`.
+
+### Operação (`leituras`, `visitas`): ainda pendente de decisão
+
+Continuam sem rotina de expurgo — crescem indefinidamente. É deliberado que a
+decisão não tenha sido tomada junto com a da telemetria: são dado de operação,
+com contestação de cliente e obrigação contratual no meio, e não se decidem
+pelo mesmo argumento. Antes de definir um prazo, confirmar:
 
 - Por quanto tempo o negócio realmente precisa consultar uma leitura antiga
   (auditoria interna, contestação de cliente, obrigação contratual)?
 - Existe exigência contratual com os clientes que force reter (ou apagar) por
   um prazo específico?
 
-Uma vez definido, a implementação é direta: job agendado (Supabase tem
-`pg_cron`) que arquiva ou apaga registros além do prazo, com log de quando e
-quantos registros foram afetados — não implementar sem essa decisão primeiro
-para não apagar dado que o negócio ainda precisa.
+Uma vez definido, a implementação é o mesmo caminho da 0052: uma função em
+`manutencao` e um agendamento no `pg_cron`. O que muda é o cuidado — apagar
+leitura antiga é apagar prova de ronda feita, então aqui cabe arquivar antes
+de apagar. Não implementar sem essa decisão primeiro.
 
 ## Atendimento a pedido de titular (acesso, correção, exclusão)
 
@@ -80,6 +99,8 @@ ação em `usuarios/actions.ts` (que já roda com `service_role`, fora do RLS).
 
 ## Checklist rápido para revisão periódica
 
+- [x] Prazo de retenção de `eventos_de_uso` definido (12 meses) e implementado
+      (migration 0052, `pg_cron` às 06:30 UTC)
 - [ ] Prazo de retenção de `leituras`/`visitas` definido e implementado
 - [ ] Canal de atendimento a pedido de titular definido e documentado
 - [ ] DPA confirmado com Supabase, Resend e (quando ativado) Sentry
