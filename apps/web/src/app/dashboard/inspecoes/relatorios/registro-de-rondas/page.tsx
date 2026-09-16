@@ -21,6 +21,7 @@ import {
   PdfIcon,
   SearchIcon,
 } from "@/components/dashboard/icons";
+import { textoDaPaginacao } from "@/lib/paginacao";
 import { extrairFiltros, formatarDuracao, getOpcoesFiltros, getRegistroDeRondas, primeiro, type SearchParams } from "./queries";
 
 const PAGE_SIZE = 15;
@@ -295,7 +296,13 @@ async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPro
               <ChevronLeftIcon className="h-4 w-4" />
             </PaginacaoBotao>
             <span className="px-3 text-xs text-brand-muted">
-              Pág: {totalItems > 0 ? pagina : 0} de {totalPages} | Total: {totalItems} locais
+              {textoDaPaginacao({
+                pagina,
+                totalPaginas: totalPages,
+                totalItens: totalItems,
+                singular: "local",
+                plural: "locais",
+              })}
             </span>
             <PaginacaoBotao
               disabled={!podeAvancar}

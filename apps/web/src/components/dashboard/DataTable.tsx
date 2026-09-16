@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { textoDaPaginacao } from "@/lib/paginacao";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
 
 export function DataTable({
@@ -108,8 +109,12 @@ export function DataTable({
           <ChevronLeftIcon className="h-4 w-4" />
         </PaginationButton>
         <span className="px-3 text-xs text-brand-muted">
-          Pág: {totalItems > 0 ? page : 0} de {totalPages} | Total: {totalAproximado ? "~" : ""}
-          {totalItems} itens
+          {textoDaPaginacao({
+            pagina: page,
+            totalPaginas: totalPages,
+            totalItens: totalItems,
+            aproximado: totalAproximado,
+          })}
         </span>
         <PaginationButton
           disabled={!podeAvancar}
