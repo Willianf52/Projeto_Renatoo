@@ -4,9 +4,9 @@ Levantamento feito lendo middleware, RLS, fluxo de auth e as telas do dashboard.
 Organizado por prioridade. Cada item cita o arquivo/linha onde o problema
 aparece hoje.
 
-> Última revisão: 2026-08-06. A lista foi podada do que já entrou — o histórico
+> Última revisão: 2026-09-16 (a de 2026-08-06 abriu o formato). A lista foi podada do que já entrou — o histórico
 > fica em "Itens fechados", no fim, para não reabrir discussão já resolvida.
-> Segurança tem documento próprio (`AUDITORIA-SEGURANCA.md`); aqui só entra o
+> Segurança tem documento próprio (`docs/auditoria-seguranca.md`); aqui só entra o
 > que não é achado de auditoria.
 >
 > **A numeração é sequencial e muda a cada revisão** — markdown renumera lista
@@ -179,55 +179,57 @@ aparece hoje.
 > `pnpm run types:generate` (README, seção "Banco de dados") documentado como
 > o caminho de regeneração -- usa a Management API do projeto hospedado, não
 > precisa de Docker nem de `supabase start`.
+>
+> 2026-09-16: revisão de higiene, sem item novo. Entre 22/08 e 15/09 entraram
+> perto de 190 commits (a auditoria de prontidão de 11/09 e seus PRs #65–#83,
+> a varredura de AppSec de 31/08, o app de campo), e esta lista não foi tocada
+> por eles — várias entradas passaram a descrever um código que não existe
+> mais. Reconferido cada item aberto contra o código: três saíram para os
+> fechados (relatórios em SQL, teto de 15 caracteres na senha, extrator de
+> `FormData` que já estava fechado mas seguia na lista de abertos), o item do
+> menu foi reescrito porque Eventos e ChecklistLab ganharam telas, e as duas
+> notas do fim foram corrigidas — a troca de senha exige a senha atual desde
+> 28/08, e pgTAP/e2e rodam na CI contra Postgres de verdade. O item de Alta
+> passou a apontar para `docs/piloto-de-operacao.md`, onde o roteiro mora.
 
 ## Alta prioridade
 
-3. **Nada foi exercitado com dado real: produção está vazia.**
+3. **Nada foi exercitado com dado real: produção segue sem operação.**
    Consulta direta ao projeto `UpServiços` (2026-08-19): 0 leituras, 0 visitas, 0
    sites, 0 QR-codes, 0 grupos de usuários, 1 perfil (um GESTOR). Projeto criado em
    27/07, com deploys de produção rodando desde então. As sete features estão
    implementadas, testadas e no ar; nenhuma encontrou dado nem usuário real, e a
    meta é 34 usuários (15 inspetores, 19 administrativos).
 
+   **Medido de novo em 2026-09-15:** 3 perfis, 2 grupos de sites, 1 site, 2
+   visitas — nenhum registro de operação: o site e as visitas são de
+   homologação (`[TESTE]` e o ensaio do app em emulador) — e ainda 0 leituras,
+   0 QR-codes, 0 checklists respondidos, 0 importações. O item deixou de ser só "falta popular": o roteiro está em
+   `docs/piloto-de-operacao.md` (1 site, 2 inspetores), com cinco portões antes
+   de alguém entrar — backup existindo, as 10 perguntas definitivas do
+   checklist, o app num aparelho de verdade, DSN do Sentry no app e a migration
+   0052 (esta já aplicada). Nenhum dos portões restantes é código do painel web.
+
    É a versão em produção da ressalva que fecha esta lista há revisões ("o que nada
    nesta revisão pôde verificar"), e a razão de esta categoria ter passado tanto
    tempo vazia: a lista mede o sistema contra si mesmo, e contra si mesmo ele está
    bem. Popular o cadastro, ligar a integração de verdade e rodar um mês fechado com
-   um subconjunto de inspetores é o que valida o item de importações acima e a
-   trilha de auditoria (nos fechados) — e todo problema que aparecer aí é mais
+   um subconjunto de inspetores é o que valida o registro de importações e a
+   trilha de auditoria (os dois nos fechados) — e todo problema que aparecer aí é mais
    barato agora do que depois de apresentado à diretoria.
 
 ## Média prioridade
 
-3. **Os seis relatórios agregam em Node, não em SQL.** Todos buscam linhas de
-   `leituras` e agrupam em memória: somar duração `Término - Início`, contar
-   visitas distintas, montar a grade Local × dia. Funciona e está bem testado,
-   mas paga transferência de rede por linha para fazer no JavaScript o que o
-   Postgres faz em milissegundos — e o teto que o item 1 da Alta vai introduzir é
-   um curativo, não a correção: um relatório que avisa "truncado em 5000" ainda é
-   um relatório que não responde a pergunta do mês inteiro.
-
-   A correção estrutural é mover a agregação para view ou função SQL, o mesmo
-   movimento que este projeto já fez com sucesso ao levar a regra de autorização
-   para funções `security definer` (ver "A regra de autorização duplicada em TS e
-   em SQL", nos fechados). Fica em Média, e não em Alta, porque só morde com
-   volume que ainda não existe — mas é pré-requisito de qualquer painel executivo,
-   que precisa de número agregado do período inteiro, sem teto.
-
-   > **Fechado em 13/09/2026 (P1-5 da auditoria de 11/09), migration 0049.**
-   > `visitas_do_periodo` faz no banco a etapa que as seis telas repetiam
-   > (uma linha por visita, par Início/Término, filtros de detalhe em qualquer
-   > leitura), e seis funções `relatorio_*` agregam em cima dela. Todas
-   > `security invoker`: o RLS de quem chama continua recortando. O TypeScript
-   > ficou só com formatação; os tetos de 5.000 leituras e os avisos de
-   > "truncado" saíram dos quatro relatórios agregados. Início/Fim continua
-   > sendo lista por visita, paginada. Regras testadas em
-   > `relatorios_agregados_no_banco_test.sql`.
-
-7. **`Eventos`, `ChecklistLab` e `Suporte` no menu, desabilitados.**
-   `DashboardSidebar.tsx:63-65` — mantidos visíveis de propósito, para
-   preservar a estrutura de navegação do sistema de referência. Não têm tabela
-   nem tela. Ficam aqui para não se perderem de vista.
+7. **`Eventos` tem sete telas "em preparação" e `Suporte` segue vazio no menu.**
+   `components/dashboard/DashboardSidebar.tsx` — mantidos visíveis de propósito,
+   para preservar a estrutura de navegação do sistema de referência. Mudou desde
+   a revisão anterior: `Eventos → Relatórios` ganhou as sete rotas do sistema de
+   referência (`app/dashboard/eventos/relatorios/*`), mas todas renderizam
+   `TelaEmPreparacao` — não há tabela de eventos/não conformidades por trás.
+   `ChecklistLab` saiu deste item: `Histórico de Checklist` é tela real, com
+   detalhe e exportação (commit `9f80661`). `Suporte` continua com
+   `children: []`, desabilitado. Ficam aqui para não se perderem de vista; entram
+   quando alguém definir o que cada relatório de evento mede.
 
 7. **Site / Planta não tem `Perda`/`Prevenção` (e-mails de classificação),
    `Notificações Eventos` nem `Tipo de Curva`.** O formulário de referência
@@ -239,65 +241,9 @@ aparece hoje.
 
 ## Baixa prioridade / nice-to-have
 
-4. **Teto de 15 caracteres na senha.** `lib/password-policy.ts:43` documenta o
-   custo: recusa a saída padrão da maioria dos gerenciadores e qualquer
-   passphrase. É paridade exigida com o sistema legado — revisitar quando a
-   exigência cair.
-
-   **Revisitado em 2026-08-28 (auditoria de AppSec, achado B-2): mantido em 15,
-   por decisão de produto — a paridade com o legado continua exigida.** Ficam
-   registrados os dois fatos levantados na revisão, para a próxima não repetir
-   o levantamento:
-
-   - O teto é imposto em três pontos, e um deles é servidor: as duas telas de
-     self-service (`nova-senha`, `trocar-senha`) e `cadastros/usuarios/actions.ts`,
-     dentro da Server Action. O GoTrue **não** tem máximo configurável — só
-     mínimo —, então o teto é regra da aplicação, não do banco. Derrubá-lo não
-     exige mexer em migration nem no painel.
-   - A mudança é de uma constante só: `MAX_LENGTH`. O rótulo da lista de regras
-     (`"8 a 15 caracteres"`) é interpolado a partir dela, e
-     `password-policy.test.ts` já se apoia em `MAX_LENGTH` em vez do literal —
-     então subir o valor não quebra teste nem exige tocar em texto de tela.
-   - Ao subir, entra junto uma guarda de bytes. O comentário atual explica que
-     ela é desnecessária hoje porque 15 caracteres chegam no máximo a 45 bytes;
-     acima de 24 caracteres acentuados o limite de 72 bytes do bcrypt passa a
-     ser alcançável, e o corte silencioso do bcrypt é pior que uma recusa.
-
-6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx:45` — já
+6. **"Organização" no navbar é fixa.** `app/dashboard/layout.tsx` (prop `organization`, com `TODO`) — já
     marcado como placeholder até existir tabela de organizações. Mantido aqui
     só para não se perder de vista.
-
-10. **`salvarSite`/`salvarGrupoSite`/`salvarGrupoUsuarios`/`salvarQrCode`/`salvarUsuario` reimplementavam,
-    cada um, o mesmo extrator de `FormData` e a mesma tabela de tradução de
-    erro do Postgres.** Fechado (2026-08-11): `texto()` foi para
-    `lib/form-data.ts`, e `traduzirErroPostgres()`/`CODIGO_POSTGRES` para
-    `lib/postgrest-errors.ts` — cada `actions.ts` agora só declara as
-    mensagens específicas da própria tela. Os limites de tamanho por campo
-    (que viviam em mapas paralelos tipo `LIMITES_ENDERECO`/`ROTULOS`,
-    percorridos por um `for`) viraram schemas `zod` — limite e mensagem no
-    mesmo lugar, por campo, em vez de dois mapas que precisavam ser mantidos
-    em sincronia à mão. Regra de negócio cruzada entre campos (auto-referência
-    de site/grupo, raio, coordenadas, nível de acesso válido) continua
-    imperativa de propósito — não é duplicação, é lógica específica de cada
-    tela.
-
-    A decisão pós-escrita também se repetia igual nas quatro telas que
-    escrevem com o token da sessão (RLS ativo): `if (error) traduz; if
-    (!data) "sem permissão"` depois de todo UPDATE/DELETE/INSERT-com-select —
-    o UPDATE/DELETE barrado pelo RLS não devolve erro, devolve zero linhas, e
-    sem essa checagem a tela mostraria sucesso com o registro intacto.
-    Extraído para `lib/escrita-rls.ts` (`verificarEscritaComRls`), usado em
-    `site-planta`, `grupo-de-sites`, `grupo-de-usuarios` (insert, update e
-    exclusão) e `qr-code`. `usuarios/actions.ts` fica de fora de propósito —
-    escreve com `service_role`, que ignora RLS inteiro, mecanismo diferente.
-    Só a decisão foi compartilhada; a consulta em si (tabela, colunas,
-    mensagens) continua em cada `actions.ts`, então nenhum `.insert()`/
-    `.update()`/`.delete()` existente mudou de forma — os mocks dos testes não
-    precisaram mudar.
-
-    Cobertura: os 325 testes existentes passaram inalterados em cada etapa,
-    mais 3 novos para `escrita-rls.ts`, com lint/typecheck/build de produção
-    limpos ao final.
 
 ---
 
@@ -309,6 +255,9 @@ renumera.
 
 | Item | Como ficou |
 |---|---|
+| Os seis relatórios agregavam em Node, não em SQL | Fechado em 13/09/2026 (P1-5 da auditoria de prontidão de 11/09), migration 0049. `visitas_do_periodo` faz no banco a etapa que as seis telas repetiam (uma linha por visita, par Início/Término, filtros de detalhe em qualquer leitura), e seis funções `relatorio_*` agregam em cima dela. Todas `security invoker`: o RLS de quem chama continua recortando. O TypeScript ficou só com formatação; os tetos de 5.000 leituras e os avisos de "truncado" saíram dos quatro relatórios agregados — o curativo de `buscarEmPaginas` (ver "Três dos seis relatórios devolviam número truncado", abaixo) deixou de ser necessário neles. Início/Fim continua sendo lista por visita, paginada. Regras testadas em `relatorios_agregados_no_banco_test.sql` |
+| Teto de 15 caracteres na senha | Mantido em 15 na varredura de AppSec de 28/08 por paridade com o legado; a exigência caiu e o teto subiu para **64** em 14/09/2026 (commit `bc2a859`). `MAX_LENGTH` em `lib/password-policy.ts`, com a guarda de bytes que a revisão anterior previa: `MAX_BYTES = 72`, porque o bcrypt do GoTrue só considera os primeiros 72 bytes e 64 caracteres acentuados passam disso — a tela recusa antes, com o motivo, em vez de o servidor recusar com mensagem genérica |
+| `salvarSite`/`salvarGrupoSite`/`salvarGrupoUsuarios`/`salvarQrCode`/`salvarUsuario` reimplementavam o extrator de `FormData` e a tradução de erro do Postgres | Fechado em 2026-08-11, mas ficou esquecido na lista de abertos até 16/09. `texto()` foi para `lib/form-data.ts`; `traduzirErroPostgres()`/`CODIGO_POSTGRES` para `lib/postgrest-errors.ts`; limites por campo viraram schemas `zod`. A decisão pós-escrita das telas que escrevem com o token da sessão (UPDATE/DELETE barrado pelo RLS devolve zero linhas, não erro) virou `verificarEscritaComRls` em `lib/escrita-rls.ts`. `usuarios/actions.ts` fica de fora: escreve com `service_role`. Regra de negócio cruzada entre campos continua imperativa em cada tela, de propósito |
 | Policies de INSERT do INSPETOR reavaliavam `auth.uid()` por linha (`auth_rls_initplan`, 2026-08-22) | Achado do advisor de performance do Supabase numa rodada de verificação geral da suíte. As duas policies de INSERT criadas pela 0036 (`Inspetor grava a propria visita` em `visitas`, `Inspetor grava leitura da propria visita` em `leituras`) chamavam `auth.uid()` direto no `with check` em vez de `(select auth.uid())` — nasceram depois da 0029 e ficaram fora daquele sweep, que cobriu só as policies de SELECT existentes na época. Pesa mais aqui do que pesou lá: `visitas`/`leituras` são justamente as tabelas que recebem inserção em lote pela rota de importação de coletas (migration 0033), e é no lote que a reavaliação por linha aparece. Migration 0037 recria as duas com a mesma regra de autorização, só a troca mecânica — nenhuma decisão de acesso mudou. Antes de escrever, as definições vivas foram lidas em `pg_policies` para garantir que a cópia batia caractere por caractere com o que estava no ar. Aplicada em produção em 2026-08-22 via `apply_migration`; confirmado em `pg_policies` que as duas passaram a mostrar `( SELECT auth.uid() AS uid)`, e no advisor que nenhum `auth_rls_initplan` sobrou. O `apply_migration` registrou a versão `20260822185701`, diferente do timestamp que o arquivo local tinha ao ser escrito; o arquivo foi renomeado para casar com o remoto, para o histórico não divergir (mesma classe de descuido da 0027, que ficou aplicada sem o arquivo commitado). **Ensaio pgTAP não foi feito**: a máquina não tinha Docker na sessão, então `escrita_de_campo_por_inspetor_test.sql` não rodou nem antes nem depois — diferente do processo usado na 0034, onde o teste rodou em transação com rollback antes de aplicar. O teste é de comportamento e não inspeciona o texto da policy, então continua válido sem alteração; rodar na próxima sessão com Docker fecha a verificação |
 | Nenhuma alteração de cadastro era rastreável a uma pessoa | Migration 0034 cria `auditoria` (tabela, registro_id, operação, ator_id, dados_antigos/novos jsonb, criado_em), RLS de leitura para quem `pode_administrar_usuarios()` (GESTOR ativo, migration 0013) e sem policy de escrita. Trigger genérico `registrar_auditoria()` (`security definer`, lê `auth.uid()`) cobre `sites`, `grupos_sites`, `grupos_usuarios` e `qr_codes` -- as quatro que escrevem com o token da sessão. `profiles` fica de fora do trigger de propósito: `usuarios/actions.ts` escreve com `service_role`, que não carrega JWT de pessoa nenhuma, e `auth.uid()` dentro do trigger seria sempre `null` -- um trigger assim daria a impressão de rastreamento funcionando sem rastrear a única coisa que o item pedia ("quem alterou um cargo"). Em vez disso, a action grava em `auditoria` explicitamente, no mesmo código que já sabe quem está editando; a seleção de `atual` (dados antigos) ganhou os campos por extenso (não só `cargo, ativo`) para o diff cobrir nome/login/função/tipo/superior também. Uma tela de leitura (`Cadastros → Auditoria`, com filtro de período/tabela/operação e diff calculado) chegou a ser construída e foi retirada a pedido do dono do produto no mesmo dia -- a tabela continua gravando normalmente, consulta é direto no banco. Aplicada em produção em 2026-08-21 depois do ensaio -- pgTAP `auditoria_test.sql` na mesma transação, rollback: 8/8. Achado no primeiro ensaio: testar DELETE contra `grupos_sites` apagava zero linhas em silêncio (essa tabela só desativa por flag, sem policy de DELETE) e o assert passava pelo motivo errado; trocado para `grupos_usuarios` (a única das quatro com DELETE de verdade, migration 0020). Achado depois de aplicar: o advisor `security` acusou `registrar_auditoria()` executável por `authenticated` via RPC mesmo com `revoke all from public` -- mesma lição das 0026/0028 sobre grant nominal do default privilege; corrigido na migration 0035 no mesmo dia, confirmado no advisor e no `pg_proc.proacl` antes/depois |
 | Lote de importação recusado não deixava rastro nenhum (metade "registro" do item) | Migration 0033 cria `importacoes` (origem, status, http_status, linhas recebidas, visitas gravadas, leituras novas, mensagem, detalhe) com RLS de leitura para `authenticated` e sem policy de escrita — grava só a rota, com `service_role`. `api/importar/coletas/route.ts` passou a gravar uma linha em cada tentativa que passa do segredo e do limite de taxa: sucesso e as seis recusas (corpo inválido, lote inválido, referência desconhecida, falha ao consultar referências, falha ao gravar visitas, falha ao gravar leituras). 401/429 ficam de fora de propósito — não são lote, são a rota rejeitando quem não provou ser a integração, e registrá-los viraria alvo de ruído para quem varre a rota sem o segredo. `createAdminClient()` subiu para antes da leitura do corpo, porque corpo inválido e lote inválido também precisam virar linha. Registro é best-effort: falha ao gravar em `importacoes` vira `erro()`, nunca 502 para quem importou certo. **Aplicada em produção em 2026-08-21**, depois do ensaio (pgTAP `importacoes_test.sql` na mesma transação, rollback: 3/3). Advisor `security` depois: nenhum achado novo. Uma tela de leitura (`Inspeções → Importações`) chegou a ser construída no mesmo dia e foi retirada a pedido do dono do produto -- Inspeções fica só com `Coletas Importadas` e `Relatórios`; a tabela continua gravando normalmente, consulta é direto no banco |
@@ -355,7 +304,7 @@ renumera.
 | As policies de RLS não tinham um teste sequer | `supabase/config.toml` criado (via `supabase init`) e sete suites pgTAP em `supabase/tests/database/`: conta nova nasce inativa/OPERADOR mesmo forjando `raw_user_meta_data` (0005/0008), OPERADOR não lê perfil alheio e GESTOR/SUPERVISOR ativos leem (0006), `anon` não escreve em `grupos_sites` (0010), UPDATE em `cargo`/`ativo` negado para `authenticated` (0007), dedup de leitura sem área (0017), `pode_administrar_usuarios()` (0013) e escopo de CLIENTE (0014). **Executadas (2026-08-11)** direto contra o projeto de produção, cada uma dentro de `begin;...rollback;` própria — branch de desenvolvimento não está disponível no plano atual do Supabase, e é o caminho que fica pendente para quando houver. 32/32 asserts passaram, nada persistiu. Achado no processo: `escopo_de_cliente_test.sql` tinha um bug de sintaxe nunca detectado (`id like` contra coluna `uuid` sem cast) — corrigido para `id::text like`. `pnpm test:db` continua sendo o caminho de verdade quando houver Docker ou branch |
 | Nenhum teste de ponta a ponta do fluxo de auth | Playwright instalado (`apps/web/e2e/`, `apps/web/playwright.config.ts`, `pnpm test:e2e`). Seis specs rodam sem credencial nenhuma e passam. Login → dashboard e conta inativa barrada estão escritos mas pulam sozinhos sem `E2E_EMAIL`/`E2E_PASSWORD`/`E2E_INACTIVE_EMAIL`/`E2E_INACTIVE_PASSWORD`. Fora do CI de propósito: rodar contra o Supabase real consome o rate limit de auth dele a cada push |
 | Botões de exportar Excel/PDF sem handler | "Exportar para Excel" virou CSV (`lib/csv.ts` — ponto e vírgula como separador e BOM UTF-8, para abrir certo no Excel em pt-BR); "Exportar para PDF" é uma tela de impressão (`components/dashboard/TabelaImpressao.tsx` + `ImprimirAoAbrir`) que dispara `window.print()`. As rotas respeitam o mesmo filtro da listagem, com teto de 2000 linhas e aviso de truncamento. Site / Planta nasceu já com as duas |
-| `console.error` sem correlação | `lib/log.ts`: cada log do middleware, `perfil-atual.ts` e das rotas de API carrega um id curto por requisição/invocação. O destino (mandar para um serviço externo) segue em aberto — linha própria na lista acima |
+| `console.error` sem correlação | `lib/log.ts`: cada log do middleware, `perfil-atual.ts` e das rotas de API carrega um id curto por requisição/invocação. O destino (mandar para um serviço externo) não virou item próprio: erro e latência têm o Sentry ligado no código (ver a linha do Sentry, acima), e log estruturado fora da Vercel só volta à lista se a operação real pedir |
 | Envs sem validação, erro genérico | `lib/env.ts`, com mensagem apontando o `.env.example`. A `service_role` fica de fora de propósito: é lida sob demanda em `lib/supabase/admin.ts`, para um projeto sem importação configurada continuar subindo |
 | Sem testes nem CI | vitest + `.github/workflows/ci.yml` (lint, typecheck, teste, build) |
 | Sem `error.tsx` | `app/dashboard/error.tsx` — o par em `app/` fechou junto (ver acima) |
@@ -363,16 +312,24 @@ renumera.
 | `.single()` vs `.maybeSingle()` | Layout passou a usar `maybeSingle`, com o motivo no comentário |
 | Sem feedback de tentativas no login | Bloqueio de 30s após 5 falhas em `components/LoginForm.tsx` |
 
-**Decisão de produto, não pendência:** a troca de senha não exige a senha atual
-(commit `778c869`). O risco está descrito em `AUDITORIA-SEGURANCA.md` (A07) —
-quem alcança uma sessão aberta troca a senha e tranca o dono para fora. A
-mitigação seria o e-mail de aviso, que hoje não chega a ninguém porque o
-remetente ainda é `onboarding@resend.dev` (`lib/resend.ts:29`), que só entrega
-ao dono da conta Resend.
+**Troca de senha (corrigido em 2026-09-16):** esta nota dizia que a troca não
+exigia a senha atual, por decisão de produto (commit `778c869`). Deixou de ser
+verdade em 28/08, quando o achado A-1 da varredura de AppSec entrou: a tela
+`trocar-senha` reautentica com `signInWithPassword` contra a senha atual antes
+de chamar `updateUser`, e `secure_password_change` no GoTrue cobra o mesmo do
+lado do servidor (commit `f793515`; histórico completo em
+`docs/auditoria-seguranca.md`, A07). O que continua valendo da nota antiga: o
+e-mail de aviso de troca ainda sai de `onboarding@resend.dev`
+(`lib/resend.ts`), que só entrega ao dono da conta Resend — sem domínio
+verificado, ele não chega ao usuário.
 
-**O que nada nesta revisão pôde verificar:** nenhuma migration, policy ou
-consulta desta rodada rodou contra um Postgres de verdade — não há Docker
-neste ambiente para `supabase start`. Vale para a 0012, para o `seed.sql` e
-para a rota de importação inteira, que passa 34 testes de formato e zero de
-integração. `pnpm test:db` e um `curl` contra o ambiente local são o próximo
-passo antes de confiar em qualquer um dos três.
+**O que esta lista não consegue verificar (revisto em 2026-09-16):** a nota
+anterior dizia que nenhuma migration, policy ou consulta tinha rodado contra
+Postgres de verdade, por falta de Docker. Não vale mais: o job `banco` da CI
+sobe `supabase start` e roda as 26 suítes pgTAP, e o job `e2e` roda o Playwright
+contra Supabase local — os dois são checks obrigatórios da `main`, junto com
+`build` e `desempenho`. O que segue sem verificação é o que nenhuma suíte
+alcança: o sistema com dado e usuário reais (item de Alta), a migration nova
+contra o dado de produção (o workflow `ensaio-de-restauracao.yml` faz isso em
+PR que toca `supabase/migrations/`, mas se pula sem o secret `PRODUCAO_DB_URL`) e a restauração de backup (mesmo secret, mais o bucket no
+R2 — `docs/backup-e-restauracao.md`).
