@@ -1,6 +1,6 @@
 import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { filtrosParaRpc } from "@/lib/relatorios";
+import { filtrosParaRpc, periodoInvertido } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
 
@@ -225,6 +225,7 @@ export type MapaDeLocaisInspecionados = {
  * visitas-de-supervisao. */
 export async function getMapaDeLocaisInspecionados(filtros: Filtros): Promise<MapaDeLocaisInspecionados | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
+  if (periodoInvertido(filtros.dataInicial, filtros.dataFinal)) return null;
 
   const dias = listarDias(filtros.dataInicial, filtros.dataFinal);
   const diasExcedidos = dias.length > LIMITE_DIAS;
