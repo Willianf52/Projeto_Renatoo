@@ -158,8 +158,8 @@ async function TabelaDeHoras({ searchParams }: { searchParams: SearchParamsPromi
       <AvisoDePeriodo
         aviso={avisoDePeriodo({
           params,
-          temDataInicial: Boolean(filtros.dataInicial),
-          temDataFinal: Boolean(filtros.dataFinal),
+          dataInicial: filtros.dataInicial,
+          dataFinal: filtros.dataFinal,
           oQueMostra: "as horas por usuário",
         })}
       />
