@@ -4,26 +4,26 @@ import { limitarTaxa } from "@/lib/limite-compartilhado";
 import { identificarChamador } from "@/lib/rate-limit";
 import { enviarAvisoSenhaAlterada } from "@/lib/resend";
 import {
-  isEventoRelevante,
-  isSenhaAlterada,
-  lerPayload,
+  eFormatoDoWebhookAntigo,
+  lerAvisoDeTrocaDeSenha,
   segredoConfere,
 } from "@/lib/webhook-user-updated";
 
-/** Mesmo raciocinio do limite em `/api/importar/coletas`: o Database Webhook
- * do Supabase nao dispara isto com frequencia alta em uso normal, entao um
- * limite generoso ja barra um segredo vazado sendo usado para estourar a
- * cota do Resend com e-mail. */
+/** Mesmo raciocinio do limite em `/api/importar/coletas`. Desde a 0053 o
+ * trigger so dispara em troca de senha -- nao mais a cada login --, entao o
+ * uso normal fica muito abaixo disto, e o limite barra um segredo vazado sendo
+ * usado para estourar a cota do Resend com e-mail. */
 const LIMITE_DE_REQUISICOES = 30;
 const JANELA_MS = 60_000;
 
 /**
- * Alvo de um Database Webhook do Supabase (Database > Webhooks) escutando
- * UPDATE em auth.users. auth.users nao expoe a senha em texto plano -- so da
- * pra perceber que ela mudou comparando o hash entre record e old_record.
+ * Aviso por e-mail de que a senha da conta foi trocada.
  *
- * A validacao do corpo e a comparacao do segredo vivem em
- * lib/webhook-user-updated.ts, com testes proprios.
+ * Quem chama e o trigger `avisar_troca_de_senha` em `auth.users` (migration
+ * 0053), que so dispara quando o hash da senha muda e manda so
+ * `{ type, user_id, email }` -- o banco decide que houve troca; a aplicacao
+ * nao recebe hash nenhum. A validacao do corpo e a comparacao do segredo
+ * vivem em lib/webhook-user-updated.ts, com testes proprios.
  */
 export async function POST(request: NextRequest) {
   const idRequisicao = gerarIdDeRequisicao();
@@ -55,21 +55,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "corpo inválido" }, { status: 400 });
   }
 
-  const payload = lerPayload(corpo);
-  if (!payload) {
+  // Webhook antigo do painel, ainda vivo ate ser apagado la: ignorado sem
+  // erro. Ver `eFormatoDoWebhookAntigo`.
+  if (eFormatoDoWebhookAntigo(corpo)) {
+    return NextResponse.json({ skipped: "formato do webhook antigo" });
+  }
+
+  const aviso = lerAvisoDeTrocaDeSenha(corpo);
+  if (!aviso) {
     return NextResponse.json({ error: "payload fora do formato esperado" }, { status: 400 });
   }
 
-  if (!isEventoRelevante(payload)) {
-    return NextResponse.json({ skipped: "evento não relevante" });
-  }
-
-  if (!isSenhaAlterada(payload)) {
-    return NextResponse.json({ skipped: "update não alterou a senha" });
-  }
-
   try {
-    await enviarAvisoSenhaAlterada(payload.record.email);
+    await enviarAvisoSenhaAlterada(aviso.email);
   } catch (error) {
     erro(idRequisicao, "Webhook user-updated: falha ao enviar aviso de troca de senha.", error);
     return NextResponse.json({ error: "falha ao enviar e-mail" }, { status: 500 });
