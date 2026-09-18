@@ -7,8 +7,20 @@ import {
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
+import { GraficoDeColunasEmpilhadas } from "@/components/dashboard/GraficoDeColunasEmpilhadas";
 import { BarChartIcon, FilterIcon } from "@/components/dashboard/icons";
-import { extrairFiltros, formatarData, getEventosPorSite, getOpcoesFiltros, type SearchParams } from "./queries";
+import { MenuDoGrafico } from "@/components/dashboard/MenuDoGrafico";
+import {
+  extrairFiltros,
+  formatarData,
+  getEventosPorSite,
+  getOpcoesFiltros,
+  montarSeries,
+  paraPlanilha,
+  type SearchParams,
+} from "./queries";
+
+const ID_DO_GRAFICO = "grafico-eventos-por-site";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
@@ -120,31 +132,60 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 }
 
 /**
- * O quadro do grafico, como na referencia: titulo, periodo ("01/09/2026 até
- * 18/09/2026") e "Total de Eventos". Sem periodo, o cabecalho aparece com os
- * campos em branco, igual la.
+ * O grafico, como na referencia: colunas empilhadas por Status, uma por site,
+ * com titulo, periodo e "Total de Eventos" dentro do proprio desenho -- assim
+ * a imagem baixada pelo menu sai completa.
  *
- * O grafico em si ainda nao: o print da referencia com dados vai dizer se e
- * uma barra por site, barras divididas por evento ou outro formato.
+ * Sem periodo, so o cabecalho em branco ("até", "Total de Eventos:"), igual
+ * la, e o convite a filtrar.
  */
 async function CorpoDoGrafico({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
   const resultado = await getEventosPorSite(filtros);
+  const periodo = `${filtros.dataInicial ? formatarData(filtros.dataInicial) : ""} até ${
+    filtros.dataFinal ? formatarData(filtros.dataFinal) : ""
+  }`;
+
+  if (!resultado || resultado.sites.length === 0) {
+    return (
+      <div className="border-t border-slate-800 px-4 pb-10 pt-6 text-center">
+        <h2 className="text-lg font-medium text-white">Eventos por Site</h2>
+        <p className="mt-1 text-xs text-brand-muted">{periodo}</p>
+        <p className="text-xs text-brand-muted">Total de Eventos: {resultado ? resultado.total : ""}</p>
+        <p className="mt-8 text-sm text-brand-muted">
+          {resultado
+            ? "Nenhum evento no período. Ajuste as datas ou os filtros acima."
+            : "Escolha a Data Inicial e a Data Final acima e clique em Filtrar."}
+        </p>
+      </div>
+    );
+  }
+
+  const { colunas, linhas } = paraPlanilha(resultado.sites);
 
   return (
-    <div className="border-t border-slate-800 px-4 pb-10 pt-6 text-center">
-      <h2 className="text-lg font-medium text-white">Eventos por Site</h2>
-      <p className="mt-1 text-xs text-brand-muted">
-        {filtros.dataInicial ? formatarData(filtros.dataInicial) : ""} até{" "}
-        {filtros.dataFinal ? formatarData(filtros.dataFinal) : ""}
-      </p>
-      <p className="text-xs text-brand-muted">Total de Eventos: {resultado ? resultado.total : ""}</p>
-
-      {!resultado && (
-        <p className="mt-8 text-sm text-brand-muted">
-          Escolha a Data Inicial e a Data Final acima e clique em Filtrar.
-        </p>
-      )}
+    <div className="relative border-t border-slate-800 p-4">
+      <div className="absolute right-4 top-4 z-10">
+        <MenuDoGrafico idDoGrafico={ID_DO_GRAFICO} nomeDoArquivo="eventos-por-site" colunas={colunas} linhas={linhas} />
+      </div>
+      <div
+        role="region"
+        aria-label="Gráfico de eventos por site"
+        tabIndex={0}
+        className="overflow-x-auto rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+      >
+        <GraficoDeColunasEmpilhadas
+          id={ID_DO_GRAFICO}
+          titulo="Eventos por Site"
+          subtitulos={[periodo, `Total de Eventos: ${resultado.total}`]}
+          categorias={resultado.sites.map((site) => ({
+            rotulo: site.siteNome,
+            dica: site.siteNiveis.join(" > "),
+          }))}
+          series={montarSeries(resultado.sites)}
+          tituloEixoY="Quantidade"
+        />
+      </div>
     </div>
   );
 }

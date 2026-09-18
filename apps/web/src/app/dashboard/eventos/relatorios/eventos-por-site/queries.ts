@@ -203,3 +203,48 @@ export function formatarData(iso: string): string {
   const [ano, mes, dia] = iso.split("-");
   return `${dia}/${mes}/${ano}`;
 }
+
+/**
+ * A legenda da referencia, na mesma ordem e com cores proximas. Sao SETE,
+ * nao os cinco do filtro Status (que tem "Atendido" no lugar de "Concluído" e
+ * nao tem Pânico nem Alerta) -- as duas listas sao assim na referencia.
+ */
+export const STATUS_DO_GRAFICO = [
+  { nome: "Aguardando", cor: "#dc2626" },
+  { nome: "Em análise", cor: "#eab308" },
+  { nome: "Concluído", cor: "#16a34a" },
+  { nome: "Cancelado", cor: "#2dd4bf" },
+  { nome: "Crítico", cor: "#5b21b6" },
+  { nome: "Pânico", cor: "#f87171" },
+  { nome: "Alerta", cor: "#e5e77a" },
+] as const;
+
+/**
+ * Uma serie por status, um valor por site.
+ *
+ * O schema ainda nao guarda situacao de tratativa, entao TODA ocorrencia
+ * entra em "Aguardando" -- que e, alias, como o print da referencia aparece:
+ * so vermelho. As demais series existem (vazias) para a legenda ficar
+ * completa e para a troca, quando o Status existir, ser so aqui.
+ */
+export function montarSeries(sites: SiteComEventos[]) {
+  return STATUS_DO_GRAFICO.map((status, i) => ({
+    nome: status.nome,
+    cor: status.cor,
+    valores: sites.map((site) => (i === 0 ? site.total : 0)),
+  }));
+}
+
+/** Colunas e linhas do CSV do menu do grafico: um site por linha, uma coluna
+ * por status e o total. */
+export function paraPlanilha(sites: SiteComEventos[]): { colunas: string[]; linhas: string[][] } {
+  const series = montarSeries(sites);
+  return {
+    colunas: ["Site", ...series.map((serie) => serie.nome), "Total"],
+    linhas: sites.map((site, i) => [
+      site.siteNiveis.join(" > "),
+      ...series.map((serie) => String(serie.valores[i])),
+      String(site.total),
+    ]),
+  };
+}

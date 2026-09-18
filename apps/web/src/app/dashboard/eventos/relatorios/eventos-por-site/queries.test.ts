@@ -5,7 +5,8 @@ const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ rpc: rpcMock }) }));
 vi.mock("@/lib/log", () => ({ erro: vi.fn(), gerarIdDeRequisicao: () => "teste" }));
 
-const { agruparPorSite, extrairFiltros, formatarData, getEventosPorSite } = await import("./queries");
+const { agruparPorSite, extrairFiltros, formatarData, getEventosPorSite, montarSeries, paraPlanilha, STATUS_DO_GRAFICO } =
+  await import("./queries");
 
 /** O que `.rpc()` devolve: encadeia `.order()` e resolve no `.range()`. */
 function construtor(data: unknown) {
@@ -90,5 +91,39 @@ describe("getEventosPorSite", () => {
 describe("formatarData", () => {
   it("yyyy-mm-dd -> dd/mm/aaaa", () => {
     expect(formatarData("2026-09-01")).toBe("01/09/2026");
+  });
+});
+
+describe("montarSeries", () => {
+  const { sites } = agruparPorSite([doBanco(1, "Hummell", "PORTARIA", 3), doBanco(2, "Nosso Lar", "RH", 1)]);
+
+  it("uma serie por status da legenda, na ordem da referencia", () => {
+    expect(montarSeries(sites).map((serie) => serie.nome)).toEqual([
+      "Aguardando",
+      "Em análise",
+      "Concluído",
+      "Cancelado",
+      "Crítico",
+      "Pânico",
+      "Alerta",
+    ]);
+    expect(STATUS_DO_GRAFICO).toHaveLength(7);
+  });
+
+  it("sem Status no schema, toda ocorrencia entra em Aguardando", () => {
+    const [aguardando, ...demais] = montarSeries(sites);
+    expect(aguardando.valores).toEqual([3, 1]);
+    for (const serie of demais) expect(serie.valores).toEqual([0, 0]);
+  });
+});
+
+describe("paraPlanilha", () => {
+  it("um site por linha, uma coluna por status e o total", () => {
+    const { sites } = agruparPorSite([doBanco(3, "SICREDI - SUZANO", "LIMPEZA", 2, "SIC")]);
+    const { colunas, linhas } = paraPlanilha(sites);
+    expect(colunas[0]).toBe("Site");
+    expect(colunas.at(-1)).toBe("Total");
+    expect(colunas).toHaveLength(9);
+    expect(linhas).toEqual([["UP Serviços > SIC > SICREDI - SUZANO", "2", "0", "0", "0", "0", "0", "0", "2"]]);
   });
 });
