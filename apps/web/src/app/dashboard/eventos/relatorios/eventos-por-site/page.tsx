@@ -137,7 +137,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
  * a imagem baixada pelo menu sai completa.
  *
  * Sem periodo, so o cabecalho em branco ("até", "Total de Eventos:"), igual
- * la, e o convite a filtrar.
+ * la.
  */
 async function CorpoDoGrafico({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
@@ -152,11 +152,11 @@ async function CorpoDoGrafico({ searchParams }: { searchParams: SearchParamsProm
         <h2 className="text-lg font-medium text-white">Eventos por Site</h2>
         <p className="mt-1 text-xs text-brand-muted">{periodo}</p>
         <p className="text-xs text-brand-muted">Total de Eventos: {resultado ? resultado.total : ""}</p>
-        <p className="mt-8 text-sm text-brand-muted">
-          {resultado
-            ? "Nenhum evento no período. Ajuste as datas ou os filtros acima."
-            : "Escolha a Data Inicial e a Data Final acima e clique em Filtrar."}
-        </p>
+        {/* Sem periodo, so o cabecalho em branco, como a referencia abre --
+            sem texto pedindo as datas. */}
+        {resultado && (
+          <p className="mt-8 text-sm text-brand-muted">Nenhum evento no período. Ajuste as datas ou os filtros acima.</p>
+        )}
       </div>
     );
   }
