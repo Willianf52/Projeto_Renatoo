@@ -998,6 +998,22 @@ export type Database = {
           quantidade: number
         }[]
       }
+      relatorio_registro_de_eventos: {
+        Args: {
+          p_filtros?: Json
+          p_fim: string
+          p_inicio: string
+          p_por_data_insercao?: boolean
+        }
+        Returns: {
+          evento_id: number
+          evento_nome: string
+          grupo_site_nome: string
+          quantidade: number
+          site_id: number
+          site_nome: string
+        }[]
+      }
       relatorio_registro_de_rondas: {
         Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
         Returns: {
