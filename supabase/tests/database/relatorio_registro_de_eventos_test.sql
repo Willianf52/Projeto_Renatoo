@@ -56,22 +56,22 @@ from public.grupos_usuarios g where g.nome = 'Grupo Usuarios TAP 0055';
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
 select v.rotulo, s.id, v.funcionario::uuid
 from (values
-  (551, 'Site TAP 0055 S1', 'e0550000-0000-0000-0000-00000000000a'),
-  (552, 'Site TAP 0055 S1', 'e0550000-0000-0000-0000-00000000000a'),
-  (553, 'Site TAP 0055 S2', 'e0550000-0000-0000-0000-00000000000b')
+  ('551', 'Site TAP 0055 S1', 'e0550000-0000-0000-0000-00000000000a'),
+  ('552', 'Site TAP 0055 S1', 'e0550000-0000-0000-0000-00000000000a'),
+  ('553', 'Site TAP 0055 S2', 'e0550000-0000-0000-0000-00000000000b')
 ) as v(rotulo, site, funcionario)
 join public.sites s on s.nome = v.site;
 
 insert into public.leituras (visita_id, data_hora, data_integracao, evento_id)
 select vi.id, l.data_hora::timestamptz, l.data_integracao::timestamptz, e.id
 from (values
-  (551, '2026-03-10 09:00:00-03', '2026-03-10 20:00:00-03', 'Evento TAP 0055 A'),
-  (551, '2026-03-10 09:30:00-03', '2026-03-10 20:00:00-03', 'Evento TAP 0055 A'),
-  (551, '2026-03-10 10:00:00-03', null,                     'Evento TAP 0055 A'),
-  (551, '2026-03-11 09:00:00-03', '2026-03-11 20:00:00-03', null),
-  (552, '2026-03-12 08:00:00-03', '2026-04-02 10:00:00-03', 'Evento TAP 0055 B'),
-  (553, '2026-03-15 07:00:00-03', '2026-03-15 21:00:00-03', 'Evento TAP 0055 A'),
-  (553, '2026-04-01 00:00:00-03', '2026-03-20 10:00:00-03', 'Evento TAP 0055 B')
+  ('551', '2026-03-10 09:00:00-03', '2026-03-10 20:00:00-03', 'Evento TAP 0055 A'),
+  ('551', '2026-03-10 09:30:00-03', '2026-03-10 20:00:00-03', 'Evento TAP 0055 A'),
+  ('551', '2026-03-10 10:00:00-03', null,                     'Evento TAP 0055 A'),
+  ('551', '2026-03-11 09:00:00-03', '2026-03-11 20:00:00-03', null),
+  ('552', '2026-03-12 08:00:00-03', '2026-04-02 10:00:00-03', 'Evento TAP 0055 B'),
+  ('553', '2026-03-15 07:00:00-03', '2026-03-15 21:00:00-03', 'Evento TAP 0055 A'),
+  ('553', '2026-04-01 00:00:00-03', '2026-03-20 10:00:00-03', 'Evento TAP 0055 B')
 ) as l(rotulo, data_hora, data_integracao, evento)
 join public.visitas vi on vi.numero_coleta = l.rotulo
 left join public.eventos e on e.nome = l.evento;
