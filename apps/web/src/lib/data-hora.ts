@@ -195,3 +195,38 @@ export function horaValida(valor: string | undefined): string | undefined {
   const [hora, minuto] = valor.split(":").map(Number);
   return hora <= 23 && minuto <= 59 ? valor : undefined;
 }
+
+function paraDate(iso: string): Date {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+function paraISO(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Lista de dias (yyyy-mm-dd) entre inicio e fim, inclusive -- as colunas de
+ * dia do Mapa de Locais Inspecionados e do Mapa de Eventos por Site. Subiu de
+ * `mapa-de-locais-inspecionados/queries.ts` quando a segunda tela precisou.
+ *
+ * Construida a partir dos componentes (ano/mes/dia), nao de `new Date(iso)`:
+ * o mesmo cuidado do FilterDatePicker -- string ISO pura vira meia-noite UTC,
+ * que em fuso negativo volta um dia na leitura local.
+ */
+export function listarDias(inicioIso: string, fimIso: string): string[] {
+  const dias: string[] = [];
+  let atual = paraDate(inicioIso);
+  const fim = paraDate(fimIso);
+  while (atual.getTime() <= fim.getTime()) {
+    dias.push(paraISO(atual));
+    atual = new Date(atual.getFullYear(), atual.getMonth(), atual.getDate() + 1);
+  }
+  return dias;
+}
+
+/** "yyyy-mm-dd" -> "dd/mm", como na referencia. */
+export function formatarDiaCurto(iso: string): string {
+  const [, mes, dia] = iso.split("-");
+  return `${dia}/${mes}`;
+}
