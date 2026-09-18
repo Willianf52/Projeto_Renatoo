@@ -206,6 +206,20 @@ async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPro
 
   const linhas = await getRegistroDeRondas(filtros);
 
+  if (!linhas) {
+    return (
+      <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
+        <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
+          <SearchIcon className="h-6 w-6" />
+        </div>
+        <p className="text-sm font-medium text-white">Selecione o Mês/Ano</p>
+        <p className="text-sm text-brand-muted">
+          Escolha o Mês/Ano acima e clique em Filtrar para ver o registro das rondas.
+        </p>
+      </div>
+    );
+  }
+
   const totalItems = linhas.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const linhasPagina = linhas.slice((pagina - 1) * PAGE_SIZE, (pagina - 1) * PAGE_SIZE + PAGE_SIZE);
