@@ -28,11 +28,11 @@
 -- insercao -- nao ha em que dia coloca-la, e chutar `data_hora` misturaria os
 -- dois criterios numa contagem so.
 --
--- SECURITY INVOKER, como todas as `relatorio_*`. O `join` com `sites` e o que
--- aplica o escopo de CLIENTE (0014): `leituras` e `visitas` tem policy
--- `using (true)` para autenticados, e e o RLS de `sites` que recorta. `inner
--- join` de proposito -- leitura de site fora do escopo some da contagem, em
--- vez de aparecer com o nome em branco.
+-- SECURITY INVOKER, como todas as `relatorio_*`: o RLS de `leituras`,
+-- `visitas` e `sites` recorta com o `auth.uid()` de quem chamou -- o INSPETOR
+-- so conta as proprias visitas, o CLIENTE so os sites do seu escopo (0014).
+-- `inner join` com `sites` de proposito: leitura de site fora do escopo some
+-- da contagem, em vez de aparecer com o nome em branco.
 --
 -- Idempotente: pode ser executada mais de uma vez sem erro.
 -- ============================================================================
