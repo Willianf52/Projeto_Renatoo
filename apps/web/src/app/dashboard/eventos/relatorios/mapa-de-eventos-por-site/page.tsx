@@ -1,15 +1,25 @@
 import { Suspense } from "react";
-import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
+import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import {
+  AcoesEsqueleto,
   CorpoDeRelatorioEsqueleto,
   FiltrosEmGradeEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
 import { BarChartIcon, ExcelIcon, FilterIcon, PdfIcon, SearchIcon } from "@/components/dashboard/icons";
-import { extrairFiltros, getOpcoesFiltros, temPeriodo, type SearchParams } from "./queries";
+import { formatarDiaCurto } from "@/lib/data-hora";
+import { ArvoreDoMapa } from "./ArvoreDoMapa";
+import {
+  extrairFiltros,
+  getMapaDeEventosPorSite,
+  getOpcoesFiltros,
+  LIMITE_DIAS,
+  primeiro,
+  type SearchParams,
+} from "./queries";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
@@ -31,16 +41,9 @@ export default function MapaDeEventosPorSitePage({ searchParams }: { searchParam
             <BarChartIcon className="h-4 w-4" />
             Mapa de Eventos por Site
           </h1>
-          {/* Desabilitados ate existir o corpo do relatorio: exportar sem saber
-              o formato do resultado seria inventar a planilha. */}
-          <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar para Excel" className="bg-emerald-600/40">
-              <ExcelIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
-              <PdfIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
-          </div>
+          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
+            <AcoesDeExportacao searchParams={searchParams} />
+          </Suspense>
         </div>
 
         <Suspense fallback={<FiltrosEmGradeEsqueleto celulas={8} colunas="xl:grid-cols-4" />}>
@@ -51,6 +54,41 @@ export default function MapaDeEventosPorSitePage({ searchParams }: { searchParam
           <CorpoDoMapa searchParams={searchParams} />
         </Suspense>
       </div>
+    </div>
+  );
+}
+
+function montarQueryDeExportacao(params: SearchParams): string {
+  const query = new URLSearchParams();
+  for (const [chave, valor] of Object.entries(params)) {
+    const v = primeiro(valor);
+    if (v) query.set(chave, v);
+  }
+  const texto = query.toString();
+  return texto ? `?${texto}` : "";
+}
+
+async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsPromise }) {
+  const queryExportacao = montarQueryDeExportacao(await searchParams);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Acao
+        titulo="Exportar para Excel"
+        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/excel${queryExportacao}`}
+        className="bg-emerald-600/40"
+        target="_blank"
+      >
+        <ExcelIcon className="h-4 w-4" />
+      </Acao>
+      <Acao
+        titulo="Exportar para PDF"
+        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/pdf${queryExportacao}`}
+        className="bg-red-600/40"
+        target="_blank"
+      >
+        <PdfIcon className="h-4 w-4" />
+      </Acao>
     </div>
   );
 }
@@ -106,31 +144,48 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 }
 
 /**
- * Por enquanto so o convite ao periodo. A referencia nao mostra nada abaixo
- * dos filtros antes de filtrar, e o formato do resultado (grade, grafico ou
- * mapa) ainda precisa de um print com dados para ser reproduzido.
+ * Sem periodo, o convite a escolher as datas -- a referencia nao mostra nada
+ * abaixo dos filtros antes de filtrar. Com periodo, a arvore.
  */
 async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
+  const mapa = await getMapaDeEventosPorSite(filtros);
+
+  if (!mapa || mapa.dias.length === 0) {
+    return (
+      <div className="mx-auto flex max-w-sm flex-col items-center gap-3 border-t border-slate-800 px-4 py-16 text-center animate-fade-in-up">
+        <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
+          <SearchIcon className="h-6 w-6" />
+        </div>
+        <p className="text-sm font-medium text-white">Selecione um período</p>
+        <p className="text-sm text-brand-muted">
+          {mapa
+            ? "A Data Final está antes da Data Inicial. Ajuste o período e clique em Filtrar."
+            : "Escolha a Data Inicial e a Data Final acima e clique em Filtrar para ver o mapa de eventos por site."}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto flex max-w-sm flex-col items-center gap-3 border-t border-slate-800 px-4 py-16 text-center animate-fade-in-up">
-      <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
-        <SearchIcon className="h-6 w-6" />
-      </div>
-      {temPeriodo(filtros) ? (
-        <>
-          <p className="text-sm font-medium text-white">Relatório em preparação</p>
-          <p className="text-sm text-brand-muted">O resultado deste mapa ainda está sendo implementado.</p>
-        </>
-      ) : (
-        <>
-          <p className="text-sm font-medium text-white">Selecione um período</p>
-          <p className="text-sm text-brand-muted">
-            Escolha a Data Inicial e a Data Final acima e clique em Filtrar para ver o mapa de eventos por site.
-          </p>
-        </>
+    <div className="border-t border-slate-800 p-4">
+      {mapa.diasExcedidos && (
+        <p className="mb-3 text-xs text-amber-300">
+          O período passa de {LIMITE_DIAS} dias; o mapa mostra só os {LIMITE_DIAS} primeiros.
+        </p>
       )}
+      {/* Cor como na referencia: verde sem ocorrencia, vermelho com. O
+          amarelo da referencia depende da situacao de tratativa (Status),
+          que o schema ainda nao guarda -- sem ela, toda ocorrencia conta como
+          nao tratada. */}
+      <div
+        role="region"
+        aria-label="Mapa de eventos por site"
+        tabIndex={0}
+        className="overflow-x-auto rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+      >
+        <ArvoreDoMapa colunas={mapa.dias.map(formatarDiaCurto)} raiz={mapa.raiz} />
+      </div>
     </div>
   );
 }
