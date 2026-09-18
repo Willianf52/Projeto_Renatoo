@@ -946,6 +946,22 @@ export type Database = {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number
       }
+      ocorrencias_de_evento: {
+        Args: {
+          p_filtros?: Json
+          p_fim: string
+          p_inicio: string
+          p_por_data_insercao?: boolean
+        }
+        Returns: {
+          evento_id: number
+          evento_nome: string
+          grupo_site_nome: string
+          quando: string
+          site_id: number
+          site_nome: string
+        }[]
+      }
       pode_administrar_cadastros: { Args: never; Returns: boolean }
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
@@ -980,6 +996,15 @@ export type Database = {
           termino: string
           usuario: string
           visita_id: number
+        }[]
+      }
+      relatorio_mapa_de_eventos: {
+        Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
+        Returns: {
+          dia: number
+          evento_id: number
+          evento_nome: string
+          quantidade: number
         }[]
       }
       relatorio_mapa_de_locais: {
