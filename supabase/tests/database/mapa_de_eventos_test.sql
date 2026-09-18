@@ -43,20 +43,20 @@ insert into public.acoes (nome) values ('Atividade TAP 0056 X');
 insert into public.visitas (numero_coleta, site_id, funcionario_id)
 select v.rotulo, s.id, v.funcionario::uuid
 from (values
-  (561, 'Site TAP 0056 S1', 'e0560000-0000-0000-0000-00000000000a'),
-  (562, 'Site TAP 0056 S2', 'e0560000-0000-0000-0000-00000000000b')
+  ('561', 'Site TAP 0056 S1', 'e0560000-0000-0000-0000-00000000000a'),
+  ('562', 'Site TAP 0056 S2', 'e0560000-0000-0000-0000-00000000000b')
 ) as v(rotulo, site, funcionario)
 join public.sites s on s.nome = v.site;
 
 insert into public.leituras (visita_id, data_hora, evento_id, acao_id)
 select vi.id, l.data_hora::timestamptz, e.id, a.id
 from (values
-  (561, '2026-03-10 09:00:00-03', 'Evento TAP 0056 A', null),
-  (561, '2026-03-10 10:00:00-03', 'Evento TAP 0056 A', null),
-  (561, '2026-03-10 11:00:00-03', 'Evento TAP 0056 B', 'Atividade TAP 0056 X'),
-  (562, '2026-03-15 01:30:00+00', 'Evento TAP 0056 A', null),
-  (562, '2026-04-01 00:00:00-03', 'Evento TAP 0056 A', null),
-  (562, '2026-03-12 08:00:00-03', null,                null)
+  ('561', '2026-03-10 09:00:00-03', 'Evento TAP 0056 A', null),
+  ('561', '2026-03-10 10:00:00-03', 'Evento TAP 0056 A', null),
+  ('561', '2026-03-10 11:00:00-03', 'Evento TAP 0056 B', 'Atividade TAP 0056 X'),
+  ('562', '2026-03-15 01:30:00+00', 'Evento TAP 0056 A', null),
+  ('562', '2026-04-01 00:00:00-03', 'Evento TAP 0056 A', null),
+  ('562', '2026-03-12 08:00:00-03', null,                null)
 ) as l(rotulo, data_hora, evento, atividade)
 join public.visitas vi on vi.numero_coleta = l.rotulo
 left join public.eventos e on e.nome = l.evento
