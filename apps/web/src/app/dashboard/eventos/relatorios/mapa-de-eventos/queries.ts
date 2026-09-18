@@ -1,5 +1,5 @@
 import type { TipoDeGrafico } from "@/components/dashboard/GraficoPorDia";
-import { mesAtual, periodoDoMes } from "@/lib/data-hora";
+import { periodoDoMes } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
@@ -21,8 +21,13 @@ export const TIPOS_DE_GRAFICO: { value: TipoDeGrafico; label: string }[] = [
 ];
 
 export type Filtros = {
-  /** "yyyy-mm". Sem valor -> mes atual, como em Registro das Rondas. */
-  mes: string;
+  /**
+   * "yyyy-mm", ou ausente enquanto ninguem escolheu. Sem preencher com o mes
+   * atual de proposito: na referencia o campo abre vazio, mostrando
+   * "Mês/Ano", e a grade so consulta depois da escolha -- um mes preenchido
+   * sozinho parecia filtro que alguem aplicou.
+   */
+  mes?: string;
   evento?: string;
   tipoDeGrafico?: TipoDeGrafico;
   sites?: string;
@@ -46,7 +51,7 @@ export function extrairFiltros(params: SearchParams): Filtros {
   const mes = primeiro(params.mes);
   const tipo = primeiro(params.tipo_grafico);
   return {
-    mes: mesValido(mes) ? mes : mesAtual(),
+    mes: mesValido(mes) ? mes : undefined,
     evento: primeiro(params.evento),
     // Valor desconhecido na URL vira "sem grafico", nao um terceiro tipo.
     tipoDeGrafico: tipo === "barras" || tipo === "linhas" ? tipo : undefined,
@@ -163,7 +168,10 @@ export function montarMapa(doBanco: LinhaDoBanco[]): MapaDeEventos {
   return { linhas, totaisPorDia, totalGeral: totaisPorDia.reduce((soma, n) => soma + n, 0) };
 }
 
-export async function getMapaDeEventos(filtros: Filtros): Promise<MapaDeEventos> {
+/** `null` enquanto nao ha Mês/Ano escolhido: nada a consultar ainda. */
+export async function getMapaDeEventos(filtros: Filtros): Promise<MapaDeEventos | null> {
+  if (!filtros.mes) return null;
+
   const supabase = await createClient();
   const { inicio, fim } = periodoDoMes(filtros.mes);
 

@@ -42,10 +42,10 @@ describe("extrairFiltros", () => {
     });
   });
 
-  it("cai no mes atual e em 'sem grafico' para valores fora do formato", () => {
+  it("deixa o mes vazio quando ausente ou fora do formato -- o campo abre em 'Mês/Ano'", () => {
+    expect(extrairFiltros({}).mes).toBeUndefined();
     const filtros = extrairFiltros({ mes: "2026-13", tipo_grafico: "pizza" });
-    expect(filtros.mes).toMatch(/^\d{4}-\d{2}$/);
-    expect(filtros.mes).not.toBe("2026-13");
+    expect(filtros.mes).toBeUndefined();
     expect(filtros.tipoDeGrafico).toBeUndefined();
   });
 });
@@ -80,6 +80,11 @@ describe("montarMapa", () => {
 });
 
 describe("getMapaDeEventos", () => {
+  it("nao consulta o banco sem Mês/Ano", async () => {
+    expect(await getMapaDeEventos({})).toBeNull();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it("manda o mes como periodo meio-aberto e so os filtros preenchidos", async () => {
     rpcMock.mockReturnValueOnce(construtor([])).mockReturnValueOnce(construtor([]));
 

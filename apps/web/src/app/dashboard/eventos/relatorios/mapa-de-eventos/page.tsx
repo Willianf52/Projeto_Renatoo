@@ -185,6 +185,11 @@ function valorDaCelula(n: number) {
 async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
   const mapa = await getMapaDeEventos(filtros);
+  // Sem Mês/Ano a grade aparece mesmo assim, vazia e com a linha Total, como a
+  // referencia abre -- so a mensagem muda.
+  const linhas = mapa?.linhas ?? [];
+  const totaisPorDia = mapa?.totaisPorDia ?? Array.from({ length: DIAS_DO_MES }, () => 0);
+  const totalGeral = mapa?.totalGeral ?? 0;
 
   return (
     <>
@@ -206,14 +211,16 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
             </tr>
           </thead>
           <tbody>
-            {mapa.linhas.length === 0 ? (
+            {linhas.length === 0 ? (
               <tr>
                 <td colSpan={DIAS_DO_MES + 2} className="px-3 py-6 text-center text-brand-muted">
-                  Nenhum evento registrado neste mês. Ajuste o Mês/Ano ou os filtros acima.
+                  {mapa
+                    ? "Nenhum evento registrado neste mês. Ajuste o Mês/Ano ou os filtros acima."
+                    : "Selecione o Mês/Ano acima e clique em Filtrar para ver o mapa de eventos."}
                 </td>
               </tr>
             ) : (
-              mapa.linhas.map((linha, indice) => (
+              linhas.map((linha, indice) => (
                 <tr
                   key={linha.eventoId}
                   className="border-b border-slate-800/60 animate-fade-in-up hover:bg-white/5"
@@ -240,12 +247,12 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
               <th scope="row" className="sticky left-0 z-10 bg-brand-navy px-3 py-2">
                 Total
               </th>
-              {mapa.totaisPorDia.map((n, dia) => (
+              {totaisPorDia.map((n, dia) => (
                 <td key={dia} className="px-1.5 py-2 text-center">
                   {valorDaCelula(n)}
                 </td>
               ))}
-              <td className="px-3 py-2 text-center">{valorDaCelula(mapa.totalGeral)}</td>
+              <td className="px-3 py-2 text-center">{valorDaCelula(totalGeral)}</td>
             </tr>
           </tfoot>
         </table>
@@ -254,10 +261,10 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
       {/* O grafico so aparece quando alguem escolhe o tipo -- sem escolha, a
           referencia mostra so a grade. Plota a linha Total (ocorrencias por
           dia), que e o resumo que cabe num grafico de uma serie. */}
-      {filtros.tipoDeGrafico && mapa.linhas.length > 0 && (
+      {filtros.tipoDeGrafico && linhas.length > 0 && (
         <div className="overflow-x-auto border-t border-slate-800 p-4">
           <GraficoPorDia
-            valores={mapa.totaisPorDia}
+            valores={totaisPorDia}
             tipo={filtros.tipoDeGrafico}
             rotulo="Total de eventos por dia do mês"
           />
