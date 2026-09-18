@@ -1,4 +1,4 @@
-import { mesAtual, periodoDoMes } from "@/lib/data-hora";
+import { periodoDoMes } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
@@ -11,8 +11,13 @@ export function primeiro(valor: string | string[] | undefined): string | undefin
 }
 
 export type Filtros = {
-  /** "yyyy-mm". Sem valor -> mes atual (ver extrairFiltros). */
-  mes: string;
+  /**
+   * "yyyy-mm", ou ausente enquanto ninguem escolheu. Nao cai mais no mes
+   * atual: o campo abre vazio, mostrando "Mês/Ano", como na referencia (e
+   * como o Mapa de Eventos) -- um mes preenchido sozinho parecia filtro que
+   * alguem aplicou. Sem mes, a tela pede a escolha e nao consulta.
+   */
+  mes?: string;
   local?: string;
   coletorDados?: string;
   funcionario?: string;
@@ -29,10 +34,6 @@ export type Filtros = {
   motivo?: string;
 };
 
-/** Ver `mesAtual` em lib/data-hora.ts: o fuso precisa ser explicito, senao o
- * servidor (UTC na Vercel) vira o mes tres horas antes de Brasilia. */
-const MES_ATUAL = () => mesAtual();
-
 function mesValido(valor: string | undefined): valor is string {
   if (!valor) return false;
   const encontrado = /^\d{4}-(\d{2})$/.exec(valor);
@@ -44,7 +45,7 @@ function mesValido(valor: string | undefined): valor is string {
 export function extrairFiltros(params: SearchParams): Filtros {
   const mes = primeiro(params.mes);
   return {
-    mes: mesValido(mes) ? mes : MES_ATUAL(),
+    mes: mesValido(mes) ? mes : undefined,
     local: primeiro(params.local),
     coletorDados: primeiro(params.coletor_dados),
     funcionario: primeiro(params.funcionario),
@@ -190,7 +191,10 @@ export function montarLinhas(linhasDoBanco: LinhaDoBanco[]): RegistroDeRondasLin
   return Array.from(porSite.values()).sort((a, b) => a.siteNome.localeCompare(b.siteNome, "pt-BR"));
 }
 
-export async function getRegistroDeRondas(filtros: Filtros): Promise<RegistroDeRondasLinha[]> {
+/** `null` enquanto nao ha Mês/Ano escolhido: nada a consultar ainda. */
+export async function getRegistroDeRondas(filtros: Filtros): Promise<RegistroDeRondasLinha[] | null> {
+  if (!filtros.mes) return null;
+
   const supabase = await createClient();
   const { inicio, fim } = periodoDoMes(filtros.mes);
 
