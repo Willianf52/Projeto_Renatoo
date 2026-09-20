@@ -11,6 +11,7 @@ import {
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import {
+  CopyIcon,
   FilterIcon,
   PencilIcon,
   PlusCircleIcon,
@@ -225,25 +226,46 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
   // demais telas de cadastro.
   const rows = resultado.rows.map((usuario) => [
     ...toTableRow(usuario),
-    podeAdministrar ? (
-      <Acao
-        key={usuario.id}
-        titulo={`Editar ${usuario.nome_completo || usuario.email}`}
-        href={`/dashboard/cadastros/usuarios/${usuario.id}/editar`}
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </Acao>
-    ) : (
-      <AcaoDesabilitada
-        key={usuario.id}
-        titulo="Editar usuário"
-        motivo="apenas Gestor administra usuários"
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
-    ),
+    // Editar e Duplicar na mesma celula, e nao em duas colunas como na
+    // referencia: as demais telas deste painel tem uma coluna "Ações" so, e a
+    // consistencia entre elas vale mais que a divisao de la.
+    <div key={usuario.id} className="flex items-center gap-2">
+      {podeAdministrar ? (
+        <>
+          <Acao
+            titulo={`Editar ${usuario.nome_completo || usuario.email}`}
+            href={`/dashboard/cadastros/usuarios/${usuario.id}/editar`}
+            className="bg-white/10"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </Acao>
+          <Acao
+            titulo={`Duplicar o acesso de ${usuario.nome_completo || usuario.email}`}
+            href={`/dashboard/cadastros/usuarios/novo?duplicar=${usuario.id}`}
+            className="bg-white/10"
+          >
+            <CopyIcon className="h-4 w-4" />
+          </Acao>
+        </>
+      ) : (
+        <>
+          <AcaoDesabilitada
+            titulo="Editar usuário"
+            motivo="apenas Gestor administra usuários"
+            className="bg-white/10"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </AcaoDesabilitada>
+          <AcaoDesabilitada
+            titulo="Duplicar usuário"
+            motivo="apenas Gestor administra usuários"
+            className="bg-white/10"
+          >
+            <CopyIcon className="h-4 w-4" />
+          </AcaoDesabilitada>
+        </>
+      )}
+    </div>,
   ]);
 
   const buildPageHref = (pagina: number) => {

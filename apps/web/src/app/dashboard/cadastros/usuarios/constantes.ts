@@ -82,3 +82,68 @@ export const FUNCOES_CONHECIDAS = [
   "Supervisor de Operações",
   "Supervisor Operacional",
 ];
+
+/**
+ * Formulario de criacao em branco.
+ *
+ * Mora aqui, e nao em `novo/page.tsx`, porque `valoresParaDuplicar` abaixo
+ * precisa da mesma base e e regra que merece teste proprio.
+ */
+export const VALORES_VAZIOS = {
+  nomeCompleto: "",
+  email: "",
+  senha: "",
+  login: "",
+  funcao: "",
+  // Mesmo default do trigger `handle_new_user` (migration 0008): o nivel mais
+  // baixo, para que conceder mais seja sempre um ato deliberado.
+  cargo: "OPERADOR",
+  // Mesmo default da coluna (migration 0019): o caso comum e cadastrar uma
+  // pessoa, e conta de integracao e a excecao que se escolhe.
+  tipo: TIPO_PADRAO,
+  superiorId: "",
+  // Ja marcado: quem chega aqui e um gestor criando alguem de proposito, e o
+  // caso comum e que a pessoa deva conseguir entrar. A 0008 defende contra
+  // cadastro vindo de fora do app, que e outro caminho.
+  ativo: true,
+  gruposDoCliente: [] as string[],
+};
+
+/** O que a conta de origem empresta no Duplicar -- nada que a identifique. */
+export type ModeloParaDuplicar = {
+  funcao: string | null;
+  cargo: string;
+  tipo: string;
+  /** Opcional: o select da listagem nem sempre traz a coluna. */
+  superior_id?: string | null;
+  ativo: boolean;
+};
+
+/**
+ * Valores iniciais do formulario ao duplicar um usuario.
+ *
+ * Copia o PERFIL DE ACESSO: cargo, tipo, funcao, superior, situacao e os
+ * grupos do escopo de cliente. Nome, e-mail, login e senha ficam em branco de
+ * proposito -- sao o que identifica a pessoa, e o e-mail e unico na conta de
+ * autenticacao do Supabase, entao copia-lo so produziria recusa no envio.
+ *
+ * Objeto novo a cada chamada: `VALORES_VAZIOS` e compartilhado, e devolver a
+ * mesma referencia (com o mesmo array de grupos) deixaria duas telas
+ * mexendo no mesmo estado.
+ */
+export function valoresParaDuplicar(
+  modelo: ModeloParaDuplicar | null,
+  escopoDoModelo: string[],
+): typeof VALORES_VAZIOS {
+  if (!modelo) return { ...VALORES_VAZIOS, gruposDoCliente: [] };
+
+  return {
+    ...VALORES_VAZIOS,
+    funcao: modelo.funcao ?? "",
+    cargo: modelo.cargo,
+    tipo: modelo.tipo,
+    superiorId: modelo.superior_id ?? "",
+    ativo: modelo.ativo,
+    gruposDoCliente: escopoDoModelo,
+  };
+}
