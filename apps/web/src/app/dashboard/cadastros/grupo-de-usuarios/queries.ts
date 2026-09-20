@@ -44,7 +44,8 @@ export function extrairFiltros(params: SearchParams): GrupoUsuariosFiltros {
 }
 
 /** Cabecalhos da tabela, sem a coluna "Ações" -- que so existe na tela. */
-export const COLUNAS_EXPORTACAO = ["ID", "Nome", "Descrição", "Membros"];
+/** "Usuários", e nao "Membros": e o cabecalho do sistema de referencia. */
+export const COLUNAS_EXPORTACAO = ["ID", "Nome", "Descrição", "Usuários"];
 
 /** Busca livre em nome e descricao, como na tela de Grupo de Sites: quem
  * digita "portaria" espera achar tambem o grupo cuja descricao a menciona.

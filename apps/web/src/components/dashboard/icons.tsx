@@ -271,3 +271,13 @@ export function BarChartIcon({ className = "h-5 w-5" }: IconProps) {
     </svg>
   );
 }
+
+/** Pino de mapa da coluna Lat/Long do cadastro de Site / Planta. */
+export function MapPinIcon({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}

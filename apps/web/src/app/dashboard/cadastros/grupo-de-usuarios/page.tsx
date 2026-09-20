@@ -189,7 +189,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
       className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end"
     >
       <div className="min-w-0 flex-1">
-        <FilterInput label="Busca Livre..." name="busca" defaultValue={filtros.busca} />
+        <FilterInput label="Filtre por descrição ou código..." name="busca" defaultValue={filtros.busca} />
       </div>
 
       <Button type="submit" className="group shrink-0 xl:w-52">

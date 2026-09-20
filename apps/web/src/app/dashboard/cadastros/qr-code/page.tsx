@@ -19,6 +19,7 @@ import {
   QrCodeIcon,
 } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { gerarQrCodeDataUrl } from "@/lib/qrcode";
 import {
   extrairFiltros,
   getOpcoes,
@@ -31,9 +32,17 @@ import {
   type SearchParams,
 } from "./queries";
 
-// A ultima coluna so existe na tela: a exportacao nao a tem.
-const TABLE_COLUMNS = [...COLUNAS_EXPORTACAO, "Ações"];
-const MIN_WIDTH = "min-w-[800px]";
+/**
+ * Primeira e ultima coluna so existem na tela: a exportacao nao tem nenhuma
+ * das duas. A miniatura abre a listagem como no sistema de referencia -- e
+ * com ela da para conferir de relance que o QR impresso e o daquela linha,
+ * sem abrir a folha de etiquetas.
+ */
+const TABLE_COLUMNS = ["QR-Code", ...COLUNAS_EXPORTACAO, "Ações"];
+const MIN_WIDTH = "min-w-[880px]";
+/** Miniatura: o suficiente para a camera de um celular ler da tela, e 1/6 do
+ * peso da imagem da etiqueta impressa (240px). */
+const LARGURA_DA_MINIATURA = 96;
 const GRADE_DE_FILTROS = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
 
 type SearchParamsPromise = Promise<SearchParams>;
@@ -194,9 +203,22 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
 
+  // Uma geracao por linha da pagina (PAGE_SIZE = 25), em paralelo. E CPU no
+  // servidor, nao ida ao banco: o codigo ja veio na consulta.
+  const miniaturas = await Promise.all(
+    resultado.rows.map((qrCode) => gerarQrCodeDataUrl(qrCode.codigo, LARGURA_DA_MINIATURA)),
+  );
+
   // Quem nao administra continua vendo o botao, desabilitado: escondê-lo faria
   // a coluna "Ações" aparecer vazia, sem explicar por que.
-  const rows = resultado.rows.map((qrCode) => [
+  const rows = resultado.rows.map((qrCode, indice) => [
+    /* eslint-disable-next-line @next/next/no-img-element -- data URL gerada no servidor, next/image não ajuda aqui */
+    <img
+      key={qrCode.id}
+      src={miniaturas[indice]}
+      alt={`QR-Code ${qrCode.codigo}`}
+      className="h-12 w-12 rounded-sm bg-white p-0.5"
+    />,
     ...toTableRow(qrCode),
     podeAdministrar ? (
       <Acao
