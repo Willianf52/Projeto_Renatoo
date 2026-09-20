@@ -13,7 +13,8 @@ export async function GET(request: Request) {
   const filtros = extrairFiltros(Object.fromEntries(searchParams));
 
   // Sem aviso de truncado desde a 0049: o mes e agregado inteiro no banco.
-  const dados = (await getRegistroDeRondas(filtros)).map(paraLinhaDeExportacao);
+  // Sem Mês/Ano escolhido, sai so o cabecalho -- a tela tambem nao consulta.
+  const dados = ((await getRegistroDeRondas(filtros)) ?? []).map(paraLinhaDeExportacao);
 
   return new Response(paraCsv(TABLE_COLUMNS, dados), {
     headers: {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatarDataHora } from "@/lib/data-hora";
 import { montarHierarquiaDePerfis } from "@/lib/hierarquia-de-perfis";
+import { niveisDoSite, ORGANIZACAO } from "@/lib/hierarquia-de-sites";
 import { termoParaOr } from "@/lib/postgrest-escape";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
 
@@ -154,12 +155,9 @@ export const COLUNAS_EXPORTACAO = [
  */
 export const INDICE_HIERARQUIA = COLUNAS_EXPORTACAO.indexOf("Hierarquia");
 
-/**
- * Organizacao no topo da hierarquia. Fixa, como na barra superior
- * (`DashboardLayout`) -- quando existir tabela de organizacoes, as duas passam
- * a ler de la.
- */
-export const ORGANIZACAO = "UP Serviços";
+// `ORGANIZACAO` mora em `lib/hierarquia-de-sites.ts` desde Registro de Eventos;
+// re-exportada para quem ja importava daqui.
+export { ORGANIZACAO };
 
 /**
  * Busca livre em nome, sigla e cidade -- os tres campos por onde se procura
@@ -349,9 +347,7 @@ export async function getSitesParaSuperior(excluirId?: number): Promise<Opcao[]>
  * mostra a mesma profundidade.
  */
 export function montarHierarquia(site: SiteRow): string[] {
-  return [ORGANIZACAO, site.grupos_sites?.nome, site.nome].filter(
-    (nivel): nivel is string => Boolean(nivel),
-  );
+  return niveisDoSite(site.grupos_sites?.nome, site.nome);
 }
 
 /** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
