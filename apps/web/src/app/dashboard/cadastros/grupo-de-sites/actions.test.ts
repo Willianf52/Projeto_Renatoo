@@ -105,11 +105,16 @@ describe("salvarGrupoSite", () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("recusa sem nenhum site marcado", async () => {
-    const estado = await salvarGrupoSite({}, formulario({ nome: "ACE Limpeza" }));
+  /**
+   * Sem isto o banco vazio nao tinha como ser povoado pela tela: Site / Planta
+   * exige um grupo, e este formulario exigia um site.
+   */
+  it("cria o grupo sem nenhum site marcado, sem tocar em sites", async () => {
+    await salvarGrupoSite({}, formulario({ nome: "ACE Limpeza" }));
 
-    expect(estado.erro).toBe("Selecione ao menos um site.");
-    expect(chamadas).toHaveLength(0);
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0]).toMatchObject({ tipo: "insert", tabela: "grupos_sites" });
+    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
   });
 
   it("recusa grupo pai igual ao proprio registro em edicao", async () => {
