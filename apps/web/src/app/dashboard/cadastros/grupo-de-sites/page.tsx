@@ -19,6 +19,7 @@ import {
   SitemapIcon,
   UploadIcon,
 } from "@/components/dashboard/icons";
+import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { getGruposSites, toTableRow, PAGE_SIZE, type GrupoSiteFiltros } from "./queries";
 
@@ -205,6 +206,10 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
     return `?${query.toString()}`;
   };
 
+  // Tabela vazia sem filtro e cadastro que ainda nao existe, nao busca que
+  // nao achou nada (ver `lib/lista-vazia.ts`).
+  const filtrado = temFiltroAplicado(params);
+
   return (
     <DataTable
       columns={TABLE_COLUMNS}
@@ -214,8 +219,12 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
       totalItems={resultado.totalItems}
       buildPageHref={buildPageHref}
       minWidth={MIN_WIDTH}
-      emptyTitle="Nenhum grupo de sites encontrado"
-      emptyDescription="Ajuste a busca acima para localizar cadastros."
+      emptyTitle={filtrado ? "Nenhum grupo de sites encontrado" : "Nenhum grupo de sites cadastrado"}
+      emptyDescription={descricaoDeListaVazia({
+        filtrado,
+        podeCadastrar: podeAdministrar,
+        descricaoFiltrada: "Ajuste a busca acima para localizar cadastros.",
+      })}
     />
   );
 }

@@ -20,7 +20,8 @@ export default async function ExportarRegistroDeRondasPdfPage({
   const filtros = extrairFiltros(params);
 
   // Sem aviso de truncado desde a 0049: o mes e agregado inteiro no banco.
-  const dados = (await getRegistroDeRondas(filtros)).map(paraLinhaDeExportacao);
+  // Sem Mês/Ano escolhido, sai so o cabecalho -- a tela tambem nao consulta.
+  const dados = ((await getRegistroDeRondas(filtros)) ?? []).map(paraLinhaDeExportacao);
 
   return (
     <TabelaImpressao
