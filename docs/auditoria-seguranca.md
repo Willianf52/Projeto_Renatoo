@@ -617,3 +617,31 @@ passa idêntico antes e depois da migration e não prova nada. Os asserts
 principais consultam o catálogo (`has_table_privilege`, `has_function_privilege`,
 `pg_default_acl`), e os comportamentais checam a **mensagem** (`permission
 denied for table ...`), não só o código.
+
+## 6. Auditoria de AppSec de 2026-09-16
+
+Revisão ponta a ponta (RLS e grants lidos do catálogo de produção, rotas de API,
+Server Actions, Sentry, app de campo, CI), sem teste dinâmico com token de
+INSPETOR. Nenhum achado crítico. Estado de cada item:
+
+| Id | Severidade | Achado | Estado |
+|---|---|---|---|
+| H1 | Alta | `dataCollection: {}` do wizard fazia o Sentry do servidor ignorar `sendDefaultPii` e coletar corpo de requisição (senha em texto puro em `/api/senha/verificar-vazamento`), cookies e dados do usuário | Corrigido no PR #89 (`src/lib/sentry-privacidade.ts`) |
+| M1 | Média | Segredo `x-webhook-secret` literal na definição do trigger "user-updated" em `auth.users` — sai em todo `pg_dump` (backup no R2, ensaio de restauração) | Migration 0053 lê o segredo do Vault. **Rotacionar o segredo** e apagar o webhook antigo no painel (passos no cabeçalho da 0053) |
+| M2 | Média | O webhook disparava a cada login com o registro inteiro de `auth.users` (hash bcrypt, hashes de tokens); o pico de logins esgotava o limite da rota e o aviso de troca de senha podia se perder | Migration 0053: trigger só na troca de senha, corpo `{ type, user_id, email }` |
+| M3 | Média | INSPETOR escrevia `criado_em`/`data_integracao`, pendurava QR de outro site e registrava leitura retroativa | Migration 0054: grant por coluna e trigger de validação. **Continua aberto:** prova de presença (coordenada e raio conferidos no servidor) |
+| M4 | Média | MFA não exigido para GESTOR, que redefine senha de qualquer conta | Aberto (mesmo achado da 5.3). Configuração de produção não verificável pela API |
+| L1 | Baixa | INSPETOR/OPERADOR leem sites e QR-codes de todos os clientes (`pode_ver_grupo_site`) | Aberto — depende de vínculo inspetor↔grupo (decisão de produto) |
+| L2 | Baixa | Fila offline em SQLite sem cifra, incluída no backup automático do Android/iCloud | Aberto |
+| L3 | Baixa | `EXPO_PUBLIC_ROTEIRO_SENHA` entra no bundle se estiver no ambiente do build, mesmo com o roteiro desligado | Aberto |
+| L4 | Baixa | Importação faz `upsert` sobrescrevendo visitas existentes, inclusive as do app | Aberto |
+| L5 | Info | Redirecionamento para o login duplica a query string | Aberto |
+
+Verificado e correto nesta rodada: RLS em todas as tabelas de `public`; nada
+concedido a `anon` (confirmado por chamada sem sessão à REST, RPC e Storage);
+cadastro público desligado em produção; escalada de perfil fechada (grant só em
+`nome_completo` + trigger); funções `security definer` fora da API com
+`search_path` fixo; isolamento de CLIENTE; bucket privado com tipo e tamanho;
+`service_role` só no servidor (`server-only`); segredos comparados em tempo
+constante; redirecionamento aberto e SSRF fechados; nenhum segredo no histórico
+do git; actions fixadas por SHA.

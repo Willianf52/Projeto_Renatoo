@@ -1,23 +1,26 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 /**
- * Validacao do webhook de UPDATE em auth.users, separada da rota para poder
- * ser testada sem carregar o cliente do Resend (que e server-only e exige
+ * Validacao do aviso de troca de senha, separada da rota para poder ser
+ * testada sem carregar o cliente do Resend (que e server-only e exige
  * RESEND_API_KEY so por ser importado).
+ *
+ * QUEM CHAMA (desde a migration 0053): o trigger `avisar_troca_de_senha` em
+ * `auth.users`, que so dispara quando `encrypted_password` muda e manda
+ * APENAS `{ type, user_id, email }`.
+ *
+ * Antes era um Database Webhook criado pelo painel, disparado em todo UPDATE
+ * de `auth.users` -- inclusive o `last_sign_in_at` de cada login -- com o
+ * registro inteiro no corpo: hash bcrypt da senha e hashes dos tokens de
+ * recuperacao chegando a aplicacao em toda entrada no sistema, so para ela
+ * comparar dois hashes. Achado M2 da auditoria de AppSec de 16/09/2026.
  */
 
-export type UsuarioWebhook = {
-  id: string;
-  email: string;
-  encrypted_password: string | null;
-};
+export const TIPO_TROCA_DE_SENHA = "PASSWORD_CHANGED";
 
-export type UserUpdatedPayload = {
-  type: string;
-  table: string;
-  schema: string;
-  record: UsuarioWebhook;
-  old_record: UsuarioWebhook | null;
+export type AvisoDeTrocaDeSenha = {
+  userId: string;
+  email: string;
 };
 
 /**
@@ -33,55 +36,45 @@ export function segredoConfere(recebido: string | null | undefined, esperado: st
   return timingSafeEqual(digest(recebido), digest(esperado));
 }
 
-function lerUsuario(valor: unknown): UsuarioWebhook | null {
-  if (typeof valor !== "object" || valor === null) return null;
-
-  const usuario = valor as Record<string, unknown>;
-  if (typeof usuario.id !== "string" || typeof usuario.email !== "string") return null;
-
-  // O endereco vai direto para o envio de e-mail, entao nao pode ser texto
-  // arbitrario nem de tamanho arbitrario. 254 e o limite de um e-mail valido.
-  const email = usuario.email.trim();
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
-
-  const senha = usuario.encrypted_password;
-  if (senha !== undefined && senha !== null && typeof senha !== "string") return null;
-
-  return { id: usuario.id, email, encrypted_password: senha ?? null };
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Tipo do TypeScript nao valida nada em runtime: o corpo chega da rede e
  * precisa ser conferido campo a campo antes de ser usado. */
-export function lerPayload(valor: unknown): UserUpdatedPayload | null {
+export function lerAvisoDeTrocaDeSenha(valor: unknown): AvisoDeTrocaDeSenha | null {
   if (typeof valor !== "object" || valor === null) return null;
 
   const corpo = valor as Record<string, unknown>;
-  if (
-    typeof corpo.type !== "string" ||
-    typeof corpo.table !== "string" ||
-    typeof corpo.schema !== "string"
-  ) {
-    return null;
-  }
+  if (corpo.type !== TIPO_TROCA_DE_SENHA) return null;
+  if (typeof corpo.user_id !== "string" || !UUID.test(corpo.user_id)) return null;
+  if (typeof corpo.email !== "string") return null;
 
-  const record = lerUsuario(corpo.record);
-  if (!record) return null;
+  // O endereco vai direto para o envio de e-mail, entao nao pode ser texto
+  // arbitrario nem de tamanho arbitrario. 254 e o limite de um e-mail valido.
+  const email = corpo.email.trim();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
 
-  return {
-    type: corpo.type,
-    table: corpo.table,
-    schema: corpo.schema,
-    record,
-    old_record: lerUsuario(corpo.old_record),
-  };
+  return { userId: corpo.user_id, email };
 }
 
-export function isEventoRelevante(payload: UserUpdatedPayload): boolean {
-  return payload.schema === "auth" && payload.table === "users" && payload.type === "UPDATE";
-}
-
-export function isSenhaAlterada(payload: UserUpdatedPayload): boolean {
-  const senhaAntiga = payload.old_record?.encrypted_password;
-  const senhaNova = payload.record.encrypted_password;
-  return Boolean(senhaAntiga) && Boolean(senhaNova) && senhaAntiga !== senhaNova;
+/**
+ * Corpo do Database Webhook antigo (`{ type, table, schema, record,
+ * old_record }`).
+ *
+ * Reconhecido so para ser IGNORADO com 200, e nao recusado com 400: enquanto
+ * o webhook antigo nao for apagado no painel do Supabase (o dono da migration
+ * nao tem privilegio para remove-lo -- ver a 0053), ele continua disparando a
+ * cada login. Um 400 a cada entrada no sistema viraria ruido de log; processar
+ * o formato de novo mandaria o aviso em dobro junto com o trigger novo.
+ */
+export function eFormatoDoWebhookAntigo(valor: unknown): boolean {
+  if (typeof valor !== "object" || valor === null) return false;
+  const corpo = valor as Record<string, unknown>;
+  // `typeof null === "object"`: sem o `!== null`, `record: null` passaria por
+  // formato antigo e levaria 200 em vez de 400.
+  return (
+    corpo.schema === "auth" &&
+    corpo.table === "users" &&
+    typeof corpo.record === "object" &&
+    corpo.record !== null
+  );
 }
