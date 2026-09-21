@@ -1,5 +1,5 @@
 import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
-import { filtrosParaRpc } from "@/lib/relatorios";
+import { filtrosParaRpc, periodoInvertido } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -110,6 +110,7 @@ export function ordenarRanking(linhas: RankingDoBanco[]): RankingDeInspecoes {
  */
 export async function getRankingDeInspecoes(filtros: Filtros): Promise<RankingDeInspecoes | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
+  if (periodoInvertido(filtros.dataInicial, filtros.dataFinal)) return null;
 
   const supabase = await createClient();
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
