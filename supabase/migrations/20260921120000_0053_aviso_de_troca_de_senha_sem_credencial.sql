@@ -24,7 +24,8 @@
 --
 -- A CORRECAO. Um trigger nosso, que:
 --   - so dispara quando `encrypted_password` muda (`update of` + `when`);
---   - manda so `{ type: 'PASSWORD_CHANGED', user_id, email }`;
+--   - manda so `{ type: 'PASSWORD_CHANGED', user_id, email }` -- e, se o
+--     e-mail mudou no mesmo UPDATE, um segundo aviso para o endereco antigo;
 --   - le URL e segredo do Vault (`vault.decrypted_secrets`), nunca da DDL;
 --   - NUNCA derruba a troca de senha: segredo ausente, pg_net ausente ou
 --     falha de enfileiramento viram `warning` e a troca segue. Um aviso
@@ -60,6 +61,7 @@ as $$
 declare
   v_url     text;
   v_segredo text;
+  v_email   text;
 begin
   -- Verificado em tempo de execucao, e nao por `create extension`: o stack
   -- local da CI pode nao ter Vault/pg_net, e a ausencia nao pode quebrar a
@@ -80,21 +82,30 @@ begin
     return new;
   end if;
 
-  -- `execute` e nao chamada direta: a funcao compila mesmo sem pg_net
-  -- instalado. O pg_net so enfileira; a requisicao sai depois do commit.
-  execute $q$
-    select net.http_post(
-      url                  := $1,
-      body                 := $2,
-      params               := '{}'::jsonb,
-      headers              := $3,
-      timeout_milliseconds := 5000
-    )
-  $q$
-  using
-    v_url,
-    jsonb_build_object('type', 'PASSWORD_CHANGED', 'user_id', new.id, 'email', new.email),
-    jsonb_build_object('Content-Type', 'application/json', 'x-webhook-secret', v_segredo);
+  -- Se e-mail e senha mudam no mesmo UPDATE (o trigger dispara: a coluna
+  -- `encrypted_password` esta no SET), avisar so `new.email` avisaria o
+  -- endereco que quem sequestrou a conta acabou de colocar. O dono legitimo
+  -- e o do `old.email` -- ele tambem recebe. Numa troca normal os dois sao
+  -- iguais e sai um aviso so.
+  foreach v_email in array array(
+    select distinct e from unnest(array[new.email, old.email]) as e where e is not null
+  ) loop
+    -- `execute` e nao chamada direta: a funcao compila mesmo sem pg_net
+    -- instalado. O pg_net so enfileira; a requisicao sai depois do commit.
+    execute $q$
+      select net.http_post(
+        url                  := $1,
+        body                 := $2,
+        params               := '{}'::jsonb,
+        headers              := $3,
+        timeout_milliseconds := 5000
+      )
+    $q$
+    using
+      v_url,
+      jsonb_build_object('type', 'PASSWORD_CHANGED', 'user_id', new.id, 'email', v_email),
+      jsonb_build_object('Content-Type', 'application/json', 'x-webhook-secret', v_segredo);
+  end loop;
 
   return new;
 exception when others then

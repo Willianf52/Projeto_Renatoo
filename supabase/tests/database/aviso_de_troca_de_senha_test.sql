@@ -8,7 +8,8 @@
 --      ruim; troca de senha bloqueada e pior.
 --   4) Com segredos (quando o stack tem Vault e pg_net): um login nao enfileira
 --      nada, uma troca de senha enfileira UM pedido, e o corpo nao carrega
---      hash nenhum.
+--      hash nenhum. Se e-mail e senha mudam juntos, o endereco ANTIGO
+--      (o do dono legitimo) tambem e avisado.
 --
 -- Os asserts do item 4 dependem de extensoes que o stack local pode nao ter;
 -- sem elas, viram SKIP explicito em vez de falso verde.
@@ -16,7 +17,7 @@
 
 begin;
 
-select plan(8);
+select plan(9);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password)
 values ('e0530000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'troca.senha.0053@teste.local', 'hash-inicial');
@@ -66,7 +67,7 @@ select is(
 -- ---------------------------------------------------------------------------
 -- 4) Com segredos: o que vai para a fila do pg_net.
 -- ---------------------------------------------------------------------------
-create temporary table resultado_do_aviso (disponivel boolean, pedidos int, com_hash int);
+create temporary table resultado_do_aviso (disponivel boolean, pedidos int, com_hash int, enderecos text[]);
 
 do $$
 declare
@@ -74,7 +75,7 @@ declare
 begin
   if to_regclass('vault.decrypted_secrets') is null
      or to_regclass('net.http_request_queue') is null then
-    insert into resultado_do_aviso values (false, 0, 0);
+    insert into resultado_do_aviso values (false, 0, 0, null);
     return;
   end if;
 
@@ -82,7 +83,7 @@ begin
     execute $q$select vault.create_secret('segredo-de-teste-0053', 'webhook_user_updated_secret')$q$;
     execute $q$select vault.create_secret('http://127.0.0.1:9/aviso-0053', 'webhook_user_updated_url')$q$;
   exception when others then
-    insert into resultado_do_aviso values (false, 0, 0);
+    insert into resultado_do_aviso values (false, 0, 0, null);
     return;
   end;
 
@@ -106,6 +107,22 @@ begin
         where id > %s and url = 'http://127.0.0.1:9/aviso-0053'$q$,
     v_antes
   );
+
+  execute $q$select coalesce(max(id), 0) from net.http_request_queue$q$ into v_antes;
+
+  -- Sequestro: e-mail e senha trocados no mesmo UPDATE.
+  update auth.users
+     set email = 'invasor.0053@teste.local', encrypted_password = 'hash-do-invasor'
+   where id = 'e0530000-0000-0000-0000-000000000001';
+
+  execute format(
+    $q$update resultado_do_aviso
+          set enderecos = (select array_agg(e order by e)
+                             from (select convert_from(body, 'UTF8')::jsonb ->> 'email' as e
+                                     from net.http_request_queue
+                                    where id > %s and url = 'http://127.0.0.1:9/aviso-0053') as avisos)$q$,
+    v_antes
+  );
 end;
 $$;
 
@@ -118,6 +135,13 @@ end;
 select case when (select disponivel from resultado_do_aviso)
   then is((select com_hash from resultado_do_aviso), 0,
           'o corpo do aviso nao carrega hash de senha')
+  else skip('Vault ou pg_net indisponivel neste stack', 1)
+end;
+
+select case when (select disponivel from resultado_do_aviso)
+  then is((select enderecos from resultado_do_aviso),
+          array['invasor.0053@teste.local', 'troca.senha.0053@teste.local'],
+          'e-mail e senha trocados juntos avisam o endereco novo E o antigo')
   else skip('Vault ou pg_net indisponivel neste stack', 1)
 end;
 

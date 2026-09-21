@@ -69,5 +69,12 @@ export function lerAvisoDeTrocaDeSenha(valor: unknown): AvisoDeTrocaDeSenha | nu
 export function eFormatoDoWebhookAntigo(valor: unknown): boolean {
   if (typeof valor !== "object" || valor === null) return false;
   const corpo = valor as Record<string, unknown>;
-  return corpo.schema === "auth" && corpo.table === "users" && typeof corpo.record === "object";
+  // `typeof null === "object"`: sem o `!== null`, `record: null` passaria por
+  // formato antigo e levaria 200 em vez de 400.
+  return (
+    corpo.schema === "auth" &&
+    corpo.table === "users" &&
+    typeof corpo.record === "object" &&
+    corpo.record !== null
+  );
 }

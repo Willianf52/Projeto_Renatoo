@@ -93,4 +93,8 @@ describe("eFormatoDoWebhookAntigo", () => {
     expect(eFormatoDoWebhookAntigo({ qualquer: "coisa" })).toBe(false);
     expect(eFormatoDoWebhookAntigo(null)).toBe(false);
   });
+
+  it("nao trata record nulo como formato antigo (typeof null e 'object')", () => {
+    expect(eFormatoDoWebhookAntigo({ ...antigo, record: null })).toBe(false);
+  });
 });
