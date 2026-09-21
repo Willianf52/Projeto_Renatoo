@@ -118,6 +118,7 @@ describe("getMapaDeLocaisInspecionados", () => {
 
   it("sem periodo completo, nao consulta nada", async () => {
     expect(await getMapaDeLocaisInspecionados({ dataInicial: "2026-08-01" })).toBeNull();
+    expect(await getMapaDeLocaisInspecionados({ dataInicial: "2026-08-31", dataFinal: "2026-08-01" })).toBeNull();
     expect(rpcMock).not.toHaveBeenCalled();
   });
 });

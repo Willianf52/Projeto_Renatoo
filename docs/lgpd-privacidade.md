@@ -76,7 +76,7 @@ precisar dele pela primeira vez sob pressão de prazo legal.
 |---|---|---|
 | Supabase | Todo o banco (dados de usuário, leituras, visitas) + Auth | A confirmar — checar Data Processing Agreement da Supabase Inc. |
 | Resend | E-mail transacional (hoje: recuperação de senha) — recebe endereço de e-mail do destinatário | A confirmar |
-| Sentry | Erros de aplicação — hoje inerte (sem DSN configurado). Quando ativado, avaliar se `sendDefaultPii` deve continuar desligado (está, por padrão do SDK) para não capturar IP/dado de usuário nos eventos de erro | A confirmar quando for ativado |
+| Sentry | Erros de aplicação — inerte enquanto não houver DSN configurado. **Correção de registro (16/09/2026):** esta linha dizia que `sendDefaultPii` estava desligado "por padrão do SDK", o que não valia no painel web: o `dataCollection: {}` gerado pelo wizard fazia o SDK ignorar `sendDefaultPii` e coletar corpo de requisição (inclusive senha em texto puro), cookies e dados do usuário. Desde então as três inicializações usam `src/lib/sentry-privacidade.ts` — sem corpo, cookie, usuário, consulta ao banco nem cabeçalho de credencial, com `beforeSend` removendo corpo como segunda barreira — travado em `sentry-privacidade.test.ts`. O que sai é stack trace, rota e mensagem de erro. Dado hospedado na UE: transferência internacional | A confirmar quando for ativado |
 
 Ação: confirmar com cada fornecedor se o DPA padrão deles (geralmente
 disponível nos Termos de Serviço/Trust Center) cobre o que a LGPD exige para
