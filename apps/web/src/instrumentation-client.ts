@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { OPCOES_DE_PRIVACIDADE_DO_SENTRY } from "@/lib/sentry-privacidade";
 
 /**
  * Observabilidade do navegador. Mesmo raciocinio de instrumentation.ts:
@@ -11,6 +12,7 @@ Sentry.init({
   tracesSampleRate: 0.1,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
+  ...OPCOES_DE_PRIVACIDADE_DO_SENTRY,
 });
 
 /** Hook exigido pelo Next para instrumentar troca de rota (navegacao entre

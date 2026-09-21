@@ -163,8 +163,8 @@ async function TabelaDeInspecoes({ searchParams }: { searchParams: SearchParamsP
       <AvisoDePeriodo
         aviso={avisoDePeriodo({
           params,
-          temDataInicial: Boolean(filtros.dataInicial),
-          temDataFinal: Boolean(filtros.dataFinal),
+          dataInicial: filtros.dataInicial,
+          dataFinal: filtros.dataFinal,
           oQueMostra: "as inspeções do período",
         })}
       />

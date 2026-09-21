@@ -214,8 +214,8 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
       <AvisoDePeriodo
         aviso={avisoDePeriodo({
           params,
-          temDataInicial: Boolean(filtros.dataInicial),
-          temDataFinal: Boolean(filtros.dataFinal),
+          dataInicial: filtros.dataInicial,
+          dataFinal: filtros.dataFinal,
           oQueMostra: "o mapa de locais inspecionados",
         })}
       />
