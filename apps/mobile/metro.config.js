@@ -14,12 +14,18 @@
 // entra no APK por causa dele.
 const fs = require("node:fs");
 const path = require("node:path");
-const { getDefaultConfig } = require("expo/metro-config");
+// `getSentryExpoConfig` e o `getDefaultConfig` do Expo com o que o Sentry
+// precisa por cima: grava um Debug ID em cada bundle e no source map dele.
+// Sem isso o Sentry nao liga a stack trace do aparelho ao source map enviado
+// no build, e o erro chega minificado. O upload em si e feito no build do
+// EAS pelo plugin do `app.json`, com o `SENTRY_AUTH_TOKEN` das variaveis do
+// EAS -- nunca no repositorio.
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
 const raizDoProjeto = __dirname;
 const raizDoWorkspace = path.resolve(raizDoProjeto, "../..");
 
-const config = getDefaultConfig(raizDoProjeto);
+const config = getSentryExpoConfig(raizDoProjeto);
 
 /**
  * Onde o pnpm guarda o store virtual (a pasta `.pnpm`).
