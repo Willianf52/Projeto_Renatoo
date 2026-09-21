@@ -9,7 +9,7 @@
  * maior valor, pra nao terminar com marcas tipo "0, 1.75, 3.5, 5.25, 7". Com
  * valorMaximo=7 devolve passo=2 e max=8 -- exatamente a escala 0/2/4/6/8 da
  * referencia. */
-function calcularEscalaY(valorMaximo: number): { max: number; passo: number } {
+export function calcularEscalaY(valorMaximo: number): { max: number; passo: number } {
   if (valorMaximo <= 0) return { max: 4, passo: 1 };
   const passoBase = Math.ceil(valorMaximo / 4);
   const passo = passoBase <= 1 ? 1 : passoBase <= 2 ? 2 : passoBase <= 5 ? 5 : Math.ceil(passoBase / 10) * 10;

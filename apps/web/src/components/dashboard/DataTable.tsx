@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { textoDaPaginacao } from "@/lib/paginacao";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
 
 export function DataTable({
@@ -14,6 +15,7 @@ export function DataTable({
   emptyDescription = "Ajuste o período ou os filtros acima para localizar registros.",
   minWidth = "min-w-[1280px]",
   rotulo = "Resultados",
+  rodape,
 }: {
   columns: string[];
   /** ReactNode e nao string: a coluna "Acoes" das telas de cadastro leva
@@ -37,6 +39,14 @@ export function DataTable({
   minWidth?: string;
   /** Nome acessivel da area rolavel (ver o `tabIndex` abaixo). */
   rotulo?: string;
+  /**
+   * Linha fixa no pe da tabela, uma celula por coluna -- a linha "TOTAL:" de
+   * Registro de Eventos. Em `<tfoot>` e nao como mais uma linha de `rows`
+   * porque ela nao e um registro: nao pagina junto (o total e do filtro
+   * inteiro), nao tem hover e o leitor de tela precisa saber que e resumo.
+   * Some junto com a tabela quando nao ha resultado.
+   */
+  rodape?: React.ReactNode[];
 }) {
   const podeVoltar = page > 1;
   const podeAvancar = totalPages > 0 && page < totalPages;
@@ -90,6 +100,17 @@ export function DataTable({
             </tr>
           )}
         </tbody>
+        {rodape && !loading && rows.length > 0 && (
+          <tfoot>
+            <tr className="border-t border-slate-800 bg-brand-navy/40 font-semibold text-white">
+              {rodape.map((cell, cellIndex) => (
+                <td key={cellIndex} className="whitespace-nowrap px-4 py-3">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
 
       <div className="flex items-center justify-end gap-1 border-t border-slate-800 px-4 py-3">
@@ -108,8 +129,12 @@ export function DataTable({
           <ChevronLeftIcon className="h-4 w-4" />
         </PaginationButton>
         <span className="px-3 text-xs text-brand-muted">
-          Pág: {totalItems > 0 ? page : 0} de {totalPages} | Total: {totalAproximado ? "~" : ""}
-          {totalItems} itens
+          {textoDaPaginacao({
+            pagina: page,
+            totalPaginas: totalPages,
+            totalItens: totalItems,
+            aproximado: totalAproximado,
+          })}
         </span>
         <PaginationButton
           disabled={!podeAvancar}
