@@ -19,7 +19,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_AMBIENTE": "homologacao"
+        "EXPO_PUBLIC_AMBIENTE": "homologacao",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://d9df92a25e207038ce46459e5cc14dae@o4511923697287168.ingest.de.sentry.io/4512124653404240"
       }
     },
     "production": {
@@ -29,7 +30,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_AMBIENTE": "producao"
+        "EXPO_PUBLIC_AMBIENTE": "producao",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://d9df92a25e207038ce46459e5cc14dae@o4511923697287168.ingest.de.sentry.io/4512124653404240"
       }
     }
   },

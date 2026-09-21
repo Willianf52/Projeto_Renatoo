@@ -18,6 +18,7 @@ import {
   PlusCircleIcon,
   QrCodeIcon,
 } from "@/components/dashboard/icons";
+import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { gerarQrCodeDataUrl } from "@/lib/qrcode";
 import {
@@ -28,6 +29,7 @@ import {
   toTableRow,
   COLUNAS_EXPORTACAO,
   PAGE_SIZE,
+  SITUACAO_PADRAO,
   SITUACOES,
   type SearchParams,
 } from "./queries";
@@ -251,6 +253,10 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
     return `?${query.toString()}`;
   };
 
+  // Tabela vazia sem filtro e cadastro que ainda nao existe, nao busca que
+  // nao achou nada (ver `lib/lista-vazia.ts`).
+  const filtrado = temFiltroAplicado(params, { situacao: SITUACAO_PADRAO });
+
   return (
     <DataTable
       columns={TABLE_COLUMNS}
@@ -260,8 +266,12 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
       totalItems={resultado.totalItems}
       buildPageHref={buildPageHref}
       minWidth={MIN_WIDTH}
-      emptyTitle="Nenhum QR-Code encontrado"
-      emptyDescription="Ajuste os filtros acima para localizar cadastros."
+      emptyTitle={filtrado ? "Nenhum QR-Code encontrado" : "Nenhum QR-Code ativo cadastrado"}
+      emptyDescription={descricaoDeListaVazia({
+        filtrado,
+        podeCadastrar: podeAdministrar,
+        descricaoFiltrada: "Ajuste os filtros acima para localizar cadastros.",
+      })}
     />
   );
 }

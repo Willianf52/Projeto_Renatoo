@@ -159,12 +159,6 @@ test.describe("POST /api/importar/coletas", () => {
 test.describe("POST /api/webhooks/user-updated", () => {
   test.skip(!STACK_LOCAL || !SEGREDOS.webhook, `${MOTIVO_SEM_STACK}; ${SEM_SEGREDOS}`);
 
-  const usuario = (senha: string) => ({
-    id: "00000000-0000-4000-8000-000000000001",
-    email: "alguem@teste.local",
-    encrypted_password: senha,
-  });
-
   test("sem o header x-webhook-secret: 401", async ({ request }) => {
     const resposta = await request.post("/api/webhooks/user-updated", {
       headers: ipDeTeste(),
@@ -181,19 +175,30 @@ test.describe("POST /api/webhooks/user-updated", () => {
     expect(resposta.status()).toBe(400);
   });
 
-  test("update que nao trocou a senha e ignorado, sem mandar e-mail", async ({ request }) => {
+  // O Database Webhook antigo do painel continua disparando ate ser apagado
+  // la (a migration 0053 nao tem privilegio para isso): ignorado com 200, sem
+  // mandar e-mail e sem processar o registro inteiro de auth.users.
+  test("corpo do webhook antigo e ignorado, sem mandar e-mail", async ({ request }) => {
     const resposta = await request.post("/api/webhooks/user-updated", {
       headers: { ...ipDeTeste(), "x-webhook-secret": SEGREDOS.webhook! },
       data: {
         type: "UPDATE",
         table: "users",
         schema: "auth",
-        record: usuario("hash-igual"),
-        old_record: usuario("hash-igual"),
+        record: { id: "00000000-0000-4000-8000-000000000001", email: "alguem@teste.local", encrypted_password: "hash-novo" },
+        old_record: { id: "00000000-0000-4000-8000-000000000001", email: "alguem@teste.local", encrypted_password: "hash-velho" },
       },
     });
     expect(resposta.status()).toBe(200);
-    expect(await resposta.json()).toEqual({ skipped: "update não alterou a senha" });
+    expect(await resposta.json()).toEqual({ skipped: "formato do webhook antigo" });
+  });
+
+  test("aviso novo com user_id que nao e UUID: 400", async ({ request }) => {
+    const resposta = await request.post("/api/webhooks/user-updated", {
+      headers: { ...ipDeTeste(), "x-webhook-secret": SEGREDOS.webhook! },
+      data: { type: "PASSWORD_CHANGED", user_id: "1", email: "alguem@teste.local" },
+    });
+    expect(resposta.status()).toBe(400);
   });
 });
 

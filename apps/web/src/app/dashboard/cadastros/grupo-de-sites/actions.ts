@@ -79,9 +79,13 @@ function validar(
     }
   }
 
-  if (valores.siteIds.length === 0) {
-    return { ok: false, erro: "Selecione ao menos um site." };
-  }
+  /**
+   * Nenhum site marcado e valido. Exigir ao menos um travava o banco vazio:
+   * Site / Planta exige um grupo (`sites.grupo_site_id` e `not null`) e este
+   * formulario exigia um site, entao o primeiro grupo e o primeiro site reais
+   * so nasciam pendurados num cadastro de teste. O grupo e criado sozinho, e
+   * o site entra nele depois, pelo proprio cadastro do site.
+   */
   const siteIds = valores.siteIds.map(Number);
   if (siteIds.some((n) => !Number.isInteger(n))) {
     return { ok: false, erro: "Site selecionado inválido." };
@@ -164,10 +168,9 @@ export async function salvarGrupoSite(
    * Vincula os sites escolhidos a este grupo. `sites.grupo_site_id` e `not
    * null` (migration 0003): um site pertence a exatamente um grupo por vez,
    * entao marcar um site aqui o retira de qualquer outro grupo em que
-   * estivesse. Por isso o campo e obrigatorio, e por isso desmarcar um site
-   * que ja pertencia a este grupo nao o solta -- soltar exigiria escolher um
-   * destino, que este formulario nao pergunta (ver o aviso ao lado do campo
-   * "Sites" no formulario).
+   * estivesse. Por isso desmarcar um site que ja pertencia a este grupo nao o
+   * solta -- soltar exigiria escolher um destino, que este formulario nao
+   * pergunta. Para trocar o site de grupo, o caminho e o cadastro do site.
    */
   /**
    * `.select("id")` nao e para recuperar dado -- e para poder contar. Ver
@@ -183,24 +186,27 @@ export async function salvarGrupoSite(
    * entre o carregamento do formulario e o envio, os outros foram vinculados
    * e este aviso e o unico lugar onde isso aparece.
    */
-  const { data: sitesVinculados, error: erroSites } = await supabase
-    .from("sites")
-    .update({ grupo_site_id: grupoId })
-    .in("id", validacao.siteIds)
-    .select("id");
+  // Grupo criado sem site (ver `validar`): nao ha o que vincular.
+  if (validacao.siteIds.length > 0) {
+    const { data: sitesVinculados, error: erroSites } = await supabase
+      .from("sites")
+      .update({ grupo_site_id: grupoId })
+      .in("id", validacao.siteIds)
+      .select("id");
 
-  if (erroSites) {
-    return {
-      erro: "O grupo foi salvo, mas não foi possível vincular os sites selecionados. Tente novamente.",
-      valores,
-    };
-  }
+    if (erroSites) {
+      return {
+        erro: "O grupo foi salvo, mas não foi possível vincular os sites selecionados. Tente novamente.",
+        valores,
+      };
+    }
 
-  if ((sitesVinculados?.length ?? 0) !== validacao.siteIds.length) {
-    return {
-      erro: "O grupo foi salvo, mas não foi possível vincular todos os sites selecionados — você pode não ter permissão sobre eles, ou algum deixou de existir. Recarregue a página e confira.",
-      valores,
-    };
+    if ((sitesVinculados?.length ?? 0) !== validacao.siteIds.length) {
+      return {
+        erro: "O grupo foi salvo, mas não foi possível vincular todos os sites selecionados — você pode não ter permissão sobre eles, ou algum deixou de existir. Recarregue a página e confira.",
+        valores,
+      };
+    }
   }
 
   revalidatePath(LISTAGEM);

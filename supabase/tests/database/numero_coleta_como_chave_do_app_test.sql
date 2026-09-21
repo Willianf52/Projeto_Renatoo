@@ -133,14 +133,21 @@ select lives_ok(
 -- ---------------------------------------------------------------------------
 -- 6) Reenviar a mesma leitura não cria uma segunda.
 -- ---------------------------------------------------------------------------
+-- Horario relativo a now(), e nao literal: desde a 0054 a leitura gravada pela
+-- sessao precisa cair em 30 dias para tras. Uma data fixa passaria hoje e
+-- quebraria sozinha no mes seguinte.
+insert into ids_teste (chave, valor) values ('instante_da_leitura', extract(epoch from date_trunc('second', now()))::bigint);
+
 insert into public.leituras (visita_id, data_hora)
-  select valor, '2026-09-06T09:15:00-03:00'::timestamptz from ids_teste where chave = 'visita';
+  select valor, (select to_timestamp(valor) from ids_teste where chave = 'instante_da_leitura')
+  from ids_teste where chave = 'visita';
 
 select throws_ok(
   format(
     $$ insert into public.leituras (visita_id, data_hora)
-       values (%L, '2026-09-06T09:15:00-03:00'::timestamptz) $$,
-    (select valor from ids_teste where chave = 'visita')
+       values (%L, %L::timestamptz) $$,
+    (select valor from ids_teste where chave = 'visita'),
+    (select to_timestamp(valor) from ids_teste where chave = 'instante_da_leitura')
   ),
   '23505',
   null,
