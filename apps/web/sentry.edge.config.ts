@@ -4,6 +4,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { OPCOES_DE_PRIVACIDADE_DO_SENTRY } from "./src/lib/sentry-privacidade";
 
 // Ver o comentário em sentry.server.config.ts -- mesma troca de DSN
 // hardcoded por env, mesmo motivo.
@@ -16,10 +17,6 @@ Sentry.init({
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  dataCollection: {
-    // To disable sending user data and HTTP bodies, uncomment the lines below. For more info visit:
-    // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#dataCollection
-    // userInfo: false,
-    // httpBodies: [],
-  },
+  // Nada de corpo, cookie ou dado de usuario -- ver src/lib/sentry-privacidade.ts.
+  ...OPCOES_DE_PRIVACIDADE_DO_SENTRY,
 });
