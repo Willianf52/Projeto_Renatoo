@@ -174,17 +174,22 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Suporte", icon: UserIcon, children: [] },
 ];
 
-const childContainsPath = (child: NavChild, pathname: string | null): boolean =>
-  pathname === null
-    ? false
-    : isGroup(child)
-      ? child.items.some((item) => pathname.startsWith(item.href))
-      : pathname.startsWith(child.href);
+/**
+ * A rota do item ou qualquer rota ABAIXO dela (`/novo`, `/[id]/editar`,
+ * `/export/pdf`). Com o limite de segmento, e nao `startsWith` puro: sem ele
+ * `/mapa-de-eventos-por-site` comeca com `/mapa-de-eventos`, e abrir o
+ * primeiro marcava os dois itens no menu.
+ *
+ * `pathname` so existe depois da hidratacao: na casca estatica ele e null e
+ * nenhum item aparece marcado.
+ */
+export const naRota = (pathname: string | null, href: string) =>
+  pathname !== null && (pathname === href || pathname.startsWith(`${href}/`));
 
-/** `pathname` so existe depois da hidratacao: na casca estatica ele e null e
- * nenhum item aparece marcado. */
-const naRota = (pathname: string | null, href: string) =>
-  pathname !== null && pathname.startsWith(href);
+const childContainsPath = (child: NavChild, pathname: string | null): boolean =>
+  isGroup(child)
+    ? child.items.some((item) => naRota(pathname, item.href))
+    : naRota(pathname, child.href);
 
 type PropsDaNavegacao = {
   pathname: string | null;

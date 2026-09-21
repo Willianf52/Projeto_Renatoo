@@ -41,10 +41,9 @@ describe("extrairFiltros", () => {
     });
   });
 
-  it("cai no mes atual para valor ausente ou fora do formato yyyy-mm", () => {
-    const mesAtual = extrairFiltros({}).mes;
-    expect(mesAtual).toMatch(/^\d{4}-\d{2}$/);
-    expect(extrairFiltros({ mes: "2026-13" }).mes).toBe(mesAtual);
+  it("deixa o mes vazio quando ausente ou fora do formato -- o campo abre em 'Mês/Ano'", () => {
+    expect(extrairFiltros({}).mes).toBeUndefined();
+    expect(extrairFiltros({ mes: "2026-13" }).mes).toBeUndefined();
   });
 });
 
@@ -103,6 +102,11 @@ describe("montarLinhas", () => {
 });
 
 describe("getRegistroDeRondas", () => {
+  it("nao consulta o banco sem Mês/Ano", async () => {
+    expect(await getRegistroDeRondas({})).toBeNull();
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it("manda o mes como periodo meio-aberto e so os filtros escolhidos", async () => {
     rpcMock.mockReturnValue(construtor([]));
 
@@ -123,7 +127,7 @@ describe("getRegistroDeRondas", () => {
     const linhas = await getRegistroDeRondas({ mes: "2026-08" });
 
     expect(linhas).toHaveLength(1);
-    expect(linhas[0].duracoesPorDia[1]).toEqual([1000]);
+    expect(linhas![0].duracoesPorDia[1]).toEqual([1000]);
   });
 
   it("erro da RPC sobe, em vez de virar 'nenhuma ronda'", async () => {

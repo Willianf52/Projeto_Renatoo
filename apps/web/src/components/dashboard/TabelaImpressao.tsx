@@ -13,12 +13,19 @@ export function TabelaImpressao({
   linhas,
   truncado,
   limite,
+  rodape,
 }: {
   titulo: string;
   colunas: string[];
   linhas: string[][];
   truncado: boolean;
   limite: number;
+  /**
+   * Linha de resumo no pe, uma celula por coluna -- o "TOTAL:" de Registro de
+   * Eventos. Separada de `linhas` para nao entrar na contagem de registros
+   * logo acima da tabela: um relatorio de tres sites nao tem quatro registros.
+   */
+  rodape?: string[];
 }) {
   return (
     <div className="bg-white p-6 text-black">
@@ -57,6 +64,17 @@ export function TabelaImpressao({
             </tr>
           ))}
         </tbody>
+        {rodape && linhas.length > 0 && (
+          <tfoot>
+            <tr>
+              {rodape.map((campo, coluna) => (
+                <td key={coluna} className="border border-slate-300 bg-slate-100 px-2 py-1 font-semibold">
+                  {campo}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
