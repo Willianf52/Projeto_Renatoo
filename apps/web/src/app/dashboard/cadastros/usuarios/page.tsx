@@ -16,6 +16,7 @@ import {
   PlusCircleIcon,
   UserIcon,
 } from "@/components/dashboard/icons";
+import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import {
   getFuncoes,
@@ -256,6 +257,10 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
     return `?${query.toString()}`;
   };
 
+  // Tabela vazia sem filtro e cadastro que ainda nao existe, nao busca que
+  // nao achou nada (ver `lib/lista-vazia.ts`).
+  const filtrado = temFiltroAplicado(params);
+
   return (
     <DataTable
       columns={TABLE_COLUMNS}
@@ -265,8 +270,12 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
       totalItems={resultado.totalItems}
       buildPageHref={buildPageHref}
       minWidth={MIN_WIDTH}
-      emptyTitle="Nenhum usuário encontrado"
-      emptyDescription="Ajuste os filtros acima para localizar cadastros."
+      emptyTitle={filtrado ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
+      emptyDescription={descricaoDeListaVazia({
+        filtrado,
+        podeCadastrar: podeAdministrar,
+        descricaoFiltrada: "Ajuste os filtros acima para localizar cadastros.",
+      })}
     />
   );
 }

@@ -21,6 +21,9 @@ import {
   SearchIcon,
   SitemapIcon,
 } from "@/components/dashboard/icons";
+import { textoDaPaginacao } from "@/lib/paginacao";
+import { AvisoDePeriodo } from "@/components/dashboard/AvisoDePeriodo";
+import { avisoDePeriodo } from "@/lib/relatorios";
 import {
   extrairFiltros,
   formatarDiaCurto,
@@ -119,7 +122,8 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
  * pontos da referencia (5 campos / 4 campos / 5 campos + Filtrar).
  */
 async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const filtros = extrairFiltros(await searchParams);
+  const params = await searchParams;
+  const filtros = extrairFiltros(params);
   const opcoes = await getOpcoesFiltros();
 
   return (
@@ -207,15 +211,14 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
 
   if (!mapa) {
     return (
-      <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
-        <div className="rounded-full bg-brand-navy p-3 text-brand-muted">
-          <SearchIcon className="h-6 w-6" />
-        </div>
-        <p className="text-sm font-medium text-white">Selecione um período</p>
-        <p className="text-sm text-brand-muted">
-          Escolha a Data Inicial e a Data Final acima e clique em Filtrar para ver o mapa de locais inspecionados.
-        </p>
-      </div>
+      <AvisoDePeriodo
+        aviso={avisoDePeriodo({
+          params,
+          temDataInicial: Boolean(filtros.dataInicial),
+          temDataFinal: Boolean(filtros.dataFinal),
+          oQueMostra: "o mapa de locais inspecionados",
+        })}
+      />
     );
   }
 
@@ -316,7 +319,13 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
               <ChevronLeftIcon className="h-4 w-4" />
             </PaginacaoBotao>
             <span className="px-3 text-xs text-brand-muted">
-              Pág: {totalItems > 0 ? pagina : 0} de {totalPages} | Total: {totalItems} locais
+              {textoDaPaginacao({
+                pagina,
+                totalPaginas: totalPages,
+                totalItens: totalItems,
+                singular: "local",
+                plural: "locais",
+              })}
             </span>
             <PaginacaoBotao
               disabled={!podeAvancar}

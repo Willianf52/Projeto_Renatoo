@@ -40,8 +40,12 @@ ausente.
    de restauração* se pulam sozinhos sem os secrets; o check `ensaio` passando
    em 2 segundos é ele se pulando, não ele funcionando. Ver
    `docs/backup-e-restauracao.md`, seção "Configuração que falta".
-2. **Migration 0052 aplicada** (expurgo da telemetria). Pendência de aplicação,
-   não de código.
+2. ~~**Migration 0052 aplicada** (expurgo da telemetria).~~ **FECHADO.**
+   Conferido em 20/09 contra o banco de produção: a 0052 está lá como
+   `20260915225446_0052_retencao_de_eventos_de_uso`, aplicada no mesmo dia em
+   que este roteiro foi escrito. A numeração continua: fechar um portão não
+   renumera os outros, porque a "Ordem de povoamento" abaixo aponta para o 3
+   pelo número.
 3. **As 10 perguntas definitivas do checklist**, no lugar das 5 `[TESTE]`. É
    migration, com pgTAP — e atenção à constraint
    `perguntas_checklist_ordem_unica`, que é global: a migration precisa
