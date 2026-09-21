@@ -21,6 +21,18 @@ export function filtrosParaRpc(valores: Record<string, string | undefined>): Rec
   );
 }
 
+/**
+ * Data Inicial depois da Data Final. As duas chegam validadas como
+ * "yyyy-mm-dd" (`dataValida`), formato em que a ordem de texto e a ordem de
+ * calendario coincidem -- por isso a comparacao de string, sem montar Date.
+ *
+ * Sem esta checagem o relatorio consultava um intervalo vazio e respondia
+ * "Total: 0", indistinguivel de um periodo em que ninguem inspecionou nada.
+ */
+export function periodoInvertido(dataInicial: string, dataFinal: string): boolean {
+  return dataInicial > dataFinal;
+}
+
 export type AvisoDePeriodo = {
   titulo: string;
   descricao: string;
@@ -42,18 +54,18 @@ export type AvisoDePeriodo = {
  * `data_inicial`/`data_final` mesmo vazios, entao a chave presente quer dizer
  * "ja tentou filtrar"; ausente, "acabou de abrir".
  *
- * `temDataInicial`/`temDataFinal` sao as datas JA VALIDADAS pelo
- * `extrairFiltros` da tela: uma data malformada na URL conta como faltando.
+ * `dataInicial`/`dataFinal` sao as datas JA VALIDADAS pelo `extrairFiltros`
+ * da tela: uma data malformada na URL conta como faltando.
  */
 export function avisoDePeriodo({
   params,
-  temDataInicial,
-  temDataFinal,
+  dataInicial,
+  dataFinal,
   oQueMostra,
 }: {
   params: Record<string, string | string[] | undefined>;
-  temDataInicial: boolean;
-  temDataFinal: boolean;
+  dataInicial: string | undefined;
+  dataFinal: string | undefined;
   /** Completa "para ver ...": "as horas por usuário", "o ranking do período". */
   oQueMostra: string;
 }): AvisoDePeriodo {
@@ -67,7 +79,15 @@ export function avisoDePeriodo({
     };
   }
 
-  if (temDataInicial && !temDataFinal) {
+  if (dataInicial && dataFinal && periodoInvertido(dataInicial, dataFinal)) {
+    return {
+      titulo: "Período invertido",
+      descricao: "A Data Inicial está depois da Data Final. Troque as duas acima e clique em Filtrar de novo.",
+      destaque: true,
+    };
+  }
+
+  if (dataInicial && !dataFinal) {
     return {
       titulo: "Falta a Data Final",
       descricao: "Escolha a Data Final acima e clique em Filtrar de novo.",
@@ -75,7 +95,7 @@ export function avisoDePeriodo({
     };
   }
 
-  if (!temDataInicial && temDataFinal) {
+  if (!dataInicial && dataFinal) {
     return {
       titulo: "Falta a Data Inicial",
       descricao: "Escolha a Data Inicial acima e clique em Filtrar de novo.",
