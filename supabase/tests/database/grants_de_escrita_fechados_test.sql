@@ -86,12 +86,14 @@ select is(
   'tabela nova criada por postgres nao nasce mais com escrita para anon/authenticated'
 );
 
--- Grant presente de proposito (0036). O assert existe para travar o par: se
--- alguem revogar este INSERT achando que restaura a 0031, a escrita de campo
--- do inspetor morre calada -- e este teste avisa antes.
+-- Grant presente de proposito (0036), POR COLUNA desde a 0054. O assert existe
+-- para travar o par: se alguem revogar este INSERT achando que restaura a
+-- 0031, a escrita de campo do inspetor morre calada -- e este teste avisa
+-- antes. O recorte das colunas (sem criado_em/data_integracao) mora em
+-- escrita_de_campo_validada_test.sql.
 select ok(
-  has_table_privilege('authenticated', 'public.visitas', 'INSERT'),
-  'authenticated insere visitas pelo grant da 0036 -- quem barra e a policy de INSPETOR, nao o grant'
+  has_column_privilege('authenticated', 'public.visitas', 'site_id', 'INSERT'),
+  'authenticated insere visitas pelo grant da 0036/0054 -- quem barra e a policy de INSPETOR, nao o grant'
 );
 
 select ok(

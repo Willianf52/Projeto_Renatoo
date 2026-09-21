@@ -11,6 +11,8 @@ import {
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
 import { ClipboardListIcon, ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
+import { AvisoDePeriodo } from "@/components/dashboard/AvisoDePeriodo";
+import { avisoDePeriodo } from "@/lib/relatorios";
 import {
   extrairFiltros,
   formatarData,
@@ -110,7 +112,8 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
  * Sites + Sites), como na referencia.
  */
 async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const filtros = extrairFiltros(await searchParams);
+  const params = await searchParams;
+  const filtros = extrairFiltros(params);
   const opcoes = await getOpcoesFiltros();
 
   return (
@@ -157,12 +160,14 @@ async function TabelaDeInspecoes({ searchParams }: { searchParams: SearchParamsP
 
   if (!resultado) {
     return (
-      <div className="mx-auto flex max-w-sm flex-col items-center gap-3 px-4 py-16 text-center animate-fade-in-up">
-        <p className="text-sm font-medium text-white">Selecione um período</p>
-        <p className="text-sm text-brand-muted">
-          Escolha a Data Inicial e a Data Final acima e clique em Filtrar para ver as inspeções do período.
-        </p>
-      </div>
+      <AvisoDePeriodo
+        aviso={avisoDePeriodo({
+          params,
+          dataInicial: filtros.dataInicial,
+          dataFinal: filtros.dataFinal,
+          oQueMostra: "as inspeções do período",
+        })}
+      />
     );
   }
 

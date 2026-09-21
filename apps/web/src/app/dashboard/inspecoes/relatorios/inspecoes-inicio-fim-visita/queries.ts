@@ -1,5 +1,5 @@
 import { dataValida, FUSO_DO_PROJETO, periodoEntreDatas } from "@/lib/data-hora";
-import { filtrosParaRpc } from "@/lib/relatorios";
+import { filtrosParaRpc, periodoInvertido } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
 
@@ -139,6 +139,7 @@ export type InspecoesComInicioEFim = {
  * gate das demais telas de intervalo (Ranking, Mapa, Horas por Usuario). */
 export async function getInspecoesComInicioEFim(filtros: Filtros): Promise<InspecoesComInicioEFim | null> {
   if (!filtros.dataInicial || !filtros.dataFinal) return null;
+  if (periodoInvertido(filtros.dataInicial, filtros.dataFinal)) return null;
 
   const supabase = await createClient();
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
