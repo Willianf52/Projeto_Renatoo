@@ -123,6 +123,7 @@ describe("juntarHorasAosPerfis", () => {
 describe("getHorasPorUsuario", () => {
   it("sem periodo completo, nao consulta nada", async () => {
     expect(await getHorasPorUsuario({ dataInicial: "2026-08-01" })).toBeNull();
+    expect(await getHorasPorUsuario({ dataInicial: "2026-08-31", dataFinal: "2026-08-01" })).toBeNull();
     expect(rpcMock).not.toHaveBeenCalled();
   });
 

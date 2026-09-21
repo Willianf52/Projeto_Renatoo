@@ -117,3 +117,17 @@ tipa o que `.from()` devolve, não resolve reencadear um builder já tipado
 sem repetir cada método na assinatura da função — por isso continuam `any`,
 de propósito, com o motivo documentado no comentário de cada uma. Não é uma
 lacuna que sobrou; é uma troca já avaliada.
+
+## Região das funções na Vercel
+
+`apps/web/vercel.json` fixa `"regions": ["gru1"]` (São Paulo). O banco está em
+`sa-east-1`, também São Paulo, e o padrão da Vercel sem essa chave é `iad1`
+(Washington). Medido em 16/09/2026 pelo cabeçalho `X-Vercel-Id`: a borda
+atendia em `gru1`, mas a função executava em `iad1` (`gru1::iad1::…`) — toda
+consulta ao Supabase ia aos EUA e voltava, e cada navegação no painel faz pelo
+menos duas antes de desenhar a tela (`getUser()` e `profiles` no `proxy.ts`).
+`/api/health` sozinho levava de 0,76 a 2,3 s.
+
+Se o banco mudar de região, esta chave muda junto. Conferir depois de um
+deploy: `curl -sI <url>/api/health | grep -i x-vercel-id` deve mostrar
+`gru1` nos dois segmentos.

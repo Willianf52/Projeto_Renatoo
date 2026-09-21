@@ -85,6 +85,7 @@ describe("getRankingDeInspecoes", () => {
     expect(await getRankingDeInspecoes({})).toBeNull();
     expect(await getRankingDeInspecoes({ dataInicial: "2026-08-01" })).toBeNull();
     expect(await getRankingDeInspecoes({ dataFinal: "2026-08-31" })).toBeNull();
+    expect(await getRankingDeInspecoes({ dataInicial: "2026-08-31", dataFinal: "2026-08-01" })).toBeNull();
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
