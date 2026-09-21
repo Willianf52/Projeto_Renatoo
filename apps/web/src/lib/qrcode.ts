@@ -5,6 +5,6 @@ import QRCode from "qrcode";
  * SVG bruto via dangerouslySetInnerHTML -- não há HTML de terceiro para
  * sanitizar, só uma string de imagem.
  */
-export function gerarQrCodeDataUrl(codigo: string): Promise<string> {
-  return QRCode.toDataURL(codigo, { margin: 1, width: 240 });
+export function gerarQrCodeDataUrl(codigo: string, largura = 240): Promise<string> {
+  return QRCode.toDataURL(codigo, { margin: 1, width: largura });
 }

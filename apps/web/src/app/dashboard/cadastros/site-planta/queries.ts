@@ -136,6 +136,7 @@ export const COLUNAS_EXPORTACAO = [
   "Regional",
   "Nome",
   "Sigla",
+  "Lat/Long",
   "Hierarquia",
   "Observação",
   "Cidade",
@@ -154,6 +155,21 @@ export const COLUNAS_EXPORTACAO = [
  * sem mexer aqui poria a cadeia na coluna errada.
  */
 export const INDICE_HIERARQUIA = COLUNAS_EXPORTACAO.indexOf("Hierarquia");
+
+/**
+ * Posicao da celula de Lat/Long, pelo mesmo motivo do indice acima.
+ *
+ * A tela mostra um pino que abre o mapa naquele ponto, como o sistema de
+ * referencia; a exportacao leva o par de numeros, que e o que serve numa
+ * planilha. Site sem coordenada fica vazio nos dois lados -- e o caso real de
+ * quem cadastrou a unidade antes de ir ate la.
+ */
+export const INDICE_LAT_LONG = COLUNAS_EXPORTACAO.indexOf("Lat/Long");
+
+/** "-23.5, -46.6" para a planilha; vazio quando falta uma das duas pontas. */
+export function formatarLatLong(site: Pick<SiteRow, "latitude" | "longitude">): string {
+  return site.latitude !== null && site.longitude !== null ? `${site.latitude}, ${site.longitude}` : "";
+}
 
 // `ORGANIZACAO` mora em `lib/hierarquia-de-sites.ts` desde Registro de Eventos;
 // re-exportada para quem ja importava daqui.
@@ -357,6 +373,7 @@ export function toTableRow(site: SiteRow): string[] {
     site.regional ?? "",
     site.nome,
     site.sigla ?? "",
+    formatarLatLong(site),
     montarHierarquia(site).join(" > "),
     site.observacao ?? "",
     site.cidade ?? "",

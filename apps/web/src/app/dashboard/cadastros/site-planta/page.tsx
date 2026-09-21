@@ -15,6 +15,7 @@ import {
   BuildingIcon,
   ExcelIcon,
   FilterIcon,
+  MapPinIcon,
   PdfIcon,
   PencilIcon,
   PlusCircleIcon,
@@ -30,6 +31,8 @@ import {
   toTableRow,
   COLUNAS_EXPORTACAO,
   INDICE_HIERARQUIA,
+  INDICE_LAT_LONG,
+  formatarLatLong,
   PAGE_SIZE,
   SITUACAO_PADRAO,
   SITUACOES,
@@ -39,6 +42,31 @@ import {
 
 /** Cadeia organizacao > grupo > site, com o ultimo nivel destacado: e o
  * registro da linha, os anteriores sao contexto. */
+/**
+ * Pino que abre o ponto no mapa, como na coluna Lat/Long da referencia.
+ *
+ * Link externo comum, aberto por clique -- nada e enviado a ninguem enquanto
+ * a tabela so estiver na tela. Sem coordenada nao vira link: o pino apagado
+ * diria "tem lugar" para um site que ainda nao tem.
+ */
+function PinoDoMapa({ site }: { site: SiteRow }) {
+  const coordenadas = formatarLatLong(site);
+  if (!coordenadas) return <span className="text-brand-muted">—</span>;
+
+  return (
+    <a
+      href={`https://www.google.com/maps?q=${encodeURIComponent(coordenadas)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Abrir ${site.nome} no mapa (${coordenadas})`}
+      className="inline-flex text-red-400 transition-colors hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+    >
+      <MapPinIcon className="h-4 w-4" />
+      <span className="sr-only">{coordenadas}</span>
+    </a>
+  );
+}
+
 function Hierarquia({ site }: { site: SiteRow }) {
   const niveis = montarHierarquia(site);
 
@@ -260,6 +288,7 @@ async function TabelaDeSites({ searchParams }: { searchParams: SearchParamsPromi
     // duas ordens divergirem em silencio.
     ...toTableRow(site).map((celula, indice) => {
       if (indice === INDICE_HIERARQUIA) return <Hierarquia key="hierarquia" site={site} />;
+      if (indice === INDICE_LAT_LONG) return <PinoDoMapa key="lat-long" site={site} />;
       return celula;
     }),
     podeAdministrar ? (
