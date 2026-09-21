@@ -50,7 +50,14 @@
         }
       ],
       "expo-sqlite",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native",
+        {
+          "organization": "up-servicos",
+          "project": "app-inspetores",
+          "url": "https://de.sentry.io/"
+        }
+      ]
     ]
   }
 }
