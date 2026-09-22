@@ -162,6 +162,14 @@ const NAV_ITEMS: NavItem[] = [
     label: "ChecklistLab",
     icon: ClipboardListIcon,
     children: [
+      // Cadastro antes da consulta, como nos outros modulos: e daqui que sai a
+      // lista que o app baixa antes de ir a campo (0042), entao quem abre o
+      // modulo pela primeira vez precisa achar isto, nao o historico vazio.
+      {
+        label: "Perguntas do Checklist",
+        href: "/dashboard/checklistlab/perguntas",
+        icon: ClipboardListIcon,
+      },
       {
         label: "Histórico de Checklist",
         href: "/dashboard/checklistlab/historico-de-checklist",
