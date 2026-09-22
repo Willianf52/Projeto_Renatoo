@@ -58,6 +58,12 @@
           "url": "https://de.sentry.io/"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "89158b09-1eae-42fe-abcf-c6ea5e6e435e"
+      }
+    },
+    "owner": "willianf52"
   }
 }
