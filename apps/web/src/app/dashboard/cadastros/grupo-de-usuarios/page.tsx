@@ -36,7 +36,7 @@ import {
 // A ultima coluna so existe na tela: a exportacao nao a tem.
 /** Sem ID, como na referencia -- a exportacao segue com ele (ver queries.ts). */
 const TABLE_COLUMNS = [...COLUNAS_DA_LISTAGEM, "Ações"];
-const MIN_WIDTH = "min-w-[620px]";
+const MIN_WIDTH = "min-w-[820px]";
 
 type SearchParamsPromise = Promise<SearchParams>;
 

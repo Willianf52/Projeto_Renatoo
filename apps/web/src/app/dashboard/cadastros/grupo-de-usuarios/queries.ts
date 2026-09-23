@@ -17,14 +17,22 @@ export type GrupoUsuariosRow = {
   nome: string;
   descricao: string | null;
   /**
-   * `count` do embed, e nao a lista de membros: a listagem so mostra quantos
-   * sao. Trazer as linhas para conta-las em TS puxaria a tabela de vinculos
-   * inteira para exibir um numero.
+   * Os NOMES dos membros, e nao o `count` do embed que havia aqui: a coluna
+   * "Usuarios" do sistema de referencia lista as pessoas, nao quantas sao --
+   * e saber QUEM esta no grupo e o que faz a tela valer a consulta.
+   *
+   * O custo e aceitavel porque o vinculo e pequeno por natureza: um grupo de
+   * usuarios reune a equipe de um contrato, nao a base inteira. A pagina traz
+   * 25 grupos, e o embed resolve tudo numa consulta so.
+   *
+   * `profiles` pode vir `null` quando o RLS esconde o perfil de quem esta
+   * olhando -- o vinculo existe, o nome nao e legivel. Nesse caso a pessoa
+   * simplesmente nao entra na lista, em vez de aparecer como um vazio.
    */
-  grupos_usuarios_membros: [{ count: number }];
+  grupos_usuarios_membros: { profiles: { nome_completo: string | null } | null }[];
 };
 
-const COLUNAS = "id, nome, descricao, grupos_usuarios_membros ( count )";
+const COLUNAS = "id, nome, descricao, grupos_usuarios_membros ( profiles ( nome_completo ) )";
 
 /** Formato bruto do `searchParams` do Next -- cada chave pode vir repetida na
  * URL, daí o valor poder ser array. */
@@ -191,14 +199,22 @@ export function toListRow(grupo: GrupoUsuariosRow): string[] {
   return INDICES_DA_LISTAGEM.map((indice) => completa[indice]);
 }
 
+/**
+ * Nomes dos membros em uma celula, como na referencia.
+ *
+ * Ordenado por nome, e nao na ordem em que o PostgREST devolver: sem ordenacao
+ * explicita a mesma tela reordena entre dois carregamentos, e uma lista que
+ * dança a cada F5 e dificil de conferir. `localeCompare` com `pt-BR` para
+ * "Ângela" cair junto de "Angela", e nao depois de "Z".
+ */
+function nomesDosMembros(grupo: GrupoUsuariosRow): string {
+  return (grupo.grupos_usuarios_membros ?? [])
+    .map((membro) => membro.profiles?.nome_completo?.trim())
+    .filter((nome): nome is string => Boolean(nome))
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .join(", ");
+}
+
 export function toTableRow(grupo: GrupoUsuariosRow): string[] {
-  return [
-    String(grupo.id),
-    grupo.nome,
-    grupo.descricao ?? "",
-    // O embed de count volta como um array de um elemento. Sem membro nenhum
-    // o PostgREST devolve `[{ count: 0 }]`, mas o `?? 0` cobre o caso de a
-    // consulta ter sido montada sem o embed.
-    String(grupo.grupos_usuarios_membros?.[0]?.count ?? 0),
-  ];
+  return [String(grupo.id), grupo.nome, grupo.descricao ?? "", nomesDosMembros(grupo)];
 }
