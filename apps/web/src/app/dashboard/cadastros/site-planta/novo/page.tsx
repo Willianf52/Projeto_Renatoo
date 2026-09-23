@@ -5,43 +5,9 @@ import { FormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem
 import { BuildingIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { SiteForm } from "../SiteForm";
-import { getOpcoes, getSitesParaSuperior } from "../queries";
+import { valoresParaDuplicar } from "../constantes";
+import { getOpcoes, getSite, getSitesParaSuperior, primeiro } from "../queries";
 
-const VALORES_VAZIOS = {
-  nome: "",
-  sigla: "",
-  grupoSiteId: "",
-  tipoServicoId: "",
-  responsavelId: "",
-  siteSuperiorId: "",
-  regional: "",
-  cidade: "",
-  uf: "",
-  latitude: "",
-  longitude: "",
-  observacao: "",
-  cep: "",
-  endereco: "",
-  numero: "",
-  bairro: "",
-  complemento: "",
-  // Mesmo default da coluna (migration 0021), para o campo abrir preenchido em
-  // vez de exigir que se digite o obvio.
-  pais: "Brasil",
-  raioMetros: "",
-  codCliente: "",
-  codPosto: "",
-  filial: "",
-  infoAdicional1: "",
-  infoAdicional2: "",
-  // Os tres seguem os defaults da 0021: site novo recebe visita e gera QR-Code,
-  // e nao gera registro em coletas -- este ultimo cria dado, entao o padrao
-  // seguro e nao criar.
-  recebeVisita: true,
-  gerarQrcodeAutomatico: true,
-  gerarRegistroColetas: false,
-  ativo: true,
-};
 
 /**
  * Pagina sem `async`: com Cache Components, o `await` no corpo bloqueava a
@@ -50,7 +16,9 @@ const VALORES_VAZIOS = {
  * sessao e de consultas recortadas por RLS, entra pelo `<Suspense>`. `use cache`
  * nao serve aqui: guardaria no servidor o recorte de um usuario para outro.
  */
-export default function NovoSitePage() {
+type SearchParamsPromise = Promise<Record<string, string | string[] | undefined>>;
+
+export default function NovoSitePage({ searchParams }: { searchParams: SearchParamsPromise }) {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
@@ -71,23 +39,46 @@ export default function NovoSitePage() {
         </div>
 
         <Suspense fallback={<FormularioEsqueleto campos={12} />}>
-          <Formulario />
+          <Formulario searchParams={searchParams} />
         </Suspense>
       </div>
     </div>
   );
 }
 
-async function Formulario() {
+/**
+ * `?duplicar=<id>` chega do botao Duplicar da listagem, como no sistema de
+ * referencia.
+ *
+ * O que e copiado e a CLASSIFICACAO do site -- grupo, tipo de servico,
+ * responsavel, site superior, praca e as chaves de comportamento. Nome, sigla,
+ * coordenada, endereco e codigos vem em branco: sao o que localiza o site, e
+ * copia-los produziria dois cadastros que o olho nao distingue na listagem. A
+ * regra inteira, com o porque de cada campo, esta em `constantes.ts`.
+ */
+async function Formulario({ searchParams }: { searchParams: SearchParamsPromise }) {
   // O RLS ja recusaria o insert, mas seria depois de preencher o formulario
   // inteiro. Quem nao administra nem chega a ver a tela.
   if (!(await podeAdministrarCadastros())) {
     redirect("/dashboard/cadastros/site-planta");
   }
 
-  const [opcoes, sitesSuperiores] = await Promise.all([getOpcoes(), getSitesParaSuperior()]);
+  const idParaDuplicar = Number(primeiro((await searchParams).duplicar));
+
+  const [opcoes, sitesSuperiores, modelo] = await Promise.all([
+    getOpcoes(),
+    getSitesParaSuperior(),
+    Number.isInteger(idParaDuplicar) && idParaDuplicar > 0
+      ? getSite(idParaDuplicar)
+      : Promise.resolve(null),
+  ]);
+
+  // Modelo que sumiu entre a listagem e o clique cai no formulario em branco:
+  // a tela e "Novo Site / Planta" de qualquer jeito, e barrar a criacao por
+  // causa de um atalho quebrado seria pior que perder o preenchimento.
+  const valoresIniciais = valoresParaDuplicar(modelo);
 
   return (
-    <SiteForm valoresIniciais={VALORES_VAZIOS} opcoes={opcoes} sitesSuperiores={sitesSuperiores} />
+    <SiteForm valoresIniciais={valoresIniciais} opcoes={opcoes} sitesSuperiores={sitesSuperiores} />
   );
 }
