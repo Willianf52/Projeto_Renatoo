@@ -13,6 +13,7 @@ import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { Skeleton } from "@/components/dashboard/Skeleton";
 import {
   BuildingIcon,
+  CopyIcon,
   ExcelIcon,
   FilterIcon,
   MapPinIcon,
@@ -292,23 +293,39 @@ async function TabelaDeSites({ searchParams }: { searchParams: SearchParamsPromi
       return celula;
     }),
     podeAdministrar ? (
-      <Acao
-        key={site.id}
-        titulo={`Editar ${site.nome}`}
-        href={`/dashboard/cadastros/site-planta/${site.id}/editar`}
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </Acao>
+      <div key={site.id} className="flex items-center gap-2">
+        <Acao
+          titulo={`Editar ${site.nome}`}
+          href={`/dashboard/cadastros/site-planta/${site.id}/editar`}
+          className="bg-white/10"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </Acao>
+        <Acao
+          titulo={`Duplicar o cadastro de ${site.nome}`}
+          href={`/dashboard/cadastros/site-planta/novo?duplicar=${site.id}`}
+          className="bg-white/10"
+        >
+          <CopyIcon className="h-4 w-4" />
+        </Acao>
+      </div>
     ) : (
-      <AcaoDesabilitada
-        key={site.id}
-        titulo="Editar site"
-        motivo="você não tem permissão"
-        className="bg-white/10"
-      >
-        <PencilIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
+      <div key={site.id} className="flex items-center gap-2">
+        <AcaoDesabilitada
+          titulo="Editar site"
+          motivo="você não tem permissão"
+          className="bg-white/10"
+        >
+          <PencilIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+        <AcaoDesabilitada
+          titulo="Duplicar site"
+          motivo="você não tem permissão"
+          className="bg-white/10"
+        >
+          <CopyIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      </div>
     ),
   ]);
 
