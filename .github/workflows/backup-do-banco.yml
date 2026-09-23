@@ -39,7 +39,72 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Job proprio, so para conferir os secrets, e o backup pendurado nele por
+  # `needs` + `if`. O arranjo anterior fazia tudo num job so, com cada passo
+  # condicionado: quando faltava secret, o job terminava VERDE em ~7 segundos,
+  # e a lista de Actions exibia "Backup do banco / success" todo dia sem que
+  # backup nenhum existisse -- 15 a 22/09 inteiros assim. Aqui o job `backup`
+  # aparece CINZA (skipped), que e o que ele de fato foi.
+  #
+  # `secrets` nao e acessivel num `if` de job, entao a checagem precisa morar
+  # num passo (que enxerga `secrets`) e sair por `outputs`. Nao da para
+  # simplificar isto para um `if: secrets.X != ''`.
+  configuracao:
+    name: Secrets configurados?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rodar: ${{ steps.pre.outputs.rodar }}
+    steps:
+      - name: Confere os secrets
+        id: pre
+        env:
+          PRODUCAO_DB_URL: ${{ secrets.PRODUCAO_DB_URL }}
+          BACKUP_CHAVE: ${{ secrets.BACKUP_CHAVE }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          # `secret:variavel`, porque os dois do R2 tem nomes diferentes dos
+          # dois lados: o AWS CLI exige `AWS_*`, mas no GitHub os secrets se
+          # chamam `R2_*`. Reportar o nome da VARIAVEL mandaria voce procurar
+          # um secret `AWS_ACCESS_KEY_ID` que nao existe.
+          faltando=""
+          for par in PRODUCAO_DB_URL:PRODUCAO_DB_URL \
+                     BACKUP_CHAVE:BACKUP_CHAVE \
+                     R2_ACCOUNT_ID:R2_ACCOUNT_ID \
+                     R2_BUCKET:R2_BUCKET \
+                     R2_ACCESS_KEY_ID:AWS_ACCESS_KEY_ID \
+                     R2_SECRET_ACCESS_KEY:AWS_SECRET_ACCESS_KEY; do
+            secret="${par%%:*}"
+            variavel="${par##*:}"
+            if [ -z "${!variavel}" ]; then faltando="$faltando $secret"; fi
+          done
+          if [ -n "$faltando" ]; then
+            # `warning`, nao `notice`: notice nao pinta nada na lista de runs.
+            echo "::warning::NENHUM BACKUP FOI FEITO -- secrets ausentes:$faltando"
+            {
+              echo "## :warning: Nenhum backup foi feito"
+              echo ""
+              echo "Este run **nao produziu backup nenhum**. Faltam os secrets:"
+              echo ""
+              for nome in $faltando; do echo "- \`$nome\`"; done
+              echo ""
+              echo "Enquanto esta mensagem aparecer, **nao existe copia do banco de producao**"
+              echo "em lugar nenhum -- o projeto esta no plano Free do Supabase, sem backup"
+              echo "automatico e sem PITR."
+              echo ""
+              echo "Passo a passo em \`docs/backup-e-restauracao.md\`, secao \"Configuracao que falta\"."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "rodar=nao" >> "$GITHUB_OUTPUT"
+          else
+            echo "rodar=sim" >> "$GITHUB_OUTPUT"
+          fi
+
   backup:
+    needs: configuracao
+    if: needs.configuracao.outputs.rodar == 'sim'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -56,35 +121,16 @@ jobs:
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
-      - name: Secrets configurados?
-        id: pre
-        run: |
-          faltando=""
-          for nome in PRODUCAO_DB_URL BACKUP_CHAVE R2_ACCOUNT_ID R2_BUCKET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
-            if [ -z "${!nome}" ]; then faltando="$faltando $nome"; fi
-          done
-          if [ -n "$faltando" ]; then
-            echo "::notice::Backup pulado -- secrets ausentes:$faltando. Ver docs/backup-e-restauracao.md."
-            echo "rodar=nao" >> "$GITHUB_OUTPUT"
-          else
-            echo "rodar=sim" >> "$GITHUB_OUTPUT"
-          fi
-
-      - if: steps.pre.outputs.rodar == 'sim'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - if: steps.pre.outputs.rodar == 'sim'
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - if: steps.pre.outputs.rodar == 'sim'
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: pnpm
       # A CLI do Supabase vem do lockfile, a mesma versao do ensaio.
-      - if: steps.pre.outputs.rodar == 'sim'
-        run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile
 
       - name: Dump de producao
-        if: steps.pre.outputs.rodar == 'sim'
         working-directory: ${{ runner.temp }}
         run: |
           set -euo pipefail
@@ -103,7 +149,6 @@ jobs:
           ls -l backup | awk 'NR>1 {print $5, $9}'
 
       - name: Empacota e criptografa
-        if: steps.pre.outputs.rodar == 'sim'
         id: pacote
         working-directory: ${{ runner.temp }}
         run: |
@@ -118,7 +163,6 @@ jobs:
           echo "tamanho=$(stat -c %s "$nome")" >> "$GITHUB_OUTPUT"
 
       - name: Envia para o R2
-        if: steps.pre.outputs.rodar == 'sim'
         working-directory: ${{ runner.temp }}
         run: |
           set -euo pipefail
@@ -136,7 +180,7 @@ jobs:
           echo "chave=$chave" >> "$GITHUB_ENV"
 
       - name: Resumo
-        if: always() && steps.pre.outputs.rodar == 'sim'
+        if: always()
         run: |
           {
             echo "### Backup do banco"
