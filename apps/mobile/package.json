@@ -36,6 +36,7 @@
     "react-native-svg": "15.15.4"
   },
   "devDependencies": {
+    "@sentry/cli": "2.58.4",
     "@types/react": "~19.2.2",
     "@vitest/coverage-v8": "^5.0.1",
     "typescript": "~6.0.3",
