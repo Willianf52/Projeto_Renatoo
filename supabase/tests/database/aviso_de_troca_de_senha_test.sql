@@ -11,13 +11,18 @@
 --      hash nenhum. Se e-mail e senha mudam juntos, o endereco ANTIGO
 --      (o do dono legitimo) tambem e avisado.
 --
--- Os asserts do item 4 dependem de extensoes que o stack local pode nao ter;
--- sem elas, viram SKIP explicito em vez de falso verde.
+-- Os asserts do item 4 dependem de Vault e pg_net. O `seed.sql` (secao 4) liga
+-- as duas, como producao as tem, e o assert 0 abaixo cobra isso: num stack sem
+-- elas o arquivo FALHA nomeando o motivo, em vez de passar com tres SKIPs --
+-- que era o ponto cego de 21/09 a 23/09/2026 (SKIP conta como passe, e o check
+-- ficava verde justamente sem exercitar o aviso ao endereco antigo). Os SKIPs
+-- continuam abaixo para o run nao virar cascata de erro sem sentido, mas o
+-- assert 0 garante que ninguem leia o verde como prova.
 -- ============================================================================
 
 begin;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password)
 values ('e0530000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'troca.senha.0053@teste.local', 'hash-inicial');
@@ -67,7 +72,7 @@ select is(
 -- ---------------------------------------------------------------------------
 -- 4) Com segredos: o que vai para a fila do pg_net.
 -- ---------------------------------------------------------------------------
-create temporary table resultado_do_aviso (disponivel boolean, pedidos int, com_hash int, enderecos text[]);
+create temporary table resultado_do_aviso (disponivel boolean, pedidos int, com_hash int, enderecos text[], motivo text);
 
 do $$
 declare
@@ -75,7 +80,12 @@ declare
 begin
   if to_regclass('vault.decrypted_secrets') is null
      or to_regclass('net.http_request_queue') is null then
-    insert into resultado_do_aviso values (false, 0, 0, null);
+    insert into resultado_do_aviso (disponivel, pedidos, com_hash, motivo)
+    values (false, 0, 0, format(
+      'extensoes ausentes (vault.decrypted_secrets: %s, net.http_request_queue: %s) -- rode `supabase db reset` para o seed.sql ligar supabase_vault e pg_net',
+      coalesce(to_regclass('vault.decrypted_secrets')::text, 'AUSENTE'),
+      coalesce(to_regclass('net.http_request_queue')::text, 'AUSENTE')
+    ));
     return;
   end if;
 
@@ -83,7 +93,8 @@ begin
     execute $q$select vault.create_secret('segredo-de-teste-0053', 'webhook_user_updated_secret')$q$;
     execute $q$select vault.create_secret('http://127.0.0.1:9/aviso-0053', 'webhook_user_updated_url')$q$;
   exception when others then
-    insert into resultado_do_aviso values (false, 0, 0, null);
+    insert into resultado_do_aviso (disponivel, pedidos, com_hash, motivo)
+    values (false, 0, 0, 'vault.create_secret falhou: ' || sqlerrm);
     return;
   end;
 
@@ -98,7 +109,7 @@ begin
    where id = 'e0530000-0000-0000-0000-000000000001';
 
   execute format(
-    $q$insert into resultado_do_aviso
+    $q$insert into resultado_do_aviso (disponivel, pedidos, com_hash)
        select true,
               count(*) filter (where convert_from(body, 'UTF8')::jsonb ->> 'user_id' = 'e0530000-0000-0000-0000-000000000001'),
               count(*) filter (where convert_from(body, 'UTF8') ilike '%%hash%%'
@@ -125,6 +136,16 @@ begin
   );
 end;
 $$;
+
+-- Assert 0 -- sem isto, os tres abaixo se pulam sozinhos e o arquivo passa
+-- sem ter enfileirado nada. Ver o cabecalho.
+select ok(
+  (select disponivel from resultado_do_aviso),
+  coalesce(
+    'Vault e pg_net disponiveis: ' || (select motivo from resultado_do_aviso),
+    'Vault e pg_net disponiveis neste stack'
+  )
+);
 
 select case when (select disponivel from resultado_do_aviso)
   then is((select pedidos from resultado_do_aviso), 1,

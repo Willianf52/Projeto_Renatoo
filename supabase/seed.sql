@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Dados de semente
 --
--- Roda automaticamente no `supabase db reset` (local). Cobre duas coisas que
+-- Roda automaticamente no `supabase db reset` (local). Cobre tres coisas que
 -- as migrations deixam em aberto:
 --
 --   1) As tabelas de referencia que alimentam os selects de filtro da tela de
@@ -14,6 +14,11 @@
 --      (`POST /api/importar/coletas`) ter em que se apoiar: ela resolve site,
 --      area e checkpoint por nome e recusa o lote quando o nome nao existe.
 --
+--   3) As extensoes `supabase_vault` e `pg_net`, que producao tem e as
+--      migrations de proposito nao criam (a 0053 as verifica em tempo de
+--      execucao). Ver a secao 4 -- e o unico item daqui de que um teste pgTAP
+--      depende.
+--
 -- Nao semeia `visitas` nem `leituras`: dado operacional entra pela rota de
 -- importacao, que e o caminho que precisa ser exercitado. Semear aqui
 -- mascararia uma importacao quebrada com uma tela cheia.
@@ -22,8 +27,9 @@
 -- usuario de autenticacao por SQL depende de detalhes internos do GoTrue que
 -- mudam entre versoes. Use o painel ou o fluxo de cadastro do proprio app.
 --
--- Os testes pgTAP (supabase/tests/database) nao dependem daqui: cada um cria
--- os proprios usuarios e perfis dentro de uma transacao com rollback.
+-- Os testes pgTAP (supabase/tests/database) nao dependem dos DADOS daqui: cada
+-- um cria os proprios usuarios e perfis dentro de uma transacao com rollback.
+-- Dependem, sim, das extensoes da secao 4.
 --
 -- Idempotente: pode rodar mais de uma vez sem duplicar nada.
 -- ============================================================================
@@ -114,3 +120,25 @@ from (values
 ) as v(codigo, site)
 join public.sites s on s.nome = v.site
 on conflict (codigo) do nothing;
+
+-- 4) Extensoes que o aviso de troca de senha usa -----------------------------
+-- A 0053 verifica Vault e pg_net em tempo de execucao e, sem eles, so emite
+-- `warning` e deixa a troca de senha seguir (um aviso perdido e ruim; uma
+-- pessoa que nao consegue trocar a senha e pior). O efeito colateral disso na
+-- CI era um ponto cego: os tres asserts de `aviso_de_troca_de_senha_test.sql`
+-- que provam o comportamento -- um pedido por troca, nenhum hash no corpo e o
+-- aviso ao endereco ANTIGO num sequestro de conta -- viravam SKIP, e SKIP
+-- conta como passe. O check ficava verde sem ter exercitado nada.
+--
+-- Producao ja tem as duas (`supabase_vault` 0.3.1 em `vault`, `pg_net` 0.20.4
+-- em `extensions`, conferido em 23/09/2026), entao ligar aqui aproxima o stack
+-- local de producao em vez de inventar um ambiente. Fica no seed, e nao numa
+-- migration, exatamente porque nao ha nada a aplicar em producao.
+--
+-- `pg_net` guarda os objetos no schema `net` que ele mesmo cria; o schema da
+-- extensao (`extensions`) e so onde ela se declara -- e como esta em producao.
+--
+-- Nenhum dos dois entra em `database.types.ts`: `types:generate` roda com
+-- `--schema public`.
+create extension if not exists supabase_vault;
+create extension if not exists pg_net with schema extensions;
