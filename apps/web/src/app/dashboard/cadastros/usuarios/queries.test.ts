@@ -95,11 +95,11 @@ describe("getUsuarios", () => {
     ]);
   });
 
-  it("busca livre alcanca nome, login e e-mail", async () => {
+  it("busca livre alcanca nome, login, e-mail e pais", async () => {
     await getUsuarios({ pagina: 1, busca: "gilmar" });
 
     expect(ors).toEqual([
-      'nome_completo.ilike."%gilmar%",login.ilike."%gilmar%",email.ilike."%gilmar%"',
+      'nome_completo.ilike."%gilmar%",login.ilike."%gilmar%",email.ilike."%gilmar%",pais.ilike."%gilmar%"',
     ]);
   });
 
@@ -132,6 +132,7 @@ describe("toTableRow", () => {
       cargo: "OPERACIONAL",
       tipo: "PADRAO",
       ativo: true,
+      pais: "Brasil",
       superior: { nome_completo: "Gesiel" },
     });
 
@@ -142,6 +143,7 @@ describe("toTableRow", () => {
       "operacional010@servicosup.com",
       "Líder de limpeza",
       "Operacional",
+      "Brasil",
       "Ativo",
     ]);
   });
@@ -156,10 +158,20 @@ describe("toTableRow", () => {
       cargo: "CLIENTE",
       tipo: "PADRAO",
       ativo: false,
+      pais: "Brasil",
       superior: null,
     });
 
-    expect(linha).toEqual(["", "", "", "sem.nome@exemplo.com", "", "Cliente", "Inativo"]);
+    expect(linha).toEqual([
+      "",
+      "",
+      "",
+      "sem.nome@exemplo.com",
+      "",
+      "Cliente",
+      "Brasil",
+      "Inativo",
+    ]);
   });
 });
 

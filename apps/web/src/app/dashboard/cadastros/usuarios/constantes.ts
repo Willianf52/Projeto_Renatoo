@@ -95,6 +95,9 @@ export const VALORES_VAZIOS = {
   senha: "",
   login: "",
   funcao: "",
+  // Mesmo default da coluna (migration 0058), para o campo abrir preenchido em
+  // vez de exigir que se digite o obvio -- como `pais` em site-planta.
+  pais: "Brasil",
   // Mesmo default do trigger `handle_new_user` (migration 0008): o nivel mais
   // baixo, para que conceder mais seja sempre um ato deliberado.
   cargo: "OPERADOR",
@@ -112,6 +115,8 @@ export const VALORES_VAZIOS = {
 /** O que a conta de origem empresta no Duplicar -- nada que a identifique. */
 export type ModeloParaDuplicar = {
   funcao: string | null;
+  /** Opcional: nem todo select que alimenta o Duplicar traz a coluna. */
+  pais?: string;
   cargo: string;
   tipo: string;
   /** Opcional: o select da listagem nem sempre traz a coluna. */
@@ -140,6 +145,9 @@ export function valoresParaDuplicar(
   return {
     ...VALORES_VAZIOS,
     funcao: modelo.funcao ?? "",
+    // `?? VALORES_VAZIOS.pais` e nao `?? ""`: o campo e `not null` no banco, e
+    // um select que nao trouxe a coluna deve cair no default, nao em vazio.
+    pais: modelo.pais ?? VALORES_VAZIOS.pais,
     cargo: modelo.cargo,
     tipo: modelo.tipo,
     superiorId: modelo.superior_id ?? "",

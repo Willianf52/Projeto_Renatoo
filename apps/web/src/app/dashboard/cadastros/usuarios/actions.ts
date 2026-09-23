@@ -11,7 +11,10 @@ import { senhaVazada } from "@/lib/senha-vazada";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@projeto-renatoo/shared";
-import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
+import { NIVEIS_ACESSO, TIPOS_USUARIO, VALORES_VAZIOS } from "./constantes";
+
+/** Default da coluna `profiles.pais` (migration 0058). */
+const PAIS_PADRAO = VALORES_VAZIOS.pais;
 
 /**
  * Criacao e edicao de usuarios.
@@ -48,6 +51,7 @@ const esquemaDeTexto = z.object({
     .max(200, "O nome deve ter no máximo 200 caracteres."),
   login: z.string().max(100, MENSAGEM_LOGIN_FUNCAO),
   funcao: z.string().max(100, MENSAGEM_LOGIN_FUNCAO),
+  pais: z.string().max(100, "O país deve ter no máximo 100 caracteres."),
 });
 
 const CARGOS_VALIDOS = new Set(NIVEIS_ACESSO.map((nivel) => nivel.value));
@@ -59,6 +63,9 @@ export type ValoresDoUsuario = {
   senha: string;
   login: string;
   funcao: string;
+  /** Migration 0058. `not null` com default no banco -- o formulario abre
+   * preenchido, e string vazia aqui vira o default na gravacao. */
+  pais: string;
   cargo: string;
   /** Migration 0019. Coluna sem grant para `authenticated`, como `cargo`:
    * so passa por aqui, atras da checagem de permissao. */
@@ -86,6 +93,7 @@ function extrairValores(formData: FormData): ValoresDoUsuario {
     senha: String(formData.get("senha") ?? ""),
     login: texto(formData, "login"),
     funcao: texto(formData, "funcao"),
+    pais: texto(formData, "pais"),
     cargo: texto(formData, "cargo"),
     tipo: texto(formData, "tipo"),
     superiorId: texto(formData, "superior_id"),
@@ -297,6 +305,9 @@ export async function salvarUsuario(
     nome_completo: valores.nomeCompleto,
     login: valores.login || null,
     funcao: valores.funcao || null,
+    // `|| PAIS_PADRAO` e nao `|| null`: a coluna e `not null`. Campo apagado
+    // na tela volta ao default em vez de recusar a gravacao inteira.
+    pais: valores.pais || PAIS_PADRAO,
     cargo: valores.cargo,
     tipo: valores.tipo,
     ativo: valores.ativo,
