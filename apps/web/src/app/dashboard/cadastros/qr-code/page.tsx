@@ -26,8 +26,8 @@ import {
   getOpcoes,
   getQrCodes,
   primeiro,
-  toTableRow,
-  COLUNAS_EXPORTACAO,
+  toListRow,
+  COLUNAS_DA_LISTAGEM,
   PAGE_SIZE,
   SITUACAO_PADRAO,
   SITUACOES,
@@ -39,9 +39,13 @@ import {
  * das duas. A miniatura abre a listagem como no sistema de referencia -- e
  * com ela da para conferir de relance que o QR impresso e o daquela linha,
  * sem abrir a folha de etiquetas.
+ *
+ * O miolo vem de `COLUNAS_DA_LISTAGEM`, que e `COLUNAS_EXPORTACAO` sem ID e
+ * sem Grupo de Sites e com "Site / Planta" chamado so de "Site" -- as colunas
+ * da referencia. A exportacao segue completa; ver o comentario em queries.ts.
  */
-const TABLE_COLUMNS = ["QR-Code", ...COLUNAS_EXPORTACAO, "Ações"];
-const MIN_WIDTH = "min-w-[880px]";
+const TABLE_COLUMNS = ["QR-Code", ...COLUNAS_DA_LISTAGEM, "Ações"];
+const MIN_WIDTH = "min-w-[740px]";
 /** Miniatura: o suficiente para a camera de um celular ler da tela, e 1/6 do
  * peso da imagem da etiqueta impressa (240px). */
 const LARGURA_DA_MINIATURA = 96;
@@ -55,7 +59,7 @@ export default function QrCodePage({ searchParams }: { searchParams: SearchParam
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "QR-Code" }]} />
+        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "QR-Codes" }]} />
       </div>
 
       <div
@@ -65,7 +69,7 @@ export default function QrCodePage({ searchParams }: { searchParams: SearchParam
         <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <QrCodeIcon className="h-4 w-4" />
-            QR-Code
+            QR-Codes
           </h1>
           <Suspense fallback={<AcoesEsqueleto quantidade={4} />}>
             <AcoesDoCabecalho searchParams={searchParams} />
@@ -221,7 +225,7 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
       alt={`QR-Code ${qrCode.codigo}`}
       className="h-12 w-12 rounded-sm bg-white p-0.5"
     />,
-    ...toTableRow(qrCode),
+    ...toListRow(qrCode),
     podeAdministrar ? (
       <Acao
         key={qrCode.id}
