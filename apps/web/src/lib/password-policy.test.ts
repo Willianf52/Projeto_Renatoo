@@ -26,32 +26,39 @@ describe("isPasswordValid", () => {
     expect(isPasswordValid("Ab@1".padEnd(MAX_LENGTH + 1, "x"))).toBe(false);
   });
 
-  it("o teto e de 64 caracteres", () => {
-    expect(MAX_LENGTH).toBe(64);
-  });
-
-  /** O motivo de o teto ter subido de 15 (14/09/2026): e o padrao do 1Password e do Chrome. */
-  it("aceita a senha de 20 caracteres que um gerenciador gera por padrao", () => {
-    expect(isPasswordValid("Ab@1".padEnd(20, "x"))).toBe(true);
-  });
-
-  it("aceita passphrase de quatro palavras", () => {
-    expect(isPasswordValid("Cavalo-Bateria-Grampo-Correto-7")).toBe(true);
+  it("o teto e de 16 caracteres, em paridade com o sistema de referencia", () => {
+    expect(MAX_LENGTH).toBe(16);
   });
 
   /**
-   * O bcrypt do GoTrue so aceita ate 72 bytes. 40 "ç" cabem em 64 caracteres
-   * mas ocupam 80 bytes: sem a guarda, a tela aceitaria e o servidor recusaria.
+   * O PRECO DO TETO DE 16, fixado como teste e nao so como comentario: e
+   * exatamente o que a #79 tinha corrigido ao subir de 15 para 64, e o que a
+   * decisao de 23/09/2026 reintroduziu de forma consciente. Se um dia alguem
+   * estranhar que o gerenciador de senhas e recusado, o motivo esta aqui, e
+   * nao em algum lugar do historico do git.
    */
-  it("recusa senha dentro de 64 caracteres mas acima de 72 bytes", () => {
-    const acentuada = "Ab@1" + "ç".repeat(40);
-    expect(acentuada.length).toBeLessThanOrEqual(MAX_LENGTH);
-    expect(new TextEncoder().encode(acentuada).length).toBeGreaterThan(MAX_BYTES);
-    expect(isPasswordValid(acentuada)).toBe(false);
+  it("recusa a senha de 20 caracteres que um gerenciador gera por padrao", () => {
+    expect(isPasswordValid("Ab@1".padEnd(20, "x"))).toBe(false);
   });
 
-  it("aceita senha acentuada que cabe nos 72 bytes", () => {
-    expect(isPasswordValid("Ab@1" + "ç".repeat(30))).toBe(true);
+  it("recusa passphrase de quatro palavras", () => {
+    expect(isPasswordValid("Cavalo-Bateria-Grampo-Correto-7")).toBe(false);
+  });
+
+  /**
+   * O bcrypt do GoTrue so aceita ate 72 bytes, e a guarda de MAX_BYTES existe
+   * por isso. Com o teto em 16 ela ficou INALCANCAVEL -- 16 caracteres
+   * acentuados dao 32 bytes --, e este teste prova isso em vez de fingir que a
+   * guarda ainda e exercitada. Se o teto de caracteres subir de novo, ele
+   * falha, que e o aviso certo na hora certa.
+   */
+  it("o teto de bytes ficou inalcancavel com o teto de 16 caracteres", () => {
+    const piorCaso = "ç".repeat(MAX_LENGTH);
+    expect(new TextEncoder().encode(piorCaso).length).toBeLessThanOrEqual(MAX_BYTES);
+  });
+
+  it("aceita senha acentuada dentro do teto", () => {
+    expect(isPasswordValid("Ab@1" + "ç".repeat(10))).toBe(true);
   });
 
   /** A lista fechada "@+$#" recusava simbolos comuns de gerador de senha. */

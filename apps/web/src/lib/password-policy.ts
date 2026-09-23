@@ -24,23 +24,36 @@
 export const MIN_LENGTH = 8;
 
 /**
- * Teto de 64 caracteres (decisao de 14/09/2026, varredura de AppSec de 31/08,
- * item B-3). Ate ali era 15, em paridade com o sistema de origem -- e recusava
- * a saida padrao dos gerenciadores de senha (1Password e Chrome geram ~20) e
- * qualquer passphrase de tres ou quatro palavras, empurrando o usuario para
- * algo curto e memorizavel. Senha longa e mais forte, nao mais fraca.
+ * Teto de 16 caracteres, em paridade com o sistema de referencia (decisao do
+ * dono do produto em 23/09/2026).
  *
- * 64 cobre gerador e passphrase com folga; nao ha ganho em ir alem.
+ * O QUE ISSO CUSTA, REGISTRADO PORQUE A DECISAO FOI TOMADA CIENTE DISSO. Este
+ * teto ja foi 15 e virou 64 na #79 (decisao de 14/09, item B-3 da varredura de
+ * AppSec de 31/08) justamente porque um teto baixo recusa a saida padrao dos
+ * gerenciadores de senha (1Password e Chrome geram ~20 caracteres) e qualquer
+ * passphrase de tres ou quatro palavras -- e a saida obvia para quem e
+ * recusado e digitar uma senha pior no lugar. Senha longa e mais forte, nao
+ * mais fraca.
+ *
+ * ALCANCE REAL DESTE NUMERO. Ele vale na tela e em
+ * `cadastros/usuarios/actions.ts`, que chama `isPasswordValid` no servidor. O
+ * GoTrue nao tem configuracao de comprimento MAXIMO -- so de minimo --, entao
+ * uma chamada direta a `supabase.auth.updateUser({ password })` com a anon key
+ * continua aceitando senha maior. Baixar este numero nao invalida senha que ja
+ * existe: o login nao revalida comprimento.
  */
-export const MAX_LENGTH = 64;
+export const MAX_LENGTH = 16;
 
 /**
  * Teto em BYTES, alem do de caracteres. O GoTrue guarda a senha com bcrypt,
  * que so considera os primeiros 72 bytes -- e recusa senha maior que isso.
- * Com o teto antigo de 15 caracteres o limite era inalcancavel (45 bytes no
- * pior caso). Com 64 nao e: 64 caracteres acentuados ("ã", "ç") ocupam 2
- * bytes cada em UTF-8, e a senha passaria na tela para ser recusada pelo
- * servidor com uma mensagem generica. A regra aqui recusa antes, com o motivo.
+ *
+ * Com MAX_LENGTH em 16 este limite voltou a ser INALCANCAVEL: 16 caracteres
+ * acentuados ("ã", "ç") ocupam 2 bytes cada, 32 bytes no pior caso. A checagem
+ * fica de guarda mesmo assim, e nao removida junto com o motivo dela -- se o
+ * teto de caracteres subir de novo (foi 15, virou 64, voltou a 16), o limite do
+ * bcrypt volta a ser alcancavel, e quem mexer no numero nao tem como saber
+ * disso se a regra tiver sumido.
  */
 export const MAX_BYTES = 72;
 
