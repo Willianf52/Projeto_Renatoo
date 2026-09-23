@@ -233,3 +233,33 @@ export function toTableRow(qrCode: QrCodeRow): string[] {
     qrCode.ativo ? "Ativo" : "Inativo",
   ];
 }
+
+/**
+ * A LISTAGEM mostra menos colunas que a exportacao, para espelhar o sistema de
+ * referencia: la a tela de QR-Codes traz `QR-Code | Codigo | Site | Finalidade
+ * | Status`, sem ID nem Grupo de Sites, e chama a coluna do site so de "Site".
+ *
+ * A exportacao continua completa de proposito. Numa planilha o ID e o grupo
+ * sao justamente o que permite cruzar com outra lista, e tirar coluna de um
+ * arquivo que alguem ja usa e regressao -- o alinhamento pedido era da tela.
+ *
+ * Derivado por ROTULO e nao por indice fixo: acrescentar uma coluna em
+ * `COLUNAS_EXPORTACAO` nao desalinha a listagem em silencio.
+ */
+const OCULTAS_NA_LISTAGEM = ["ID", "Grupo de Sites"];
+const RENOMEADAS_NA_LISTAGEM: Record<string, string> = { "Site / Planta": "Site" };
+
+const INDICES_DA_LISTAGEM = COLUNAS_EXPORTACAO.map((coluna, indice) =>
+  OCULTAS_NA_LISTAGEM.includes(coluna) ? -1 : indice,
+).filter((indice) => indice >= 0);
+
+export const COLUNAS_DA_LISTAGEM = INDICES_DA_LISTAGEM.map(
+  (indice) => RENOMEADAS_NA_LISTAGEM[COLUNAS_EXPORTACAO[indice]] ?? COLUNAS_EXPORTACAO[indice],
+);
+
+/** A linha da tela: as mesmas celulas de `toTableRow`, sem as ocultas. Uma so
+ * origem para as duas, para tela e exportacao nao divergirem. */
+export function toListRow(qrCode: QrCodeRow): string[] {
+  const completa = toTableRow(qrCode);
+  return INDICES_DA_LISTAGEM.map((indice) => completa[indice]);
+}

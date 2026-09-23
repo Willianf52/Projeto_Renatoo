@@ -170,7 +170,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
       <div className={`min-w-0 flex-1 ${GRADE_DE_FILTROS}`}>
         {/* Um campo so para nome, login e e-mail: ver `comBusca` em
             queries.ts. */}
-        <FilterInput label="Busca Livre..." name="busca" defaultValue={filtros.busca} />
+        <FilterInput label="Busca Livre (Nome, E-mail, Login)" name="busca" defaultValue={filtros.busca} />
         <FilterSelect
           label="Situação"
           name="situacao"

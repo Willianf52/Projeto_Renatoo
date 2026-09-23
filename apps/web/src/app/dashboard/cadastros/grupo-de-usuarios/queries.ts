@@ -166,6 +166,31 @@ export async function getMembros(grupoId: number): Promise<string[]> {
 }
 
 /** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
+/**
+ * A LISTAGEM nao mostra o ID, para espelhar o sistema de referencia -- la a
+ * tela traz `Nome | Descricao | Usuarios`. A exportacao continua com ele: numa
+ * planilha o ID e o que permite cruzar com outra lista, e tirar coluna de um
+ * arquivo que alguem ja usa e regressao.
+ *
+ * Por ROTULO e nao por indice fixo, para uma coluna nova em
+ * `COLUNAS_EXPORTACAO` nao desalinhar a listagem em silencio.
+ */
+const OCULTAS_NA_LISTAGEM = ["ID"];
+
+const INDICES_DA_LISTAGEM = COLUNAS_EXPORTACAO.map((coluna, indice) =>
+  OCULTAS_NA_LISTAGEM.includes(coluna) ? -1 : indice,
+).filter((indice) => indice >= 0);
+
+export const COLUNAS_DA_LISTAGEM = INDICES_DA_LISTAGEM.map(
+  (indice) => COLUNAS_EXPORTACAO[indice],
+);
+
+/** A linha da tela: as mesmas celulas de `toTableRow`, sem as ocultas. */
+export function toListRow(grupo: GrupoUsuariosRow): string[] {
+  const completa = toTableRow(grupo);
+  return INDICES_DA_LISTAGEM.map((indice) => completa[indice]);
+}
+
 export function toTableRow(grupo: GrupoUsuariosRow): string[] {
   return [
     String(grupo.id),

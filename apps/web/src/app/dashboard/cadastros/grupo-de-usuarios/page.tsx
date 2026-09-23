@@ -27,15 +27,16 @@ import {
   extrairFiltros,
   getGruposUsuarios,
   primeiro,
-  toTableRow,
-  COLUNAS_EXPORTACAO,
+  toListRow,
+  COLUNAS_DA_LISTAGEM,
   PAGE_SIZE,
   type SearchParams,
 } from "./queries";
 
 // A ultima coluna so existe na tela: a exportacao nao a tem.
-const TABLE_COLUMNS = [...COLUNAS_EXPORTACAO, "Ações"];
-const MIN_WIDTH = "min-w-[700px]";
+/** Sem ID, como na referencia -- a exportacao segue com ele (ver queries.ts). */
+const TABLE_COLUMNS = [...COLUNAS_DA_LISTAGEM, "Ações"];
+const MIN_WIDTH = "min-w-[620px]";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
@@ -215,7 +216,7 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
   // Quem nao administra continua vendo o botao, desabilitado: escondê-lo faria
   // a coluna "Ações" aparecer vazia, sem explicar por que.
   const rows = resultado.rows.map((grupo) => [
-    ...toTableRow(grupo),
+    ...toListRow(grupo),
     podeAdministrar ? (
       <div key={grupo.id} className="flex items-center gap-2">
         <Acao

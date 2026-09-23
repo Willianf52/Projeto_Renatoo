@@ -233,7 +233,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
           options={opcoes.responsaveis}
         />
         <FilterSelect
-          label="Tipo de Serviços"
+          label="Tipo Serviços"
           name="tipo_servico"
           defaultValue={filtros.tipoServico}
           options={opcoes.tiposServico}
