@@ -80,6 +80,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             senha: "",
             login: usuario.login ?? "",
             funcao: usuario.funcao ?? "",
+            pais: usuario.pais,
             cargo: usuario.cargo,
             tipo: usuario.tipo,
             superiorId: usuario.superior_id ?? "",

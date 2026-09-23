@@ -623,6 +623,7 @@ export type Database = {
           id: string
           login: string | null
           nome_completo: string | null
+          pais: string
           superior_id: string | null
           tipo: string
         }
@@ -635,6 +636,7 @@ export type Database = {
           id: string
           login?: string | null
           nome_completo?: string | null
+          pais?: string
           superior_id?: string | null
           tipo?: string
         }
@@ -647,6 +649,7 @@ export type Database = {
           id?: string
           login?: string | null
           nome_completo?: string | null
+          pais?: string
           superior_id?: string | null
           tipo?: string
         }

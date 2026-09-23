@@ -161,6 +161,16 @@ export function UsuarioForm({
           />
         </Campo>
 
+        <Campo id="pais" rotulo="País">
+          <input
+            id="pais"
+            name="pais"
+            type="text"
+            defaultValue={valores.pais}
+            className={getInputClasses(false)}
+          />
+        </Campo>
+
         {/* Migration 0019. Não é o nível de acesso: diz o que a conta é, não
             quanto ela enxerga -- uma conta de integração pode precisar do
             alcance de um gestor sem ser uma pessoa da operação. */}

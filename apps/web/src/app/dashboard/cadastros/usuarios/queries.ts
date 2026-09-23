@@ -33,6 +33,8 @@ export type UsuarioRow = {
   /** Migration 0019. `not null default 'PADRAO'`, entao nunca vem nulo. */
   tipo: string;
   ativo: boolean;
+  /** Migration 0058. `not null default 'Brasil'`, entao nunca vem nulo. */
+  pais: string;
   superior: { nome_completo: string | null } | null;
   /** So vem em `getUsuario`, para preencher o select do formulario -- a
    * listagem exibe o nome do superior, nao o id. */
@@ -100,6 +102,7 @@ export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
       cargo,
       tipo,
       ativo,
+      pais,
       superior:profiles!superior_id ( nome_completo )
       ${filtrandoPorGrupo ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
       `;
@@ -123,8 +126,12 @@ export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
 function comBusca<Q extends { or(filtro: string): unknown }>(query: Q, busca: string | undefined): Q {
   if (!busca) return query;
   const termo = termoParaOr(busca);
+  // `pais` entra na busca porque o rotulo do campo promete isso, como no
+  // sistema de referencia. Sem indice trigram proprio: a coluna e praticamente
+  // constante ("Brasil" em todas as linhas) e `profiles` e a menor tabela do
+  // schema -- um indice aqui custaria escrita para nao poupar leitura nenhuma.
   return query.or(
-    `nome_completo.ilike."%${termo}%",login.ilike."%${termo}%",email.ilike."%${termo}%"`,
+    `nome_completo.ilike."%${termo}%",login.ilike."%${termo}%",email.ilike."%${termo}%",pais.ilike."%${termo}%"`,
   ) as Q;
 }
 
@@ -313,6 +320,7 @@ export function toTableRow(usuario: UsuarioRow): string[] {
     usuario.email,
     usuario.funcao ?? "",
     rotuloNivel(usuario.cargo),
+    usuario.pais,
     usuario.ativo ? "Ativo" : "Inativo",
   ];
 }
