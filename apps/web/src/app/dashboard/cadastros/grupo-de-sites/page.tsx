@@ -98,9 +98,24 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   return (
     <div className="flex items-center gap-2">
-      <AcaoDesabilitada titulo="Importar grupos" className="bg-sky-600/40">
-        <UploadIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
+      {/* Mesma regua do "Novo grupo": importar e cadastrar em lote. */}
+      {podeAdministrar ? (
+        <Acao
+          titulo="Importar grupos"
+          href="/dashboard/cadastros/grupo-de-sites/importar"
+          className="bg-sky-600/40"
+        >
+          <UploadIcon className="h-4 w-4" />
+        </Acao>
+      ) : (
+        <AcaoDesabilitada
+          titulo="Importar grupos"
+          motivo="você não tem permissão"
+          className="bg-sky-600/40"
+        >
+          <UploadIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      )}
       <Acao
         titulo="Exportar para Excel"
         href={`/dashboard/cadastros/grupo-de-sites/export/excel${queryExportacao}`}
