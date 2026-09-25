@@ -291,8 +291,16 @@ exigem dev build.
 | `production` | AAB, `autoIncrement` | `producao` | Play Store |
 
 `appVersionSource: remote`: o `versionCode` é do EAS, não do `app.json`. As
-variáveis do app e o `SENTRY_AUTH_TOKEN` estão no EAS, nos perfis `preview` e
-`production` — o `.env` local não vai para o build na nuvem. O build na nuvem
+variáveis do app e o `SENTRY_AUTH_TOKEN` estão nos ambientes `preview` e
+`production` do EAS, e não no `env` do `eas.json`: o `eas update` ignora o
+`env` do perfil. O `.env` local não vai para o build na nuvem.
+
+**Atualização remota (EAS Update)**, ligada pelo `updates.url` do `app.json`
+desde a #122: mudança só de JavaScript chega pelo canal do perfil
+(`pnpm atualizar:preview`). O app baixa em segundo plano ao abrir, sem esperar
+a rede, e aplica na abertura seguinte. `runtimeVersion` segue a `version` do
+app: mudança nativa exige subir a versão e gerar um APK novo. O procedimento
+está no README. O build na nuvem
 precisa de `EAS_SKIP_AUTO_FINGERPRINT=1`, e o build Android local precisa do
 virtual store do pnpm num caminho curto (`virtualStoreDir`, edição local
 proibida de commitar — há um portão na CI para isso).
@@ -413,9 +421,6 @@ Estado real, não plano. Cada item diz o que falta para sair daqui.
 - **Não existe geofence.** `sites` tem latitude, longitude e `raio_metros`,
   mas nada compara a posição da leitura com o raio. Leitura fora do lugar não
   é recusada nem marcada.
-- **Sem atualização OTA.** `expo-updates` está instalado e os perfis do EAS
-  têm `channel`, mas o `app.json` não tem `updates.url`: toda correção no app
-  exige um APK novo instalado à mão em cada aparelho.
 - **App nunca rodou em aparelho físico.** Keystore real, refresh em segundo
   plano e fila offline foram provados só no emulador.
 - **Remetente de e-mail provisório.** Sem domínio verificado na Resend, o
