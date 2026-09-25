@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { SessaoProvider } from "./src/auth/SessaoProvider";
+import { LimiteDeErro } from "./src/componentes/LimiteDeErro";
 import { Navegacao } from "./src/navegacao/Navegacao";
 import { cores, FONTES } from "./src/tema";
 
@@ -57,12 +58,15 @@ export default function App() {
   return (
     <View style={estilos.raiz} onLayout={aoDesenhar}>
       <SafeAreaProvider>
-        <SessaoProvider>
-          {/* Claro sobre o navy da marca -- o tema do app e escuro, como o do
-              painel (`color-scheme: dark` no globals.css). */}
-          <StatusBar style="light" />
-          <Navegacao />
-        </SessaoProvider>
+        {/* Por fora do `SessaoProvider`: erro de render dele tambem cai aqui. */}
+        <LimiteDeErro>
+          <SessaoProvider>
+            {/* Claro sobre o navy da marca -- o tema do app e escuro, como o do
+                painel (`color-scheme: dark` no globals.css). */}
+            <StatusBar style="light" />
+            <Navegacao />
+          </SessaoProvider>
+        </LimiteDeErro>
       </SafeAreaProvider>
     </View>
   );

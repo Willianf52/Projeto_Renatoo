@@ -21,13 +21,16 @@ import {
   type TipoDeVisita,
 } from "@projeto-renatoo/shared";
 
+import { useSessao } from "../auth/SessaoProvider";
+import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
 import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
 import { Cartao } from "../componentes/Cartao";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
-import { enviarChecklist } from "../lib/envio-de-checklist";
+import { enviarChecklist, type MidiaJaEnviada } from "../lib/envio-de-checklist";
+import { capturarErro } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
@@ -63,6 +66,9 @@ export function TelaDeChecklist({
   tipo: TipoDeVisita;
   aoConcluir: () => void;
 }) {
+  const { sessao } = useSessao();
+  const funcionarioId = sessao?.user.id ?? null;
+
   const [motivo, setMotivo] = useState("");
   // `null` e "ainda nao buscadas", `[]` e "buscadas e nao ha nenhuma". Os dois
   // estados sao diferentes na tela -- um mostra esqueleto, o outro diz que o
@@ -91,6 +97,58 @@ export function TelaDeChecklist({
    * bucket. Uma ref e lida no mesmo tique do toque, antes de qualquer render.
    */
   const envioEmVoo = useRef(false);
+
+  /** O que ja subiu ao Storage -- ver `MidiaJaEnviada` em `envio-de-checklist.ts`. */
+  const midiaJaEnviada = useRef<MidiaJaEnviada>(new Map());
+
+  /**
+   * Falso ate o rascunho ser lido. Sem esta trava, o salvamento abaixo rodaria
+   * no primeiro render com o formulario ainda vazio e sobrescreveria no disco
+   * justamente o rascunho que se quer restaurar.
+   */
+  const [rascunhoLido, setRascunhoLido] = useState(false);
+
+  useEffect(() => {
+    if (!funcionarioId) return;
+    let ativo = true;
+
+    lerRascunho(visitaId, funcionarioId)
+      .then((rascunho) => {
+        if (!ativo || !rascunho) return;
+        setMotivo(rascunho.motivo);
+        setRespostas(rascunho.respostas);
+        setFotos(rascunho.fotos);
+      })
+      .catch((falha) => {
+        // Rascunho ilegivel nao impede de preencher: a tela abre vazia, como
+        // abria antes de o rascunho existir.
+        capturarErro(falha, { onde: "lerRascunho", visita: String(visitaId) });
+      })
+      .finally(() => {
+        if (ativo) setRascunhoLido(true);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [visitaId, funcionarioId]);
+
+  /**
+   * Grava a cada mudanca, com um respiro de meio segundo: digitar o motivo
+   * nao pode virar uma escrita em disco por tecla. Falha de gravacao nao
+   * interrompe o preenchimento -- o rascunho e rede de seguranca, nao etapa.
+   */
+  useEffect(() => {
+    if (!rascunhoLido || !funcionarioId) return;
+
+    const espera = setTimeout(() => {
+      salvarRascunho(visitaId, funcionarioId, { motivo, respostas, fotos }).catch((falha) => {
+        capturarErro(falha, { onde: "salvarRascunho", visita: String(visitaId) });
+      });
+    }, 500);
+
+    return () => clearTimeout(espera);
+  }, [rascunhoLido, funcionarioId, visitaId, motivo, respostas, fotos]);
 
   /**
    * As perguntas so sao buscadas quando a CONSULTORIA e escolhida, e nao na
@@ -152,10 +210,11 @@ export function TelaDeChecklist({
 
       if (resultado.canceled) return;
 
+      // Copia para fora do cache antes de entrar na tela -- ver `guardarFoto`.
+      const guardadas = await Promise.all(resultado.assets.map((a) => guardarFoto(visitaId, a.uri)));
+
       setErro(null);
-      setFotos((atuais) =>
-        [...atuais, ...resultado.assets.map((a) => a.uri)].slice(0, MAXIMO_DE_FOTOS),
-      );
+      setFotos((atuais) => [...atuais, ...guardadas].slice(0, MAXIMO_DE_FOTOS));
     } catch {
       // As duas chamadas acima REJEITAM de verdade -- camera indisponivel,
       // outro seletor ja aberto. A funcao e descartada com `void` no botao,
@@ -164,7 +223,7 @@ export function TelaDeChecklist({
       // formato de falha mais caro para quem esta em campo.
       setErro("Não foi possível abrir a câmera. Tente de novo.");
     }
-  }, []);
+  }, [visitaId]);
 
   const enviar = useCallback(async () => {
     if (envioEmVoo.current) return;
@@ -231,17 +290,29 @@ export function TelaDeChecklist({
             : undefined,
         fotos,
         assinatura: traco,
-      });
-
-      setEnviando(false);
+      }, midiaJaEnviada.current);
 
       if (!resultado.ok) {
         setErro(resultado.erro);
         return;
       }
 
+      // O checklist ja esta no banco: o rascunho perdeu o motivo de existir.
+      // Falhar aqui nao desfaz o envio, entao so registra e segue.
+      await descartarRascunho(visitaId).catch((falha) => {
+        capturarErro(falha, { onde: "descartarRascunho", visita: String(visitaId) });
+      });
+
       aoConcluir();
+    } catch {
+      // `enviarChecklist` nao rejeita, mas a captura da assinatura e o resto
+      // deste bloco sao chamados com `void` pelo botao: uma rejeicao aqui
+      // sumiria calada e o inspetor ficaria sem resposta nenhuma na tela.
+      setErro("Não foi possível enviar o checklist.");
     } finally {
+      // No `finally`, e nao so depois do envio: qualquer saida deste bloco
+      // precisa soltar o botao, ou ele fica em "enviando" para sempre.
+      setEnviando(false);
       envioEmVoo.current = false;
     }
   }, [aoConcluir, fotos, motivo, perguntas, respostas, temAssinatura, tipo, visitaId]);
@@ -342,7 +413,10 @@ export function TelaDeChecklist({
                   {fotos.map((uri) => (
                     <Pressable
                       key={uri}
-                      onPress={() => setFotos((atuais) => atuais.filter((f) => f !== uri))}
+                      onPress={() => {
+                        setFotos((atuais) => atuais.filter((f) => f !== uri));
+                        esquecerFoto(visitaId, uri);
+                      }}
                       accessibilityRole="button"
                       accessibilityLabel="Remover foto"
                       style={estilos.tira}

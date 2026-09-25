@@ -53,7 +53,35 @@ export type ResultadoDaSincronizacao = {
   falhas: { chave: string; erro: string }[];
 };
 
-export async function sincronizar(funcionarioId: string): Promise<ResultadoDaSincronizacao> {
+/**
+ * UMA DRENAGEM POR VEZ, E A SEGUNDA PEGA CARONA NA PRIMEIRA.
+ *
+ * A guarda da `TelaInicial` (`if (sincronizando) return`) le ESTADO, e o
+ * estado so vira `true` no render seguinte -- a mesma janela que
+ * `envioEmVoo` fecha no checklist. Dois toques em "Sincronizar" nesse
+ * intervalo rodavam duas drenagens sobre a mesma fila: o banco nao duplicava
+ * nada (as chaves de idempotencia seguram), mas cada uma contava a outra como
+ * "ja existia", a tela anunciava numeros errados e uma falha virava duas
+ * tentativas em `registrarFalha`. Memoizar a PROMESSA, como `abrirFila`, faz
+ * o segundo chamador receber o resultado do primeiro.
+ *
+ * Por inspetor: a troca de sessao no aparelho compartilhado nao pode herdar a
+ * drenagem de quem saiu.
+ */
+const drenagemEmVoo = new Map<string, Promise<ResultadoDaSincronizacao>>();
+
+export function sincronizar(funcionarioId: string): Promise<ResultadoDaSincronizacao> {
+  const emVoo = drenagemEmVoo.get(funcionarioId);
+  if (emVoo) return emVoo;
+
+  const drenagem = drenar(funcionarioId).finally(() => {
+    drenagemEmVoo.delete(funcionarioId);
+  });
+  drenagemEmVoo.set(funcionarioId, drenagem);
+  return drenagem;
+}
+
+async function drenar(funcionarioId: string): Promise<ResultadoDaSincronizacao> {
   const resultado: ResultadoDaSincronizacao = {
     visitasCriadas: 0,
     visitasJaExistiam: 0,
@@ -127,7 +155,7 @@ export async function sincronizar(funcionarioId: string): Promise<ResultadoDaSin
       .select("id");
 
     if (error) {
-      await falhar(resultado, "leituras", visita.chave, error.message);
+      await falhar(resultado, "leituras", visita.chave, error);
       continue;
     }
 
@@ -171,11 +199,43 @@ async function falhar(
   resultado: ResultadoDaSincronizacao,
   etapa: "validacao" | "visita" | "leituras",
   chave: string,
-  erro: string,
+  erro: string | FalhaDoBanco,
 ): Promise<void> {
-  await registrarFalha(chave, erro);
-  resultado.falhas.push({ chave, erro });
-  capturarFalhaDeCampo(etapa, chave, erro);
+  // Fila e Sentry guardam o texto cru -- e ele que diagnostica. Quem le a
+  // versao traduzida e so a tela.
+  const cru = typeof erro === "string" ? erro : erro.message;
+  await registrarFalha(chave, cru);
+  resultado.falhas.push({ chave, erro: typeof erro === "string" ? erro : paraOInspetor(erro) });
+  capturarFalhaDeCampo(etapa, chave, cru);
+}
+
+/** O pedaco do `PostgrestError` que a traducao usa. */
+type FalhaDoBanco = { message: string; code?: string };
+
+/**
+ * O que o inspetor le quando o banco recusa -- e o que ele pode FAZER a
+ * respeito.
+ *
+ * O aviso da `TelaInicial` pintava `error.message` cru: "JWT expired" ou
+ * "TypeError: Network request failed", em ingles, sem dizer que a ronda
+ * continua salva nem o que fazer. Os dois casos mais comuns em campo tem
+ * saida conhecida (entrar de novo; esperar sinal), entao ganham frase propria.
+ * O resto segue cru, porque nao ha conselho honesto a dar sobre ele.
+ *
+ * PGRST301/PGRST303 sao os codigos do PostgREST para JWT invalido/vencido. A
+ * sessao vence quando o aparelho fica dias sem rede e o refresh token expira
+ * junto -- o `autoRefreshToken` nao tem como renovar o que ja morreu.
+ */
+export function paraOInspetor(erro: FalhaDoBanco): string {
+  if (erro.code === "PGRST301" || erro.code === "PGRST303" || /jwt/i.test(erro.message)) {
+    return "Sua sessão expirou. Saia e entre de novo para enviar — as leituras continuam salvas no aparelho.";
+  }
+
+  if (/network request failed|failed to fetch|fetch failed/i.test(erro.message)) {
+    return "Sem conexão com o servidor. As leituras continuam salvas; tente de novo com sinal.";
+  }
+
+  return erro.message;
 }
 
 /**
@@ -188,7 +248,7 @@ async function falhar(
 async function garantirVisita(
   visita: VisitaDeCampo,
   resultado: ResultadoDaSincronizacao,
-): Promise<number | { erro: string }> {
+): Promise<number | { erro: FalhaDoBanco }> {
   const { data: inserida, error: erroDoInsert } = await supabase
     .from("visitas")
     .upsert(linhaDeVisita(visita), {
@@ -198,7 +258,7 @@ async function garantirVisita(
     .select("id")
     .maybeSingle();
 
-  if (erroDoInsert) return { erro: erroDoInsert.message };
+  if (erroDoInsert) return { erro: erroDoInsert };
 
   if (inserida) {
     resultado.visitasCriadas += 1;
@@ -212,7 +272,7 @@ async function garantirVisita(
     .eq("site_id", visita.siteId)
     .maybeSingle();
 
-  if (erroDaBusca) return { erro: erroDaBusca.message };
+  if (erroDaBusca) return { erro: erroDaBusca };
 
   /**
    * Nem inseriu nem achou: nao e "ja existia". A causa provavel e RLS --
@@ -221,7 +281,7 @@ async function garantirVisita(
    * enviada sem nunca ter chegado.
    */
   if (!existente) {
-    return { erro: "A visita nao foi inserida e tambem nao esta visivel para esta sessao." };
+    return { erro: { message: "A visita nao foi inserida e tambem nao esta visivel para esta sessao." } };
   }
 
   resultado.visitasJaExistiam += 1;
