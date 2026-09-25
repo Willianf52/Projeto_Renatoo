@@ -43,8 +43,17 @@ const ESPERA_MAXIMA_DA_CAPTURA = 10_000;
 
 export const AreaDeAssinatura = forwardRef<
   ControleDaAssinatura,
-  { rotulo: string; aoMudar?: (temTraco: boolean) => void }
->(function AreaDeAssinatura({ rotulo, aoMudar }, ref) {
+  {
+    rotulo: string;
+    aoMudar?: (temTraco: boolean) => void;
+    /**
+     * `true` quando o dedo encosta no quadro, `false` quando sai. A tela usa
+     * para travar a rolagem do formulario enquanto a pessoa assina -- ver
+     * `onPanResponderTerminationRequest` abaixo.
+     */
+    aoAssinar?: (assinando: boolean) => void;
+  }
+>(function AreaDeAssinatura({ rotulo, aoMudar, aoAssinar }, ref) {
   const svg = useRef<Svg>(null);
 
   // Gestos ja terminados e o gesto em andamento, separados: so o segundo muda
@@ -71,16 +80,53 @@ export const AreaDeAssinatura = forwardRef<
     aoMudar?.(false);
   }, [aoMudar]);
 
-  const respondedor = useMemo(
-    () =>
-      PanResponder.create({
+  const respondedor = useMemo(() => {
+    /**
+     * Fecha o traco em curso -- chamado ao soltar o dedo E quando o gesto e
+     * interrompido pelo sistema (ligacao, notificacao puxada), que antes
+     * deixava o ultimo traco pela metade na tela e fora da assinatura.
+     */
+    const fecharTraco = () => {
+      aoAssinar?.(false);
+
+      const terminado = atual.current;
+      atual.current = "";
+      setEmCurso("");
+
+      // Toque sem arrasto vira um `M` solto, que nao desenha nada e ainda
+      // assim faria o campo contar como assinado.
+      if (!terminado.includes("L")) return;
+
+      // `aoMudar` FORA do updater de `setTracos`.
+      //
+      // Updater tem que ser puro: `aoMudar` e o `setTemAssinatura` da
+      // `TelaDeChecklist`, e chama-lo la dentro atualizava o pai durante a
+      // fase de render deste componente. Alem disso o React 19 invoca o
+      // updater duas vezes sob StrictMode -- era idempotente por sorte,
+      // nao por desenho.
+      setTracos((anteriores) => [...anteriores, terminado]);
+      aoMudar?.(true);
+    };
+
+    return PanResponder.create({
         // `onStartShouldSetPanResponderCapture` e nao a versao sem `Capture`:
         // sem capturar, o `ScrollView` que envolve o formulario ganha o gesto
         // e a tela rola em vez de a linha ser desenhada.
         onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponderCapture: () => true,
 
+        /**
+         * CAPTURAR NAO BASTAVA NO iPHONE (achado em aparelho, 26/09/2026): a
+         * rolagem do iOS e nativa e o `ScrollView` pedia o gesto de volta no
+         * meio do traco -- a pagina subia enquanto o responsavel assinava.
+         * Duas travas juntas: recusar a devolucao do gesto aqui, e a tela
+         * desligar a rolagem enquanto `aoAssinar(true)` (ver `TelaDeChecklist`).
+         */
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
+
         onPanResponderGrant: (evento) => {
+          aoAssinar?.(true);
           const { locationX, locationY } = evento.nativeEvent;
           atual.current = `M${arredondar(locationX)},${arredondar(locationY)}`;
           setEmCurso(atual.current);
@@ -92,28 +138,10 @@ export const AreaDeAssinatura = forwardRef<
           setEmCurso(atual.current);
         },
 
-        onPanResponderRelease: () => {
-          const terminado = atual.current;
-          atual.current = "";
-          setEmCurso("");
-
-          // Toque sem arrasto vira um `M` solto, que nao desenha nada e ainda
-          // assim faria o campo contar como assinado.
-          if (!terminado.includes("L")) return;
-
-          // `aoMudar` FORA do updater de `setTracos`.
-          //
-          // Updater tem que ser puro: `aoMudar` e o `setTemAssinatura` da
-          // `TelaDeChecklist`, e chama-lo la dentro atualizava o pai durante a
-          // fase de render deste componente. Alem disso o React 19 invoca o
-          // updater duas vezes sob StrictMode -- era idempotente por sorte,
-          // nao por desenho.
-          setTracos((anteriores) => [...anteriores, terminado]);
-          aoMudar?.(true);
-        },
-      }),
-    [aoMudar],
-  );
+        onPanResponderRelease: fecharTraco,
+        onPanResponderTerminate: fecharTraco,
+      });
+  }, [aoMudar, aoAssinar]);
 
   useImperativeHandle(
     ref,

@@ -167,9 +167,19 @@ export function Navegacao() {
             voltar para desistir do checklist sem sair do app -- e e o header
             que reserva o espaco da barra de status, que a raiz resolve na mao
             com `useSafeAreaInsets`. */}
+        {/* `gestureEnabled: false`: no iPhone, arrastar a partir da borda
+            esquerda e o gesto de voltar da pilha nativa, e o quadro de
+            assinatura comeca colado nessa borda -- o traco puxava a tela
+            inteira para o lado em vez de desenhar (achado em aparelho,
+            26/09/2026). Ligar/desligar no toque chega tarde: o gesto e
+            reconhecido no nativo antes do JS. A seta do header continua
+            voltando, e sair por ela e um gesto deliberado. */}
         <Pilha.Screen
           name="Checklist"
-          options={({ route }) => ({ title: ROTULO_DO_TIPO[route.params.tipo] })}
+          options={({ route }) => ({
+            title: ROTULO_DO_TIPO[route.params.tipo],
+            gestureEnabled: false,
+          })}
         >
           {({ route, navigation }) => (
             <TelaDeChecklist
