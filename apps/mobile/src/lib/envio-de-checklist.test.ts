@@ -290,15 +290,15 @@ describe("falha de upload", () => {
 });
 
 describe("erro vindo do banco", () => {
-  it("traduz a unique de visita_id para 'ja finalizada'", async () => {
+  it("trata a unique de visita_id como envio ja concluido", async () => {
     // 23505 acontece quando o inspetor toca em Enviar de novo depois de um
-    // envio que pareceu falhar mas chegou -- dizer "erro ao enviar" ali
-    // mandaria ele tentar mais uma vez para sempre.
+    // envio que pareceu falhar mas chegou -- devolver erro ali prendia o
+    // inspetor na tela sobre um trabalho que ja estava feito.
     rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
 
     const resultado = await enviarChecklist(CORRETIVA);
 
-    expect(resultado).toEqual({ ok: false, erro: "Esta visita já foi finalizada." });
+    expect(resultado).toEqual({ ok: true, jaFinalizada: true });
   });
 
   it("usa a mensagem generica para qualquer outro codigo", async () => {
@@ -328,5 +328,47 @@ describe("rejeicao fora do PostgREST", () => {
       ok: false,
       erro: "Não foi possível enviar o checklist.",
     });
+  });
+});
+
+describe("reenvio depois de falha", () => {
+  /**
+   * O inspetor toca em Finalizar, a segunda foto cai, e ele toca de novo. O
+   * que ja chegou ao bucket nao pode subir outra vez: rede de campo gasta em
+   * dobro e orfaos novos a cada tentativa.
+   */
+  it("so sobe o que ainda nao tinha chegado", async () => {
+    const jaEnviadas = new Map<string, string>();
+    const envio = { ...CORRETIVA, fotos: ["a.jpg", "b.jpg"] };
+
+    let chamadas = 0;
+    upload.mockImplementation(async (caminho: string) => {
+      chamadas += 1;
+      estado.subidos.push(caminho);
+      // assinatura ok, foto "a" ok, foto "b" falha na primeira tentativa
+      return { error: chamadas === 3 ? { message: "rede caiu" } : null };
+    });
+
+    const primeira = await enviarChecklist(envio, jaEnviadas);
+    expect(primeira.ok).toBe(false);
+    expect(estado.subidos).toHaveLength(3);
+
+    const segunda = await enviarChecklist(envio, jaEnviadas);
+    expect(segunda).toEqual({ ok: true, checklistId: 99 });
+
+    // Uma ida so a mais: a foto "b". Assinatura e foto "a" reaproveitadas.
+    expect(estado.subidos).toHaveLength(4);
+    expect(rpc.mock.calls[0][1].p_fotos).toEqual([estado.subidos[1], estado.subidos[3]]);
+    expect(rpc.mock.calls[0][1].p_assinatura_path).toBe(estado.subidos[0]);
+  });
+
+  it("assinatura colhida de novo sobe de novo", async () => {
+    const jaEnviadas = new Map<string, string>();
+
+    await enviarChecklist(CORRETIVA, jaEnviadas);
+    await enviarChecklist({ ...CORRETIVA, assinatura: "outroTraco=" }, jaEnviadas);
+
+    // 2 da primeira (assinatura + foto) + 1 da segunda (so a assinatura nova)
+    expect(upload).toHaveBeenCalledTimes(3);
   });
 });

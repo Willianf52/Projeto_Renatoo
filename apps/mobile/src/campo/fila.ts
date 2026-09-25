@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 2;
+const VERSAO_DO_SCHEMA = 3;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -136,6 +136,25 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
       create table if not exists meta (
         chave text primary key,
         valor text not null
+      );
+    `);
+  }
+
+  if (versao < 3) {
+    /**
+     * O checklist em preenchimento -- ver `rascunho.ts`. Mora neste arquivo
+     * pelo mesmo motivo da fila: o app morto no bolso nao pode levar junto o
+     * que o inspetor ja respondeu. Uma linha por visita; `funcionario_id`
+     * pelo aparelho compartilhado, como em `visitas_na_fila`.
+     */
+    await banco.execAsync(`
+      create table if not exists rascunhos_de_checklist (
+        visita_id       integer primary key,
+        funcionario_id  text not null,
+        motivo          text not null default '',
+        respostas       text not null default '{}',
+        fotos           text not null default '[]',
+        atualizado_em   text not null
       );
     `);
   }

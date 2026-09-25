@@ -98,7 +98,7 @@ vi.mock("../lib/supabase", () => ({
   },
 }));
 
-const { sincronizar } = await import("./sincronizacao");
+const { paraOInspetor, sincronizar } = await import("./sincronizacao");
 
 const CHAVE = "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e";
 const FUNCIONARIO = "11111111-2222-4333-8444-555555555555";
@@ -282,5 +282,58 @@ describe("aparelho compartilhado", () => {
 
     expect(resultado.visitasCriadas).toBe(1);
     expect(estado.gravado.visitasEnviadas).toEqual([{ chave: CHAVE, visitaId: 500 }]);
+  });
+});
+
+describe("dois toques em Sincronizar", () => {
+  /**
+   * A guarda da tela le estado, que so muda no render seguinte. Sem a guarda
+   * do modulo, o segundo toque rodava uma segunda drenagem sobre a mesma fila
+   * e as duas se contavam como "ja existia".
+   */
+  it("a segunda chamada em voo recebe a mesma drenagem, sem novo envio", async () => {
+    enfileirarRonda({ comLeitura: true });
+
+    const upsert = vi.fn(() => ({ data: { id: 500 }, error: null }) as Resposta);
+    servidor.upsertVisita = upsert;
+
+    const primeira = sincronizar(FUNCIONARIO);
+    const segunda = sincronizar(FUNCIONARIO);
+
+    expect(segunda).toBe(primeira);
+    expect((await segunda).visitasCriadas).toBe(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("terminada a drenagem, a proxima chamada drena de novo", async () => {
+    enfileirarRonda({ comLeitura: true });
+
+    const upsert = vi.fn(() => ({ data: { id: 500 }, error: null }) as Resposta);
+    servidor.upsertVisita = upsert;
+
+    await sincronizar(FUNCIONARIO);
+    await sincronizar(FUNCIONARIO);
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("mensagem de falha para o inspetor", () => {
+  it("sessao vencida vira instrucao de entrar de novo, e a fila guarda o texto cru", async () => {
+    enfileirarRonda({ comLeitura: true });
+    servidor.upsertVisita = () => ({ data: null, error: { message: "JWT expired", code: "PGRST303" } as never });
+
+    const resultado = await sincronizar(FUNCIONARIO);
+
+    expect(resultado.falhas[0].erro).toMatch(/sessão expirou/);
+    expect(estado.gravado.falhas).toEqual([{ chave: CHAVE, erro: "JWT expired" }]);
+  });
+
+  it("falha de rede diz que as leituras continuam salvas", () => {
+    expect(paraOInspetor({ message: "TypeError: Network request failed" })).toMatch(/Sem conexão/);
+  });
+
+  it("o resto segue cru", () => {
+    expect(paraOInspetor({ message: "rede caiu", code: "XX000" })).toBe("rede caiu");
   });
 });

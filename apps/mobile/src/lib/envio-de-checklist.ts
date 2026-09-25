@@ -47,22 +47,56 @@ export type EnvioDeChecklist = {
 
 export type ResultadoDoEnvio =
   | { ok: true; checklistId: number }
+  /** O checklist desta visita ja estava no banco -- ver o ramo do 23505. */
+  | { ok: true; jaFinalizada: true }
   | { ok: false; erro: string };
 
-export async function enviarChecklist(envio: EnvioDeChecklist): Promise<ResultadoDoEnvio> {
-  try {
-    const assinaturaPath = caminhoDeMidiaDaVisita(envio.visitaId, `assinatura-${sufixo()}`, "png");
+/**
+ * O que ja subiu para o Storage nesta tela, por origem local -> caminho no
+ * bucket.
+ *
+ * REENVIO NAO SOBE DE NOVO. Sem isto, cada toque em "Finalizar" depois de uma
+ * falha (a quarta foto caiu no meio, o RPC voltou erro de rede) subia a
+ * assinatura e TODAS as fotos outra vez, com sufixo novo: o inspetor gastava a
+ * rede de campo inteira a cada tentativa, justamente quando ela esta ruim, e
+ * cada tentativa deixava um lote de orfaos no bucket. Quem guarda o mapa e a
+ * tela (uma ref), porque ele vale enquanto o formulario estiver aberto -- a
+ * origem local (uri da foto, base64 da assinatura) so tem sentido ali.
+ */
+export type MidiaJaEnviada = Map<string, string>;
 
-    const bytesDaAssinatura = await bytesDoBase64(envio.assinatura);
-    const falhaNaAssinatura = await subir(assinaturaPath, bytesDaAssinatura, "image/png");
-    if (falhaNaAssinatura) return { ok: false, erro: falhaNaAssinatura };
+export async function enviarChecklist(
+  envio: EnvioDeChecklist,
+  jaEnviadas: MidiaJaEnviada = new Map(),
+): Promise<ResultadoDoEnvio> {
+  try {
+    // A chave da assinatura e o proprio traco: colhida de novo, e outra
+    // imagem e sobe outra vez; a mesma, reaproveita.
+    const origemDaAssinatura = `assinatura:${envio.assinatura}`;
+    let assinaturaPath = jaEnviadas.get(origemDaAssinatura);
+
+    if (assinaturaPath === undefined) {
+      const caminho = caminhoDeMidiaDaVisita(envio.visitaId, `assinatura-${sufixo()}`, "png");
+      const bytesDaAssinatura = await bytesDoBase64(envio.assinatura);
+      const falhaNaAssinatura = await subir(caminho, bytesDaAssinatura, "image/png");
+      if (falhaNaAssinatura) return { ok: false, erro: falhaNaAssinatura };
+      jaEnviadas.set(origemDaAssinatura, caminho);
+      assinaturaPath = caminho;
+    }
 
     const fotos: string[] = [];
 
     for (const uri of envio.fotos) {
-      const caminho = caminhoDeMidiaDaVisita(envio.visitaId, `foto-${sufixo()}`, "jpg");
-      const falha = await subir(caminho, await new File(uri).arrayBuffer(), "image/jpeg");
-      if (falha) return { ok: false, erro: falha };
+      const origem = `foto:${uri}`;
+      let caminho = jaEnviadas.get(origem);
+
+      if (caminho === undefined) {
+        caminho = caminhoDeMidiaDaVisita(envio.visitaId, `foto-${sufixo()}`, "jpg");
+        const falha = await subir(caminho, await new File(uri).arrayBuffer(), "image/jpeg");
+        if (falha) return { ok: false, erro: falha };
+        jaEnviadas.set(origem, caminho);
+      }
+
       fotos.push(caminho);
     }
 
@@ -119,10 +153,12 @@ export async function enviarChecklist(envio: EnvioDeChecklist): Promise<Resultad
     if (error) {
       // 23505 e a unique de `visita_id`: a visita ja foi fechada. Acontece
       // quando o inspetor toca em Enviar de novo depois de um envio que
-      // pareceu falhar mas chegou -- e o caso que a constraint existe para
-      // cobrir, entao a tela diz isso em vez de "erro ao enviar".
+      // pareceu falhar mas chegou (a resposta se perdeu na rede). Devolver
+      // erro aqui prendia o inspetor na tela, com um aviso vermelho sobre um
+      // trabalho que ja estava feito e nenhum jeito de sair dali alem de
+      // voltar na mao. Nao ha nada a refazer: o desfecho e o do sucesso.
       if (error.code === "23505") {
-        return { ok: false, erro: "Esta visita já foi finalizada." };
+        return { ok: true, jaFinalizada: true };
       }
 
       // Recusa do RPC que NAO e a unique conhecida: policy, check do banco,

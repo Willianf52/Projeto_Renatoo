@@ -307,6 +307,32 @@ function CartaoDeAcao({
  * `SessaoProvider`.
  */
 async function contarAInspecionar(idDoUsuario: string, soAsMinhas: boolean): Promise<number> {
+  /**
+   * SO A CONTAGEM, SEM LINHA NENHUMA. `head: true` + `count: "exact"` faz o
+   * Postgres contar e devolver o numero no cabecalho; `!left` com
+   * `.is("checklists_visita", null)` e o anti-join do PostgREST (v11+,
+   * "null filtering on embedded resources"): visita sem checklist.
+   *
+   * O caminho antigo (logo abaixo) baixava ate 100 visitas com o embed para
+   * contar no aparelho -- lento em rede movel e, pior, travado em 100: o
+   * inspetor com 140 visitas pendentes via "100" e achava que era tudo.
+   */
+  const consulta = supabase
+    .from("visitas")
+    .select("id, checklists_visita!left ( id )", { count: "exact", head: true })
+    .is("checklists_visita", null);
+  const comEscopo = soAsMinhas ? consulta.eq("funcionario_id", idDoUsuario) : consulta;
+
+  const { count, error } = await comEscopo;
+
+  if (!error && count !== null) return count;
+
+  // Recusa inesperada da consulta nova (versao do PostgREST, por exemplo):
+  // o distintivo volta ao caminho antigo em vez de sumir.
+  return contarAInspecionarNoAparelho(idDoUsuario, soAsMinhas);
+}
+
+async function contarAInspecionarNoAparelho(idDoUsuario: string, soAsMinhas: boolean): Promise<number> {
   const consulta = supabase.from("visitas").select("id, checklists_visita ( id )");
   const comEscopo = soAsMinhas ? consulta.eq("funcionario_id", idDoUsuario) : consulta;
 
