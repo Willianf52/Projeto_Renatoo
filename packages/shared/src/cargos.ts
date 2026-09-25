@@ -33,6 +33,22 @@ export type Cargo = (typeof CARGOS)[number];
  */
 export const CARGO_INSPETOR: Cargo = "INSPETOR";
 
+/**
+ * Quem fecha visita pelo app (checklist, fotos, assinatura): o INSPETOR, na
+ * propria visita, e o GESTOR, em qualquer visita que enxerga. Decisao do dono
+ * em 25/09/2026, com o portao de verdade em
+ * `autorizacao.pode_finalizar_visita` (migration 0059).
+ *
+ * Mesma natureza de `CARGO_INSPETOR`: serve para o app mostrar o botao a quem
+ * o banco vai aceitar, e esconder de quem ele vai recusar. Se a policy mudar,
+ * esta lista muda junto -- as duas sao a mesma regra.
+ */
+export const CARGOS_QUE_FINALIZAM_VISITA: readonly Cargo[] = ["INSPETOR", "GESTOR"];
+
+export function podeFinalizarVisita(cargo: string | null | undefined): boolean {
+  return cargo != null && (CARGOS_QUE_FINALIZAM_VISITA as readonly string[]).includes(cargo);
+}
+
 export function ehCargoConhecido(valor: string): valor is Cargo {
   return (CARGOS as readonly string[]).includes(valor);
 }

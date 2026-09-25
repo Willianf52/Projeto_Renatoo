@@ -182,6 +182,9 @@ function Resumo({ detalhe }: { detalhe: ChecklistDetalhe }) {
     { rotulo: "Responsável", valor: linha.responsavel },
     { rotulo: "Motivo da visita", valor: detalhe.motivoDaVisita },
     { rotulo: "Enviado em", valor: formatarDataHora(linha.enviadoEm) },
+    // Pode nao ser o Responsavel: desde a 0059 um GESTOR fecha a visita de um
+    // inspetor, e e isto que o relatorio precisa mostrar.
+    { rotulo: "Enviado por", valor: detalhe.enviadoPor ?? "" },
     { rotulo: "Visita registrada em", valor: formatarDataHora(detalhe.registradoEm) },
     { rotulo: "Situação", valor: textoDaSituacao(linha) },
     { rotulo: "Conclusão", valor: textoDaConclusao(linha) },

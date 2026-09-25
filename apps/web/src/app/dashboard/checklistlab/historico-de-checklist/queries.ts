@@ -585,6 +585,9 @@ export type ChecklistDetalhe = {
   respostas: RespostaDoChecklist[];
   fotos: FotoDoChecklist[];
   temAssinatura: boolean;
+  /** Quem de fato enviou (0059): o inspetor dono da visita ou um GESTOR que a
+   * fechou por ele. `null` quando a conta foi apagada depois do envio. */
+  enviadoPor: string | null;
 };
 
 /**
@@ -603,6 +606,7 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
     perguntas_checklist: { ordem: number; texto: string } | null;
   }[];
   checklist_fotos: { id: number; criado_em: string }[];
+  enviado_por_perfil: { nome_completo: string | null } | null;
 };
 
 /**
@@ -636,7 +640,8 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
           resposta, observacao, pergunta_id,
           perguntas_checklist ( ordem, texto )
         ),
-        checklist_fotos ( id, criado_em )
+        checklist_fotos ( id, criado_em ),
+        enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )
       `,
       )
       .eq("id", id)
@@ -657,6 +662,7 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
     respostas: ordenarRespostas(bruto.checklist_respostas ?? []),
     fotos: (bruto.checklist_fotos ?? []).map((foto) => ({ id: foto.id, criadoEm: foto.criado_em })),
     temAssinatura: Boolean(bruto.assinatura_path),
+    enviadoPor: bruto.enviado_por_perfil?.nome_completo ?? null,
   };
 }
 

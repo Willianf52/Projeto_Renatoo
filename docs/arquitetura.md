@@ -6,7 +6,7 @@ aspiracional: reflete o que está em produção. O que ainda falta está em
 "Limites conhecidos", no fim, com data.
 
 Última conferência contra o código: **25/09/2026** (`main` em `4f2ec37`,
-migrations até a 0058).
+migrations até a 0059).
 
 ## Visão geral
 
@@ -86,7 +86,7 @@ botão); quem **permite** é a policy.
 | Server Action com a sessão | painel | cookie do usuário, sob RLS | cadastros, perguntas do checklist |
 | `service_role` no servidor | painel | `lib/supabase/admin.ts`, `server-only` | criar conta, `/api/importar/coletas`, `/api/health` |
 | INSERT direto pelo token do inspetor | app | JWT do inspetor, sob RLS | `visitas`, `leituras` (0036, 0054) |
-| RPC `security definer` com contrato | app | JWT do inspetor | `registrar_checklist` (0042) |
+| RPC `security invoker` com contrato | app | JWT do inspetor ou do gestor | `registrar_checklist` (0042, 0059) |
 
 A `service_role` nunca entra em cliente: nem no bundle do navegador (o
 `import "server-only"` quebra o build) nem no APK, de onde seria extraível.
@@ -127,6 +127,15 @@ Para escrever policy nova, ver a skill `supabase-rls-security` e os pgTAP em
    banco antes de aceitá-la.
 
 ### Checklist com foto e assinatura
+
+**Quem fecha a visita:** o INSPETOR, na própria visita, e o GESTOR, em
+qualquer visita que enxerga (0059). A regra mora numa função só,
+`autorizacao.pode_finalizar_visita`, usada pelas quatro policies de escrita
+(checklist, respostas, fotos e o upload no bucket); no app, a mesma lista está
+em `CARGOS_QUE_FINALIZAM_VISITA` (`packages/shared`). O checklist grava
+**quem enviou** em `enviado_por`, preenchido por trigger com o usuário da
+sessão — o cliente não escolhe o autor —, e o detalhe do Histórico mostra
+"Enviado por" ao lado do Responsável.
 
 A mídia sobe **antes** das linhas para o bucket privado `checklists`, porque
 `assinatura_path` é `not null`. As três tabelas (checklist, fotos, respostas)
