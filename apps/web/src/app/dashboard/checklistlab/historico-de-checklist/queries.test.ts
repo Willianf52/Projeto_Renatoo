@@ -58,7 +58,7 @@ describe("extrairFiltros", () => {
         site: "3",
         grupo_site: "4",
         grupo_usuario: "5",
-        responsavel: "abc",
+        responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
         situacao: "nao_conforme",
         conclusao: "incompleto",
         busca: "ace",
@@ -74,7 +74,7 @@ describe("extrairFiltros", () => {
       site: "3",
       grupoSite: "4",
       grupoUsuario: "5",
-      responsavel: "abc",
+      responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
       situacao: "nao_conforme",
       conclusao: "incompleto",
       busca: "ace",
@@ -93,6 +93,31 @@ describe("extrairFiltros", () => {
 
   it("ignora `status`, que a tela mostra mas o schema nao tem", () => {
     expect(Object.keys(extrairFiltros({ status: "1" }))).not.toContain("status");
+  });
+
+  it("descarta filtro de id ou uuid fora do tipo, em vez de derrubar a consulta", () => {
+    // Achado ao vivo em 25/09: `?site=abc` e `?responsavel=nao-uuid` faziam o
+    // Postgres recusar o `.eq()` e a tela inteira cair em "Nao foi possivel
+    // carregar esta pagina".
+    expect(
+      extrairFiltros({ site: "abc", grupo_site: "1e3", grupo_usuario: "99999999999999999999", responsavel: "nao-uuid" }),
+    ).toMatchObject({ site: undefined, grupoSite: undefined, grupoUsuario: undefined, responsavel: undefined });
+  });
+
+  it("mantem os filtros de id e uuid validos", () => {
+    expect(
+      extrairFiltros({
+        site: "12",
+        grupo_site: "3",
+        grupo_usuario: "4",
+        responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
+      }),
+    ).toMatchObject({
+      site: "12",
+      grupoSite: "3",
+      grupoUsuario: "4",
+      responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
+    });
   });
 });
 
@@ -231,6 +256,8 @@ describe("idValido", () => {
     expect(idValido("-3")).toBeNull();
     expect(idValido("1.5")).toBeNull();
     expect(idValido("")).toBeNull();
+    // Estourava o bigint: `Number.isInteger(1e20)` e true. Achado ao vivo em 25/09.
+    expect(idValido("99999999999999999999")).toBeNull();
   });
 });
 

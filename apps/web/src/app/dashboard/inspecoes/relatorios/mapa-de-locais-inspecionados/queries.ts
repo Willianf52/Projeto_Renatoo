@@ -3,6 +3,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc, periodoInvertido } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,17 +39,17 @@ export function extrairFiltros(params: SearchParams): Filtros {
   return {
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
-    coletorDados: primeiro(params.coletor_dados),
-    funcionario: primeiro(params.funcionario),
-    checkpoint: primeiro(params.checkpoint),
-    sites: primeiro(params.sites),
-    local: primeiro(params.local),
-    evento: primeiro(params.evento),
-    atividade: primeiro(params.atividade),
-    grupoSite: primeiro(params.grupo_site),
-    grupoUsuario: primeiro(params.grupo_usuario),
+    coletorDados: filtroDeId(primeiro(params.coletor_dados)),
+    funcionario: filtroDeUuid(primeiro(params.funcionario)),
+    checkpoint: filtroDeId(primeiro(params.checkpoint)),
+    sites: filtroDeId(primeiro(params.sites)),
+    local: filtroDeId(primeiro(params.local)),
+    evento: filtroDeId(primeiro(params.evento)),
+    atividade: filtroDeId(primeiro(params.atividade)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
     locaisInativos: primeiro(params.locais_inativos) === "sim",
-    motivo: primeiro(params.motivo),
+    motivo: filtroDeId(primeiro(params.motivo)),
   };
 }
 

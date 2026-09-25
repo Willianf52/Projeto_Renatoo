@@ -4,6 +4,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -43,9 +44,9 @@ export function extrairFiltros(params: SearchParams): Filtros {
     // Valor desconhecido na querystring cai no padrao em vez de virar um
     // terceiro modo silencioso -- e o `case` da 0055 so conhece dois.
     baseDeData: base === "evento" ? "evento" : "insercao",
-    sites: primeiro(params.sites),
-    evento: primeiro(params.evento),
-    usuario: primeiro(params.usuario),
+    sites: filtroDeId(primeiro(params.sites)),
+    evento: filtroDeId(primeiro(params.evento)),
+    usuario: filtroDeUuid(primeiro(params.usuario)),
   };
 }
 

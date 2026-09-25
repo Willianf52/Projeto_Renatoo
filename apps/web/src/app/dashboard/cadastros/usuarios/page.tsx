@@ -31,6 +31,7 @@ import {
   TIPOS_USUARIO,
   type UsuarioFiltros,
 } from "./queries";
+import { filtroDeId } from "@/lib/id-na-url";
 
 /** Mesma ordem de `toTableRow` -- ver o comentario de la. */
 const TABLE_COLUMNS = [
@@ -67,7 +68,7 @@ function extrairFiltros(params: SearchParams): UsuarioFiltros {
     funcao: primeiro(params.funcao),
     tipo: primeiro(params.tipo),
     nivelAcesso: primeiro(params.nivel_acesso),
-    grupoUsuarios: primeiro(params.grupo_usuarios),
+    grupoUsuarios: filtroDeId(primeiro(params.grupo_usuarios)),
     situacao: primeiro(params.situacao) as "ativos" | "inativos" | undefined,
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };

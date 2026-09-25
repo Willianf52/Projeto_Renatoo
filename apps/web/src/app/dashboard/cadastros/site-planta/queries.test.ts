@@ -96,7 +96,7 @@ describe("extrairFiltros", () => {
         busca: "centro",
         grupo_site: "1",
         tipo_servico: "2",
-        responsavel: "abc",
+        responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
         situacao: "inativos",
         pagina: "3",
       }),
@@ -104,7 +104,7 @@ describe("extrairFiltros", () => {
       busca: "centro",
       grupoSite: "1",
       tipoServico: "2",
-      responsavel: "abc",
+      responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
       situacao: "inativos",
       pagina: 3,
     });
@@ -218,13 +218,13 @@ describe("getSitesParaExportar", () => {
 
   it("aplica os mesmos filtros de select da listagem", async () => {
     await getSitesParaExportar(
-      filtros({ grupoSite: "1", tipoServico: "2", responsavel: "abc", situacao: "inativos" }),
+      filtros({ grupoSite: "1", tipoServico: "2", responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3", situacao: "inativos" }),
     );
 
     const eqs = chamadas.filter((c) => c.metodo === "eq").map((c) => c.args);
     expect(eqs).toContainEqual(["grupo_site_id", "1"]);
     expect(eqs).toContainEqual(["tipo_servico_id", "2"]);
-    expect(eqs).toContainEqual(["responsavel_id", "abc"]);
+    expect(eqs).toContainEqual(["responsavel_id", "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"]);
     expect(eqs).toContainEqual(["ativo", false]);
   });
 

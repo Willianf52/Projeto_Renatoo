@@ -36,13 +36,13 @@ beforeEach(() => {
 
 describe("extrairFiltros", () => {
   it("le o periodo e os selects, descartando data invalida", () => {
-    expect(extrairFiltros({ data_inicial: "2026-09-01", data_final: "2026-02-31", sites: "4", usuario: "u1" })).toEqual({
+    expect(extrairFiltros({ data_inicial: "2026-09-01", data_final: "2026-02-31", sites: "4", usuario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3" })).toEqual({
       dataInicial: "2026-09-01",
       dataFinal: undefined,
       grupoUsuario: undefined,
       sites: "4",
       evento: undefined,
-      usuario: "u1",
+      usuario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
     });
   });
 });

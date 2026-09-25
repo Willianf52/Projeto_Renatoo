@@ -6,6 +6,7 @@ import { UsersIcon } from "@/components/dashboard/icons";
 import { podeAdministrarGruposDeUsuarios } from "@/lib/permissoes";
 import { GrupoUsuariosForm } from "../../GrupoUsuariosForm";
 import { getCandidatosAMembro, getGrupoUsuarios, getMembros } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
 
 const LISTAGEM = "/dashboard/cadastros/grupo-de-usuarios";
 
@@ -24,11 +25,11 @@ export default function EditarGrupoDeUsuariosPage({ params }: { params: Promise<
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const idNumerico = Number(id);
+  const idNumerico = idNaUrl(id);
 
   // `/grupo-de-usuarios/abc/editar` casa com a rota; sem esta checagem viraria
   // uma consulta com NaN e um erro do Postgres em vez de um 404.
-  if (!Number.isInteger(idNumerico)) notFound();
+  if (idNumerico === null) notFound();
 
   if (!(await podeAdministrarGruposDeUsuarios())) {
     redirect(LISTAGEM);

@@ -1,6 +1,7 @@
 import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
 import { filtrosParaRpc, periodoInvertido } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -25,12 +26,12 @@ export function extrairFiltros(params: SearchParams): Filtros {
   return {
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
-    coletorDados: primeiro(params.coletor_dados),
-    funcionario: primeiro(params.funcionario),
-    checkpoint: primeiro(params.checkpoint),
-    grupoUsuario: primeiro(params.grupo_usuario),
-    sites: primeiro(params.sites),
-    local: primeiro(params.local),
+    coletorDados: filtroDeId(primeiro(params.coletor_dados)),
+    funcionario: filtroDeUuid(primeiro(params.funcionario)),
+    checkpoint: filtroDeId(primeiro(params.checkpoint)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
+    sites: filtroDeId(primeiro(params.sites)),
+    local: filtroDeId(primeiro(params.local)),
   };
 }
 

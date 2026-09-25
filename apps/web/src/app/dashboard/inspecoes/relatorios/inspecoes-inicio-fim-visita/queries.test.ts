@@ -41,7 +41,7 @@ describe("extrairFiltros", () => {
         evento: "1",
         atividade: "2",
         motivo: "3",
-        funcionario: "abc",
+        funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
         grupo_site: "4",
         sites: "5",
       }),
@@ -51,7 +51,7 @@ describe("extrairFiltros", () => {
       evento: "1",
       atividade: "2",
       motivo: "3",
-      funcionario: "abc",
+      funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
       grupoSite: "4",
       sites: "5",
     });

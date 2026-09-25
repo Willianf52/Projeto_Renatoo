@@ -4,6 +4,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -52,14 +53,14 @@ export function extrairFiltros(params: SearchParams): Filtros {
   const tipo = primeiro(params.tipo_grafico);
   return {
     mes: mesValido(mes) ? mes : undefined,
-    evento: primeiro(params.evento),
+    evento: filtroDeId(primeiro(params.evento)),
     // Valor desconhecido na URL vira "sem grafico", nao um terceiro tipo.
     tipoDeGrafico: tipo === "barras" || tipo === "linhas" ? tipo : undefined,
-    sites: primeiro(params.sites),
-    usuario: primeiro(params.usuario),
-    atividade: primeiro(params.atividade),
-    grupoSite: primeiro(params.grupo_site),
-    grupoUsuario: primeiro(params.grupo_usuario),
+    sites: filtroDeId(primeiro(params.sites)),
+    usuario: filtroDeUuid(primeiro(params.usuario)),
+    atividade: filtroDeId(primeiro(params.atividade)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
   };
 }
 
