@@ -81,6 +81,9 @@ export function TelaDeChecklist({
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Rolagem do formulario travada enquanto o dedo esta no quadro de
+  // assinatura -- sem isso, no iPhone, a pagina subia no meio do traco.
+  const [assinando, setAssinando] = useState(false);
 
   const assinatura = useRef<ControleDaAssinatura>(null);
 
@@ -324,6 +327,7 @@ export function TelaDeChecklist({
     >
       <ScrollView
         contentContainerStyle={estilos.conteudo}
+        scrollEnabled={!assinando}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -443,7 +447,12 @@ export function TelaDeChecklist({
             </View>
 
             <View style={estilos.secao}>
-              <AreaDeAssinatura rotulo="Assinatura do responsável" aoMudar={setTemAssinatura} ref={assinatura} />
+              <AreaDeAssinatura
+                rotulo="Assinatura do responsável"
+                aoMudar={setTemAssinatura}
+                aoAssinar={setAssinando}
+                ref={assinatura}
+              />
             </View>
 
             <Botao
