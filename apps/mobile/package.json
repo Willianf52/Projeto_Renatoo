@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
+    "test:leve": "vitest run --maxWorkers=1 --no-isolate",
     "test:cobertura": "vitest run --coverage",
     "atualizar:preview": "npx -y eas-cli@latest update --channel preview --environment preview --platform android",
     "atualizar:producao": "npx -y eas-cli@latest update --channel production --environment production --platform android",

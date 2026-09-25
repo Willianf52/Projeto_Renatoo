@@ -111,11 +111,40 @@ pnpm dev
 | `pnpm test` | Testes unitários (vitest) |
 | `pnpm test:db` | Testes de política de RLS (pgTAP, exige `supabase start` local; roda também no job `banco` da CI) |
 | `pnpm test:e2e` | Testes ponta-a-ponta (Playwright) |
+| `pnpm test:leve` | Testes unitários de web, mobile e shared, um pacote e um processo por vez (ver abaixo) |
+| `pnpm test:e2e:leve` | Login + varredura de responsividade, headless, contra o build de produção (ver abaixo) |
+| `pnpm test:responsividade` | Só a varredura de responsividade |
 | `pnpm run types:generate` | Regenera `database.types.ts` a partir do banco local (exige `supabase start`) |
 | `pnpm run types:generate:remoto` | Idem, a partir do projeto vinculado (exige `supabase link` + `SUPABASE_ACCESS_TOKEN`) |
 
 Os testes e2e de sessão autenticada pulam sozinhos sem as variáveis
 `E2E_EMAIL` / `E2E_PASSWORD` / `E2E_INACTIVE_EMAIL` / `E2E_INACTIVE_PASSWORD`.
+
+### Testes em máquina com pouca memória (8 GB)
+
+Nada abre janela nem emulador: o Playwright roda em modo headless (`chromium-headless-shell`) e a lógica do app de campo é testada no Node, pelo Vitest.
+
+```bash
+# 1. Uma vez (e de novo quando o código do painel mudar): build de produção.
+#    A suíte leve usa `next start`, que gasta bem menos RAM que `next dev`.
+pnpm build
+
+# 2. Navegador headless do Playwright (~115 MB de download, só na primeira vez)
+pnpm --filter web exec playwright install --only-shell chromium
+
+# 3. Unitários de web + mobile (~10 s)
+pnpm test:leve
+
+# 4. Login + responsividade em 6 tamanhos de tela (~30 s só com as páginas públicas)
+pnpm test:e2e:leve
+```
+
+- **Memória**: um worker, uma aba por vez, sem trace/vídeo/HTML. Medido em 25/09/2026: a suíte e2e leve somou ~1,1 GB no pico. Feche o `pnpm dev` antes de rodar: sozinho ele ocupa ~1 GB.
+- **Páginas do painel na varredura**: exigem uma conta. Com `E2E_EMAIL` e `E2E_PASSWORD` definidas, ela entra uma vez e varre as ~30 telas do menu; sem elas, varre só login e recuperar senha. A varredura só navega, não preenche nem envia nada.
+  PowerShell: `$env:E2E_EMAIL="..."; $env:E2E_PASSWORD="..."; pnpm test:e2e:leve`
+- **Relatório em texto**: `apps/web/test-results/relatorio-responsividade.txt`. Os critérios (rolagem horizontal, elemento cortado na borda, controles sobrepostos) estão em `apps/web/e2e/responsividade/analise.ts`.
+- **Rodada parcial**: `RESPONSIVIDADE_TELAS=tablet` e/ou `RESPONSIVIDADE_PAGINAS=cadastros` filtram por nome.
+- **Fora da suíte leve**: os fluxos que gravam no banco (cadastro, checklist de campo, relatório) exigem o Supabase local em Docker e rodam na CI, no job `e2e`.
 
 ## Monitoramento
 

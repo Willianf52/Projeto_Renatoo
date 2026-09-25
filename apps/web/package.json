@@ -8,10 +8,13 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
+    "test:leve": "vitest run --maxWorkers=1 --no-isolate",
     "test:cobertura": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:desempenho": "playwright test -c playwright.desempenho.config.ts",
     "test:carga": "playwright test -c playwright.carga.config.ts",
+    "test:e2e:leve": "playwright test -c playwright.leve.config.ts",
+    "test:responsividade": "playwright test -c playwright.leve.config.ts --project=responsividade",
     "check:env": "node scripts/check-env.mjs"
   },
   "dependencies": {

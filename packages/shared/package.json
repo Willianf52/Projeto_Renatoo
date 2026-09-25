@@ -10,6 +10,7 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "vitest run",
+    "test:leve": "vitest run --maxWorkers=1 --no-isolate",
     "test:cobertura": "vitest run --coverage"
   },
   "dependencies": {
