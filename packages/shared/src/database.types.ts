@@ -161,6 +161,7 @@ export type Database = {
         Row: {
           assinatura_path: string
           criado_em: string
+          enviado_por: string | null
           id: number
           motivo: string | null
           tipo: string
@@ -169,6 +170,7 @@ export type Database = {
         Insert: {
           assinatura_path: string
           criado_em?: string
+          enviado_por?: string | null
           id?: never
           motivo?: string | null
           tipo: string
@@ -177,12 +179,20 @@ export type Database = {
         Update: {
           assinatura_path?: string
           criado_em?: string
+          enviado_por?: string | null
           id?: never
           motivo?: string | null
           tipo?: string
           visita_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "checklists_visita_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklists_visita_visita_id_fkey"
             columns: ["visita_id"]

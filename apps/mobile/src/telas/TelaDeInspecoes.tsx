@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CARGO_INSPETOR, type Tables } from "@projeto-renatoo/shared";
+import { CARGO_INSPETOR, podeFinalizarVisita, type Tables } from "@projeto-renatoo/shared";
 
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -44,6 +44,9 @@ export function TelaDeInspecoes() {
    * o recorte final e o mesmo com ou sem ele.
    */
   const soAsMinhas = perfil?.cargo === CARGO_INSPETOR;
+  // Separado de `soAsMinhas` de proposito: o GESTOR ve a lista inteira E fecha
+  // visita (0059). Recortar a lista e oferecer o botao sao perguntas diferentes.
+  const podeFinalizar = podeFinalizarVisita(perfil?.cargo);
 
   useEffect(() => {
     if (!idDoUsuario) return;
@@ -153,11 +156,11 @@ export function TelaDeInspecoes() {
               <LinhaDoCartao rotulo="Site" valor={String(item.site_id)} />
               <LinhaDoCartao rotulo="Registrada em" valor={formatarData(item.criado_em)} />
 
-              {/* So o inspetor fecha visita: os demais cargos leem esta lista
-                  pelo painel e nao teriam o que fazer com o botao. O portao de
-                  verdade continua sendo a policy da 0042 -- isto aqui e para
+              {/* INSPETOR (na propria visita) e GESTOR fecham visita; os demais
+                  cargos so leem. O portao de verdade e
+                  `autorizacao.pode_finalizar_visita` (0059) -- isto aqui e para
                   nao oferecer o que o banco vai recusar. */}
-              {soAsMinhas ? (
+              {podeFinalizar ? (
                 <Botao
                   titulo="Finalizar visita"
                   variante="secundaria"
