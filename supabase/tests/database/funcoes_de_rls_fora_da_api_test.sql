@@ -42,14 +42,17 @@ select is(
   'as seis auxiliares sem uso por RPC nao existem mais em public'
 );
 
--- Contraste: as dez estao em `autorizacao`, ainda security definer.
+-- Contraste: as dez da 0050 estao em `autorizacao`, ainda security definer,
+-- mais `pode_finalizar_visita`, que a 0059 ja criou ali (auxiliar nova nasce em
+-- `autorizacao`, pela regra registrada na 0050). Auxiliar nova de RLS sobe este
+-- numero -- e o inventario que avisa quando alguem cria uma em `public`.
 select is(
   (select count(*)::int
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'autorizacao' and p.prosecdef),
-  10,
-  'as dez auxiliares estao em autorizacao como security definer'
+  11,
+  'as dez auxiliares da 0050 e pode_finalizar_visita (0059) estao em autorizacao como security definer'
 );
 
 -- Nenhum corpo de funcao ficou chamando `public.x()` para uma das seis que
