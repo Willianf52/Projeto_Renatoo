@@ -6,6 +6,7 @@ import { SitemapIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { GrupoSiteForm } from "../../GrupoSiteForm";
 import { getGrupoSite, getGruposSitesParaPai, getSitesParaSelecao } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
 
 /**
  * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
@@ -22,11 +23,11 @@ export default function EditarGrupoDeSitesPage({ params }: { params: Promise<{ i
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const idNumerico = Number(id);
+  const idNumerico = idNaUrl(id);
 
   // `/grupo-de-sites/abc/editar` casa com a rota; sem esta checagem viraria uma
   // consulta com NaN e um erro do Postgres em vez de um 404.
-  if (!Number.isInteger(idNumerico)) notFound();
+  if (idNumerico === null) notFound();
 
   if (!(await podeAdministrarCadastros())) {
     redirect("/dashboard/cadastros/grupo-de-sites");

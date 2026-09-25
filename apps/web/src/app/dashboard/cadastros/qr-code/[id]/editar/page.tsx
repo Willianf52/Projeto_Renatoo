@@ -7,6 +7,7 @@ import { gerarQrCodeDataUrl } from "@/lib/qrcode";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { QrCodeForm } from "../../QrCodeForm";
 import { getOpcoes, getQrCode } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
 
 const LISTAGEM = "/dashboard/cadastros/qr-code";
 
@@ -25,11 +26,11 @@ export default function EditarQrCodePage({ params }: { params: Promise<{ id: str
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const idNumerico = Number(id);
+  const idNumerico = idNaUrl(id);
 
   // `/qr-code/abc/editar` casa com a rota; sem esta checagem viraria uma
   // consulta com NaN e um erro do Postgres em vez de um 404.
-  if (!Number.isInteger(idNumerico)) notFound();
+  if (idNumerico === null) notFound();
 
   if (!(await podeAdministrarCadastros())) {
     redirect(LISTAGEM);

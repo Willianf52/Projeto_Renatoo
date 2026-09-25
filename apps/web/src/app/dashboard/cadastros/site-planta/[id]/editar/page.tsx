@@ -6,6 +6,7 @@ import { BuildingIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { SiteForm } from "../../SiteForm";
 import { getOpcoes, getSite, getSitesParaSuperior } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
 
 const LISTAGEM = "/dashboard/cadastros/site-planta";
 
@@ -24,11 +25,11 @@ export default function EditarSitePage({ params }: { params: Promise<{ id: strin
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const idNumerico = Number(id);
+  const idNumerico = idNaUrl(id);
 
   // `/site-planta/abc/editar` casa com a rota; sem esta checagem viraria uma
   // consulta com NaN e um erro do Postgres em vez de um 404.
-  if (!Number.isInteger(idNumerico)) notFound();
+  if (idNumerico === null) notFound();
 
   if (!(await podeAdministrarCadastros())) {
     redirect(LISTAGEM);

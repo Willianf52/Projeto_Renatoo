@@ -28,7 +28,7 @@ describe("extrairFiltros", () => {
         data_inicial: "2026-08-11",
         data_final: "2026-08-11",
         checkpoint: "3",
-        funcionario: "abc",
+        funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
         grupo_usuario: "2",
         tipo: "1",
       }),
@@ -36,7 +36,7 @@ describe("extrairFiltros", () => {
       dataInicial: "2026-08-11",
       dataFinal: "2026-08-11",
       checkpoint: "3",
-      funcionario: "abc",
+      funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
       grupoUsuario: "2",
       tipo: "1",
     });

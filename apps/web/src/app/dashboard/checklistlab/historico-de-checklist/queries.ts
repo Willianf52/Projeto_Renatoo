@@ -3,6 +3,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid, idNaUrl } from "@/lib/id-na-url";
 
 export const PAGE_SIZE = 25;
 
@@ -31,8 +32,10 @@ export function primeiro(valor: string | string[] | undefined): string | undefin
  * ultima com dois segmentos).
  */
 export function idValido(valor: string): number | null {
-  const numero = Number(valor);
-  return Number.isInteger(numero) && numero > 0 ? numero : null;
+  // `idNaUrl`, e nao mais `Number.isInteger`: este aceitava
+  // `99999999999999999999`, que estoura o bigint e virava pagina de erro
+  // em vez de 404. Ver `lib/id-na-url.ts`.
+  return idNaUrl(valor);
 }
 
 /** Coluna a que o periodo (Data Inicial/Final) se aplica. */
@@ -116,10 +119,14 @@ export function extrairFiltros(params: SearchParams): Filtros {
     numeroAno: primeiro(params.numero_ano),
     checklist: primeiro(params.checklist),
     ordem: ordem === "antigos" ? "antigos" : "recentes",
-    site: primeiro(params.site),
-    grupoSite: primeiro(params.grupo_site),
-    grupoUsuario: primeiro(params.grupo_usuario),
-    responsavel: primeiro(params.responsavel),
+    // Peneirados: estes quatro vao direto para um `.eq()` em coluna bigint
+    // ou uuid, e um valor fora do tipo (link editado, colado com erro) fazia
+    // o Postgres recusar a consulta e a tela inteira cair. Invalido agora e
+    // ignorado, como se o filtro nao tivesse vindo.
+    site: filtroDeId(primeiro(params.site)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
+    responsavel: filtroDeUuid(primeiro(params.responsavel)),
     situacao: primeiro(params.situacao),
     conclusao: primeiro(params.conclusao),
     busca: primeiro(params.busca),

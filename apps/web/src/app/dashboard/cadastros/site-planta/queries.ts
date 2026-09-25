@@ -4,6 +4,7 @@ import { montarHierarquiaDePerfis } from "@/lib/hierarquia-de-perfis";
 import { niveisDoSite, ORGANIZACAO } from "@/lib/hierarquia-de-sites";
 import { termoParaOr } from "@/lib/postgrest-escape";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export { LIMITE_EXPORTACAO };
 
@@ -117,9 +118,9 @@ export function extrairFiltros(params: SearchParams): SiteFiltros {
 
   return {
     busca: primeiro(params.busca),
-    grupoSite: primeiro(params.grupo_site),
-    tipoServico: primeiro(params.tipo_servico),
-    responsavel: primeiro(params.responsavel),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    tipoServico: filtroDeId(primeiro(params.tipo_servico)),
+    responsavel: filtroDeUuid(primeiro(params.responsavel)),
     // Valor fora da lista cai no padrao em vez de virar filtro vazio: a URL e
     // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
     situacao: SITUACOES.some((s) => s.value === situacao)

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UserIcon } from "@/components/dashboard/icons";
+import { filtroDeUuid } from "@/lib/id-na-url";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../../UsuarioForm";
 import {
@@ -30,13 +31,15 @@ export default function EditarUsuarioPage({ params }: { params: Promise<{ id: st
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
+  // `profiles.id` e uuid. Um id malformado NAO "simplesmente nao acha
+  // ninguem": o Postgres recusa a consulta (22P02), `getUsuario` lanca e a
+  // tela caia em erro em vez de 404 -- ver `lib/id-na-url.ts`.
+  if (filtroDeUuid(id) === undefined) notFound();
+
   if (!(await podeAdministrarUsuarios())) {
     redirect(LISTAGEM);
   }
 
-  // `profiles.id` e uuid: ao contrario das telas de cadastro, nao ha
-  // `Number.isInteger` que sirva de peneira. Um id malformado simplesmente nao
-  // acha ninguem, e `maybeSingle` devolve null em vez de estourar.
   const [usuario, superiores, gruposSites, escopo] = await Promise.all([
     getUsuario(id),
     getSuperiores(id),

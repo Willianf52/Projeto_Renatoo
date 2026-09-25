@@ -6,6 +6,7 @@ import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { PerguntaForm } from "../../PerguntaForm";
 import { getPergunta } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
 
 /**
  * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
@@ -22,11 +23,11 @@ export default function EditarPerguntaPage({ params }: { params: Promise<{ id: s
 
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const idNumerico = Number(id);
+  const idNumerico = idNaUrl(id);
 
   // `/perguntas/abc/editar` casa com a rota; sem esta checagem viraria uma
   // consulta com NaN e um erro do Postgres em vez de um 404.
-  if (!Number.isInteger(idNumerico)) notFound();
+  if (idNumerico === null) notFound();
 
   if (!(await podeAdministrarCadastros())) {
     redirect("/dashboard/checklistlab/perguntas");

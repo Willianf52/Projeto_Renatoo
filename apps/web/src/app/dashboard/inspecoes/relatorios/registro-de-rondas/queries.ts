@@ -3,6 +3,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -46,17 +47,17 @@ export function extrairFiltros(params: SearchParams): Filtros {
   const mes = primeiro(params.mes);
   return {
     mes: mesValido(mes) ? mes : undefined,
-    local: primeiro(params.local),
-    coletorDados: primeiro(params.coletor_dados),
-    funcionario: primeiro(params.funcionario),
-    area: primeiro(params.area),
-    evento: primeiro(params.evento),
-    qualificador: primeiro(params.qualificador),
-    checkpoint: primeiro(params.checkpoint),
-    atividade: primeiro(params.atividade),
-    grupoSite: primeiro(params.grupo_site),
-    grupoUsuario: primeiro(params.grupo_usuario),
-    motivo: primeiro(params.motivo),
+    local: filtroDeId(primeiro(params.local)),
+    coletorDados: filtroDeId(primeiro(params.coletor_dados)),
+    funcionario: filtroDeUuid(primeiro(params.funcionario)),
+    area: filtroDeId(primeiro(params.area)),
+    evento: filtroDeId(primeiro(params.evento)),
+    qualificador: filtroDeId(primeiro(params.qualificador)),
+    checkpoint: filtroDeId(primeiro(params.checkpoint)),
+    atividade: filtroDeId(primeiro(params.atividade)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
+    motivo: filtroDeId(primeiro(params.motivo)),
   };
 }
 

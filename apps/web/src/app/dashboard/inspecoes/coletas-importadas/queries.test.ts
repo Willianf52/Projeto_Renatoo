@@ -393,3 +393,28 @@ describe("extrairFiltros: periodo torto na querystring", () => {
     });
   });
 });
+
+describe("extrairFiltros: id fora do tipo na querystring", () => {
+  // O mesmo defeito achado no Historico de Checklist em 25/09: filtro de id
+  // que chega da URL vai direto para um `.eq()` em coluna bigint/uuid, e um
+  // valor fora do tipo fazia o Postgres recusar a consulta e a tela cair.
+  it("descarta os invalidos e mantem os validos", () => {
+    const filtros = extrairFiltros({
+      local: "abc",
+      grupo_site: "99999999999999999999",
+      funcionario: "nao-uuid",
+      evento: "1e3",
+      area: "7",
+      checkpoint: "12",
+    });
+
+    expect(filtros).toMatchObject({
+      local: undefined,
+      grupoSite: undefined,
+      funcionario: undefined,
+      evento: undefined,
+      area: "7",
+      checkpoint: "12",
+    });
+  });
+});

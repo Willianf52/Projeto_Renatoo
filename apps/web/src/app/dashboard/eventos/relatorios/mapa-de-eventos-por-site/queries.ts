@@ -4,6 +4,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -30,10 +31,10 @@ export function extrairFiltros(params: SearchParams): Filtros {
   return {
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
-    grupoUsuario: primeiro(params.grupo_usuario),
-    sites: primeiro(params.sites),
-    evento: primeiro(params.evento),
-    usuario: primeiro(params.usuario),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
+    sites: filtroDeId(primeiro(params.sites)),
+    evento: filtroDeId(primeiro(params.evento)),
+    usuario: filtroDeUuid(primeiro(params.usuario)),
   };
 }
 

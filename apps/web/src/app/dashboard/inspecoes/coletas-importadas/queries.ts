@@ -7,6 +7,7 @@ import {
 } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export { LIMITE_EXPORTACAO };
 
@@ -50,17 +51,17 @@ export function extrairFiltros(params: SearchParams): ColetaFiltros {
     dataFinal: dataValida(primeiro(params.data_final)),
     horaInicial: horaValida(primeiro(params.hora_inicial)),
     horaFinal: horaValida(primeiro(params.hora_final)),
-    coletorDados: primeiro(params.coletor_dados),
-    qualificador: primeiro(params.qualificador),
-    motivoVisita: primeiro(params.motivo_visita),
-    funcionario: primeiro(params.funcionario),
-    local: primeiro(params.local),
-    grupoSite: primeiro(params.grupo_site),
-    evento: primeiro(params.evento),
-    tipo: primeiro(params.tipo),
-    area: primeiro(params.area),
+    coletorDados: filtroDeId(primeiro(params.coletor_dados)),
+    qualificador: filtroDeId(primeiro(params.qualificador)),
+    motivoVisita: filtroDeId(primeiro(params.motivo_visita)),
+    funcionario: filtroDeUuid(primeiro(params.funcionario)),
+    local: filtroDeId(primeiro(params.local)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    evento: filtroDeId(primeiro(params.evento)),
+    tipo: filtroDeId(primeiro(params.tipo)),
+    area: filtroDeId(primeiro(params.area)),
     localizacao: primeiro(params.localizacao) as "com" | "sem" | undefined,
-    checkpoint: primeiro(params.checkpoint),
+    checkpoint: filtroDeId(primeiro(params.checkpoint)),
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
 }

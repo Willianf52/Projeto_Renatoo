@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { termoParaOr } from "@/lib/postgrest-escape";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+import { filtroDeId } from "@/lib/id-na-url";
 
 export { LIMITE_EXPORTACAO };
 
@@ -78,8 +79,8 @@ export function extrairFiltros(params: SearchParams): QrCodeFiltros {
 
   return {
     busca: primeiro(params.busca),
-    tipoServico: primeiro(params.tipo_servico),
-    grupoSite: primeiro(params.grupo_site),
+    tipoServico: filtroDeId(primeiro(params.tipo_servico)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
     // Valor fora da lista cai no padrao em vez de virar filtro vazio: a URL e
     // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
     situacao: SITUACOES.some((s) => s.value === situacao)

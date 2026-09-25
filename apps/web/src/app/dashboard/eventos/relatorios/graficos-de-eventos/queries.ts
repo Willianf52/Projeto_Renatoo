@@ -3,6 +3,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { filtrosParaRpc, montarSeriesDeStatus } from "@/lib/relatorios";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -31,12 +32,12 @@ export function extrairFiltros(params: SearchParams): Filtros {
   return {
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
-    evento: primeiro(params.evento),
-    sites: primeiro(params.sites),
-    usuario: primeiro(params.usuario),
-    atividade: primeiro(params.atividade),
-    grupoSite: primeiro(params.grupo_site),
-    grupoUsuario: primeiro(params.grupo_usuario),
+    evento: filtroDeId(primeiro(params.evento)),
+    sites: filtroDeId(primeiro(params.sites)),
+    usuario: filtroDeUuid(primeiro(params.usuario)),
+    atividade: filtroDeId(primeiro(params.atividade)),
+    grupoSite: filtroDeId(primeiro(params.grupo_site)),
+    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
   };
 }
 

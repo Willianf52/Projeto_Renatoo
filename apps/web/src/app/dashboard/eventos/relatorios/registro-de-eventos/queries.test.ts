@@ -42,14 +42,14 @@ beforeEach(() => {
 describe("extrairFiltros", () => {
   it("le periodo, base da data e os selects da querystring", () => {
     expect(
-      extrairFiltros({ data_inicial: "2026-03-01", data_final: "2026-03-31", base_data: "evento", sites: "7", usuario: "u1" }),
+      extrairFiltros({ data_inicial: "2026-03-01", data_final: "2026-03-31", base_data: "evento", sites: "7", usuario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3" }),
     ).toEqual({
       dataInicial: "2026-03-01",
       dataFinal: "2026-03-31",
       baseDeData: "evento",
       sites: "7",
       evento: undefined,
-      usuario: "u1",
+      usuario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
     });
   });
 
@@ -157,12 +157,12 @@ describe("getRegistroDeEventos", () => {
       dataFinal: "2026-03-31",
       sites: "7",
       evento: "",
-      usuario: "u1",
+      usuario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
     });
 
     expect(rpcMock.mock.calls[0][1]).toMatchObject({
       p_por_data_insercao: false,
-      p_filtros: { site: "7", funcionario: "u1" },
+      p_filtros: { site: "7", funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3" },
     });
   });
 });

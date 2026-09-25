@@ -2,6 +2,7 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { mesAtual, periodoDoMes } from "@/lib/data-hora";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { filtroDeId } from "@/lib/id-na-url";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,7 +35,7 @@ export function extrairFiltros(params: SearchParams): Filtros {
   const mes = primeiro(params.mes);
   return {
     mes: mesValido(mes) ? mes : MES_ATUAL(),
-    site: primeiro(params.site),
+    site: filtroDeId(primeiro(params.site)),
   };
 }
 
