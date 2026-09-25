@@ -171,7 +171,7 @@ export function Navegacao() {
             esquerda e o gesto de voltar da pilha nativa, e o quadro de
             assinatura comeca colado nessa borda -- o traco puxava a tela
             inteira para o lado em vez de desenhar (achado em aparelho,
-            26/09/2026). Ligar/desligar no toque chega tarde: o gesto e
+            25/09/2026). Ligar/desligar no toque chega tarde: o gesto e
             reconhecido no nativo antes do JS. A seta do header continua
             voltando, e sair por ela e um gesto deliberado. */}
         <Pilha.Screen
