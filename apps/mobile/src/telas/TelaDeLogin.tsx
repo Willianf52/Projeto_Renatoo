@@ -243,7 +243,7 @@ export function TelaDeLogin() {
               // LIMITE_EMAIL vem do shared (RFC 5321), o mesmo teto que a rota
               // de importacao do painel web aplica.
               maxLength={LIMITE_EMAIL}
-              placeholder="inspetor@upservicos.com.br"
+              placeholder="Digite seu e-mail"
               editable={!enviando}
               returnKeyType="next"
               onSubmitEditing={() => campoDeSenha.current?.focus()}
@@ -262,7 +262,7 @@ export function TelaDeLogin() {
               senha
               autoCapitalize="none"
               autoComplete="current-password"
-              placeholder="••••••••"
+              placeholder="Digite sua senha"
               editable={!enviando}
               returnKeyType="go"
               // `void` explicito, como em todo o resto do app: `entrar` e
