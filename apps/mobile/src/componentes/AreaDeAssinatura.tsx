@@ -116,7 +116,7 @@ export const AreaDeAssinatura = forwardRef<
         onMoveShouldSetPanResponderCapture: () => true,
 
         /**
-         * CAPTURAR NAO BASTAVA NO iPHONE (achado em aparelho, 26/09/2026): a
+         * CAPTURAR NAO BASTAVA NO iPHONE (achado em aparelho, 25/09/2026): a
          * rolagem do iOS e nativa e o `ScrollView` pedia o gesto de volta no
          * meio do traco -- a pagina subia enquanto o responsavel assinava.
          * Duas travas juntas: recusar a devolucao do gesto aqui, e a tela
