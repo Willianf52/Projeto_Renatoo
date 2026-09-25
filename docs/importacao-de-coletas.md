@@ -2,9 +2,12 @@
 
 `POST /api/importar/coletas`
 
-Entrada dos lotes vindos do sistema de origem. É o único caminho de escrita em
-`visitas` e `leituras`: as migrations 0003/0004 dão a essas tabelas policy
-apenas de `SELECT`, e a escrita passa pela `service_role`, no servidor.
+Entrada dos lotes vindos do sistema de origem. É um dos dois caminhos de
+escrita em `visitas` e `leituras`: o outro é o app de campo, que desde a 0036
+grava só INSERT pelo token do próprio inspetor, sob RLS. Esta rota escreve pela
+`service_role`, no servidor, porque quem chama é um processo de integração e
+não um usuário com sessão. Ver `docs/arquitetura.md`, "Os quatro caminhos de
+escrita".
 
 ## Autenticação
 
