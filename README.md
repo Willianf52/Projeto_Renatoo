@@ -147,8 +147,15 @@ dos três perfis mora aqui.
 | `preview` | Homologação — APK que a supervisão instala à mão | interna, `apk` |
 | `production` | Publicação, com `autoIncrement` do `versionCode` | `app-bundle` |
 
-Cada perfil define `EXPO_PUBLIC_AMBIENTE`, que é o que separa um evento de
-homologação de um evento de campo no Sentry.
+**As variáveis do app moram no EAS, não no `eas.json`.** `preview` e
+`production` apontam para o ambiente homônimo do EAS (`"environment"`), que
+guarda `EXPO_PUBLIC_SUPABASE_*`, `EXPO_PUBLIC_URL_DO_PORTAL`,
+`EXPO_PUBLIC_SENTRY_DSN`, `EXPO_PUBLIC_AMBIENTE` (`homologacao`/`producao`,
+o que separa um evento de homologação de um de campo no Sentry) e o
+`SENTRY_AUTH_TOKEN`. Build e atualização remota leem da mesma fonte. Um
+`env` no perfil do `eas.json` seria lido pelo build e ignorado pelo
+`eas update`: a atualização sairia com o Sentry desligado sem aviso nenhum.
+Conferir com `npx eas-cli@latest env:list preview`.
 
 **Erro do app (Sentry).** Sem `EXPO_PUBLIC_SENTRY_DSN` o app não envia nada e
 não falha por isso — é o estado de desenvolvimento. O SDK fica isolado em
@@ -167,13 +174,40 @@ antigos no próximo login, sem tocar em APK. **Vazio, o portão fica desligado.*
 A checagem falha aberta de propósito (sem rede, ninguém é barrado) — o
 raciocínio completo está em `apps/mobile/src/lib/versao-minima.ts`.
 
-**Falta ligar a conta do EAS.** O `expo-updates` está instalado e configurado
-(`runtimeVersion` por `appVersion`), mas publicar atualização exige rodar
-`eas init` dentro de `apps/mobile/` com a conta Expo — é ele que grava
-`extra.eas.projectId` e `updates.url` no `app.json`. Enquanto isso não
-acontece, o app roda normalmente e apenas não recebe atualização por canal. O
-mesmo vale para o upload de source map do Sentry, que pede `organization` e
-`project` no plugin.
+**Atualização remota (EAS Update).** Correção só de JavaScript chega aos
+aparelhos sem APK novo. O `updates.url` do `app.json` é o que liga o
+`expo-updates` no build — sem ele o plugin grava `ENABLED=false` no
+`AndroidManifest` e o app nunca procura atualização. Só vale para APK gerado
+depois dessa chave.
+
+Como chega ao aparelho: ao abrir, o app procura atualização em segundo plano
+(`checkAutomatically: ON_LOAD`) e **não espera** por ela
+(`fallbackToCacheTimeout: 0`) — sem sinal, abre na hora com o que já tem. A
+atualização baixada entra **na próxima abertura** do app. Offline não trava
+nada.
+
+Para publicar, a partir de `apps/mobile`:
+
+```
+pnpm atualizar:preview --message "o que mudou"
+pnpm atualizar:source-maps     # stack trace legível no Sentry (pede SENTRY_AUTH_TOKEN no ambiente local)
+```
+
+`atualizar:producao` faz o mesmo no canal `production`. Se o `eas-cli` quebrar
+com `brace_expansion.expand is not a function`, rodar com
+`EAS_SKIP_AUTO_FINGERPRINT=1` (o `runtimeVersion` por `appVersion` não usa
+fingerprint).
+
+**O que exige APK novo, e não atualização:** qualquer mudança nativa —
+dependência com código nativo, plugin no `app.json`, permissão, ícone. Nesses
+casos, subir `version` no `app.json`: o `runtimeVersion` segue a versão, então
+os aparelhos antigos param de receber atualizações feitas para o binário
+novo, em vez de receber um JS que chama código nativo que eles não têm.
+
+**Para desfazer** uma atualização ruim: `npx eas-cli@latest update:rollback`,
+ou republicar o commit anterior no mesmo canal. O aparelho volta na próxima
+abertura. Se a atualização quebrar o app na inicialização, o `expo-updates`
+volta sozinho para a versão anterior que funcionava.
 
 ## Estrutura
 
