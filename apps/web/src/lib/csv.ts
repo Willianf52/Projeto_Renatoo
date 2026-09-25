@@ -51,3 +51,74 @@ export function paraCsv(colunas: string[], linhas: string[][]): string {
   const BOM = String.fromCharCode(0xfeff);
   return BOM + [linha(colunas), ...linhas.map(linha)].join("\r\n") + "\r\n";
 }
+
+/**
+ * Le um CSV de volta em linhas de campos -- o caminho inverso de `paraCsv`,
+ * para os botoes de "Importar".
+ *
+ * Aceita o que o nosso Exportar gera E o que o Excel regrava depois que a
+ * pessoa edita o arquivo, que nao sao a mesma coisa:
+ * - separador `;` (o nosso, e o do Excel em pt-BR) ou `,` (Excel em ingles,
+ *   Google Planilhas) -- decidido pela primeira linha, que e o cabecalho;
+ * - campos com ou sem aspas, aspa dobrada dentro de aspas, quebra de linha
+ *   dentro de campo aspado;
+ * - CRLF ou LF, BOM UTF-8 ou nao;
+ * - o apostrofo que `neutralizarFormula` poe na frente de `=`, `+`, `-`, `@`:
+ *   sem desfaze-lo, exportar e reimportar trocaria `-Norte` por `'-Norte`.
+ *
+ * Linhas vazias no MEIO sao mantidas, para o indice de cada linha continuar
+ * batendo com o numero da linha na planilha -- e por ele que a tela de
+ * importacao aponta onde esta o erro. So as do FIM caem, que sao as que o
+ * Excel costuma deixar.
+ */
+export function lerCsv(texto: string): string[][] {
+  const conteudo = texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto;
+  const primeiraLinha = conteudo.split(/\r?\n/, 1)[0] ?? "";
+  const separador = primeiraLinha.includes(";") ? ";" : ",";
+
+  const linhas: string[][] = [];
+  let linha: string[] = [];
+  let campo = "";
+  let entreAspas = false;
+
+  const fecharCampo = () => {
+    linha.push(desfazerNeutralizacao(campo.trim()));
+    campo = "";
+  };
+  const fecharLinha = () => {
+    fecharCampo();
+    linhas.push(linha);
+    linha = [];
+  };
+
+  for (let i = 0; i < conteudo.length; i++) {
+    const c = conteudo[i];
+
+    if (entreAspas) {
+      if (c === '"' && conteudo[i + 1] === '"') {
+        campo += '"';
+        i++;
+      } else if (c === '"') {
+        entreAspas = false;
+      } else {
+        campo += c;
+      }
+      continue;
+    }
+
+    if (c === '"') entreAspas = true;
+    else if (c === separador) fecharCampo();
+    else if (c === "\n") fecharLinha();
+    else if (c !== "\r") campo += c;
+  }
+
+  if (campo !== "" || linha.length > 0) fecharLinha();
+
+  while (linhas.length > 0 && linhas[linhas.length - 1].every((c) => c === "")) linhas.pop();
+
+  return linhas;
+}
+
+function desfazerNeutralizacao(campo: string): string {
+  return campo.startsWith("'") && INICIO_DE_FORMULA.test(campo.slice(1)) ? campo.slice(1) : campo;
+}

@@ -2,21 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import { verificarEscritaComRls } from "@/lib/escrita-rls";
 import { texto } from "@/lib/form-data";
 import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
+import { esquemaDeTexto } from "./esquema";
 
 const LISTAGEM = "/dashboard/cadastros/grupo-de-sites";
 
-/** Limites de aplicacao, nao do banco: `nome` e `descricao` sao `text` sem
- * restricao de tamanho. Servem para recusar colagem acidental de um texto
- * enorme, nao para validar regra de negocio. */
-const esquemaDeTexto = z.object({
-  nome: z.string().min(1, "Informe o nome do grupo.").max(200, "O nome deve ter no máximo 200 caracteres."),
-  descricao: z.string().max(500, "A descrição deve ter no máximo 500 caracteres."),
-});
 
 export type ValoresDoGrupo = {
   nome: string;
