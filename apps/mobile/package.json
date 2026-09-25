@@ -9,7 +9,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
-    "test:cobertura": "vitest run --coverage"
+    "test:cobertura": "vitest run --coverage",
+    "atualizar:preview": "npx -y eas-cli@latest update --channel preview --environment preview --platform android",
+    "atualizar:producao": "npx -y eas-cli@latest update --channel production --environment production --platform android",
+    "atualizar:source-maps": "sentry-expo-upload-sourcemaps dist"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
