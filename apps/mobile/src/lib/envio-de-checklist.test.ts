@@ -57,19 +57,35 @@ vi.mock("expo-file-system", () => {
   return { File, Paths: { cache: "cache" } };
 });
 
-const { upload, rpc } = vi.hoisted(() => ({
+const { upload, rpc, getSession, checklistExistente } = vi.hoisted(() => ({
   upload: vi.fn(),
   rpc: vi.fn(),
+  getSession: vi.fn(),
+  /** Resposta da leitura de `checklists_visita` que desempata o 23505. */
+  checklistExistente: vi.fn(),
 }));
 
 vi.mock("./supabase", () => ({
   supabase: {
     storage: { from: () => ({ upload }) },
     rpc,
+    auth: { getSession },
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: checklistExistente }),
+      }),
+    }),
   },
 }));
 
-const { enviarChecklist } = await import("./envio-de-checklist");
+const {
+  enviarChecklist,
+  ERRO_FINALIZADA_POR_OUTRA_PESSOA,
+  ERRO_FINALIZADA_SEM_CONFIRMAR_AUTOR,
+} = await import("./envio-de-checklist");
+
+const EU = "11111111-1111-1111-1111-111111111111";
+const OUTRA_PESSOA = "22222222-2222-2222-2222-222222222222";
 
 /** Uma corretiva valida -- o menor envio que o esquema aceita. */
 const CORRETIVA = {
@@ -104,6 +120,12 @@ beforeEach(() => {
 
   rpc.mockReset();
   rpc.mockResolvedValue({ data: 99, error: null });
+
+  getSession.mockReset();
+  getSession.mockResolvedValue({ data: { session: { user: { id: EU } } } });
+
+  checklistExistente.mockReset();
+  checklistExistente.mockResolvedValue({ data: { enviado_por: EU }, error: null });
 });
 
 describe("envio bem-sucedido", () => {
@@ -290,7 +312,7 @@ describe("falha de upload", () => {
 });
 
 describe("erro vindo do banco", () => {
-  it("trata a unique de visita_id como envio ja concluido", async () => {
+  it("trata a unique de visita_id como envio ja concluido quando fui eu que enviei", async () => {
     // 23505 acontece quando o inspetor toca em Enviar de novo depois de um
     // envio que pareceu falhar mas chegou -- devolver erro ali prendia o
     // inspetor na tela sobre um trabalho que ja estava feito.
@@ -299,6 +321,36 @@ describe("erro vindo do banco", () => {
     const resultado = await enviarChecklist(CORRETIVA);
 
     expect(resultado).toEqual({ ok: true, jaFinalizada: true });
+  });
+
+  it("recusa quando outra pessoa ja fechou a visita", async () => {
+    // Desde a 0059 o GESTOR tambem fecha visita: o 23505 pode ser o checklist
+    // de outra pessoa. Sucesso aqui apagaria o rascunho de quem preencheu.
+    rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
+    checklistExistente.mockResolvedValue({ data: { enviado_por: OUTRA_PESSOA }, error: null });
+
+    const resultado = await enviarChecklist(CORRETIVA);
+
+    expect(resultado).toEqual({ ok: false, erro: ERRO_FINALIZADA_POR_OUTRA_PESSOA });
+  });
+
+  it("recusa quando o autor do checklist existente nao pode ser confirmado", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
+    checklistExistente.mockResolvedValue({ data: null, error: { message: "sem sinal" } });
+
+    const resultado = await enviarChecklist(CORRETIVA);
+
+    expect(resultado).toEqual({ ok: false, erro: ERRO_FINALIZADA_SEM_CONFIRMAR_AUTOR });
+  });
+
+  it("recusa quando o checklist existente veio de conta apagada", async () => {
+    // `enviado_por` e `on delete set null`: sem autor, nao ha como ser eu.
+    rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
+    checklistExistente.mockResolvedValue({ data: { enviado_por: null }, error: null });
+
+    const resultado = await enviarChecklist(CORRETIVA);
+
+    expect(resultado).toEqual({ ok: false, erro: ERRO_FINALIZADA_POR_OUTRA_PESSOA });
   });
 
   it("usa a mensagem generica para qualquer outro codigo", async () => {

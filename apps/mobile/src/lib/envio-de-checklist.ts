@@ -151,14 +151,22 @@ export async function enviarChecklist(
     });
 
     if (error) {
-      // 23505 e a unique de `visita_id`: a visita ja foi fechada. Acontece
-      // quando o inspetor toca em Enviar de novo depois de um envio que
-      // pareceu falhar mas chegou (a resposta se perdeu na rede). Devolver
-      // erro aqui prendia o inspetor na tela, com um aviso vermelho sobre um
-      // trabalho que ja estava feito e nenhum jeito de sair dali alem de
-      // voltar na mao. Nao ha nada a refazer: o desfecho e o do sucesso.
+      // 23505 e a unique de `visita_id`: a visita ja foi fechada. Tem duas
+      // origens, e elas pedem desfechos opostos:
+      //
+      // - o PROPRIO usuario tocou em Enviar de novo depois de um envio que
+      //   pareceu falhar mas chegou (a resposta se perdeu na rede). Devolver
+      //   erro ali prendia a pessoa na tela sobre um trabalho ja feito -- o
+      //   desfecho e o do sucesso;
+      // - OUTRA pessoa fechou a visita antes. Ate a 0059 isso nao existia (so
+      //   o inspetor dono gravava); desde que o GESTOR tambem fecha, tratar
+      //   como sucesso descartava calado tudo o que foi preenchido aqui, e
+      //   ainda apagava o rascunho. Aqui e erro, e o rascunho fica.
+      //
+      // Quem desempata e `enviado_por` (gravado pelo trigger da 0059, nunca
+      // pelo cliente).
       if (error.code === "23505") {
-        return { ok: true, jaFinalizada: true };
+        return await desfechoDaVisitaJaFechada(envio.visitaId);
       }
 
       // Recusa do RPC que NAO e a unique conhecida: policy, check do banco,
@@ -184,6 +192,43 @@ export async function enviarChecklist(
 
     return { ok: false, erro: "Não foi possível enviar o checklist." };
   }
+}
+
+export const ERRO_FINALIZADA_POR_OUTRA_PESSOA =
+  "Esta visita já foi finalizada por outra pessoa. Volte para a lista de visitas.";
+
+export const ERRO_FINALIZADA_SEM_CONFIRMAR_AUTOR =
+  "Esta visita já foi finalizada. Confira na lista de visitas.";
+
+/**
+ * O 23505 veio do meu envio anterior ou do de outra pessoa?
+ *
+ * Na duvida (a leitura falhou, sem sessao), NAO e sucesso: sucesso apaga o
+ * rascunho, e apagar o que alguem preencheu por um palpite e o mesmo erro que
+ * este desempate existe para evitar. O custo do lado conservador e o usuario
+ * voltar pela seta do header num caso que ja era de rede ruim duas vezes.
+ */
+async function desfechoDaVisitaJaFechada(visitaId: number): Promise<ResultadoDoEnvio> {
+  const [{ data: sessao }, { data: existente, error }] = await Promise.all([
+    supabase.auth.getSession(),
+    supabase
+      .from("checklists_visita")
+      .select("enviado_por")
+      .eq("visita_id", visitaId)
+      .maybeSingle(),
+  ]);
+
+  const eu = sessao.session?.user.id;
+
+  if (error || !existente || !eu) {
+    return { ok: false, erro: ERRO_FINALIZADA_SEM_CONFIRMAR_AUTOR };
+  }
+
+  if (existente.enviado_por === eu) {
+    return { ok: true, jaFinalizada: true };
+  }
+
+  return { ok: false, erro: ERRO_FINALIZADA_POR_OUTRA_PESSOA };
 }
 
 async function subir(
