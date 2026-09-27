@@ -10,15 +10,15 @@ import { TelaDeAgendados } from "../telas/TelaDeAgendados";
 import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
 import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
+import { TelaDeLeitura } from "../telas/TelaDeLeitura";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
 import { TelaDeTipoDeVisita } from "../telas/TelaDeTipoDeVisita";
 import { TelaInicial } from "../telas/TelaInicial";
 import { cores } from "../tema";
 
 /**
- * Rotas da area autenticada. E uma pilha, e nao a tela solta, porque as
- * proximas ja tem lugar definido -- "Leitura" entra aqui como push, sem
- * reescrever a raiz.
+ * Rotas da area autenticada. E uma pilha, e nao a tela solta: "Leitura" (a
+ * camera do QR) entrou como push, sem reescrever a raiz.
  *
  * `Checklist` recebe `numeroColeta` alem do `visitaId` de proposito: com so o
  * id, a tela abriria sem titulo enquanto busca a visita de novo -- um round
@@ -26,6 +26,7 @@ import { cores } from "../tema";
  */
 export type RotasDoApp = {
   Inicio: undefined;
+  Leitura: undefined;
   Inspecoes: undefined;
   Agendados: undefined;
   TipoDeVisita: { visitaId: number; numeroColeta: string };
@@ -133,6 +134,14 @@ export function Navegacao() {
           options={{ title: "Inicio", headerShown: false }}
         />
 
+        {/* O cartao "Inspecao" abre a camera, e nao a lista: ler a etiqueta
+            e o comeco de toda inspecao. A lista fica a um botao dali. */}
+        <Pilha.Screen
+          name="Leitura"
+          component={TelaDeLeitura}
+          options={{ title: "Inspeção" }}
+        />
+
         {/* Com header desde que deixou de ser a raiz: sem ele nao ha botao de
             voltar, e o inspetor que entrasse na lista ficaria sem caminho de
             volta ao menu a nao ser pelo gesto do sistema. */}
@@ -186,8 +195,8 @@ export function Navegacao() {
               visitaId={route.params.visitaId}
               numeroColeta={route.params.numeroColeta}
               tipo={route.params.tipo}
-              // `pop(2)` e nao `goBack`: agora ha duas telas entre a lista e
-              // aqui (a escolha do tipo entrou no meio), e um voltar simples
+              // `pop(2)` e nao `goBack`: ha duas telas entre a origem (a lista
+              // ou a camera) e aqui -- a escolha do tipo no meio --, e um voltar simples
               // devolveria o inspetor a pergunta "que tipo de visita?" logo
               // depois de ele ter terminado uma. Desempilhar as duas mantem o
               // que o `goBack` dava -- a lista continua montada embaixo, com a
