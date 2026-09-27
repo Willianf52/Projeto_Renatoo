@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CARGO_INSPETOR, podeFinalizarVisita, type Tables } from "@projeto-renatoo/shared";
 
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useSessao } from "../auth/SessaoProvider";
@@ -17,7 +17,10 @@ import { supabase } from "../lib/supabase";
 import { cores, espaco, texto, tipografia } from "../tema";
 
 /** Colunas que a lista mostra -- recorte de `visitas` do schema real. */
-type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" | "criado_em">;
+type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" | "criado_em"> & {
+  /** O checklist da visita, se ja houver -- a unique da 0042 faz disto 1:1. */
+  checklists_visita: { id: number } | null;
+};
 
 export function TelaDeInspecoes() {
   const { perfil, sessao, sair } = useSessao();
@@ -48,33 +51,39 @@ export function TelaDeInspecoes() {
   // visita (0059). Recortar a lista e oferecer o botao sao perguntas diferentes.
   const podeFinalizar = podeFinalizarVisita(perfil?.cargo);
 
-  useEffect(() => {
-    if (!idDoUsuario) return;
+  // No foco, e nao so na montagem: depois do envio o app volta para ca com
+  // `pop(2)`, e a visita recem-fechada seguiria com o botao "Finalizar" ate
+  // alguem puxar para atualizar. Na volta a lista antiga fica na tela
+  // (`carregando` ja e `false`) e so troca quando a nova chega.
+  useFocusEffect(
+    useCallback(() => {
+      if (!idDoUsuario) return;
 
-    // Mesma guarda do SessaoProvider: resposta que chega depois do logout (ou
-    // de outro usuario entrar) nao pode pintar a lista do inspetor anterior.
-    let ativo = true;
+      // Mesma guarda do SessaoProvider: resposta que chega depois do logout (ou
+      // de outro usuario entrar) nao pode pintar a lista do inspetor anterior.
+      let ativo = true;
 
-    lerVisitas(idDoUsuario, soAsMinhas)
-      .then((resultado) => {
-        if (!ativo) return;
-        setVisitas(resultado.visitas);
-        setErro(resultado.erro);
-        setCarregando(false);
-      })
-      .catch(() => {
-        // `lerVisitas` ja traduz erro do PostgREST; o que falta e a rejeicao
-        // da camada de rede. Sem este ramo `carregando` fica preso em `true`
-        // e a tela mostra spinner eterno em vez da mensagem de falha.
-        if (!ativo) return;
-        setErro("Não foi possível carregar suas visitas.");
-        setCarregando(false);
-      });
+      lerVisitas(idDoUsuario, soAsMinhas)
+        .then((resultado) => {
+          if (!ativo) return;
+          setVisitas(resultado.visitas);
+          setErro(resultado.erro);
+          setCarregando(false);
+        })
+        .catch(() => {
+          // `lerVisitas` ja traduz erro do PostgREST; o que falta e a rejeicao
+          // da camada de rede. Sem este ramo `carregando` fica preso em `true`
+          // e a tela mostra spinner eterno em vez da mensagem de falha.
+          if (!ativo) return;
+          setErro("Não foi possível carregar suas visitas.");
+          setCarregando(false);
+        });
 
-    return () => {
-      ativo = false;
-    };
-  }, [idDoUsuario, soAsMinhas]);
+      return () => {
+        ativo = false;
+      };
+    }, [idDoUsuario, soAsMinhas]),
+  );
 
   // Chamado pelo gesto de puxar, nao por effect -- aqui o setState direto e
   // legitimo, e a lista antiga fica na tela enquanto a nova nao chega.
@@ -160,7 +169,13 @@ export function TelaDeInspecoes() {
                   cargos so leem. O portao de verdade e
                   `autorizacao.pode_finalizar_visita` (0059) -- isto aqui e para
                   nao oferecer o que o banco vai recusar. */}
-              {podeFinalizar ? (
+              {item.checklists_visita ? (
+                // Ja fechada: sem botao para ninguem. Desde a 0059 sao duas
+                // pessoas que podem fechar a mesma visita, e oferecer o botao
+                // aqui era convidar a preencher um checklist inteiro que o
+                // banco vai recusar pela unique de `visita_id`.
+                <LinhaDoCartao rotulo="Situação" valor="Finalizada" />
+              ) : podeFinalizar ? (
                 <Botao
                   titulo="Finalizar visita"
                   variante="secundaria"
@@ -191,7 +206,9 @@ async function lerVisitas(
   idDoUsuario: string,
   soAsMinhas: boolean,
 ): Promise<{ visitas: VisitaNaLista[]; erro: string | null }> {
-  const consulta = supabase.from("visitas").select("id, numero_coleta, site_id, criado_em");
+  const consulta = supabase
+    .from("visitas")
+    .select("id, numero_coleta, site_id, criado_em, checklists_visita ( id )");
 
   // `funcionario_id = auth.uid()` e o ramo da policy "Leitura da operacao no
   // escopo" (0014, revisada na 0029) que atende um INSPETOR ativo. O filtro
