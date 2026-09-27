@@ -31,6 +31,7 @@ import { Cartao } from "../componentes/Cartao";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { enviarChecklist, type MidiaJaEnviada } from "../lib/envio-de-checklist";
 import { capturarErro } from "../lib/observabilidade";
+import { reduzirFoto } from "../lib/reduzir-foto";
 import { supabase } from "../lib/supabase";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
@@ -213,8 +214,12 @@ export function TelaDeChecklist({
 
       if (resultado.canceled) return;
 
-      // Copia para fora do cache antes de entrar na tela -- ver `guardarFoto`.
-      const guardadas = await Promise.all(resultado.assets.map((a) => guardarFoto(visitaId, a.uri)));
+      // Reduz (ver `reduzirFoto`) e copia para fora do cache antes de entrar
+      // na tela -- ver `guardarFoto`. Nessa ordem: o rascunho guarda a versao
+      // que vai ser enviada, e nao a de 12 MP.
+      const guardadas = await Promise.all(
+        resultado.assets.map(async (a) => guardarFoto(visitaId, await reduzirFoto(a.uri))),
+      );
 
       setErro(null);
       setFotos((atuais) => [...atuais, ...guardadas].slice(0, MAXIMO_DE_FOTOS));
