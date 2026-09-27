@@ -215,7 +215,7 @@ export function TelaInicial() {
             descricao="Realizar inspeção e checklist"
             icone={<IconeDeChecklist cor={cores.primaria} />}
             distintivo={aInspecionar}
-            aoTocar={() => navegacao.navigate("Inspecoes")}
+            aoTocar={() => navegacao.navigate("Leitura")}
           />
           <CartaoDeAcao
             titulo="Agendados"

@@ -45,9 +45,18 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "O app usa a câmera para anexar as fotos da visita ao checklist.",
+          "cameraPermission": "O app usa a câmera para ler o QR code do site e anexar as fotos da visita ao checklist.",
           "photosPermission": false,
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O app usa a câmera para ler o QR code do site e anexar as fotos da visita ao checklist.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
         }
       ],
       "expo-sqlite",

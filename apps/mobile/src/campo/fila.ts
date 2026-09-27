@@ -320,6 +320,20 @@ export async function marcarVisitaEnviada(chave: string, visitaId: number): Prom
   );
 }
 
+/**
+ * O id que o servidor deu a visita, ou `null` enquanto ela nao subiu. E o que
+ * a leitura de QR precisa para abrir o checklist: `TelaDeChecklist` grava
+ * contra `visitas.id`, que so existe depois da drenagem.
+ */
+export async function idDaVisitaNoServidor(chave: string): Promise<number | null> {
+  const banco = await abrirFila();
+  const linha = await banco.getFirstAsync<{ visita_id: number | null }>(
+    "select visita_id from visitas_na_fila where chave = ?",
+    chave,
+  );
+  return linha?.visita_id ?? null;
+}
+
 export async function marcarLeiturasEnviadas(ids: number[]): Promise<void> {
   if (ids.length === 0) return;
   const banco = await abrirFila();
