@@ -160,6 +160,12 @@ jobs:
           sed -i -E 's/^(ALTER .* OWNER TO "supabase_admin";)$/-- \1/' schema.sql
 
           inicio=$(date +%s)
+          # `set +e`: o Actions roda o passo com `bash -e`, e o `set -uo` acima
+          # nao desliga o `-e`. Sem isto, o psql falhando derrubava o passo na
+          # hora -- antes do `status=$?` e do grep abaixo --, e o ensaio saia
+          # com "exit code 3" sem dizer onde o dump quebrou (primeiro ensaio
+          # real, 28/09/2026).
+          set +e
           psql \
             --single-transaction \
             --quiet \
@@ -171,6 +177,7 @@ jobs:
             --file data.sql \
             --dbname "$LOCAL_DB_URL" > restauracao.log 2>&1
           status=$?
+          set -e
           duracao=$(( $(date +%s) - inicio ))
           echo "duracao=$duracao" >> "$GITHUB_OUTPUT"
 
