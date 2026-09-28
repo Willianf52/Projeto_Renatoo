@@ -184,6 +184,14 @@ jobs:
           if [ "$status" -ne 0 ]; then
             # So "arquivo:linha: ERROR: CODIGO". Nada da mensagem.
             grep -E '^psql:[^:]+:[0-9]+: ERROR:\s+[0-9A-Z]{5}$' restauracao.log || true
+            # Excecao: se quebrou no `roles.sql`, mostra o comando. Ali so ha
+            # definicao de papel -- o `db dump --role-only` sai sem senha --,
+            # nenhum dado de cliente; e sem o comando nao da para saber qual
+            # atributo de papel o `postgres` local nao pode conceder.
+            linha=$(grep -oE '^psql:roles\.sql:[0-9]+' restauracao.log | head -1 | cut -d: -f3 || true)
+            if [ -n "$linha" ]; then
+              sed -n "${linha}p" roles.sql | sed -E "s/PASSWORD '[^']*'/PASSWORD '***'/g"
+            fi
             echo "::error::Restauracao falhou (psql saiu com $status) apos ${duracao}s."
             exit 1
           fi
