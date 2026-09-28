@@ -81,6 +81,15 @@ export function novaMemoriaDaCamera(): MemoriaDaCamera {
   return { vistos: new Map(), ultimaAceitaEm: null };
 }
 
+/**
+ * A memoria da camera do APP, e nao da tela. Guardada num `useRef`, ela
+ * zerava sempre que a tela da camera era montada de novo (voltar ao inicio e
+ * tocar "Inspecao"): no teste de 28/09/2026 o mesmo QR entrou 4 vezes em 32 s.
+ * Aqui dura a sessao inteira do app. Nao e a trava principal -- essa e a da
+ * fila, em `registrarLeituraDeQr` --, so poupa a consulta repetida.
+ */
+export const memoriaDaCameraDoApp: MemoriaDaCamera = novaMemoriaDaCamera();
+
 /** `true` se a leitura deve seguir; ja registra o codigo como visto. */
 export function aceitarDaCamera(memoria: MemoriaDaCamera, lido: string, agora: number): boolean {
   const codigo = normalizarCodigo(lido);
@@ -278,9 +287,10 @@ export async function rondaAberta(funcionarioId: string): Promise<RondaAberta | 
  * visita, com o site do QR) ou soma a aberta. `trocar-de-site` e `recusar` nao
  * chegam aqui -- a tela resolve com o inspetor antes.
  *
- * `repetida` e o mesmo QR no mesmo instante, que o indice unico da fila
- * recusa. A tela ainda trava a camera por alguns segundos entre leituras, e
- * este e o segundo portao.
+ * `repetida`: o mesmo QR ja lido NESTA ronda ha menos de `JANELA_POR_CODIGO_MS`.
+ * E a trava que vale -- conferida na fila, que esta em disco, entao sobrevive a
+ * tela reaberta e ao app reiniciado. A memoria da camera (`aceitarDaCamera`)
+ * e so a primeira peneira; sozinha, falhou no teste de 28/09/2026.
  */
 export async function registrarLeituraDeQr(entrada: {
   funcionarioId: string;
@@ -288,12 +298,17 @@ export async function registrarLeituraDeQr(entrada: {
   aberta: RondaAberta | null;
   agora?: Date;
 }): Promise<{ chave: string; nova: boolean; repetida: boolean }> {
-  const dataHora = (entrada.agora ?? new Date()).toISOString();
+  const agora = entrada.agora ?? new Date();
+  const dataHora = agora.toISOString();
+  const mesmaRonda = entrada.aberta && entrada.aberta.siteId === entrada.qr.siteId ? entrada.aberta : null;
 
-  const chave =
-    entrada.aberta && entrada.aberta.siteId === entrada.qr.siteId
-      ? entrada.aberta.chave
-      : await iniciarVisita({
+  if (mesmaRonda && (await lidoHaPouco(mesmaRonda.chave, entrada.qr.id, agora))) {
+    return { chave: mesmaRonda.chave, nova: false, repetida: true };
+  }
+
+  const chave = mesmaRonda
+    ? mesmaRonda.chave
+    : await iniciarVisita({
           siteId: entrada.qr.siteId,
           funcionarioId: entrada.funcionarioId,
           capturadoEm: dataHora,
@@ -306,6 +321,19 @@ export async function registrarLeituraDeQr(entrada: {
   });
 
   return { chave, nova: chave !== entrada.aberta?.chave, repetida: !gravou };
+}
+
+/** O QR ja entrou nesta ronda dentro da janela? `data_hora` e ISO em UTC, que ordena como texto. */
+async function lidoHaPouco(chave: string, qrCodeId: number, agora: Date): Promise<boolean> {
+  const banco = await abrirFila();
+  const desde = new Date(agora.getTime() - JANELA_POR_CODIGO_MS).toISOString();
+  const linha = await banco.getFirstAsync<{ n: number }>(
+    "select count(*) as n from leituras_na_fila where chave_da_visita = ? and qr_code_id = ? and data_hora > ?",
+    chave,
+    qrCodeId,
+    desde,
+  );
+  return (linha?.n ?? 0) > 0;
 }
 
 export async function encerrarRonda(chave: string): Promise<void> {

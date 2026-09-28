@@ -12,11 +12,20 @@ const estado = vi.hoisted(() => ({
   visitasIniciadas: [] as { siteId: number; funcionarioId: string }[],
   leituras: [] as { chaveDaVisita: string; qrCodeId?: number | null }[],
   leituraRepetida: false,
+  /** Quantas leituras do QR a fila tem na janela recente da ronda. */
+  leiturasRecentes: 0,
+  consultasRecentes: [] as unknown[][],
 }));
 
 vi.mock("./fila", () => ({
   abrirFila: async () => ({
-    getFirstAsync: async (_sql: string, codigo: string) => estado.catalogo.get(codigo) ?? null,
+    getFirstAsync: async (sql: string, ...args: unknown[]) => {
+      if (sql.includes("leituras_na_fila")) {
+        estado.consultasRecentes.push(args);
+        return { n: estado.leiturasRecentes };
+      }
+      return estado.catalogo.get(args[0] as string) ?? null;
+    },
     runAsync: async (_sql: string, codigo: string, id: number, siteId: number, siteNome: string, finalidade: string | null, ativo: number) => {
       estado.catalogo.set(codigo, { codigo, id, site_id: siteId, site_nome: siteNome, finalidade, ativo });
     },
@@ -67,6 +76,8 @@ beforeEach(() => {
   estado.visitasIniciadas = [];
   estado.leituras = [];
   estado.leituraRepetida = false;
+  estado.leiturasRecentes = 0;
+  estado.consultasRecentes = [];
 });
 
 describe("decidirLeitura", () => {
@@ -137,6 +148,25 @@ describe("registrarLeituraDeQr", () => {
 
     expect(estado.visitasIniciadas).toEqual([]);
     expect(resultado).toEqual({ chave: "chave-aberta", nova: false, repetida: false });
+  });
+
+  it("o mesmo QR ja lido nesta ronda no ultimo minuto e recusado pela fila -- mesmo com a tela reaberta", async () => {
+    // O caso do teste de 28/09: a memoria da camera zerou com a tela reaberta
+    // e o mesmo QR entrou 4 vezes em 32 s. A fila e a trava que vale.
+    estado.leiturasRecentes = 1;
+    const agora = new Date("2026-09-28T12:55:10Z");
+
+    const resultado = await registrarLeituraDeQr({ funcionarioId: "u1", qr: QR, aberta: ABERTA, agora });
+
+    expect(resultado).toEqual({ chave: "chave-aberta", nova: false, repetida: true });
+    expect(estado.leituras).toEqual([]);
+    // Consulta pela ronda, pelo QR e pela janela de 60 s para tras.
+    expect(estado.consultasRecentes).toEqual([["chave-aberta", 7, "2026-09-28T12:54:10.000Z"]]);
+  });
+
+  it("ronda nova nem consulta a janela: nao ha leitura anterior nela", async () => {
+    await registrarLeituraDeQr({ funcionarioId: "u1", qr: QR, aberta: null });
+    expect(estado.consultasRecentes).toEqual([]);
   });
 
   it("avisa quando a fila recusou por ser a mesma leitura", async () => {

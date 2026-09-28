@@ -14,11 +14,10 @@ import {
   atualizarCatalogo,
   decidirLeitura,
   encerrarRonda,
-  novaMemoriaDaCamera,
+  memoriaDaCameraDoApp,
   registrarLeituraDeQr,
   rondaAberta,
   tamanhoDoCatalogo,
-  type MemoriaDaCamera,
   type QrDoCatalogo,
   type RondaAberta,
 } from "../campo/ronda";
@@ -75,8 +74,6 @@ export function TelaDeLeitura() {
    * antes de o `setProcessando(true)` chegar ao render seguinte.
    */
   const emVoo = useRef(false);
-  // Filtro da camera -- ver `aceitarDaCamera` em `campo/ronda.ts`.
-  const memoriaDaCamera = useRef<MemoriaDaCamera>(novaMemoriaDaCamera());
 
   const idDoUsuario = sessao?.user.id ?? null;
 
@@ -139,7 +136,9 @@ export function TelaDeLeitura() {
   const tratar = useCallback(
     async (lido: string) => {
       if (emVoo.current || !idDoUsuario) return;
-      if (!aceitarDaCamera(memoriaDaCamera.current, lido, Date.now())) return;
+      // Memoria do app, e nao da tela: sobrevive a tela reaberta. A trava que
+      // vale esta na fila -- ver `registrarLeituraDeQr`.
+      if (!aceitarDaCamera(memoriaDaCameraDoApp, lido, Date.now())) return;
 
       emVoo.current = true;
       setProcessando(true);
