@@ -35,9 +35,8 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
  * a ronda no site do QR; as leituras seguintes do mesmo site somam nela; o
  * inspetor toca "Encerrar ronda" no fim, e com sinal o app envia e oferece o
  * checklist. Substitui o modelo "um QR = uma visita, direto ao checklist" da
- * #134 -- desta tela ficaram a camera com mira, o veu, o pedido automatico de
- * permissao e "Minhas visitas". A regra mora em `campo/ronda.ts`; aqui e
- * casca.
+ * #134 -- desta tela ficaram a camera com mira, o veu e o pedido automatico de
+ * permissao. A regra mora em `campo/ronda.ts`; aqui e casca.
  *
  * SEM SINAL, A RONDA ANDA: o QR e reconhecido pelo catalogo guardado no
  * aparelho (atualizado ao abrir esta tela com rede), e a leitura vai para a
@@ -48,6 +47,13 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
  * "Ver sites" abre a lista de sites cadastrados. O preco conhecido: etiqueta
  * rasgada ou desbotada deixa de ter um caminho alternativo, e o emulador (camera
  * simulada) deixa de conseguir registrar leitura.
+ *
+ * SEM "MINHAS VISITAS" (decisao do dono, 28/09/2026): a lista de visitas e
+ * consultada so no sistema web. Era o unico caminho do INSPETOR e do GESTOR ate
+ * ela no app -- o cartao "Inspecao" leva os dois direto para esta camera. O
+ * checklist de uma ronda passa a ser feito no convite que aparece ao encerrar:
+ * "Depois", ou encerrar sem sinal, deixa a visita sem caminho de checklist pelo
+ * app (o painel web nao preenche checklist).
  */
 
 type Navegador = NativeStackNavigationProp<RotasDoApp>;
@@ -328,13 +334,6 @@ export function TelaDeLeitura() {
         aoPressionar={() => navegacao.navigate("Sites")}
       />
 
-      <Botao
-        titulo="Minhas visitas"
-        variante="secundaria"
-        tamanho="medio"
-        larguraTotal
-        aoPressionar={() => navegacao.navigate("Inspecoes")}
-      />
     </ScrollView>
   );
 }
