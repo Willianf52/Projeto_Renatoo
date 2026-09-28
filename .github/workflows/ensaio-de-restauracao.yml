@@ -164,6 +164,38 @@ jobs:
           # o `postgres` local nao e. Nao toca em dado nem em papel nosso.
           sed -i -E 's/^(GRANT .* ON PARAMETER .*;)$/-- \1/' roles.sql
 
+          # Quarto ajuste (28/09/2026): a plataforma atualiza o Auth/Storage
+          # antes da imagem local da CLI, e o dump de dados traz tabelas que o
+          # Supabase descartavel ainda nao tem (em 28/09: SCIM, WebAuthn,
+          # OAuth customizado) -- o COPY parava em 42P01. So se olham tabelas
+          # que o schema.sql NAO cria, porque as nossas so existem depois dele.
+          # Vazia: o bloco do COPY sai do data.sql e o nome vai para o log.
+          # Com linha: falha, porque ai o ensaio deixaria dado de fora.
+          faltando=""
+          for tabela in $(grep -oE '^COPY "[^"]+"\."[^"]+"' data.sql | cut -d' ' -f2 | sort -u); do
+            if grep -qF "CREATE TABLE IF NOT EXISTS $tabela " schema.sql \
+               || grep -qF "CREATE TABLE $tabela " schema.sql; then
+              continue
+            fi
+            if [ "$(psql "$LOCAL_DB_URL" -Atc "select to_regclass('$tabela') is not null")" != "t" ]; then
+              faltando="$faltando $tabela"
+            fi
+          done
+          if [ -n "$faltando" ]; then
+            echo "Tabelas do dump ausentes no Supabase local:$faltando"
+            if ! awk -v faltando="$faltando" '
+                  BEGIN { n = split(faltando, l, " "); for (i = 1; i <= n; i++) f[l[i]] = 1 }
+                  pulando && $0 == "\\." { pulando = 0; next }
+                  pulando { if (!avisado[alvo]++) print "::error::" alvo " tem linhas e nao existe no Supabase local." > "/dev/stderr"; ruim = 1; next }
+                  /^COPY / && ($2 in f) { pulando = 1; alvo = $2; next }
+                  { print }
+                  END { exit ruim }
+                ' data.sql > data.filtrado.sql; then
+              exit 1
+            fi
+            mv data.filtrado.sql data.sql
+          fi
+
           inicio=$(date +%s)
           # `set +e`: o Actions roda o passo com `bash -e`, e o `set -uo` acima
           # nao desliga o `-e`. Sem isto, o psql falhando derrubava o passo na
