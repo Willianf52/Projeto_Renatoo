@@ -25,7 +25,6 @@ import {
 import { sincronizar } from "../campo/sincronizacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
-import { Campo } from "../componentes/Campo";
 import { capturarErro } from "../lib/observabilidade";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
@@ -37,19 +36,18 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
  * inspetor toca "Encerrar ronda" no fim, e com sinal o app envia e oferece o
  * checklist. Substitui o modelo "um QR = uma visita, direto ao checklist" da
  * #134 -- desta tela ficaram a camera com mira, o veu, o pedido automatico de
- * permissao, o campo de digitar e "Minhas visitas". A regra mora em
- * `campo/ronda.ts`; aqui e casca.
+ * permissao e "Minhas visitas". A regra mora em `campo/ronda.ts`; aqui e
+ * casca.
  *
  * SEM SINAL, A RONDA ANDA: o QR e reconhecido pelo catalogo guardado no
  * aparelho (atualizado ao abrir esta tela com rede), e a leitura vai para a
  * fila. So o encerramento pede rede para subir -- e, sem ela, a ronda fica na
  * fila para o proximo "Sincronizar".
  *
- * O CAMPO DE DIGITAR NAO E ENFEITE. Etiqueta rasgada, desbotada pelo sol ou
- * atras de um vidro que reflete precisa de outro caminho que nao seja desistir
- * da ronda -- e e ele que permite testar o fluxo inteiro no emulador, cuja
- * camera e simulada. Digitado nao passa pelo filtro da camera: e um toque
- * deliberado, nao um quadro repetido.
+ * SEM CAMPO DE DIGITAR O CODIGO (pedido do dono, 28/09/2026): no lugar dele,
+ * "Ver sites" abre a lista de sites cadastrados. O preco conhecido: etiqueta
+ * rasgada ou desbotada deixa de ter um caminho alternativo, e o emulador (camera
+ * simulada) deixa de conseguir registrar leitura.
  */
 
 type Navegador = NativeStackNavigationProp<RotasDoApp>;
@@ -62,7 +60,6 @@ export function TelaDeLeitura() {
 
   const [processando, setProcessando] = useState(false);
   const [aviso, setAviso] = useState<{ mensagem: string; tom: "erro" | "sucesso" } | null>(null);
-  const [codigoDigitado, setCodigoDigitado] = useState("");
   const [aberta, setAberta] = useState<RondaAberta | null>(null);
   const [semCatalogo, setSemCatalogo] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
@@ -128,16 +125,15 @@ export function TelaDeLeitura() {
         mensagem: resultado.nova ? `Ronda iniciada em ${qr.siteNome}. Leitura: ${ponto}` : `Leitura registrada: ${ponto}`,
         tom: "sucesso",
       });
-      setCodigoDigitado("");
       setAberta(await rondaAberta(idDoUsuario));
     },
     [idDoUsuario],
   );
 
   const tratar = useCallback(
-    async (lido: string, origem: "camera" | "digitado") => {
+    async (lido: string) => {
       if (emVoo.current || !idDoUsuario) return;
-      if (origem === "camera" && !aceitarDaCamera(memoriaDaCamera.current, lido, Date.now())) return;
+      if (!aceitarDaCamera(memoriaDaCamera.current, lido, Date.now())) return;
 
       emVoo.current = true;
       setProcessando(true);
@@ -205,7 +201,7 @@ export function TelaDeLeitura() {
 
   const aoLer = useCallback(
     (leitura: BarcodeScanningResult) => {
-      void tratar(leitura.data, "camera");
+      void tratar(leitura.data);
     },
     [tratar],
   );
@@ -323,29 +319,14 @@ export function TelaDeLeitura() {
       ) : null}
       {aviso ? <Aviso mensagem={aviso.mensagem} tom={aviso.tom} /> : null}
 
-      <View style={estilos.manual}>
-        <Campo
-          rotulo="Ou digite o código"
-          valor={codigoDigitado}
-          aoMudar={setCodigoDigitado}
-          placeholder="Código da etiqueta"
-          // Os codigos sao literais, copiados do sistema de referencia: o teclado
-          // nao pode mexer em maiuscula nenhuma.
-          autoCapitalize="none"
-          autoCorrect={false}
-          editable={!ocupado}
-          returnKeyType="go"
-          onSubmitEditing={() => void tratar(codigoDigitado, "digitado")}
-        />
-        <Botao
-          titulo="Registrar leitura"
-          variante={aberta ? "secundaria" : "primaria"}
-          larguraTotal
-          carregando={processando}
-          desabilitado={!codigoDigitado.trim() || encerrando}
-          aoPressionar={() => void tratar(codigoDigitado, "digitado")}
-        />
-      </View>
+      <Botao
+        titulo="Ver sites"
+        variante="secundaria"
+        tamanho="medio"
+        larguraTotal
+        estilo={estilos.manual}
+        aoPressionar={() => navegacao.navigate("Sites")}
+      />
 
       <Botao
         titulo="Minhas visitas"
@@ -429,7 +410,8 @@ const estilos = StyleSheet.create({
 
   dica: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
 
-  manual: { gap: espaco.entreItens, marginTop: espaco.minimo },
+  // Respiro entre o painel da ronda/avisos e os botoes de navegacao.
+  manual: { marginTop: espaco.minimo },
 
   // O painel da ronda aberta: mesmo fundo e borda da moldura da camera.
   ronda: {
