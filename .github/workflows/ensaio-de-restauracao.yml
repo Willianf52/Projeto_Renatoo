@@ -196,6 +196,56 @@ jobs:
             mv data.filtrado.sql data.sql
           fi
 
+          # O mesmo para COLUNAS (28/09/2026, 42703): tabela que o local tem,
+          # mas sem uma coluna que a plataforma ja acrescentou. A coluna sai
+          # do COPY se for nula em todas as linhas; com valor, falha.
+          extras=""
+          while IFS= read -r cabecalho; do
+            tabela=$(cut -d' ' -f2 <<< "$cabecalho")
+            if grep -qF "CREATE TABLE IF NOT EXISTS $tabela " schema.sql \
+               || grep -qF "CREATE TABLE $tabela " schema.sql; then
+              continue
+            fi
+            do_dump=$(sed -E 's/^COPY [^ ]+ \((.*)\) FROM stdin;$/\1/' <<< "$cabecalho" | tr -d '" ' | tr ',' '\n' | sort)
+            locais=$(psql "$LOCAL_DB_URL" -Atc "select attname from pg_attribute where attrelid = '$tabela'::regclass and attnum > 0 and not attisdropped" | sort)
+            fora=$(comm -23 <(echo "$do_dump") <(echo "$locais") | paste -sd, -)
+            if [ -n "$fora" ]; then extras="$extras $tabela=$fora"; fi
+          done < <(grep -E '^COPY "' data.sql)
+          if [ -n "$extras" ]; then
+            echo "Colunas do dump ausentes no Supabase local:$extras"
+            if ! awk -v extras="$extras" '
+                  BEGIN {
+                    n = split(extras, l, " ")
+                    for (i = 1; i <= n; i++) { split(l[i], p, "="); fora[p[1]] = "," p[2] "," }
+                  }
+                  copiando && $0 == "\\." { copiando = 0; print; next }
+                  copiando {
+                    k = split($0, v, "\t"); linha = ""; tem = 0
+                    for (i = 1; i <= k; i++) {
+                      if (i in tira) { if (v[i] != "\\N") { if (!avisado[alvo]++) print "::error::" alvo " tem valor numa coluna que o Supabase local nao tem." > "/dev/stderr"; ruim = 1 } continue }
+                      linha = tem ? linha "\t" v[i] : v[i]; tem = 1
+                    }
+                    print linha; next
+                  }
+                  /^COPY / && ($2 in fora) {
+                    alvo = $2; delete tira
+                    inicio = index($0, "(") + 1; fim = index($0, ") FROM stdin;")
+                    k = split(substr($0, inicio, fim - inicio), c, ", "); lista = ""
+                    for (i = 1; i <= k; i++) {
+                      nome = c[i]; gsub(/"/, "", nome)
+                      if (index(fora[alvo], "," nome ",")) { tira[i] = 1; continue }
+                      lista = (lista == "") ? c[i] : lista ", " c[i]
+                    }
+                    print "COPY " alvo " (" lista ") FROM stdin;"; copiando = 1; next
+                  }
+                  { print }
+                  END { exit ruim }
+                ' data.sql > data.filtrado.sql; then
+              exit 1
+            fi
+            mv data.filtrado.sql data.sql
+          fi
+
           inicio=$(date +%s)
           # `set +e`: o Actions roda o passo com `bash -e`, e o `set -uo` acima
           # nao desliga o `-e`. Sem isto, o psql falhando derrubava o passo na
