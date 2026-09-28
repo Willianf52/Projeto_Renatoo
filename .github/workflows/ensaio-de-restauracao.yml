@@ -158,6 +158,11 @@ jobs:
           # por `supabase_admin`, que o `postgres` local nao pode conceder.
           sed -i -E 's/^(GRANT "postgres" TO "cli_login_postgres".*)$/-- \1/' roles.sql
           sed -i -E 's/^(ALTER .* OWNER TO "supabase_admin";)$/-- \1/' schema.sql
+          # Terceiro ajuste, achado no primeiro ensaio real (28/09/2026):
+          # `GRANT SET ON PARAMETER ... TO "supabase_realtime_admin"` e
+          # permissao interna da plataforma, e so superusuario concede --
+          # o `postgres` local nao e. Nao toca em dado nem em papel nosso.
+          sed -i -E 's/^(GRANT .* ON PARAMETER .*;)$/-- \1/' roles.sql
 
           inicio=$(date +%s)
           # `set +e`: o Actions roda o passo com `bash -e`, e o `set -uo` acima
