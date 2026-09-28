@@ -12,7 +12,6 @@ import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
 import { TelaDeLeitura } from "../telas/TelaDeLeitura";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
-import { TelaDeRonda } from "../telas/TelaDeRonda";
 import { TelaDeTipoDeVisita } from "../telas/TelaDeTipoDeVisita";
 import { TelaInicial } from "../telas/TelaInicial";
 import { cores } from "../tema";
@@ -29,7 +28,6 @@ export type RotasDoApp = {
   Inicio: undefined;
   Leitura: undefined;
   Inspecoes: undefined;
-  Ronda: undefined;
   Agendados: undefined;
   TipoDeVisita: { visitaId: number; numeroColeta: string };
   Checklist: { visitaId: number; numeroColeta: string; tipo: TipoDeVisita };
@@ -152,10 +150,6 @@ export function Navegacao() {
           component={TelaDeInspecoes}
           options={{ title: "Minhas visitas" }}
         />
-
-        {/* A camera da ronda (leitor de QR, 25/09/2026). E para onde o cartao
-            "Inspecao" leva o INSPETOR -- ver `TelaInicial`. */}
-        <Pilha.Screen name="Ronda" component={TelaDeRonda} options={{ title: "Ronda" }} />
 
         <Pilha.Screen
           name="Agendados"

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, Vibration, View } from "react-native";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 
 import { useIsFocused, useNavigation } from "@react-navigation/native";
@@ -7,32 +7,50 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { useSessao } from "../auth/SessaoProvider";
 import type { RotasDoApp } from "../navegacao/Navegacao";
-import { registrarLeituraDeQr, type ResultadoDaLeitura } from "../campo/leitura-de-qr";
+import { idDaVisitaNoServidor } from "../campo/fila";
+import {
+  aceitarDaCamera,
+  acharQr,
+  atualizarCatalogo,
+  decidirLeitura,
+  encerrarRonda,
+  novaMemoriaDaCamera,
+  registrarLeituraDeQr,
+  rondaAberta,
+  tamanhoDoCatalogo,
+  type MemoriaDaCamera,
+  type QrDoCatalogo,
+  type RondaAberta,
+} from "../campo/ronda";
+import { sincronizar } from "../campo/sincronizacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
+import { capturarErro } from "../lib/observabilidade";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
 /**
- * O que abre ao tocar em "Inspecao": a camera, pronta para a etiqueta do site.
+ * O que abre ao tocar em "Inspecao": a camera da RONDA.
  *
- * E o comeco da inspecao no sistema antigo, e o que os inspetores procuram:
- * chegar ao site, ler o QR, escolher o tipo de visita. A lista de visitas nao
- * sumiu -- vira o botao "Minhas visitas" embaixo da camera, para quem volta
- * para fechar uma visita que ficou aberta.
+ * MODELO DE RONDA (decisao do dono, 25 e 28/09/2026): a primeira leitura abre
+ * a ronda no site do QR; as leituras seguintes do mesmo site somam nela; o
+ * inspetor toca "Encerrar ronda" no fim, e com sinal o app envia e oferece o
+ * checklist. Substitui o modelo "um QR = uma visita, direto ao checklist" da
+ * #134 -- desta tela ficaram a camera com mira, o veu, o pedido automatico de
+ * permissao, o campo de digitar e "Minhas visitas". A regra mora em
+ * `campo/ronda.ts`; aqui e casca.
+ *
+ * SEM SINAL, A RONDA ANDA: o QR e reconhecido pelo catalogo guardado no
+ * aparelho (atualizado ao abrir esta tela com rede), e a leitura vai para a
+ * fila. So o encerramento pede rede para subir -- e, sem ela, a ronda fica na
+ * fila para o proximo "Sincronizar".
  *
  * O CAMPO DE DIGITAR NAO E ENFEITE. Etiqueta rasgada, desbotada pelo sol ou
  * atras de um vidro que reflete precisa de outro caminho que nao seja desistir
- * da visita -- e e ele que permite testar o fluxo inteiro no emulador, cuja
- * camera e simulada.
+ * da ronda -- e e ele que permite testar o fluxo inteiro no emulador, cuja
+ * camera e simulada. Digitado nao passa pelo filtro da camera: e um toque
+ * deliberado, nao um quadro repetido.
  */
-
-/**
- * Depois de uma leitura recusada, a camera continua vendo a mesma etiqueta a
- * dezenas de quadros por segundo. Sem esta pausa, cada quadro seria uma
- * consulta nova e o aviso piscaria sem parar.
- */
-const PAUSA_APOS_RECUSA_MS = 2500;
 
 type Navegador = NativeStackNavigationProp<RotasDoApp>;
 
@@ -45,15 +63,17 @@ export function TelaDeLeitura() {
   const [processando, setProcessando] = useState(false);
   const [aviso, setAviso] = useState<{ mensagem: string; tom: "erro" | "sucesso" } | null>(null);
   const [codigoDigitado, setCodigoDigitado] = useState("");
+  const [aberta, setAberta] = useState<RondaAberta | null>(null);
+  const [semCatalogo, setSemCatalogo] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
 
   /**
    * Trava em ref, e nao so no estado: `onBarcodeScanned` dispara varias vezes
-   * antes de o `setProcessando(true)` chegar ao render seguinte, e cada disparo
-   * abriria uma visita nova na fila. A mesma janela que `envioEmVoo` fecha no
-   * checklist.
+   * antes de o `setProcessando(true)` chegar ao render seguinte.
    */
   const emVoo = useRef(false);
-  const destravar = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Filtro da camera -- ver `aceitarDaCamera` em `campo/ronda.ts`.
+  const memoriaDaCamera = useRef<MemoriaDaCamera>(novaMemoriaDaCamera());
 
   const idDoUsuario = sessao?.user.id ?? null;
 
@@ -66,62 +86,183 @@ export function TelaDeLeitura() {
     }
   }, [permissao, pedirPermissao]);
 
-  // Volta do checklist (`pop(2)`) com a trava solta: a proxima etiqueta e
-  // outra visita. So a ref -- o estado ja foi desligado antes de navegar.
+  // Ao ganhar foco (inclusive voltando do checklist): relê a ronda aberta e,
+  // com rede, atualiza o catalogo. Sem rede vale o que ja esta no aparelho.
   useEffect(() => {
-    if (!focada) return;
-    emVoo.current = false;
+    if (!focada || !idDoUsuario) return;
+    let ativo = true;
+
+    rondaAberta(idDoUsuario)
+      .then((r) => {
+        if (ativo) setAberta(r);
+      })
+      .catch((falha) => capturarErro(falha, { onde: "rondaAberta" }));
+
+    atualizarCatalogo()
+      .then(() => {
+        if (ativo) setSemCatalogo(false);
+      })
+      .catch(async () => {
+        const quantos = await tamanhoDoCatalogo().catch(() => 0);
+        if (ativo) setSemCatalogo(quantos === 0);
+      });
+
     return () => {
-      if (destravar.current) clearTimeout(destravar.current);
+      ativo = false;
     };
-  }, [focada]);
+  }, [focada, idDoUsuario]);
 
-  const tratar = useCallback(
-    async (codigo: string) => {
-      if (emVoo.current || !idDoUsuario) return;
-      emVoo.current = true;
-      setProcessando(true);
-      setAviso(null);
+  const gravar = useCallback(
+    async (qr: QrDoCatalogo, rondaAtual: RondaAberta | null) => {
+      if (!idDoUsuario) return;
+      const resultado = await registrarLeituraDeQr({ funcionarioId: idDoUsuario, qr, aberta: rondaAtual });
 
-      let resultado: ResultadoDaLeitura;
-      try {
-        resultado = await registrarLeituraDeQr(codigo, idDoUsuario);
-      } catch {
-        // A fila local falhou (disco cheio, arquivo corrompido). Nada garante
-        // que a leitura ficou salva, entao a mensagem nao promete isso.
-        resultado = { tipo: "recusada", mensagem: "Não foi possível registrar a leitura. Tente de novo." };
-      }
-
-      if (resultado.tipo === "pronta") {
-        // A trava (`emVoo`) continua fechada ate a tela voltar ao foco; o veu
-        // sai agora para nao estar la quando o checklist devolver para ca.
-        setProcessando(false);
-        setCodigoDigitado("");
-        navegacao.navigate("TipoDeVisita", {
-          visitaId: resultado.visitaId,
-          numeroColeta: resultado.numeroColeta,
-        });
+      if (resultado.repetida) {
+        setAviso({ mensagem: `${qr.codigo} já foi registrado agora há pouco.`, tom: "erro" });
         return;
       }
 
+      Vibration.vibrate(80);
+      const ponto = qr.finalidade ? `${qr.codigo} · ${qr.finalidade}` : qr.codigo;
       setAviso({
-        mensagem: resultado.mensagem,
-        tom: resultado.tipo === "na-fila" ? "sucesso" : "erro",
+        mensagem: resultado.nova ? `Ronda iniciada em ${qr.siteNome}. Leitura: ${ponto}` : `Leitura registrada: ${ponto}`,
+        tom: "sucesso",
       });
-      setProcessando(false);
-      destravar.current = setTimeout(() => {
-        emVoo.current = false;
-      }, PAUSA_APOS_RECUSA_MS);
+      setCodigoDigitado("");
+      setAberta(await rondaAberta(idDoUsuario));
     },
-    [idDoUsuario, navegacao],
+    [idDoUsuario],
+  );
+
+  const tratar = useCallback(
+    async (lido: string, origem: "camera" | "digitado") => {
+      if (emVoo.current || !idDoUsuario) return;
+      if (origem === "camera" && !aceitarDaCamera(memoriaDaCamera.current, lido, Date.now())) return;
+
+      emVoo.current = true;
+      setProcessando(true);
+
+      try {
+        const qr = await acharQr(lido);
+        if (!qr) {
+          setAviso({
+            mensagem: semCatalogo
+              ? "Não foi possível reconhecer o QR code: o catálogo ainda não foi baixado. Conecte-se à internet uma vez."
+              : `QR code "${lido.trim().slice(0, 40)}" não está cadastrado.`,
+            tom: "erro",
+          });
+          return;
+        }
+
+        const decisao = decidirLeitura(aberta, qr);
+
+        if (decisao.tipo === "recusar") {
+          setAviso({ mensagem: decisao.motivo, tom: "erro" });
+          return;
+        }
+
+        if (decisao.tipo === "trocar-de-site" && aberta) {
+          // A leitura so segue se a pessoa confirmar; `emVoo` fica fechada ate
+          // a resposta, para a camera nao empilhar outro alerta.
+          await new Promise<void>((resolver) => {
+            Alert.alert(
+              "QR code de outro site",
+              `Este QR code é de ${qr.siteNome}, e a ronda aberta é em ${aberta.siteNome ?? "outro site"}. Encerrar a ronda atual e começar uma nova?`,
+              [
+                { text: "Cancelar", style: "cancel", onPress: () => resolver() },
+                {
+                  text: "Encerrar e começar",
+                  onPress: () => {
+                    void encerrarRonda(aberta.chave)
+                      .then(() => gravar(qr, null))
+                      .catch((falha) => {
+                        capturarErro(falha, { onde: "trocarDeSite" });
+                        setAviso({ mensagem: "Não foi possível trocar de ronda. Tente de novo.", tom: "erro" });
+                      })
+                      .finally(resolver);
+                  },
+                },
+              ],
+              { cancelable: false },
+            );
+          });
+          return;
+        }
+
+        await gravar(qr, aberta);
+      } catch (falha) {
+        // A fila local falhou (disco cheio, arquivo corrompido). Nada garante
+        // que a leitura ficou salva, entao a mensagem nao promete isso.
+        capturarErro(falha, { onde: "tratarLeitura" });
+        setAviso({ mensagem: "Não foi possível registrar a leitura. Tente de novo.", tom: "erro" });
+      } finally {
+        setProcessando(false);
+        emVoo.current = false;
+      }
+    },
+    [aberta, gravar, idDoUsuario, semCatalogo],
   );
 
   const aoLer = useCallback(
     (leitura: BarcodeScanningResult) => {
-      void tratar(leitura.data);
+      void tratar(leitura.data, "camera");
     },
     [tratar],
   );
+
+  const concluirEncerramento = useCallback(
+    async (ronda: RondaAberta) => {
+      if (!idDoUsuario) return;
+      setEncerrando(true);
+
+      try {
+        await encerrarRonda(ronda.chave);
+        setAberta(null);
+
+        // Com sinal, sobe agora. `sincronizar` nao lanca por falha de rede --
+        // devolve em `falhas`, e a ronda continua na fila, intacta.
+        const resultado = await sincronizar(idDoUsuario);
+        const visitaId = await idDaVisitaNoServidor(ronda.chave);
+
+        if (resultado.falhas.length > 0 || visitaId === null) {
+          setAviso({
+            mensagem: "Ronda encerrada e guardada no aparelho. Ela será enviada no próximo Sincronizar, com sinal.",
+            tom: "sucesso",
+          });
+          return;
+        }
+
+        setAviso({ mensagem: "Ronda encerrada e enviada.", tom: "sucesso" });
+        Alert.alert("Ronda enviada", "Fazer o checklist desta visita agora?", [
+          { text: "Depois", style: "cancel" },
+          {
+            text: "Fazer checklist",
+            onPress: () => navegacao.navigate("TipoDeVisita", { visitaId, numeroColeta: ronda.chave }),
+          },
+        ]);
+      } catch (falha) {
+        capturarErro(falha, { onde: "encerrarRonda" });
+        setAviso({ mensagem: "Ronda encerrada, mas não foi possível enviar agora. Use Sincronizar depois.", tom: "erro" });
+      } finally {
+        setEncerrando(false);
+      }
+    },
+    [idDoUsuario, navegacao],
+  );
+
+  const pedirEncerramento = useCallback(() => {
+    if (!aberta) return;
+    Alert.alert(
+      "Encerrar ronda",
+      `Encerrar a ronda em ${aberta.siteNome ?? "este site"} com ${aberta.leituras} leitura(s)?`,
+      [
+        { text: "Continuar ronda", style: "cancel" },
+        { text: "Encerrar", onPress: () => void concluirEncerramento(aberta) },
+      ],
+    );
+  }, [aberta, concluirEncerramento]);
+
+  const ocupado = processando || encerrando;
 
   return (
     <ScrollView
@@ -139,7 +280,7 @@ export function TelaDeLeitura() {
               // camera continuaria lendo (e gastando bateria) por baixo.
               active={focada}
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-              onBarcodeScanned={processando ? undefined : aoLer}
+              onBarcodeScanned={ocupado ? undefined : aoLer}
             />
             <View style={estilos.mira} pointerEvents="none" />
             {processando ? (
@@ -158,8 +299,28 @@ export function TelaDeLeitura() {
         )}
       </View>
 
-      <Text style={estilos.dica}>Aponte a câmera para o QR code do site.</Text>
+      {aberta ? (
+        <View style={estilos.ronda}>
+          <Text style={estilos.rondaRotulo}>Ronda em andamento</Text>
+          <Text style={estilos.rondaSite} numberOfLines={1}>
+            {aberta.siteNome ?? `Site ${aberta.siteId}`}
+          </Text>
+          <Text style={estilos.dica}>{aberta.leituras} leitura(s) registrada(s)</Text>
+          <Botao
+            titulo="Encerrar ronda"
+            larguraTotal
+            carregando={encerrando}
+            desabilitado={processando}
+            aoPressionar={pedirEncerramento}
+          />
+        </View>
+      ) : (
+        <Text style={estilos.dica}>Aponte a câmera para o QR code do ponto de ronda.</Text>
+      )}
 
+      {semCatalogo ? (
+        <Aviso mensagem="Catálogo de QR codes ainda não baixado. Conecte-se à internet uma vez antes da ronda." />
+      ) : null}
       {aviso ? <Aviso mensagem={aviso.mensagem} tom={aviso.tom} /> : null}
 
       <View style={estilos.manual}>
@@ -172,16 +333,17 @@ export function TelaDeLeitura() {
           // nao pode mexer em maiuscula nenhuma.
           autoCapitalize="none"
           autoCorrect={false}
-          editable={!processando}
+          editable={!ocupado}
           returnKeyType="go"
-          onSubmitEditing={() => void tratar(codigoDigitado)}
+          onSubmitEditing={() => void tratar(codigoDigitado, "digitado")}
         />
         <Botao
           titulo="Registrar leitura"
+          variante={aberta ? "secundaria" : "primaria"}
           larguraTotal
           carregando={processando}
-          desabilitado={!codigoDigitado.trim()}
-          aoPressionar={() => void tratar(codigoDigitado)}
+          desabilitado={!codigoDigitado.trim() || encerrando}
+          aoPressionar={() => void tratar(codigoDigitado, "digitado")}
         />
       </View>
 
@@ -268,4 +430,16 @@ const estilos = StyleSheet.create({
   dica: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
 
   manual: { gap: espaco.entreItens, marginTop: espaco.minimo },
+
+  // O painel da ronda aberta: mesmo fundo e borda da moldura da camera.
+  ronda: {
+    backgroundColor: cores.superficie,
+    borderWidth: 1,
+    borderColor: cores.borda,
+    borderRadius: raio.cartao,
+    padding: espaco.interno,
+    gap: espaco.minimo,
+  },
+  rondaRotulo: texto(tipografia.rotulo, { cor: cores.textoFraco, caixaAlta: true }),
+  rondaSite: texto(tipografia.subtitulo, { cor: cores.texto }),
 });

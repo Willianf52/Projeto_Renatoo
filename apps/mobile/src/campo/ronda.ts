@@ -5,8 +5,9 @@ import { abrirFila, iniciarVisita, registrarLeitura } from "./fila";
  * A ronda com leitor de QR: o que liga o codigo lido pela camera a fila
  * offline que ja existia (`fila.ts`) e a sincronizacao (`sincronizacao.ts`).
  *
- * DECISOES DO DONO (25/09/2026):
- *   - "Inspecao" do INSPETOR abre direto a camera;
+ * DECISOES DO DONO (25/09/2026; mantidas sobre a #134 em 28/09):
+ *   - "Inspecao" de quem registra visita (INSPETOR e GESTOR, migration 0060)
+ *     abre direto a camera -- `TelaDeLeitura`;
  *   - a ronda fica aberta ate o inspetor tocar "Encerrar ronda";
  *   - ler um QR de OUTRO site com a ronda aberta pede confirmacao para
  *     encerrar a atual e comecar outra;
@@ -310,14 +311,4 @@ export async function registrarLeituraDeQr(entrada: {
 export async function encerrarRonda(chave: string): Promise<void> {
   const banco = await abrirFila();
   await banco.runAsync("update visitas_na_fila set encerrada = 1 where chave = ?", chave);
-}
-
-/** O id que o servidor deu a visita, se ela ja subiu -- e o que o checklist precisa. */
-export async function visitaNoServidor(chave: string): Promise<number | null> {
-  const banco = await abrirFila();
-  const linha = await banco.getFirstAsync<{ visita_id: number | null }>(
-    "select visita_id from visitas_na_fila where chave = ?",
-    chave,
-  );
-  return linha?.visita_id ?? null;
 }
