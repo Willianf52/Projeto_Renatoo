@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
@@ -57,6 +58,14 @@ export default function GrupoDeSitesPage({
 }) {
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem="/dashboard/cadastros/grupo-de-sites"
+          mensagem="Grupo de sites salvo com sucesso."
+        />
+      </Suspense>
+
       <div className="animate-fade-in">
         <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Grupo de Sites" }]} />
       </div>

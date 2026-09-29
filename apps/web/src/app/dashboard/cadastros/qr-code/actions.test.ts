@@ -136,7 +136,7 @@ describe("salvarQrCode", () => {
         },
       ]);
       expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-      expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+      expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
     });
 
     it("converte finalidade vazia em null, e não em string vazia", async () => {
@@ -195,7 +195,7 @@ describe("salvarQrCode", () => {
       await salvarQrCode({}, formulario({ ...MINIMO, id: "42" }));
 
       expect(chamadas[0].tipo).toBe("update");
-      expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+      expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
     });
 
     it("recusa id que não é inteiro", async () => {

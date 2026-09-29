@@ -288,7 +288,7 @@ describe("criação", () => {
     expect(primeira("updatePerfil")?.args[0]).toMatchObject({ tipo: "PADRAO" });
 
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("normaliza o e-mail para minúsculas", async () => {
@@ -369,7 +369,7 @@ describe("edição", () => {
     // `inserirAuditoria` entra depois do `updatePerfil`: e o registro em
     // `auditoria` que a acao grava explicitamente (migration 0034).
     expect(tipos()).toEqual(["limparEscopo", "updatePerfil", "inserirAuditoria"]);
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("registra em auditoria quem editou e o antes/depois do perfil", async () => {

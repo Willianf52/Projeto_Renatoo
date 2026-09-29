@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ROTULO_DO_TIPO, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { useSessao } from "../auth/SessaoProvider";
+import { useFaixa } from "../componentes/Faixa";
 import { usePisoDeVersao } from "../lib/usePisoDeVersao";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
 import { TelaDeAgendados } from "../telas/TelaDeAgendados";
@@ -67,6 +68,7 @@ const TEMA: Theme = {
 export function Navegacao() {
   const { sessao, perfil, carregando, erroDePerfil, sair } = useSessao();
   const { bloqueado: versaoVelhaDemais } = usePisoDeVersao();
+  const { mostrar } = useFaixa();
 
   /**
    * O portao de versao vem ANTES de tudo, inclusive do login.
@@ -206,7 +208,13 @@ export function Navegacao() {
               // depois de ele ter terminado uma. Desempilhar as duas mantem o
               // que o `goBack` dava -- a lista continua montada embaixo, com a
               // rolagem de onde ele saiu.
-              aoConcluir={() => navigation.pop(2)}
+              //
+              // A faixa confirma o envio na tela de origem: sem ela, o
+              // inspetor voltava a camera sem saber se o checklist tinha ido.
+              aoConcluir={() => {
+                navigation.pop(2);
+                mostrar("Checklist enviado.");
+              }}
             />
           )}
         </Pilha.Screen>

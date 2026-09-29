@@ -117,7 +117,7 @@ describe("salvarSite", () => {
         },
       ]);
       expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-      expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+      expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
     });
 
     it("converte campo de texto vazio em null, e nao em string vazia", async () => {
@@ -184,7 +184,7 @@ describe("salvarSite", () => {
       await salvarSite({}, formulario({ ...MINIMO, id: "42" }));
 
       expect(chamadas[0].tipo).toBe("update");
-      expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+      expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
     });
 
     it("recusa id que nao e inteiro", async () => {

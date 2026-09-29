@@ -1,4 +1,5 @@
 import { cache, Suspense } from "react";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
@@ -113,6 +114,14 @@ const carregarSites = cache((params: SearchParams) => getSites(extrairFiltros(pa
 export default function SitePlantaPage({ searchParams }: { searchParams: SearchParamsPromise }) {
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem="/dashboard/cadastros/site-planta"
+          mensagem="Site salvo com sucesso."
+        />
+      </Suspense>
+
       <div className="animate-fade-in">
         <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Site / Planta" }]} />
       </div>

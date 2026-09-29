@@ -124,6 +124,15 @@ export function CheckIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+/** O "i" do toast informativo -- sem circulo proprio: o toast ja poe o selo. */
+export function InfoIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 11v6M12 7h.01" />
+    </svg>
+  );
+}
+
 export function PlusCircleIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

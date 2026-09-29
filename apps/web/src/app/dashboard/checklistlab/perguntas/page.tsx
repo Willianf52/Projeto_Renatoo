@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
@@ -54,6 +55,14 @@ export default function PerguntasDoChecklistPage({
 }) {
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem="/dashboard/checklistlab/perguntas"
+          mensagem="Pergunta salva com sucesso."
+        />
+      </Suspense>
+
       <div className="animate-fade-in">
         <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Perguntas do Checklist" }]} />
       </div>

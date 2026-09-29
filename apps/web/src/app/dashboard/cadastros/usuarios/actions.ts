@@ -424,5 +424,5 @@ export async function salvarUsuario(
   }
 
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }
