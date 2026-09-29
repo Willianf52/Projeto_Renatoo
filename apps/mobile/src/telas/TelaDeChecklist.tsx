@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SeletorDeImagem from "expo-image-picker";
 import {
+  alturaDeControle,
   LIMITE_MOTIVO,
   MAXIMO_DE_FOTOS,
   RESPOSTAS_DO_CHECKLIST,
@@ -22,6 +27,12 @@ import {
 } from "@projeto-renatoo/shared";
 
 import { useSessao } from "../auth/SessaoProvider";
+import {
+  pendenciasDoChecklist,
+  progressoDasPerguntas,
+  textoDoResumo,
+  type Pendencia,
+} from "../campo/pendencias-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
 import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
 import { Aviso } from "../componentes/Aviso";
@@ -36,6 +47,16 @@ import { supabase } from "../lib/supabase";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
 type Pergunta = Pick<Tables<"perguntas_checklist">, "id" | "ordem" | "texto">;
+
+/** Secoes do formulario para onde a rolagem pode levar. */
+type Secao = "motivo" | "perguntas" | "fotos" | "assinatura";
+
+/**
+ * Janela do "Desfazer" depois de remover uma foto. Cinco segundos: o bastante
+ * para perceber o toque errado e voltar o dedo, curto o bastante para a faixa
+ * nao ficar ocupando a secao de fotos.
+ */
+const DURACAO_DO_DESFAZER = 5000;
 
 /**
  * Fechamento de uma visita em campo.
@@ -87,6 +108,43 @@ export function TelaDeChecklist({
   const [assinando, setAssinando] = useState(false);
 
   const assinatura = useRef<ControleDaAssinatura>(null);
+  const bordas = useSafeAreaInsets();
+
+  /**
+   * Levar o inspetor ate o que falta. O "Finalizar" fica no rodape e a
+   * pendencia pode estar dez perguntas acima: antes, o aviso aparecia no topo
+   * da tela, fora da vista, e o toque parecia nao ter feito nada.
+   *
+   * As posicoes vem do `onLayout` de cada secao (filhas diretas do conteudo
+   * rolavel, entao o `y` ja e o do conteudo). Pergunta mede relativo a secao
+   * de perguntas, dai a soma em `rolarAte`.
+   */
+  const rolagem = useRef<ScrollView>(null);
+  const campoDoMotivo = useRef<TextInput>(null);
+  const posicaoDaSecao = useRef<Partial<Record<Secao, number>>>({});
+  const posicaoDaPergunta = useRef<Record<number, number>>({});
+
+  /**
+   * Pendencia da ultima tentativa de envio, para pintar o item na tela. So o
+   * alvo: se o inspetor resolve o item, a condicao de destaque (derivada do
+   * estado atual, la embaixo) deixa de valer sozinha, sem limpar nada aqui.
+   */
+  const [destaque, setDestaque] = useState<Pendencia["alvo"] | null>(null);
+
+  /** Foto aberta em tela cheia. Tocar na miniatura abre; nao remove mais. */
+  const [fotoAberta, setFotoAberta] = useState<string | null>(null);
+
+  /**
+   * Remocao com "Desfazer". O arquivo so e apagado do disco (`esquecerFoto`)
+   * quando a janela fecha -- apagar na hora tornaria o desfazer impossivel.
+   * Ref para o timer e o endereco; estado so para a faixa aparecer.
+   */
+  const remocaoPendente = useRef<{
+    uri: string;
+    indice: number;
+    espera: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const [temRemocaoPendente, setTemRemocaoPendente] = useState(false);
 
   /**
    * Guarda contra dois envios em voo ao mesmo tempo -- a mesma peca que
@@ -191,6 +249,97 @@ export function TelaDeChecklist({
   // acima nao precisa chamar `setState` no corpo.
   const carregandoPerguntas = tipo === "CONSULTORIA" && perguntas === null;
 
+  const estadoDoChecklist = useMemo(
+    () => ({
+      tipo,
+      motivo,
+      perguntas,
+      respostas,
+      quantidadeDeFotos: fotos.length,
+      temAssinatura,
+    }),
+    [tipo, motivo, perguntas, respostas, fotos.length, temAssinatura],
+  );
+  const pendencias = useMemo(() => pendenciasDoChecklist(estadoDoChecklist), [estadoDoChecklist]);
+  const progresso = progressoDasPerguntas(estadoDoChecklist);
+
+  const rolarAte = useCallback((pendencia: Pendencia) => {
+    const secao = posicaoDaSecao.current[pendencia.alvo];
+    if (secao === undefined) return;
+
+    const dentroDaSecao =
+      pendencia.alvo === "perguntas" && pendencia.perguntaId !== null
+        ? (posicaoDaPergunta.current[pendencia.perguntaId] ?? 0)
+        : 0;
+
+    rolagem.current?.scrollTo({
+      // Um respiro acima do item: colado na borda de cima, o cartao parece
+      // cortado e o inspetor nao ve de onde a tela veio.
+      y: Math.max(0, secao + dentroDaSecao - espaco.confortavel),
+      animated: true,
+    });
+
+    // O motivo e digitado: alem de mostrar o campo, ja deixa o teclado pronto.
+    if (pendencia.alvo === "motivo") campoDoMotivo.current?.focus();
+  }, []);
+
+  /** Fecha a janela do "Desfazer" e apaga o arquivo de vez. */
+  const confirmarRemocao = useCallback(() => {
+    const pendente = remocaoPendente.current;
+    if (!pendente) return;
+
+    clearTimeout(pendente.espera);
+    remocaoPendente.current = null;
+    setTemRemocaoPendente(false);
+    esquecerFoto(visitaId, pendente.uri);
+  }, [visitaId]);
+
+  const removerFoto = useCallback(
+    (uri: string) => {
+      const indice = fotos.indexOf(uri);
+      if (indice === -1) return;
+
+      // Um desfazer por vez: a remocao anterior, se ainda estava na janela,
+      // passa a valer agora.
+      confirmarRemocao();
+
+      setFotoAberta(null);
+      setFotos((atuais) => atuais.filter((foto) => foto !== uri));
+      remocaoPendente.current = {
+        uri,
+        indice,
+        espera: setTimeout(confirmarRemocao, DURACAO_DO_DESFAZER),
+      };
+      setTemRemocaoPendente(true);
+    },
+    [confirmarRemocao, fotos],
+  );
+
+  const desfazerRemocao = useCallback(() => {
+    const pendente = remocaoPendente.current;
+    if (!pendente) return;
+
+    // Outra foto ocupou a vaga dentro da janela: nao ha onde devolver esta, e
+    // passar do teto quebraria o `esquemaDeChecklistDeVisita` so no envio.
+    if (fotos.length >= MAXIMO_DE_FOTOS) {
+      confirmarRemocao();
+      return;
+    }
+
+    clearTimeout(pendente.espera);
+    remocaoPendente.current = null;
+    setTemRemocaoPendente(false);
+    setFotos((atuais) => {
+      const restauradas = [...atuais];
+      restauradas.splice(Math.min(pendente.indice, restauradas.length), 0, pendente.uri);
+      return restauradas;
+    });
+  }, [confirmarRemocao, fotos.length]);
+
+  // Saindo da tela dentro da janela, a remocao vale: o inspetor tocou em
+  // remover e nao desfez.
+  useEffect(() => confirmarRemocao, [confirmarRemocao]);
+
   const anexarFoto = useCallback(async () => {
     try {
       // `requestCameraPermissionsAsync` a cada toque, e nao uma vez na
@@ -200,6 +349,7 @@ export function TelaDeChecklist({
       const permissao = await SeletorDeImagem.requestCameraPermissionsAsync();
 
       if (!permissao.granted) {
+        setDestaque(null);
         setErro("Autorize o acesso à câmera para anexar a foto.");
         return;
       }
@@ -229,6 +379,7 @@ export function TelaDeChecklist({
       // entao sem este ramo a rejeicao sumia sem deixar rastro: o inspetor
       // tocava em "Tirar foto" e a tela nao reagia nem explicava, que e o
       // formato de falha mais caro para quem esta em campo.
+      setDestaque(null);
       setErro("Não foi possível abrir a câmera. Tente de novo.");
     }
   }, [visitaId]);
@@ -240,45 +391,28 @@ export function TelaDeChecklist({
 
     try {
       setErro(null);
+      setDestaque(null);
 
       // Checagens locais antes de gastar rede: subir cinco fotos para depois
-      // descobrir que falta a assinatura e o pior desfecho possivel aqui.
-      if (tipo === "CORRETIVA" && motivo.trim() === "") {
-        setErro("Informe o motivo da visita.");
+      // descobrir que falta a assinatura e o pior desfecho possivel aqui. A
+      // primeira pendencia e a de cima na tela -- e para la que a rolagem vai.
+      const [pendencia] = pendencias;
+
+      if (pendencia) {
+        setErro(pendencia.mensagem);
+        setDestaque(pendencia.alvo);
+        rolarAte(pendencia);
         return;
       }
 
       const lista = perguntas ?? [];
-
-      if (tipo === "CONSULTORIA") {
-        const semResposta = lista.filter((pergunta) => !respostas[pergunta.id]);
-
-        if (lista.length === 0 || semResposta.length > 0) {
-          setErro(
-            lista.length === 0
-              ? "Nenhuma pergunta cadastrada no checklist."
-              : `Responda todas as perguntas (faltam ${semResposta.length}).`,
-          );
-          return;
-        }
-      }
-
-      if (fotos.length === 0) {
-        setErro("Anexe ao menos uma foto.");
-        return;
-      }
-
       const traco = await assinatura.current?.capturar();
 
       if (!traco) {
-        // `capturar` devolve `null` por dois motivos diferentes, e mandar o
-        // inspetor "colher a assinatura" quando ela esta ali na tela seria
-        // pedir para ele repetir o que ja fez. `temAssinatura` desempata.
-        setErro(
-          temAssinatura
-            ? "Não foi possível gerar a assinatura. Toque em Finalizar de novo."
-            : "Colha a assinatura do responsável.",
-        );
+        // Com `temAssinatura` verdadeiro (senao a pendencia acima teria
+        // parado), o `null` e falha de rasterizacao, nao traco faltando:
+        // mandar o inspetor "colher a assinatura" seria pedir o que ele ja fez.
+        setErro("Não foi possível gerar a assinatura. Toque em Finalizar de novo.");
         return;
       }
 
@@ -323,7 +457,25 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, fotos, motivo, perguntas, respostas, temAssinatura, tipo, visitaId]);
+  }, [aoConcluir, fotos, motivo, pendencias, perguntas, respostas, rolarAte, tipo, visitaId]);
+
+  // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
+  // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
+  // e o que o `react-hooks/refs` do React Compiler recusa.
+  const medirSecao = useCallback((secao: Secao, evento: LayoutChangeEvent) => {
+    posicaoDaSecao.current[secao] = evento.nativeEvent.layout.y;
+  }, []);
+
+  /** Pintar o item so enquanto ele continua pendente. */
+  const destacar = (alvo: Pendencia["alvo"]) =>
+    destaque === alvo && pendencias.some((pendencia) => pendencia.alvo === alvo);
+
+  // Erro de pendencia some quando a pendencia e resolvida, e o rodape volta a
+  // mostrar o resumo. Erro sem alvo (rede, camera) fica ate a proxima acao.
+  const erroVisivel =
+    erro && (destaque === null || pendencias.some((pendencia) => pendencia.alvo === destaque))
+      ? erro
+      : null;
 
   return (
     <KeyboardAvoidingView
@@ -331,6 +483,8 @@ export function TelaDeChecklist({
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
+        ref={rolagem}
+        style={estilos.rolagem}
         contentContainerStyle={estilos.conteudo}
         scrollEnabled={!assinando}
         keyboardShouldPersistTaps="handled"
@@ -339,14 +493,14 @@ export function TelaDeChecklist({
         <Text style={estilos.titulo}>Coleta {numeroColeta}</Text>
         <Text style={estilos.subtitulo}>{ROTULO_DO_TIPO[tipo]}</Text>
 
-        {erro ? <Aviso mensagem={erro} estilo={estilos.aviso} /> : null}
-
         {tipo === "CORRETIVA" ? (
-          <View style={estilos.secao}>
+          <View style={estilos.secao} onLayout={(evento) => medirSecao("motivo", evento)}>
             <Campo
+              ref={campoDoMotivo}
               rotulo="Motivo da visita"
               valor={motivo}
               aoMudar={setMotivo}
+              erro={destacar("motivo") ? "Informe o motivo da visita." : undefined}
               placeholder="Descreva o que motivou a visita"
               // O mesmo teto que o `esquemaDeChecklistDeVisita` aplica, aqui
               // no campo -- como o `LIMITE_EMAIL` no login, e pela mesma razao,
@@ -364,122 +518,231 @@ export function TelaDeChecklist({
         ) : null}
 
         {tipo === "CONSULTORIA" ? (
-          <View style={estilos.secao}>
+          <View style={estilos.secao} onLayout={(evento) => medirSecao("perguntas", evento)}>
             {erroDePerguntas ? <Aviso mensagem={erroDePerguntas} /> : null}
 
             {carregandoPerguntas ? (
               <EsqueletoDaLista />
             ) : (
               (perguntas ?? []).map((pergunta) => (
-                <Cartao key={pergunta.id} estilo={estilos.pergunta}>
-                  <Text style={estilos.perguntaTexto}>
-                    {pergunta.ordem}. {pergunta.texto}
-                  </Text>
+                <View
+                  key={pergunta.id}
+                  onLayout={(evento) => {
+                    posicaoDaPergunta.current[pergunta.id] = evento.nativeEvent.layout.y;
+                  }}
+                >
+                  <Cartao
+                    estilo={[
+                      estilos.pergunta,
+                      destacar("perguntas") && !respostas[pergunta.id] && estilos.perguntaPendente,
+                    ]}
+                  >
+                    <Text style={estilos.perguntaTexto}>
+                      {pergunta.ordem}. {pergunta.texto}
+                    </Text>
 
-                  <View style={estilos.respostas}>
-                    {RESPOSTAS_DO_CHECKLIST.map((valor) => (
-                      <Pressable
-                        key={valor}
-                        onPress={() =>
-                          setRespostas((atuais) => ({ ...atuais, [pergunta.id]: valor }))
-                        }
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: respostas[pergunta.id] === valor }}
-                        style={({ pressed }) => [
-                          estilos.resposta,
-                          respostas[pergunta.id] === valor && estilos.respostaEscolhida,
-                          pressed && estilos.opcaoPressionada,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            estilos.respostaTexto,
-                            respostas[pergunta.id] === valor && estilos.respostaTextoEscolhido,
-                          ]}
-                        >
-                          {ROTULO_DA_RESPOSTA[valor]}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </Cartao>
+                    <View
+                      style={estilos.respostas}
+                      accessibilityRole="radiogroup"
+                      accessibilityLabel={pergunta.texto}
+                    >
+                      {RESPOSTAS_DO_CHECKLIST.map((valor) => {
+                        const escolhida = respostas[pergunta.id] === valor;
+
+                        return (
+                          <Pressable
+                            key={valor}
+                            onPress={() =>
+                              setRespostas((atuais) => ({ ...atuais, [pergunta.id]: valor }))
+                            }
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: escolhida }}
+                            style={({ pressed }) => [
+                              estilos.resposta,
+                              escolhida && ESTILO_DA_ESCOLHA[valor].opcao,
+                              pressed && estilos.opcaoPressionada,
+                            ]}
+                          >
+                            <Text
+                              style={[estilos.respostaTexto, escolhida && ESTILO_DA_ESCOLHA[valor].texto]}
+                            >
+                              {ROTULO_DA_RESPOSTA[valor]}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </Cartao>
+                </View>
               ))
             )}
           </View>
         ) : null}
 
-        {tipo ? (
-          <>
-            <View style={estilos.secao}>
-              <View style={estilos.cabecalhoDaSecao}>
-                <Text style={estilos.rotulo}>
-                  Fotos ({fotos.length}/{MAXIMO_DE_FOTOS})
-                </Text>
-              </View>
+        <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
+          <View style={estilos.cabecalhoDaSecao}>
+            <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
+              Fotos ({fotos.length}/{MAXIMO_DE_FOTOS})
+            </Text>
+          </View>
 
-              {fotos.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
-                  {fotos.map((uri) => (
-                    <Pressable
-                      key={uri}
-                      onPress={() => {
-                        setFotos((atuais) => atuais.filter((f) => f !== uri));
-                        esquecerFoto(visitaId, uri);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Remover foto"
-                      style={estilos.tira}
-                    >
-                      <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
-                      <View style={estilos.remover}>
-                        <Text style={estilos.removerTexto}>✕</Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              ) : null}
+          {fotos.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
+              {fotos.map((uri, indice) => (
+                // Miniatura e "remover" sao irmaos, e nao um dentro do outro:
+                // um Pressable acessivel engole os filhos para o leitor de
+                // tela, e o "remover" deixaria de ser alcancavel.
+                <View key={uri} style={estilos.tira}>
+                  <Pressable
+                    onPress={() => setFotoAberta(uri)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
+                  >
+                    <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => removerFoto(uri)}
+                    // O circulo tem 22 de desenho; o alvo de toque vai a 44
+                    // pelo `hitSlop`, sem crescer por cima da foto.
+                    hitSlop={11}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remover foto ${indice + 1}`}
+                    style={estilos.remover}
+                  >
+                    <Text style={estilos.removerTexto}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          ) : null}
 
-              <Botao
-                titulo="Tirar foto"
-                variante="secundaria"
-                tamanho="medio"
-                larguraTotal
-                desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
-                aoPressionar={() => {
-                  void anexarFoto();
-                }}
-              />
-            </View>
+          <Botao
+            titulo="Tirar foto"
+            variante="secundaria"
+            tamanho="medio"
+            larguraTotal
+            desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
+            aoPressionar={() => {
+              void anexarFoto();
+            }}
+          />
+        </View>
 
-            <View style={estilos.secao}>
-              <AreaDeAssinatura
-                rotulo="Assinatura do responsável"
-                aoMudar={setTemAssinatura}
-                aoAssinar={setAssinando}
-                ref={assinatura}
-              />
-            </View>
-
-            <Botao
-              titulo="Finalizar visita"
-              larguraTotal
-              carregando={enviando}
-              // Nao desabilitado por campo faltando, de proposito: um botao
-              // inerte nao diz *o que* falta. Ele envia e a validacao acima
-              // aponta a pendencia -- que e o comportamento do formulario de
-              // login do painel.
-              aoPressionar={() => {
-                void enviar();
-              }}
-              estilo={estilos.enviar}
-            />
-
-            {!temAssinatura ? (
-              <Text style={estilos.dica}>A assinatura do responsável é obrigatória.</Text>
-            ) : null}
-          </>
-        ) : null}
+        <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
+          <AreaDeAssinatura
+            rotulo="Assinatura do responsável"
+            aoMudar={setTemAssinatura}
+            aoAssinar={setAssinando}
+            ref={assinatura}
+          />
+        </View>
       </ScrollView>
+
+      {/* Rodape fixo: o "Finalizar" fica sempre na zona do polegar, e o que
+          falta fica escrito ao lado dele -- antes, numa consultoria de dez
+          perguntas, o inspetor so descobria a pendencia rolando ate o fim. */}
+      <View style={[estilos.rodape, { paddingBottom: espaco.interno + bordas.bottom }]}>
+        {progresso ? (
+          <View style={estilos.progresso}>
+            <View
+              style={estilos.trilho}
+              accessibilityRole="progressbar"
+              accessibilityLabel="Perguntas respondidas"
+              accessibilityValue={{ min: 0, max: progresso.total, now: progresso.respondidas }}
+            >
+              <View
+                style={[
+                  estilos.preenchimento,
+                  { width: `${(progresso.respondidas / progresso.total) * 100}%` },
+                ]}
+              />
+            </View>
+            <Text style={estilos.contagem}>
+              {progresso.respondidas}/{progresso.total}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* O "Desfazer" mora aqui, no lugar da linha de resumo e com a mesma
+            altura, e nao na secao de fotos: la, quando a janela fechava, o
+            "Tirar foto" subia para onde ele estava e o toque atrasado abria a
+            camera. Aqui, sumir nao move nada -- o toque atrasado cai no texto
+            do resumo, que nao faz nada. */}
+        {temRemocaoPendente ? (
+          <View style={estilos.desfazer} accessibilityLiveRegion="polite">
+            <Text style={estilos.resumo}>Foto removida.</Text>
+            <Pressable
+              onPress={desfazerRemocao}
+              hitSlop={espaco.entreItens}
+              accessibilityRole="button"
+              accessibilityLabel="Desfazer remoção da foto"
+            >
+              <Text style={estilos.desfazerAcao}>Desfazer</Text>
+            </Pressable>
+          </View>
+        ) : erroVisivel ? (
+          <Aviso mensagem={erroVisivel} />
+        ) : (
+          <Text
+            style={[estilos.resumo, pendencias.length === 0 && estilos.resumoPronto]}
+            accessibilityLiveRegion="polite"
+          >
+            {textoDoResumo(pendencias)}
+          </Text>
+        )}
+
+        <Botao
+          titulo="Finalizar visita"
+          larguraTotal
+          carregando={enviando}
+          // Nao desabilitado por campo faltando, de proposito: um botao
+          // inerte nao diz *o que* falta. Ele envia e a validacao acima
+          // aponta a pendencia -- que e o comportamento do formulario de
+          // login do painel.
+          aoPressionar={() => {
+            void enviar();
+          }}
+        />
+      </View>
+
+      <Modal
+        visible={fotoAberta !== null}
+        animationType="fade"
+        onRequestClose={() => setFotoAberta(null)}
+        statusBarTranslucent
+      >
+        <View
+          style={[
+            estilos.visualizacao,
+            { paddingTop: bordas.top + espaco.interno, paddingBottom: bordas.bottom + espaco.interno },
+          ]}
+        >
+          {fotoAberta ? (
+            <Image
+              source={{ uri: fotoAberta }}
+              alt="Foto anexada à visita, em tela cheia"
+              style={estilos.fotoInteira}
+              resizeMode="contain"
+            />
+          ) : null}
+          <View style={estilos.acoesDaFoto}>
+            <Botao
+              titulo="Fechar"
+              variante="secundaria"
+              aoPressionar={() => setFotoAberta(null)}
+              estilo={estilos.acaoDaFoto}
+            />
+            <Botao
+              titulo="Remover"
+              variante="perigo"
+              aoPressionar={() => {
+                if (fotoAberta) removerFoto(fotoAberta);
+              }}
+              estilo={estilos.acaoDaFoto}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -508,6 +771,7 @@ async function lerPerguntas(): Promise<{ perguntas: Pergunta[]; erro: string | n
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: cores.fundo },
+  rolagem: { flex: 1 },
   conteudo: { padding: espaco.interno, paddingBottom: espaco.secao },
   titulo: texto(tipografia.titulo, { cor: cores.texto }),
   subtitulo: {
@@ -515,36 +779,35 @@ const estilos = StyleSheet.create({
     marginTop: espaco.rotulo,
     marginBottom: espaco.confortavel,
   },
-  opcao: {
-    backgroundColor: cores.superficie,
-    borderWidth: 1,
-    borderColor: cores.borda,
-    borderRadius: raio.cartao,
-    padding: espaco.interno,
-  },
-  // A escolha e marcada pela borda verde, nao por preenchimento: preencher o
-  // cartao de verde deixaria o texto branco em 1.5:1 em cima dele.
+  // Cor da escolha em `ESTILO_DA_ESCOLHA`, no fim do arquivo.
   opcaoPressionada: { opacity: 0.7 },
 
-  aviso: { marginTop: espaco.entreItens },
   secao: { marginTop: espaco.entreCampos, gap: espaco.entreItens },
   cabecalhoDaSecao: { flexDirection: "row", justifyContent: "space-between" },
   rotulo: texto(tipografia.rotulo, { cor: cores.textoFraco, caixaAlta: true }),
+  rotuloPendente: { color: cores.erroTextoDeCampo },
 
-  pergunta: { gap: espaco.entreItens },
+  // `marginBottom` no cartao, e nao `gap` na secao: o cartao agora vive dentro
+  // de uma View que mede a posicao dele para a rolagem.
+  pergunta: { gap: espaco.entreItens, marginBottom: espaco.entreItens },
+  // A mesma borda de campo com erro (`Campo.entradaComErro`).
+  perguntaPendente: { borderColor: cores.erroBorda },
   perguntaTexto: texto(tipografia.apoio, { cor: cores.texto }),
   respostas: { flexDirection: "row", gap: espaco.minimo, marginTop: espaco.entreItens },
+  // O controle mais tocado da tela: altura do CTA (`alturaDeControle.padrao`,
+  // 52) e texto de botao denso. Antes era ~34 de altura com texto de 12 --
+  // abaixo do minimo de toque do Android (48), em uso com luva e ao sol.
   resposta: {
     flex: 1,
+    minHeight: alturaDeControle.padrao,
     alignItems: "center",
-    paddingVertical: espaco.minimo,
+    justifyContent: "center",
+    paddingHorizontal: espaco.minimo,
     borderWidth: 1,
     borderColor: cores.borda,
     borderRadius: raio.medio,
   },
-  respostaEscolhida: { borderColor: cores.primaria },
-  respostaTexto: texto(tipografia.nota, { cor: cores.textoFraco }),
-  respostaTextoEscolhido: { color: cores.primaria },
+  respostaTexto: { ...texto(tipografia.botaoDenso, { cor: cores.textoFraco }), textAlign: "center" },
 
   tiras: { flexGrow: 0 },
   tira: { marginRight: espaco.minimo },
@@ -562,10 +825,66 @@ const estilos = StyleSheet.create({
   },
   removerTexto: texto(tipografia.nota, { cor: cores.texto }),
 
-  enviar: { marginTop: espaco.entreCampos },
-  dica: {
-    ...texto(tipografia.nota, { cor: cores.textoFraco }),
-    marginTop: espaco.minimo,
-    textAlign: "center",
+  // Sem borda nem padding: a linha tem de medir o mesmo que o `resumo` que ela
+  // substitui (as duas com altura de linha 20), para o rodape nao mudar de
+  // tamanho quando ela aparece e some.
+  desfazer: { flexDirection: "row", justifyContent: "center", gap: espaco.minimo },
+  desfazerAcao: texto(tipografia.botaoDenso, { cor: cores.primaria }),
+
+  rodape: {
+    gap: espaco.entreItens,
+    paddingHorizontal: espaco.interno,
+    paddingTop: espaco.entreItens,
+    borderTopWidth: 1,
+    borderTopColor: cores.borda,
+    backgroundColor: cores.fundo,
   },
+  progresso: { flexDirection: "row", alignItems: "center", gap: espaco.minimo },
+  trilho: {
+    flex: 1,
+    height: 4,
+    borderRadius: raio.pilula,
+    backgroundColor: cores.borda,
+    overflow: "hidden",
+  },
+  preenchimento: { height: "100%", borderRadius: raio.pilula, backgroundColor: cores.primaria },
+  contagem: texto(tipografia.nota, { cor: cores.textoFraco }),
+  resumo: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
+  resumoPronto: { color: cores.primaria },
+
+  visualizacao: {
+    flex: 1,
+    gap: espaco.interno,
+    paddingHorizontal: espaco.interno,
+    backgroundColor: cores.fundo,
+  },
+  fotoInteira: { flex: 1, width: "100%" },
+  acoesDaFoto: { flexDirection: "row", gap: espaco.entreItens },
+  acaoDaFoto: { flex: 1 },
 });
+
+/**
+ * Cor da resposta escolhida, a mesma leitura do detalhe do checklist no
+ * painel (`corDaResposta`): "Nao conforme" em vermelho, que e o que vira nao
+ * conformidade no relatorio; "Conforme" em verde; "Nao se aplica" neutro.
+ * Antes as tres ficavam iguais, em verde, e o inspetor so via qual tinha
+ * marcado lendo o rotulo.
+ *
+ * So "Nao conforme" ganha fundo (`erroFundo`, o do `Aviso`): e a unica que o
+ * gestor precisa achar batendo o olho. Verde de fundo nao entra -- deixaria o
+ * texto claro em 1.5:1 (ver `textoSobrePrimaria`).
+ */
+const ESTILO_DA_ESCOLHA = {
+  SIM: StyleSheet.create({
+    opcao: { borderColor: cores.primaria },
+    texto: { color: cores.primaria },
+  }),
+  NAO: StyleSheet.create({
+    opcao: { borderColor: cores.erroTextoDeCampo, backgroundColor: cores.erroFundo },
+    texto: { color: cores.erroTextoDeCampo },
+  }),
+  NA: StyleSheet.create({
+    opcao: { borderColor: cores.textoFraco },
+    texto: { color: cores.texto },
+  }),
+} satisfies Record<RespostaDoChecklist, { opcao: object; texto: object }>;
