@@ -49,6 +49,18 @@ export function podeFinalizarVisita(cargo: string | null | undefined): boolean {
   return cargo != null && (CARGOS_QUE_FINALIZAM_VISITA as readonly string[]).includes(cargo);
 }
 
+/**
+ * Quem registra visita e leitura de campo em nome proprio: espelha
+ * `autorizacao.pode_registrar_visita()` (migration 0060). E quem faz ronda --
+ * para os demais cargos, "Inspecao" abre a lista, porque a camera gravaria uma
+ * ronda que o banco recusaria na sincronizacao.
+ */
+export const CARGOS_QUE_REGISTRAM_VISITA: readonly Cargo[] = ["INSPETOR", "GESTOR"];
+
+export function podeRegistrarVisita(cargo: string | null | undefined): boolean {
+  return cargo != null && (CARGOS_QUE_REGISTRAM_VISITA as readonly string[]).includes(cargo);
+}
+
 export function ehCargoConhecido(valor: string): valor is Cargo {
   return (CARGOS as readonly string[]).includes(valor);
 }

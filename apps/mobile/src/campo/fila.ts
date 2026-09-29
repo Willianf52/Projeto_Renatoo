@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 3;
+const VERSAO_DO_SCHEMA = 4;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -155,6 +155,34 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
         respostas       text not null default '{}',
         fotos           text not null default '[]',
         atualizado_em   text not null
+      );
+    `);
+  }
+
+  if (versao < 4) {
+    /**
+     * O leitor de QR (`ronda.ts`). Duas pecas:
+     *
+     * - `encerrada` em `visitas_na_fila`: a ronda fica aberta ate o inspetor
+     *   tocar "Encerrar ronda" (decisao do dono, 25/09/2026). Default 0 e o
+     *   update logo abaixo: as visitas que ja estavam na fila antes desta
+     *   versao nasceram pelo roteiro de teste, e nenhuma delas e ronda aberta.
+     * - `catalogo_de_qr`: o QR impresso carrega so o texto de `qr_codes.codigo`
+     *   (ver `apps/web/src/lib/qrcode.ts`), sem id nenhum. Traduzir o codigo em
+     *   QR/site precisa de uma copia local, porque em campo nao ha rede por
+     *   premissa. `codigo` e unique no banco (0003), entao e a chave aqui.
+     */
+    await banco.execAsync(`
+      alter table visitas_na_fila add column encerrada integer not null default 0;
+      update visitas_na_fila set encerrada = 1;
+
+      create table if not exists catalogo_de_qr (
+        codigo      text primary key,
+        id          integer not null,
+        site_id     integer not null,
+        site_nome   text not null,
+        finalidade  text,
+        ativo       integer not null
       );
     `);
   }

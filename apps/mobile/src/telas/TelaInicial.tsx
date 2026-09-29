@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CARGO_INSPETOR } from "@projeto-renatoo/shared";
+import { CARGO_INSPETOR, podeRegistrarVisita } from "@projeto-renatoo/shared";
 
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -215,7 +215,10 @@ export function TelaInicial() {
             descricao="Realizar inspeção e checklist"
             icone={<IconeDeChecklist cor={cores.primaria} />}
             distintivo={aInspecionar}
-            aoTocar={() => navegacao.navigate("Leitura")}
+            // Quem registra visita (INSPETOR e GESTOR, 0060) cai na camera da
+            // ronda; os demais cargos, na lista -- a camera gravaria uma ronda
+            // que o banco recusaria.
+            aoTocar={() => navegacao.navigate(podeRegistrarVisita(perfil?.cargo) ? "Leitura" : "Inspecoes")}
           />
           <CartaoDeAcao
             titulo="Agendados"

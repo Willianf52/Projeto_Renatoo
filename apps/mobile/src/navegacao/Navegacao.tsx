@@ -12,6 +12,7 @@ import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
 import { TelaDeLeitura } from "../telas/TelaDeLeitura";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
+import { TelaDeSites } from "../telas/TelaDeSites";
 import { TelaDeTipoDeVisita } from "../telas/TelaDeTipoDeVisita";
 import { TelaInicial } from "../telas/TelaInicial";
 import { cores } from "../tema";
@@ -27,6 +28,7 @@ import { cores } from "../tema";
 export type RotasDoApp = {
   Inicio: undefined;
   Leitura: undefined;
+  Sites: undefined;
   Inspecoes: undefined;
   Agendados: undefined;
   TipoDeVisita: { visitaId: number; numeroColeta: string };
@@ -150,6 +152,9 @@ export function Navegacao() {
           component={TelaDeInspecoes}
           options={{ title: "Minhas visitas" }}
         />
+
+        {/* "Ver sites", embaixo da camera da ronda (28/09/2026). */}
+        <Pilha.Screen name="Sites" component={TelaDeSites} options={{ title: "Sites" }} />
 
         <Pilha.Screen
           name="Agendados"
