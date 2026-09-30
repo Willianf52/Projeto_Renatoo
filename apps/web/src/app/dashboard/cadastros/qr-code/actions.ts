@@ -130,5 +130,5 @@ export async function salvarQrCode(
   }
 
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }

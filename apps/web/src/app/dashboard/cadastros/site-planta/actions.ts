@@ -329,5 +329,5 @@ export async function salvarSite(
   }
 
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }

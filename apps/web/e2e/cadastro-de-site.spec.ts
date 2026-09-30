@@ -31,6 +31,8 @@ test.describe("Cadastros de site e QR code", () => {
     await page.getByLabel("UF", { exact: true }).fill("sp");
     await page.getByRole("button", { name: "Salvar" }).click();
 
+    // O `?salvo=1` do redirect vira toast e sai da URL (`AvisoDeSalvo`).
+    await expect(page.getByRole("status").filter({ hasText: "Site salvo com sucesso." })).toBeVisible();
     await expect(page).toHaveURL("/dashboard/cadastros/site-planta");
 
     await page.goto(`/dashboard/cadastros/site-planta?busca=${encodeURIComponent(nome)}`);
@@ -65,6 +67,7 @@ test.describe("Cadastros de site e QR code", () => {
     await page.getByLabel("Finalidade").fill("Doca de carga");
     await page.getByRole("button", { name: "Salvar" }).click();
 
+    await expect(page.getByRole("status").filter({ hasText: "QR code salvo com sucesso." })).toBeVisible();
     await expect(page).toHaveURL("/dashboard/cadastros/qr-code");
 
     await page.goto(`/dashboard/cadastros/qr-code?busca=${encodeURIComponent(codigo)}`);

@@ -114,7 +114,7 @@ describe("salvarGrupoSite", () => {
 
     expect(chamadas).toHaveLength(1);
     expect(chamadas[0]).toMatchObject({ tipo: "insert", tabela: "grupos_sites" });
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("recusa grupo pai igual ao proprio registro em edicao", async () => {
@@ -148,7 +148,7 @@ describe("salvarGrupoSite", () => {
       ids: [1, 2],
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it('status "inativo" vira ativo false', async () => {
@@ -223,7 +223,7 @@ describe("salvarGrupoSite", () => {
       ids: [4],
     });
     expect(estado?.erro).toBeUndefined();
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("recusa id nao numerico em vez de consultar com NaN", async () => {
@@ -273,6 +273,6 @@ describe("salvarGrupoSite", () => {
     const estado = await salvarGrupoSite({}, formulario({ nome: "Vinculo", site_ids: ["1", "2"] }));
 
     expect(estado?.erro).toBeUndefined();
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 });

@@ -13,8 +13,8 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
  * extrai; na terceira ja ha tres versoes para reconciliar.
  *
  * Nao e toast: fica no fluxo, empurrando o conteudo, e nao some sozinho. Para
- * confirmacao de acao que redireciona -- o caso do `ToastProvider` do painel --
- * o app de campo ainda nao tem tela nenhuma que redirecione depois de salvar.
+ * confirmacao de acao que sai da tela -- o caso do `ToastProvider` do painel --
+ * o app usa a `Faixa`, que desenha este mesmo componente solto na base.
  */
 export function Aviso({
   mensagem,

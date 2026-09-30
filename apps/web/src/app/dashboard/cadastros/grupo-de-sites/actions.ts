@@ -203,5 +203,5 @@ export async function salvarGrupoSite(
   }
 
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }

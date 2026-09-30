@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { useToast } from "@/components/Toast";
+import { useToast, type ToastVariant } from "@/components/Toast";
 
 /**
  * Dispara um toast a partir de um parametro que sobrevive a um redirect de
@@ -17,7 +17,7 @@ export function ToastOnMount({
   cleanHref,
 }: {
   message: string;
-  variant?: "success" | "error";
+  variant?: ToastVariant;
   /** URL sem o parametro de sinalizacao, para substituir no historico. */
   cleanHref: string;
 }) {

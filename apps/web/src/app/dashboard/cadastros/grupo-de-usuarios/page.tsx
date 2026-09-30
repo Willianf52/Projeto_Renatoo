@@ -10,7 +10,7 @@ import {
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterInput } from "@/components/dashboard/FilterField";
-import { ToastOnMount } from "@/components/dashboard/ToastOnMount";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import {
   ExcelIcon,
   FilterIcon,
@@ -57,7 +57,11 @@ export default function GrupoDeUsuariosPage({
   return (
     <div className="space-y-4">
       <Suspense fallback={null}>
-        <AvisoDeSalvo searchParams={searchParams} />
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem="/dashboard/cadastros/grupo-de-usuarios"
+          mensagem="Grupo de usuários salvo com sucesso."
+        />
       </Suspense>
 
       <div className="animate-fade-in">
@@ -92,28 +96,6 @@ export default function GrupoDeUsuariosPage({
       </div>
     </div>
   );
-}
-
-/**
- * `?salvo=1` sobrevive ao redirect da Server Action depois de criar/editar
- * (ver actions.ts) -- e o unico jeito de um evento do servidor acionar um
- * toast, que e estado de cliente. `cleanHref` reaproveita os demais
- * parametros (busca, pagina) e so tira o `salvo`.
- */
-async function AvisoDeSalvo({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const params = await searchParams;
-  if (primeiro(params.salvo) !== "1") return null;
-
-  const query = new URLSearchParams();
-  for (const [chave, valor] of Object.entries(params)) {
-    if (chave === "salvo") continue;
-    const v = primeiro(valor);
-    if (v) query.set(chave, v);
-  }
-  const texto = query.toString();
-  const cleanHref = texto ? `?${texto}` : "/dashboard/cadastros/grupo-de-usuarios";
-
-  return <ToastOnMount message="Grupo de usuários salvo com sucesso." cleanHref={cleanHref} />;
 }
 
 /**

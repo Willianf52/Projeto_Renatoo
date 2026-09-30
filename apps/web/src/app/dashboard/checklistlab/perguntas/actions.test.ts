@@ -129,7 +129,7 @@ describe("salvarPergunta — escrita", () => {
       linha: { texto: "Extintores no prazo?", ordem: 3, ativo: true },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("grava ativo = false quando o status é inativo", async () => {
@@ -164,7 +164,7 @@ describe("salvarPergunta — escrita", () => {
       linha: { texto: "Novo texto", ordem: 2, ativo: true },
       id: 4,
     });
-    expect(redirectMock).toHaveBeenCalledWith(LISTAGEM);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
   it("não trata UPDATE de zero linhas como sucesso", async () => {

@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { SessaoProvider } from "./src/auth/SessaoProvider";
+import { FaixaProvider } from "./src/componentes/Faixa";
 import { LimiteDeErro } from "./src/componentes/LimiteDeErro";
 import { Navegacao } from "./src/navegacao/Navegacao";
 import { cores, FONTES } from "./src/tema";
@@ -64,7 +65,9 @@ export default function App() {
             {/* Claro sobre o navy da marca -- o tema do app e escuro, como o do
                 painel (`color-scheme: dark` no globals.css). */}
             <StatusBar style="light" />
-            <Navegacao />
+            <FaixaProvider>
+              <Navegacao />
+            </FaixaProvider>
           </SessaoProvider>
         </LimiteDeErro>
       </SafeAreaProvider>
