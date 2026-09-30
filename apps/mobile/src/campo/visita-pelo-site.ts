@@ -62,6 +62,12 @@ export async function criarVisitaPeloSite(
 
     if (error?.code === "23505") return await visitaJaGravada(site.id, numeroColeta);
 
+    // Sem sinal, o supabase-js NAO rejeita: devolve o erro no `error`, com a
+    // mensagem do `fetch` ("TypeError: Network request failed"). So o `catch`
+    // abaixo deixava o modo aviao cair no "Tente de novo" generico (iPhone,
+    // 30/09/2026). Mesmo reconhecimento do `paraOInspetor` da sincronizacao.
+    if (error && FALHA_DE_REDE.test(error.message)) return { ok: false, erro: SEM_CONEXAO };
+
     if (error || !data) {
       return {
         ok: false,
@@ -73,10 +79,14 @@ export async function criarVisitaPeloSite(
 
     return { ok: true, visitaId: data.id };
   } catch {
-    // Rejeicao da camada de rede: sem sinal.
-    return { ok: false, erro: "Sem conexão. O checklist precisa de internet para enviar fotos e assinatura." };
+    // Rejeicao que escapou do supabase-js: tratada tambem como sem sinal.
+    return { ok: false, erro: SEM_CONEXAO };
   }
 }
+
+const FALHA_DE_REDE = /network request failed|failed to fetch|fetch failed/i;
+
+const SEM_CONEXAO = "Sem conexão. O checklist precisa de internet para enviar fotos e assinatura.";
 
 async function visitaJaGravada(siteId: number, numeroColeta: string): Promise<ResultadoDaVisita> {
   const { data } = await supabase

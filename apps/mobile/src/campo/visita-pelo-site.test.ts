@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const estado = vi.hoisted(() => ({
   inseridas: [] as unknown[],
-  resposta: { data: { id: 90 }, error: null } as { data: { id: number } | null; error: { code: string } | null },
+  resposta: { data: { id: 90 }, error: null } as {
+    data: { id: number } | null;
+    error: { code: string; message: string } | null;
+  },
   lanca: false,
   existente: null as { id: number } | null,
   filtros: [] as [string, unknown][],
@@ -72,7 +75,7 @@ describe("criarVisitaPeloSite", () => {
   });
 
   it("reenvio depois de resposta perdida reaproveita a visita ja gravada", async () => {
-    estado.resposta = { data: null, error: { code: "23505" } };
+    estado.resposta = { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
     estado.existente = { id: 88 };
 
     expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toEqual({ ok: true, visitaId: 88 });
@@ -87,11 +90,18 @@ describe("criarVisitaPeloSite", () => {
   });
 
   it("recusa do RLS vira mensagem de permissao", async () => {
-    estado.resposta = { data: null, error: { code: "42501" } };
+    estado.resposta = { data: null, error: { code: "42501", message: "new row violates row-level security policy" } };
     expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toEqual({ ok: false, erro: "Sua conta não pode registrar visitas." });
   });
 
   it("sem rede, avisa que o checklist precisa de internet", async () => {
+    // O formato real do modo aviao no iPhone: o supabase-js devolve o erro do
+    // `fetch` no `error`, sem rejeitar.
+    estado.resposta = { data: null, error: { code: "", message: "TypeError: Network request failed" } };
+    expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
+  });
+
+  it("rejeicao que escapa do supabase-js tambem vira sem conexao", async () => {
     estado.lanca = true;
     expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
   });
