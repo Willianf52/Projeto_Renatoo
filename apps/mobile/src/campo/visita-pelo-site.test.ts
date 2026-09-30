@@ -2,8 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const estado = vi.hoisted(() => ({
   inseridas: [] as unknown[],
-  resposta: { data: { id: 90 }, error: null } as { data: { id: number } | null; error: { code: string } | null },
+  resposta: { data: { id: 90 }, error: null } as {
+    data: { id: number } | null;
+    error: { code: string; message: string } | null;
+  },
   lanca: false,
+  existente: null as { id: number } | null,
+  filtros: [] as [string, unknown][],
 }));
 
 vi.mock("expo-crypto", () => ({ randomUUID: () => "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e" }));
@@ -22,11 +27,21 @@ vi.mock("../lib/supabase", () => ({
           }),
         };
       },
+      select: () => {
+        const consulta = {
+          eq: (coluna: string, valor: unknown) => {
+            estado.filtros.push([coluna, valor]);
+            return consulta;
+          },
+          maybeSingle: async () => ({ data: estado.existente, error: null }),
+        };
+        return consulta;
+      },
     }),
   },
 }));
 
-const { abrirVisitaPeloSite, motivoParaNaoAbrir } = await import("./visita-pelo-site");
+const { criarVisitaPeloSite, motivoParaNaoAbrir } = await import("./visita-pelo-site");
 
 const SITE = { id: 30, nome: "Posto Central", ativo: true, recebeVisita: true };
 
@@ -34,7 +49,11 @@ beforeEach(() => {
   estado.inseridas = [];
   estado.resposta = { data: { id: 90 }, error: null };
   estado.lanca = false;
+  estado.existente = null;
+  estado.filtros = [];
 });
+
+const NUMERO = "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e";
 
 describe("motivoParaNaoAbrir", () => {
   it("site ativo que recebe visita pode", () => {
@@ -47,30 +66,43 @@ describe("motivoParaNaoAbrir", () => {
   });
 });
 
-describe("abrirVisitaPeloSite", () => {
-  it("cria a visita em nome de quem esta logado, com UUID como numero de coleta", async () => {
-    const resultado = await abrirVisitaPeloSite(SITE, "u1");
+describe("criarVisitaPeloSite", () => {
+  it("cria a visita em nome de quem esta logado, com o numero de coleta cunhado no toque", async () => {
+    const resultado = await criarVisitaPeloSite(SITE, "u1", NUMERO);
 
-    expect(estado.inseridas).toEqual([
-      { numero_coleta: "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e", site_id: 30, funcionario_id: "u1" },
-    ]);
-    expect(resultado).toEqual({ ok: true, visitaId: 90, numeroColeta: "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e" });
+    expect(estado.inseridas).toEqual([{ numero_coleta: NUMERO, site_id: 30, funcionario_id: "u1" }]);
+    expect(resultado).toEqual({ ok: true, visitaId: 90 });
+  });
+
+  it("reenvio depois de resposta perdida reaproveita a visita ja gravada", async () => {
+    estado.resposta = { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+    estado.existente = { id: 88 };
+
+    expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toEqual({ ok: true, visitaId: 88 });
+    expect(estado.filtros).toEqual([["numero_coleta", NUMERO], ["site_id", 30]]);
   });
 
   it("site que nao pode receber visita nem chega ao banco", async () => {
-    const resultado = await abrirVisitaPeloSite({ ...SITE, ativo: false }, "u1");
+    const resultado = await criarVisitaPeloSite({ ...SITE, ativo: false }, "u1", NUMERO);
 
     expect(resultado.ok).toBe(false);
     expect(estado.inseridas).toEqual([]);
   });
 
   it("recusa do RLS vira mensagem de permissao", async () => {
-    estado.resposta = { data: null, error: { code: "42501" } };
-    expect(await abrirVisitaPeloSite(SITE, "u1")).toEqual({ ok: false, erro: "Sua conta não pode registrar visitas." });
+    estado.resposta = { data: null, error: { code: "42501", message: "new row violates row-level security policy" } };
+    expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toEqual({ ok: false, erro: "Sua conta não pode registrar visitas." });
   });
 
   it("sem rede, avisa que o checklist precisa de internet", async () => {
+    // O formato real do modo aviao no iPhone: o supabase-js devolve o erro do
+    // `fetch` no `error`, sem rejeitar.
+    estado.resposta = { data: null, error: { code: "", message: "TypeError: Network request failed" } };
+    expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
+  });
+
+  it("rejeicao que escapa do supabase-js tambem vira sem conexao", async () => {
     estado.lanca = true;
-    expect(await abrirVisitaPeloSite(SITE, "u1")).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
+    expect(await criarVisitaPeloSite(SITE, "u1", NUMERO)).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
   });
 });

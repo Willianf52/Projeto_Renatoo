@@ -1,20 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { useSessao } from "../auth/SessaoProvider";
 import { abrirFila } from "../campo/fila";
-import { abrirVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
+import { motivoParaNaoAbrir, novoNumeroDeColeta, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { Aviso } from "../componentes/Aviso";
 import { Campo } from "../componentes/Campo";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
@@ -33,18 +23,18 @@ type Navegador = NativeStackNavigationProp<RotasDoApp>;
  * Cada site mostra SO O NOME, tambem a pedido do dono -- a busca, por isso,
  * procura so no nome.
  *
- * TOCAR NO SITE ABRE A VISITA E VAI PARA O CHECKLIST (28/09/2026): confirma,
- * cria a visita no servidor (`campo/visita-pelo-site.ts`) e segue para a
- * escolha do tipo, como a ronda por QR faz ao encerrar. A confirmacao existe
- * porque um toque sem querer criaria uma visita de verdade no banco.
+ * TOCAR NO SITE VAI DIRETO PARA O CHECKLIST (28/09/2026), passando pela
+ * escolha do tipo, como a ronda por QR faz ao encerrar. O toque nao grava nada:
+ * a visita so e criada no envio do checklist (`campo/visita-pelo-site.ts`), e
+ * voltar sem enviar nao deixa visita vazia no banco. Por isso tambem nao ha
+ * confirmacao -- um toque sem querer se desfaz com o voltar.
  *
  * Com rede, a lista vem do servidor -- o recorte e o do RLS
  * (`pode_ver_grupo_site`): INSPETOR e GESTOR enxergam todos. Sem rede, cai para
- * os sites que o catalogo de QR guardado no aparelho conhece, com aviso -- e o
- * toque avisa que o checklist precisa de internet.
+ * os sites que o catalogo de QR guardado no aparelho conhece, com aviso -- o
+ * checklist abre e o rascunho e guardado, mas o envio precisa de internet.
  */
 export function TelaDeSites() {
-  const { sessao } = useSessao();
   const navegacao = useNavigation<Navegador>();
   // Duas colunas no tablet: a lista sao so nomes, e numa coluna de 700 dp
   // cada nome ocupava uma linha inteira para meia duzia de letras.
@@ -57,12 +47,7 @@ export function TelaDeSites() {
   const [sites, setSites] = useState<SiteParaVisita[] | null>(null);
   const [soDoAparelho, setSoDoAparelho] = useState(false);
   const [busca, setBusca] = useState("");
-  const [abrindo, setAbrindo] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-
-  // Ref e nao so o estado: dois toques rapidos passariam pela checagem do
-  // estado antes do render e criariam duas visitas.
-  const emVoo = useRef(false);
 
   useEffect(() => {
     let ativo = true;
@@ -91,44 +76,16 @@ export function TelaDeSites() {
   }, [sites, busca]);
 
   const abrir = useCallback(
-    async (site: SiteParaVisita) => {
-      const funcionarioId = sessao?.user.id;
-      if (!funcionarioId || emVoo.current) return;
-
-      emVoo.current = true;
-      setAbrindo(site.id);
-      setErro(null);
-
-      try {
-        const resultado = await abrirVisitaPeloSite(site, funcionarioId);
-        if (!resultado.ok) {
-          setErro(resultado.erro);
-          return;
-        }
-        navegacao.navigate("TipoDeVisita", {
-          visitaId: resultado.visitaId,
-          numeroColeta: resultado.numeroColeta,
-        });
-      } catch (falha) {
-        capturarErro(falha, { onde: "abrirVisitaPeloSite" });
-        setErro("Não foi possível registrar a visita. Tente de novo.");
-      } finally {
-        setAbrindo(null);
-        emVoo.current = false;
-      }
-    },
-    [navegacao, sessao],
-  );
-
-  const confirmar = useCallback(
     (site: SiteParaVisita) => {
-      if (emVoo.current) return;
-      Alert.alert("Nova visita", `Registrar visita em ${site.nome} e fazer o checklist?`, [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Fazer checklist", onPress: () => void abrir(site) },
-      ]);
+      const motivo = motivoParaNaoAbrir(site);
+      if (motivo) {
+        setErro(motivo);
+        return;
+      }
+      setErro(null);
+      navegacao.navigate("TipoDeVisita", { visitaId: null, site, numeroColeta: novoNumeroDeColeta() });
     },
-    [abrir],
+    [navegacao],
   );
 
   return (
@@ -175,8 +132,7 @@ export function TelaDeSites() {
           }
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => confirmar(item)}
-              disabled={abrindo !== null}
+              onPress={() => abrir(item)}
               accessibilityRole="button"
               accessibilityLabel={`Fazer checklist em ${item.nome}`}
               style={({ pressed }) => [
@@ -188,7 +144,6 @@ export function TelaDeSites() {
               <Text style={estilos.nome} numberOfLines={2}>
                 {item.nome}
               </Text>
-              {abrindo === item.id ? <ActivityIndicator color={cores.primaria} /> : null}
             </Pressable>
           )}
         />
