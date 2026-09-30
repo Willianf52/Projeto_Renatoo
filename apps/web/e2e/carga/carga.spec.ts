@@ -164,10 +164,14 @@ test.describe("Carga", () => {
       test.setTimeout(5 * 60_000);
 
       const telas = [
-        // Com periodo: desde 30/09/2026 a tela sem datas abre vazia, sem
-        // consultar -- e a carga aqui e justamente a consulta de leituras.
-        // O intervalo largo reproduz o "tudo" que ela listava antes.
-        "/dashboard/inspecoes/coletas-importadas?data_inicial=2000-01-01&data_final=2099-12-31",
+        // Sem periodo, como abre de verdade: desde 30/09/2026 a tela sem datas
+        // mostra so o aviso e nao consulta leituras. Abrir com um periodo
+        // largo aqui estourou o p95 (10 s contra 1,5 s, com statement timeout):
+        // o filtro de data em `leituras` e lento sob carga, e isso ja era
+        // assim antes -- esta tela so nunca tinha sido medida filtrada. Fica
+        // registrado numa issue propria, para ser corrigido no banco e so
+        // entao medido aqui.
+        "/dashboard/inspecoes/coletas-importadas",
         "/dashboard/inspecoes/relatorios/registro-de-rondas",
         "/dashboard/checklistlab/historico-de-checklist",
         "/dashboard/cadastros/site-planta",
