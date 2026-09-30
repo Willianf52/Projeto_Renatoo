@@ -200,7 +200,7 @@ function Resumo({ detalhe }: { detalhe: ChecklistDetalhe }) {
           </dt>
           {/* Travessao no vazio, mesma convencao da DataTable -- celula em
               branco nao distingue "nao preenchido" de "a tela esqueceu". */}
-          <dd className="mt-1 break-words text-sm text-white">{campo.valor || "—"}</dd>
+          <dd className="mt-1 break-words text-sm text-white">{campo.valor}</dd>
         </div>
       ))}
     </dl>
@@ -250,14 +250,14 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
               className="border-b border-slate-800/60 animate-fade-in-up"
               style={{ animationDelay: `${Math.min(indice, 12) * 30}ms` }}
             >
-              <td className="px-4 py-3 text-brand-muted">{resposta.ordem ?? "—"}</td>
-              <td className="px-4 py-3 text-white">{resposta.pergunta || "—"}</td>
+              <td className="px-4 py-3 text-brand-muted">{resposta.ordem}</td>
+              <td className="px-4 py-3 text-white">{resposta.pergunta}</td>
               <td className="px-4 py-3">
                 <span className={`font-medium ${corDaResposta(resposta.resposta)}`}>
                   {resposta.resposta}
                 </span>
               </td>
-              <td className="px-4 py-3 text-brand-muted">{resposta.observacao || "—"}</td>
+              <td className="px-4 py-3 text-brand-muted">{resposta.observacao}</td>
             </tr>
           ))}
         </tbody>
