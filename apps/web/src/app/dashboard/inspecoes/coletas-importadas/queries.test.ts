@@ -88,6 +88,9 @@ const {
 
 const contar = (tabela: string) => tabelasConsultadas.filter((t) => t === tabela).length;
 
+/** Periodo fechado qualquer: sem ele as duas consultas nem chegam ao banco. */
+const PERIODO = { dataInicial: "2026-09-01", dataFinal: "2026-09-30" };
+
 beforeEach(() => {
   __limparCacheDeReferencias();
   respostas.clear();
@@ -207,7 +210,7 @@ describe("getColetas", () => {
    * consulta nova, a mesma linha pode aparecer duas vezes e outra sumir.
    */
   it("desempata a ordenacao por id", async () => {
-    await getColetas({ pagina: 1 });
+    await getColetas({ pagina: 1, ...PERIODO });
 
     expect(ordens).toEqual([
       { tabela: "leituras", coluna: "data_hora", ascending: false },
@@ -222,7 +225,7 @@ describe("getColetas", () => {
    * desculpa por uma imprecisao que nao existe mais.
    */
   it("conta por estimativa, nao exato", async () => {
-    await getColetas({ pagina: 1 });
+    await getColetas({ pagina: 1, ...PERIODO });
 
     expect(contagens.get("leituras")).toBe("estimated");
   });
@@ -257,22 +260,44 @@ describe("getColetas: filtro de periodo", () => {
     ]);
   });
 
-  it("sem data, nao ha limite para aplicar", async () => {
-    await getColetas({ pagina: 1, horaInicial: "14:30" });
+});
 
-    expect(limites).toEqual([]);
+/**
+ * Pedido do dono em 30/09/2026: a tela abre vazia e so lista com Data Inicial
+ * e Data Final. `null` e o sinal para a pagina mostrar o `avisoDePeriodo`.
+ */
+describe("getColetas: so com periodo fechado", () => {
+  it("sem data nenhuma, devolve null e nao consulta leituras", async () => {
+    expect(await getColetas({ pagina: 1, horaInicial: "14:30" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("so com uma das datas, tambem nao consulta", async () => {
+    expect(await getColetas({ pagina: 1, dataInicial: "2026-09-01" })).toBeNull();
+    expect(await getColetas({ pagina: 1, dataFinal: "2026-09-30" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("periodo invertido nao consulta", async () => {
+    expect(await getColetas({ pagina: 1, dataInicial: "2026-09-30", dataFinal: "2026-09-01" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("com as duas datas na ordem, consulta", async () => {
+    expect(await getColetas({ pagina: 1, ...PERIODO })).toEqual({ rows: [], totalItems: 0 });
+    expect(contar("leituras")).toBe(1);
   });
 });
 
 describe("getColetasParaExportar", () => {
   it("pede LIMITE_EXPORTACAO + 1 linhas, para detectar truncamento sem um count a mais", async () => {
-    await getColetasParaExportar({});
+    await getColetasParaExportar(PERIODO);
 
     expect(ranges).toContainEqual({ tabela: "leituras", from: 0, to: LIMITE_EXPORTACAO });
   });
 
   it("mantem o mesmo desempate por id da listagem paginada", async () => {
-    await getColetasParaExportar({});
+    await getColetasParaExportar(PERIODO);
 
     expect(ordens).toEqual([
       { tabela: "leituras", coluna: "data_hora", ascending: false },
@@ -283,7 +308,7 @@ describe("getColetasParaExportar", () => {
   it("nao truncado quando o resultado cabe no limite", async () => {
     respostas.set("leituras", [{ id: 1, data_hora: "2026-01-01T00:00:00Z", visitas: null }]);
 
-    const { rows, truncado } = await getColetasParaExportar({});
+    const { rows, truncado } = await getColetasParaExportar(PERIODO);
 
     expect(rows).toHaveLength(1);
     expect(truncado).toBe(false);
@@ -299,10 +324,17 @@ describe("getColetasParaExportar", () => {
       })),
     );
 
-    const { rows, truncado } = await getColetasParaExportar({});
+    const { rows, truncado } = await getColetasParaExportar(PERIODO);
 
     expect(rows).toHaveLength(LIMITE_EXPORTACAO);
     expect(truncado).toBe(true);
+  });
+
+  it("sem periodo exporta vazio, sem consultar -- a tela tambem nao mostra nada", async () => {
+    respostas.set("leituras", [{ id: 1, data_hora: "2026-01-01T00:00:00Z", visitas: null }]);
+
+    expect(await getColetasParaExportar({})).toEqual({ rows: [], truncado: false });
+    expect(contar("leituras")).toBe(0);
   });
 });
 
@@ -372,8 +404,9 @@ describe("extrairFiltros: periodo torto na querystring", () => {
     expect(filtros.dataFinal).toBeUndefined();
     expect(filtros.horaInicial).toBeUndefined();
     expect(filtros.horaFinal).toBeUndefined();
-    // Descartado significa "sem limite", nao "limite invalido".
-    await getColetas(filtros);
+    // Descartado conta como data que falta: a tela pede o periodo, e nada de
+    // literal torto chega ao Postgres.
+    expect(await getColetas(filtros)).toBeNull();
     expect(limites).toEqual([]);
   });
 

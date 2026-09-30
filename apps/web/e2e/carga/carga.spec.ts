@@ -164,7 +164,10 @@ test.describe("Carga", () => {
       test.setTimeout(5 * 60_000);
 
       const telas = [
-        "/dashboard/inspecoes/coletas-importadas",
+        // Com periodo: desde 30/09/2026 a tela sem datas abre vazia, sem
+        // consultar -- e a carga aqui e justamente a consulta de leituras.
+        // O intervalo largo reproduz o "tudo" que ela listava antes.
+        "/dashboard/inspecoes/coletas-importadas?data_inicial=2000-01-01&data_final=2099-12-31",
         "/dashboard/inspecoes/relatorios/registro-de-rondas",
         "/dashboard/checklistlab/historico-de-checklist",
         "/dashboard/cadastros/site-planta",

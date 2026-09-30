@@ -8,6 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
 import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
+import { periodoInvertido } from "@/lib/relatorios";
 
 export { LIMITE_EXPORTACAO };
 
@@ -298,10 +299,27 @@ function aplicarFiltrosDeColeta(query: any, filtros: ColetaFiltrosSemPagina) {
   return q;
 }
 
+/**
+ * A tela so consulta com Data Inicial e Data Final preenchidas e na ordem
+ * certa (pedido do dono, 30/09/2026). Antes, abrir Coletas Importadas ja
+ * listava todas as leituras -- as rondas do app de campo inclusive --, e o
+ * normal e chegar querendo um periodo, nao o historico inteiro. Mesmo portao
+ * dos relatorios de periodo (Inicio e Fim, Ranking, Horas por Usuario), e
+ * pela mesma razao eles devolvem `null`: a tela mostra o `avisoDePeriodo`, e
+ * a consulta mais pesada do painel nem chega ao banco.
+ */
+function temPeriodoFechado(filtros: ColetaFiltrosSemPagina): boolean {
+  if (!filtros.dataInicial || !filtros.dataFinal) return false;
+  return !periodoInvertido(filtros.dataInicial, filtros.dataFinal);
+}
+
+/** `null` sem periodo fechado -- ver `temPeriodoFechado`. */
 export async function getColetas(filtros: ColetaFiltros): Promise<{
   rows: ColetaRow[];
   totalItems: number;
-}> {
+} | null> {
+  if (!temPeriodoFechado(filtros)) return null;
+
   const supabase = await createClient();
 
   const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
@@ -354,6 +372,10 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
 export async function getColetasParaExportar(
   filtros: ColetaFiltrosSemPagina,
 ): Promise<{ rows: ColetaRow[]; truncado: boolean }> {
+  // Sem periodo a tela nao mostra nada, entao exportar tambem nao: o botao
+  // exportava o historico inteiro (ate LIMITE_EXPORTACAO) com a tabela vazia.
+  if (!temPeriodoFechado(filtros)) return { rows: [], truncado: false };
+
   const supabase = await createClient();
 
   const { precisaSite, precisaVisita } = precisaJoins(filtros);

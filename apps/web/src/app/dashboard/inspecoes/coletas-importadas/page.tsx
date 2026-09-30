@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Acao } from "@/components/dashboard/Acao";
+import { AvisoDePeriodo } from "@/components/dashboard/AvisoDePeriodo";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
@@ -12,6 +13,7 @@ import {
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
+import { avisoDePeriodo } from "@/lib/relatorios";
 import {
   getColetas,
   getFilterOptions,
@@ -241,6 +243,21 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
   const params = await searchParams;
   const filtros = extrairFiltros(params);
   const resultado = await getColetas(filtros);
+
+  // Sem Data Inicial e Data Final a tela abre vazia, com o aviso do que falta
+  // -- ver `temPeriodoFechado` em queries.ts.
+  if (!resultado) {
+    return (
+      <AvisoDePeriodo
+        aviso={avisoDePeriodo({
+          params,
+          dataInicial: filtros.dataInicial,
+          dataFinal: filtros.dataFinal,
+          oQueMostra: "as coletas do período",
+        })}
+      />
+    );
+  }
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
   const rows = resultado.rows.map(toTableRow);
