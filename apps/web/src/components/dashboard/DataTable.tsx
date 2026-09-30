@@ -1,6 +1,31 @@
 import Link from "next/link";
+import { colunasNumericas } from "@/lib/colunas-numericas";
 import { textoDaPaginacao } from "@/lib/paginacao";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
+
+/** Coluna de botoes das telas de cadastro: no cartao, vai para o pe. */
+const COLUNA_DE_ACOES = "Ações";
+
+/**
+ * Celula fixa na borda (cabecalho no topo, primeira coluna na esquerda) com
+ * fundo solido: sem ele, o conteudo que rola passaria visivel por baixo. A
+ * divisoria vem de sombra interna, e nao de `border`, porque com
+ * `border-collapse` a borda fica na tabela e nao acompanha a celula fixa.
+ */
+const FUNDO_FIXO = "bg-brand-surface";
+const DIVISORIA_EMBAIXO = "shadow-[inset_0_-1px_0_var(--color-slate-800)]";
+const DIVISORIA_A_DIREITA = "shadow-[inset_-1px_0_0_var(--color-slate-800)]";
+/** Canto do cabecalho: uma sombra so, deslocada nos dois eixos -- duas
+ * classes `shadow-*` na mesma celula disputariam a mesma propriedade. */
+const DIVISORIA_DO_CANTO = "shadow-[inset_-1px_-1px_0_var(--color-slate-800)]";
+
+/**
+ * O realce de linha (`hover:bg-white/5`) e translucido; na celula fixa, que
+ * precisa ser opaca, ele entra como camada de imagem por cima do mesmo fundo
+ * -- a mesma cor final das outras celulas, sem hex novo.
+ */
+const REALCE_DA_CELULA_FIXA =
+  "group-hover:bg-[linear-gradient(rgb(255_255_255/0.05),rgb(255_255_255/0.05))]";
 
 export function DataTable({
   columns,
@@ -50,69 +75,117 @@ export function DataTable({
 }) {
   const podeVoltar = page > 1;
   const podeAvancar = totalPages > 0 && page < totalPages;
+  const vazio = !loading && rows.length === 0;
+  const numericas = colunasNumericas(rows);
+  const alinhamento = (coluna: number) => (numericas.has(coluna) ? "text-right" : "");
 
   return (
-    // Focavel por teclado: com 12 colunas a tabela rola na horizontal, e sem
-    // `tabIndex` quem nao usa mouse nao alcanca as colunas da direita (axe
-    // `scrollable-region-focusable`). `role="region"` com nome para o leitor
-    // de tela anunciar o que recebeu o foco.
-    <div
-      role="region"
-      aria-label={rotulo}
-      tabIndex={0}
-      className="overflow-x-auto rounded-b-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green"
-    >
-      {/* 1280px: em 1100px as 12 colunas ficam na largura minima do conteudo e
-          os titulos encostam um no outro. A folga extra e distribuida entre
-          elas; abaixo disso a area rola na horizontal. */}
-      <table className={`w-full ${minWidth} border-collapse text-left text-sm`}>
-        <thead>
-          <tr className="border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-brand-muted">
-            {columns.map((column) => (
-              <th key={column} scope="col" className="whitespace-nowrap px-4 py-3">
-                {column}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <TableSkeleton columns={columns} />
-          ) : rows.length > 0 ? (
-            rows.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                className="border-b border-slate-800/60 animate-fade-in-up hover:bg-white/5"
-                style={{ animationDelay: `${Math.min(rowIndex, 12) * 30}ms` }}
-              >
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="whitespace-nowrap px-4 py-3 text-white">
-                    {cell || "—"}
-                  </td>
-                ))}
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={columns.length} className="px-4 py-16">
-                <EmptyState title={emptyTitle} description={emptyDescription} />
-              </td>
-            </tr>
-          )}
-        </tbody>
-        {rodape && !loading && rows.length > 0 && (
-          <tfoot>
-            <tr className="border-t border-slate-800 bg-brand-navy/40 font-semibold text-white">
-              {rodape.map((cell, cellIndex) => (
-                <td key={cellIndex} className="whitespace-nowrap px-4 py-3">
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          </tfoot>
-        )}
-      </table>
+    <div>
+      {vazio ? (
+        <div className="px-4 py-16">
+          <EmptyState title={emptyTitle} description={emptyDescription} />
+        </div>
+      ) : (
+        <>
+          {/* Tabela a partir de `lg`; abaixo disso, cartoes (mais embaixo).
+              Com 12 colunas numa tela de tablet em pe, a tabela so existia
+              rolando de lado, e a linha que se estava lendo sumia da vista.
 
+              Focavel por teclado: a area rola nas duas direcoes, e sem
+              `tabIndex` quem nao usa mouse nao alcanca o que esta fora da
+              vista (axe `scrollable-region-focusable`). `role="region"` com
+              nome para o leitor de tela anunciar o que recebeu o foco.
+
+              Altura maxima para o cabecalho poder ficar fixo: com
+              `overflow-x: auto` a area vira o contexto de rolagem do `sticky`
+              nas duas direcoes, e sem rolar na vertical dentro dela o
+              cabecalho nunca teria de onde "grudar" -- ia embora junto com a
+              pagina, e numa lista de 25 linhas a pessoa terminava lendo
+              numero sem saber de que coluna. `10rem` e a barra do topo mais a
+              paginacao, que fica fora da area. */}
+          <div
+            role="region"
+            aria-label={rotulo}
+            tabIndex={0}
+            className={`${loading ? "" : "hidden lg:block"} max-h-[calc(100dvh-10rem)] overflow-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green`}
+          >
+            {/* 1280px: em 1100px as 12 colunas ficam na largura minima do
+                conteudo e os titulos encostam um no outro. A folga extra e
+                distribuida entre elas; abaixo disso a area rola na horizontal.
+
+                `tabular-nums`: algarismos de largura igual (recurso da propria
+                Inter, nao outra fonte), para numero, data e hora formarem
+                coluna -- sem ele, "11:11" e "08:08" tem larguras diferentes. */}
+            <table className={`w-full ${minWidth} border-collapse text-left text-sm tabular-nums`}>
+              <thead>
+                <tr className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                  {columns.map((column, indice) => (
+                    <th
+                      key={column}
+                      scope="col"
+                      className={`sticky top-0 whitespace-nowrap px-4 py-3 ${FUNDO_FIXO} ${
+                        indice === 0 ? `left-0 z-20 ${DIVISORIA_DO_CANTO}` : `z-10 ${DIVISORIA_EMBAIXO}`
+                      } ${alinhamento(indice)}`}
+                    >
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              {/* Uma entrada suave para o corpo inteiro, e nao uma cascata por
+                  linha: a cascata (30ms x 12 linhas, mais 500ms de animacao)
+                  se repetia a cada troca de pagina, e quem audita um
+                  relatorio pagina muito -- era quase um segundo esperando a
+                  ultima linha assentar para comecar a ler. */}
+              <tbody className="animate-fade-in">
+                {loading ? (
+                  <TableSkeleton columns={columns} />
+                ) : (
+                  rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="group border-b border-slate-800/60 hover:bg-white/5">
+                      {row.map((cell, cellIndex) => (
+                        <td
+                          key={cellIndex}
+                          className={`whitespace-nowrap px-4 py-3 text-white ${
+                            cellIndex === 0
+                              ? `sticky left-0 z-[5] ${FUNDO_FIXO} ${DIVISORIA_A_DIREITA} ${REALCE_DA_CELULA_FIXA}`
+                              : ""
+                          } ${alinhamento(cellIndex)}`}
+                        >
+                          {cell || "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {rodape && !loading && (
+                <tfoot>
+                  <tr className="border-t border-slate-800 bg-brand-navy/40 font-semibold text-white">
+                    {rodape.map((cell, cellIndex) => (
+                      <td
+                        key={cellIndex}
+                        className={`whitespace-nowrap px-4 py-3 ${
+                          cellIndex === 0 ? `sticky left-0 ${FUNDO_FIXO} ${DIVISORIA_A_DIREITA}` : ""
+                        } ${alinhamento(cellIndex)}`}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+
+          {loading ? null : (
+            <Cartoes columns={columns} rows={rows} rodape={rodape} rotulo={rotulo} numericas={numericas} />
+          )}
+        </>
+      )}
+
+      {/* Fora da area rolavel: antes ela rolava de lado junto com a tabela, e
+          no tablet os botoes de pagina saiam da tela. */}
       <div className="flex items-center justify-end gap-1 border-t border-slate-800 px-4 py-3">
         <PaginationButton
           disabled={!podeVoltar}
@@ -128,7 +201,7 @@ export function DataTable({
         >
           <ChevronLeftIcon className="h-4 w-4" />
         </PaginationButton>
-        <span className="px-3 text-xs text-brand-muted">
+        <span className="px-3 text-xs text-brand-muted tabular-nums">
           {textoDaPaginacao({
             pagina: page,
             totalPaginas: totalPages,
@@ -151,6 +224,82 @@ export function DataTable({
           <ChevronsRightIcon className="h-4 w-4" />
         </PaginationButton>
       </div>
+    </div>
+  );
+}
+
+/**
+ * A mesma linha, empilhada: a primeira coluna vira titulo do cartao, as
+ * outras viram pares rotulo/valor (o rotulo com o desenho do `<th>`), e a
+ * coluna "Acoes" vai para o pe, onde o polegar alcanca. E a traducao que o
+ * `LinhaDoCartao` do app de campo ja faz para o celular.
+ */
+function Cartoes({
+  columns,
+  rows,
+  rodape,
+  rotulo,
+  numericas,
+}: {
+  columns: string[];
+  rows: React.ReactNode[][];
+  rodape?: React.ReactNode[];
+  rotulo: string;
+  numericas: Set<number>;
+}) {
+  const indiceDeAcoes = columns.indexOf(COLUNA_DE_ACOES);
+
+  return (
+    <ul aria-label={rotulo} className="animate-fade-in lg:hidden">
+      {rows.map((row, rowIndex) => (
+        <li key={rowIndex} className="border-b border-slate-800/60 px-4 py-4">
+          <p className="text-sm font-semibold text-white">{row[0] || "—"}</p>
+          <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+            {columns.map((column, indice) =>
+              indice === 0 || indice === indiceDeAcoes ? null : (
+                <ParDoCartao key={column} rotulo={column} numerico={numericas.has(indice)}>
+                  {row[indice] || "—"}
+                </ParDoCartao>
+              ),
+            )}
+          </dl>
+          {indiceDeAcoes >= 0 && row[indiceDeAcoes] ? (
+            <div className="mt-4 flex flex-wrap gap-2">{row[indiceDeAcoes]}</div>
+          ) : null}
+        </li>
+      ))}
+
+      {rodape ? (
+        <li className="bg-brand-navy/40 px-4 py-4">
+          <p className="text-sm font-semibold text-white">{rodape[0] || "Total"}</p>
+          <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+            {columns.map((column, indice) =>
+              indice === 0 || !rodape[indice] ? null : (
+                <ParDoCartao key={column} rotulo={column} numerico>
+                  {rodape[indice]}
+                </ParDoCartao>
+              ),
+            )}
+          </dl>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
+function ParDoCartao({
+  rotulo,
+  numerico,
+  children,
+}: {
+  rotulo: string;
+  numerico: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{rotulo}</dt>
+      <dd className={`mt-0.5 break-words text-sm text-white ${numerico ? "tabular-nums" : ""}`}>{children}</dd>
     </div>
   );
 }
@@ -189,6 +338,10 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
+/**
+ * 36px (h-9) e a escala do `Button` (0.97): antes era 32px e `scale-90`, o
+ * mesmo desvio de escala que o `Button.tsx` documenta ter eliminado.
+ */
 function PaginationButton({
   children,
   disabled,
@@ -201,7 +354,7 @@ function PaginationButton({
   "aria-label": string;
 }) {
   const className =
-    "flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+    "flex h-9 w-9 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
 
   if (!href || disabled) {
     return (

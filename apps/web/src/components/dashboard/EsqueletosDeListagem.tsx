@@ -176,24 +176,46 @@ export function TabelaEsqueleto({
   minWidth?: string;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className={`w-full ${minWidth} border-collapse text-left text-sm`}>
-        <tbody>
-          {Array.from({ length: linhas }).map((_, linha) => (
-            <tr
-              key={linha}
-              className="animate-fade-in border-b border-slate-800/60"
-              style={{ animationDelay: `${linha * 60}ms` }}
-            >
-              {Array.from({ length: colunas }).map((_, coluna) => (
-                <td key={coluna} className="px-4 py-3.5">
-                  <Skeleton className="h-3 w-full" />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="hidden overflow-x-auto lg:block">
+        <table className={`w-full ${minWidth} border-collapse text-left text-sm`}>
+          <tbody>
+            {Array.from({ length: linhas }).map((_, linha) => (
+              <tr
+                key={linha}
+                className="animate-fade-in border-b border-slate-800/60"
+                style={{ animationDelay: `${linha * 60}ms` }}
+              >
+                {Array.from({ length: colunas }).map((_, coluna) => (
+                  <td key={coluna} className="px-4 py-3.5">
+                    <Skeleton className="h-3 w-full" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Abaixo de `lg` a DataTable vira cartoes; o esqueleto acompanha, senao
+          a tela trocaria de forma no instante em que o dado chega. Titulo e
+          dois pares por cartao -- o bastante para ter a altura de um, sem
+          desenhar cada coluna. */}
+      <div className="lg:hidden">
+        {Array.from({ length: linhas }).map((_, linha) => (
+          <div
+            key={linha}
+            className="animate-fade-in space-y-3 border-b border-slate-800/60 px-4 py-4"
+            style={{ animationDelay: `${linha * 60}ms` }}
+          >
+            <Skeleton className="h-4 w-2/5" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+              <Skeleton className="h-3 w-3/4" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
