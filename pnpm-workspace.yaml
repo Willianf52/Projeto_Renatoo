@@ -55,7 +55,12 @@ overrides:
   # de ignorar por id, porque aqui existe versao corrigida e ela entra sem
   # quebrar nada -- diferente do `image-size` e do `decode-uri-component`
   # abaixo, onde a correcao nao e aplicavel.
-  'fast-uri@<3.1.6': '^3.1.6'
+  #
+  # 30/09/2026: piso subiu para 3.1.8 por GHSA-hrr3-gc8f-f4qj (moderate), a
+  # mesma familia -- host com maiuscula/minuscula em octeto percent-encoded
+  # normalizado de forma inconsistente. Mesmo caminho, mesmo alcance, e o
+  # `^3.0.1` do `ajv` ainda cobre.
+  'fast-uri@<3.1.8': '^3.1.8'
 
   # GHSA-6gmq-8vp8-gcm6 (moderate): `@xmldom/xmldom` monta `EntityReference`
   # com `nodeName` invalido e serializa sem recusar quando `requireWellFormed`
