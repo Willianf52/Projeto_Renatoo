@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { colunasNumericas } from "@/lib/colunas-numericas";
 import { textoDaPaginacao } from "@/lib/paginacao";
+import { BotaoDePaginacao } from "./BotaoDePaginacao";
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon } from "./icons";
 
 /** Coluna de botoes das telas de cadastro: no cartao, vai para o pe. */
@@ -187,20 +187,20 @@ export function DataTable({
       {/* Fora da area rolavel: antes ela rolava de lado junto com a tabela, e
           no tablet os botoes de pagina saiam da tela. */}
       <div className="flex items-center justify-end gap-1 border-t border-slate-800 px-4 py-3">
-        <PaginationButton
+        <BotaoDePaginacao
           disabled={!podeVoltar}
           href={podeVoltar ? buildPageHref?.(1) : undefined}
-          aria-label="Primeira página"
+          rotulo="Primeira página"
         >
           <ChevronsLeftIcon className="h-4 w-4" />
-        </PaginationButton>
-        <PaginationButton
+        </BotaoDePaginacao>
+        <BotaoDePaginacao
           disabled={!podeVoltar}
           href={podeVoltar ? buildPageHref?.(page - 1) : undefined}
-          aria-label="Página anterior"
+          rotulo="Página anterior"
         >
           <ChevronLeftIcon className="h-4 w-4" />
-        </PaginationButton>
+        </BotaoDePaginacao>
         <span className="px-3 text-xs text-brand-muted tabular-nums">
           {textoDaPaginacao({
             pagina: page,
@@ -209,20 +209,20 @@ export function DataTable({
             aproximado: totalAproximado,
           })}
         </span>
-        <PaginationButton
+        <BotaoDePaginacao
           disabled={!podeAvancar}
           href={podeAvancar ? buildPageHref?.(page + 1) : undefined}
-          aria-label="Próxima página"
+          rotulo="Próxima página"
         >
           <ChevronRightIcon className="h-4 w-4" />
-        </PaginationButton>
-        <PaginationButton
+        </BotaoDePaginacao>
+        <BotaoDePaginacao
           disabled={!podeAvancar}
           href={podeAvancar ? buildPageHref?.(totalPages) : undefined}
-          aria-label="Última página"
+          rotulo="Última página"
         >
           <ChevronsRightIcon className="h-4 w-4" />
-        </PaginationButton>
+        </BotaoDePaginacao>
       </div>
     </div>
   );
@@ -335,38 +335,5 @@ function EmptyState({ title, description }: { title: string; description: string
       <p className="text-sm font-medium text-white">{title}</p>
       <p className="text-sm text-brand-muted">{description}</p>
     </div>
-  );
-}
-
-/**
- * 36px (h-9) e a escala do `Button` (0.97): antes era 32px e `scale-90`, o
- * mesmo desvio de escala que o `Button.tsx` documenta ter eliminado.
- */
-function PaginationButton({
-  children,
-  disabled,
-  href,
-  "aria-label": ariaLabel,
-}: {
-  children: React.ReactNode;
-  disabled?: boolean;
-  href?: string;
-  "aria-label": string;
-}) {
-  const className =
-    "flex h-9 w-9 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
-
-  if (!href || disabled) {
-    return (
-      <button type="button" disabled aria-label={ariaLabel} className={className}>
-        {children}
-      </button>
-    );
-  }
-
-  return (
-    <Link href={href} aria-label={ariaLabel} className={className}>
-      {children}
-    </Link>
   );
 }

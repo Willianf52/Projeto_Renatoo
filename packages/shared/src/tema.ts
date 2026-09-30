@@ -138,6 +138,20 @@ export const tipografia = {
   chapeu: { tamanho: 12, altura: 16, peso: 700, espacamento: 3 },
 } as const;
 
+/**
+ * Largura maxima de uma coluna de conteudo (`max-w-3xl`, 768). No celular nao
+ * faz diferenca; no tablet deitado, sem ela, um cartao de pergunta do
+ * checklist esticava por 1.200 dp e os tres botoes de resposta ficavam a um
+ * palmo um do outro.
+ *
+ * `tablet` e o `md` do Tailwind: a partir dessa largura de janela as listas do
+ * app viram grade de duas colunas, como a grade de cartoes do painel.
+ */
+export const larguraMaxima = {
+  leitura: 768,
+  tablet: 768,
+} as const;
+
 /** Alturas de toque. O CTA da web (`py-3.5` + `text-sm`) fecha 52. */
 export const alturaDeControle = {
   denso: 40,

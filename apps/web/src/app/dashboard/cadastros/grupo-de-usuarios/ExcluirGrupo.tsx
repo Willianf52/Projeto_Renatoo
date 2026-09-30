@@ -15,7 +15,7 @@ import { excluirGrupoUsuarios, type EstadoDaExclusao } from "./actions";
  * precisa de JS. A listagem em volta continua sendo Server Component.
  */
 const BOTAO =
-  "flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-90 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100 disabled:active:scale-100";
+  "flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100 disabled:active:scale-100";
 
 export function ExcluirGrupo({ id, nome }: { id: number; nome: string }) {
   const [estado, formAction, excluindo] = useActionState<EstadoDaExclusao, FormData>(

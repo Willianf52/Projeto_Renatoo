@@ -82,7 +82,7 @@ export default function RecuperarSenhaPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+                    className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
                   >
                     {loading ? "Enviando..." : "Enviar"}
                   </button>

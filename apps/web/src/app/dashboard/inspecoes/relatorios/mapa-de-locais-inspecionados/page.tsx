@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
@@ -24,6 +23,7 @@ import {
 import { textoDaPaginacao } from "@/lib/paginacao";
 import { AvisoDePeriodo } from "@/components/dashboard/AvisoDePeriodo";
 import { avisoDePeriodo } from "@/lib/relatorios";
+import { BotaoDePaginacao } from "@/components/dashboard/BotaoDePaginacao";
 import {
   extrairFiltros,
   formatarDiaCurto,
@@ -308,16 +308,16 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
           </table>
 
           <div className="flex items-center justify-end gap-1 border-t border-slate-800 px-4 py-3">
-            <PaginacaoBotao disabled={!podeVoltar} href={podeVoltar ? buildPageHref(1) : undefined} ariaLabel="Primeira página">
+            <BotaoDePaginacao disabled={!podeVoltar} href={podeVoltar ? buildPageHref(1) : undefined} rotulo="Primeira página">
               <ChevronsLeftIcon className="h-4 w-4" />
-            </PaginacaoBotao>
-            <PaginacaoBotao
+            </BotaoDePaginacao>
+            <BotaoDePaginacao
               disabled={!podeVoltar}
               href={podeVoltar ? buildPageHref(pagina - 1) : undefined}
-              ariaLabel="Página anterior"
+              rotulo="Página anterior"
             >
               <ChevronLeftIcon className="h-4 w-4" />
-            </PaginacaoBotao>
+            </BotaoDePaginacao>
             <span className="px-3 text-xs text-brand-muted">
               {textoDaPaginacao({
                 pagina,
@@ -327,54 +327,23 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
                 plural: "locais",
               })}
             </span>
-            <PaginacaoBotao
+            <BotaoDePaginacao
               disabled={!podeAvancar}
               href={podeAvancar ? buildPageHref(pagina + 1) : undefined}
-              ariaLabel="Próxima página"
+              rotulo="Próxima página"
             >
               <ChevronRightIcon className="h-4 w-4" />
-            </PaginacaoBotao>
-            <PaginacaoBotao
+            </BotaoDePaginacao>
+            <BotaoDePaginacao
               disabled={!podeAvancar}
               href={podeAvancar ? buildPageHref(totalPages) : undefined}
-              ariaLabel="Última página"
+              rotulo="Última página"
             >
               <ChevronsRightIcon className="h-4 w-4" />
-            </PaginacaoBotao>
+            </BotaoDePaginacao>
           </div>
         </div>
       )}
     </>
-  );
-}
-
-/** Mesmo componente local de registro-de-rondas/page.tsx -- ver o comentario
- * la sobre por que nao reaproveita a paginacao da DataTable. */
-function PaginacaoBotao({
-  children,
-  disabled,
-  href,
-  ariaLabel,
-}: {
-  children: React.ReactNode;
-  disabled?: boolean;
-  href?: string;
-  ariaLabel: string;
-}) {
-  const className =
-    "flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-90 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
-
-  if (!href || disabled) {
-    return (
-      <button type="button" disabled aria-label={ariaLabel} className={className}>
-        {children}
-      </button>
-    );
-  }
-
-  return (
-    <Link href={href} aria-label={ariaLabel} className={className}>
-      {children}
-    </Link>
   );
 }

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -10,10 +19,11 @@ import { Aviso } from "../componentes/Aviso";
 import { Campo } from "../componentes/Campo";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
+import { colunasParaLargura, larguraDoItemNaGrade } from "../lib/grade";
 import { capturarErro } from "../lib/observabilidade";
 import { supabase } from "../lib/supabase";
 import type { RotasDoApp } from "../navegacao/Navegacao";
-import { cores, espaco, raio, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
 type Navegador = NativeStackNavigationProp<RotasDoApp>;
 
@@ -36,6 +46,14 @@ type Navegador = NativeStackNavigationProp<RotasDoApp>;
 export function TelaDeSites() {
   const { sessao } = useSessao();
   const navegacao = useNavigation<Navegador>();
+  // Duas colunas no tablet: a lista sao so nomes, e numa coluna de 700 dp
+  // cada nome ocupava uma linha inteira para meia duzia de letras.
+  const { width: larguraDaJanela } = useWindowDimensions();
+  const colunas = colunasParaLargura(larguraDaJanela);
+  const larguraDoItem = larguraDoItemNaGrade(larguraDaJanela, {
+    respiro: espaco.interno,
+    vao: espaco.minimo,
+  });
   const [sites, setSites] = useState<SiteParaVisita[] | null>(null);
   const [soDoAparelho, setSoDoAparelho] = useState(false);
   const [busca, setBusca] = useState("");
@@ -139,6 +157,11 @@ export function TelaDeSites() {
         </View>
       ) : (
         <FlatList
+          // `numColumns` nao pode mudar com a lista montada: a chave remonta
+          // quando o aparelho gira e a grade troca de uma para duas colunas.
+          key={colunas}
+          numColumns={colunas}
+          columnWrapperStyle={colunas > 1 ? estilos.linhaDaGrade : undefined}
           data={filtrados}
           keyExtractor={(site) => String(site.id)}
           contentContainerStyle={filtrados.length === 0 ? estilos.vazia : estilos.lista}
@@ -156,7 +179,11 @@ export function TelaDeSites() {
               disabled={abrindo !== null}
               accessibilityRole="button"
               accessibilityLabel={`Fazer checklist em ${item.nome}`}
-              style={({ pressed }) => [estilos.site, pressed && estilos.pressionado]}
+              style={({ pressed }) => [
+                estilos.site,
+                larguraDoItem !== undefined && { width: larguraDoItem },
+                pressed && estilos.pressionado,
+              ]}
             >
               <Text style={estilos.nome} numberOfLines={2}>
                 {item.nome}
@@ -212,9 +239,10 @@ async function lerSites(): Promise<{ sites: SiteParaVisita[]; soDoAparelho: bool
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: cores.fundo },
-  topo: { padding: espaco.interno, paddingBottom: espaco.minimo, gap: espaco.entreItens },
+  topo: { ...colunaDeLeitura, padding: espaco.interno, paddingBottom: espaco.minimo, gap: espaco.entreItens },
   aviso: { marginTop: 0 },
-  lista: { padding: espaco.interno, paddingTop: espaco.minimo, gap: espaco.minimo },
+  lista: { ...colunaDeLeitura, padding: espaco.interno, paddingTop: espaco.minimo, gap: espaco.minimo },
+  linhaDaGrade: { gap: espaco.minimo },
   vazia: { flexGrow: 1, justifyContent: "center", padding: espaco.confortavel },
   site: {
     flexDirection: "row",

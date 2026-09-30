@@ -1,5 +1,13 @@
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CARGO_INSPETOR, podeFinalizarVisita, type Tables } from "@projeto-renatoo/shared";
 
@@ -13,8 +21,9 @@ import { Botao } from "../componentes/Botao";
 import { Cartao, LinhaDoCartao } from "../componentes/Cartao";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
+import { colunasParaLargura, larguraDoItemNaGrade } from "../lib/grade";
 import { supabase } from "../lib/supabase";
-import { cores, espaco, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, texto, tipografia } from "../tema";
 
 /** Colunas que a lista mostra -- recorte de `visitas` do schema real. */
 type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" | "criado_em"> & {
@@ -24,6 +33,12 @@ type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" 
 
 export function TelaDeInspecoes() {
   const { perfil, sessao, sair } = useSessao();
+  const { width: larguraDaJanela } = useWindowDimensions();
+  const colunas = colunasParaLargura(larguraDaJanela);
+  const larguraDoItem = larguraDoItemNaGrade(larguraDaJanela, {
+    respiro: espaco.interno,
+    vao: espaco.entreItens,
+  });
 
   /**
    * A pilha roda com `headerShown: false`, entao nao ha header do React
@@ -120,6 +135,10 @@ export function TelaDeInspecoes() {
         <EsqueletoDaLista />
       ) : (
         <FlatList
+          // Remonta ao girar: `numColumns` nao muda com a lista montada.
+          key={colunas}
+          numColumns={colunas}
+          columnWrapperStyle={colunas > 1 ? estilos.linhaDaGrade : undefined}
           data={visitas}
           keyExtractor={(visita) => String(visita.id)}
           contentContainerStyle={
@@ -160,7 +179,7 @@ export function TelaDeInspecoes() {
              mesma tipografia -- e o que permite conferir os dois lado a lado
              sem traduzir nome de campo na cabeca. */
           renderItem={({ item }) => (
-            <Cartao>
+            <Cartao estilo={larguraDoItem !== undefined ? { width: larguraDoItem } : undefined}>
               <Text style={estilos.cartaoTitulo}>Coleta {item.numero_coleta}</Text>
               <LinhaDoCartao rotulo="Site" valor={String(item.site_id)} />
               <LinhaDoCartao rotulo="Registrada em" valor={formatarData(item.criado_em)} />
@@ -281,8 +300,9 @@ const estilos = StyleSheet.create({
   // `gap-3` entre cartoes e `p-4` na moldura: e a grade de filtros do painel
   // no seu caso base (`grid-cols-1`), que e como ela ja se comporta na largura
   // de um celular.
-  lista: { padding: espaco.interno, gap: espaco.entreItens },
-  listaVazia: { flexGrow: 1, padding: espaco.interno },
+  lista: { ...colunaDeLeitura, padding: espaco.interno, gap: espaco.entreItens },
+  linhaDaGrade: { gap: espaco.entreItens },
+  listaVazia: { ...colunaDeLeitura, flexGrow: 1, padding: espaco.interno },
   centro: { flex: 1, alignItems: "center", justifyContent: "center", padding: espaco.interno },
   cartaoTitulo: texto(tipografia.destaque, { cor: cores.texto }),
   aviso: { marginBottom: espaco.entreItens },

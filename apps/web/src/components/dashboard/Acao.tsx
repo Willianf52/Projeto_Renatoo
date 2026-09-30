@@ -31,7 +31,7 @@ export function Acao({
       // escreve uma vez aqui, no unico ponto por onde todo `target="_blank"`
       // do painel passa, para o dia em que um `href` receber valor de fora.
       rel={target === "_blank" ? "noopener noreferrer" : undefined}
-      className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-90 ${className}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 active:scale-[0.97] ${className}`}
     >
       {children}
     </Link>
