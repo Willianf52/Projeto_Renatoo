@@ -30,7 +30,7 @@ export function FolhaDeEtiquetas({
       <h1 className="mb-1 text-lg font-semibold">Etiquetas de QR-Code</h1>
       <p className="mb-4 text-xs text-slate-600">
         {etiquetas.length} {etiquetas.length === 1 ? "etiqueta" : "etiquetas"}
-        {truncado && ` — limitado às primeiras ${limite}, ajuste os filtros para reduzir o total`}
+        {truncado && `, limitado às primeiras ${limite}. Ajuste os filtros para reduzir o total`}
       </p>
 
       <div className="grid grid-cols-3 gap-4">

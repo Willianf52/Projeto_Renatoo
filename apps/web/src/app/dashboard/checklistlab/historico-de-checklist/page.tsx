@@ -266,7 +266,7 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
     <>
       {historico.truncado && (
         <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Mais de {TETO_DO_HISTORICO} checklists no filtro — a listagem abaixo está incompleta. Reduza o
+          Mais de {TETO_DO_HISTORICO} checklists no filtro: a listagem abaixo está incompleta. Reduza o
           período ou use os demais filtros.
         </p>
       )}

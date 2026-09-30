@@ -55,7 +55,7 @@ export default function NovaSenhaPage() {
     if (error) {
       setLoading(false);
       setFormError(
-        "Não foi possível redefinir a senha. O link pode ter expirado — solicite um novo.",
+        "Não foi possível redefinir a senha. O link pode ter expirado. Solicite um novo.",
       );
       return;
     }

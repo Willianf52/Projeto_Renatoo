@@ -101,7 +101,7 @@ async function Detalhe({ params, searchParams }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <ClipboardListIcon className="h-4 w-4" />
-            Checklist de {linha.checklist} — {linha.numeroAno || `#${linha.id}`}
+            Checklist de {linha.checklist} ({linha.numeroAno || `#${linha.id}`})
           </h1>
           <Suspense fallback={<Skeleton className="h-10 w-44" />}>
             <BotaoVoltar searchParams={searchParams} />

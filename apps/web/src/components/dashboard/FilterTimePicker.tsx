@@ -108,7 +108,7 @@ export function FilterTimePicker({
       {aberto && (
         <div
           role="dialog"
-          aria-label={`Horário — ${label}`}
+          aria-label={`Horário: ${label}`}
           className="absolute left-0 top-[calc(100%+4px)] z-20 w-48 rounded-md border border-slate-800 bg-brand-surface p-3 shadow-lg"
         >
           <div className="flex items-center gap-2">

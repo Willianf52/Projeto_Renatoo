@@ -31,7 +31,7 @@ export default async function ExportarMapaDeLocaisInspecionadosPdfPage({
   const dados = (mapa?.linhas ?? []).map((linha) => paraLinhaDeExportacao(linha, dias));
 
   if (mapa?.diasExcedidos) {
-    dados.push(["…", "Resultado truncado — ajuste o período para reduzir o total", ...Array(colunas.length - 2).fill("")]);
+    dados.push(["…", "Resultado truncado: ajuste o período para reduzir o total", ...Array(colunas.length - 2).fill("")]);
   }
 
   return (

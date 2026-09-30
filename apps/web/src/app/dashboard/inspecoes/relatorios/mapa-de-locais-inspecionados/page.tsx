@@ -244,7 +244,7 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
     <>
       {mapa.diasExcedidos && (
         <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Período maior que o suportado — mostrando só os primeiros 62 dias. Ajuste as datas para ver o restante.
+          Período maior que o suportado: mostrando só os primeiros 62 dias. Ajuste as datas para ver o restante.
         </p>
       )}
 

@@ -53,7 +53,7 @@ import {
  */
 function PinoDoMapa({ site }: { site: SiteRow }) {
   const coordenadas = formatarLatLong(site);
-  if (!coordenadas) return <span className="text-brand-muted">—</span>;
+  if (!coordenadas) return null;
 
   return (
     <a

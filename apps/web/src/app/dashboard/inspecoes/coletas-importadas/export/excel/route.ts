@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   if (truncado) {
     linhas.push([
       "…",
-      "Resultado truncado — ajuste os filtros para reduzir o total",
+      "Resultado truncado: ajuste os filtros para reduzir o total",
       ...Array(TABLE_COLUMNS.length - 2).fill(""),
     ]);
   }

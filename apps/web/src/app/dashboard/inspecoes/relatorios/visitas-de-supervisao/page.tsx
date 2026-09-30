@@ -161,7 +161,7 @@ async function CorpoDoHistorico({ searchParams }: { searchParams: SearchParamsPr
         <div className="text-center text-sm text-brand-muted">
           <p>Período: {formatarPeriodo(filtros.mes)}</p>
           <p>
-            Meta: {historico.meta ?? "–"} Realizado: {historico.realizado}
+            Meta: {historico.meta ?? ""} Realizado: {historico.realizado}
           </p>
         </div>
 
