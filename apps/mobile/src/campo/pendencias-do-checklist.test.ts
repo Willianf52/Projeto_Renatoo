@@ -131,3 +131,33 @@ describe("textoDoResumo", () => {
     expect(textoDoResumo(pendencias)).toBe("Falta: as perguntas.");
   });
 });
+
+describe("escolha do modelo (0061)", () => {
+  it("pede a escolha antes de pedir as perguntas", () => {
+    const [pendencia] = pendenciasDoChecklist({
+      tipo: "CONSULTORIA",
+      motivo: "",
+      perguntas: null,
+      respostas: {},
+      escolhaDeModeloPendente: true,
+      quantidadeDeFotos: 1,
+      temAssinatura: true,
+    });
+
+    expect(pendencia).toMatchObject({ alvo: "perguntas", mensagem: "Escolha qual checklist responder." });
+  });
+
+  it("nao vale na corretiva, que nao tem modelo", () => {
+    expect(
+      pendenciasDoChecklist({
+        tipo: "CORRETIVA",
+        motivo: "Portão",
+        perguntas: null,
+        respostas: {},
+        escolhaDeModeloPendente: true,
+        quantidadeDeFotos: 1,
+        temAssinatura: true,
+      }),
+    ).toEqual([]);
+  });
+});

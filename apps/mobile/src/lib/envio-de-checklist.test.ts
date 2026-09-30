@@ -100,6 +100,7 @@ const CORRETIVA = {
 const CONSULTORIA = {
   visitaId: 7,
   tipo: "CONSULTORIA" as const,
+  modeloId: 3,
   respostas: [{ perguntaId: 1, resposta: "SIM" as const, observacao: "" }],
   fotos: ["file:///tmp/foto-1.jpg"],
   assinatura: "iVBORw0KGgo=",
@@ -190,6 +191,49 @@ describe("envio bem-sucedido", () => {
 });
 
 describe("consultoria", () => {
+  it("manda o modelo respondido e sobe as fotos de cada pergunta (0061)", async () => {
+    await enviarChecklist({
+      ...CONSULTORIA,
+      fotos: [],
+      fotosDePergunta: [{ perguntaId: 1, uri: "file:///tmp/foto-p1.jpg" }],
+    });
+
+    const argumentos = rpc.mock.calls[0][1];
+    expect(argumentos).toMatchObject({ p_modelo_id: 3, p_fotos: [] });
+    expect(argumentos.p_fotos_de_pergunta).toHaveLength(1);
+    expect(argumentos.p_fotos_de_pergunta[0]).toMatchObject({ pergunta_id: 1 });
+    // A foto da pergunta mora na pasta da visita, como toda midia (0045).
+    expect(argumentos.p_fotos_de_pergunta[0].storage_path.startsWith("7/")).toBe(true);
+    expect(estado.subidos).toContain(argumentos.p_fotos_de_pergunta[0].storage_path);
+  });
+
+  it("reenvio nao sobe de novo a foto de pergunta que ja subiu", async () => {
+    const jaEnviadas = new Map<string, string>();
+    const envio = { ...CONSULTORIA, fotosDePergunta: [{ perguntaId: 1, uri: "file:///tmp/foto-p1.jpg" }] };
+
+    rpc.mockResolvedValueOnce({ data: null, error: { code: "08006", message: "rede" } });
+    await enviarChecklist(envio, jaEnviadas);
+    const subidosNaPrimeira = estado.subidos.length;
+
+    await enviarChecklist(envio, jaEnviadas);
+
+    expect(estado.subidos).toHaveLength(subidosNaPrimeira);
+  });
+
+  it("consultoria sem modelo e recusada antes do RPC", async () => {
+    const { modeloId: _semModelo, ...semModelo } = CONSULTORIA;
+    const resultado = await enviarChecklist(semModelo);
+
+    expect(resultado.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("corretiva nao manda modelo nem foto de pergunta", async () => {
+    await enviarChecklist(CORRETIVA);
+
+    expect(rpc.mock.calls[0][1]).toMatchObject({ p_modelo_id: undefined, p_fotos_de_pergunta: [] });
+  });
+
   it("manda motivo vazio, e nao null", async () => {
     // O gerador de tipos marca todo argumento sem default como nao-nulo,
     // entao `null` nao passa no tsc; o `nullif(btrim(...))` dentro de

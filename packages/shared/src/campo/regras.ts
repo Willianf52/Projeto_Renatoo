@@ -112,3 +112,11 @@ export const LIMITE_MOTIVO = 1000;
  */
 export const MINIMO_DE_FOTOS = 1;
 export const MAXIMO_DE_FOTOS = 10;
+
+/**
+ * Fotos de UMA pergunta (0061). O minimo continua sendo do checklist inteiro:
+ * uma foto de pergunta ja comprova a visita. O teto e baixo porque multiplica
+ * pelo numero de perguntas -- tres por item ja e mais do que o sistema de
+ * referencia aceitava (uma), e e o que cabe mandar por rede movel.
+ */
+export const MAXIMO_DE_FOTOS_POR_PERGUNTA = 3;

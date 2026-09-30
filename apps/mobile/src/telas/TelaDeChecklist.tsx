@@ -18,11 +18,12 @@ import {
   alturaDeControle,
   LIMITE_MOTIVO,
   MAXIMO_DE_FOTOS,
-  RESPOSTAS_DO_CHECKLIST,
-  ROTULO_DA_RESPOSTA,
+  MAXIMO_DE_FOTOS_POR_PERGUNTA,
+  respostasDoTipo,
+  rotuloDaResposta,
   ROTULO_DO_TIPO,
+  type ModeloResumido,
   type RespostaDoChecklist,
-  type Tables,
   type TipoDeVisita,
 } from "@projeto-renatoo/shared";
 
@@ -42,12 +43,13 @@ import { Campo } from "../componentes/Campo";
 import { Cartao } from "../componentes/Cartao";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { enviarChecklist, type MidiaJaEnviada } from "../lib/envio-de-checklist";
+import { lerModelosDoSite, lerPerguntasDoModelo, type PerguntaDoModelo } from "../lib/modelos-do-checklist";
 import { capturarErro } from "../lib/observabilidade";
 import { reduzirFoto } from "../lib/reduzir-foto";
-import { supabase } from "../lib/supabase";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
-type Pergunta = Pick<Tables<"perguntas_checklist">, "id" | "ordem" | "texto">;
+/** De onde e uma foto: do checklist inteiro (`null`) ou de uma pergunta. */
+type DonoDaFoto = number | null;
 
 /** Secoes do formulario para onde a rolagem pode levar. */
 type Secao = "motivo" | "perguntas" | "fotos" | "assinatura";
@@ -109,14 +111,26 @@ export function TelaDeChecklist({
   const visitaCriada = useRef<number | null>(visitaId);
 
   const [motivo, setMotivo] = useState("");
-  // `null` e "ainda nao buscadas", `[]` e "buscadas e nao ha nenhuma". Os dois
-  // estados sao diferentes na tela -- um mostra esqueleto, o outro diz que o
-  // checklist esta vazio -- e colapsa-los num array so obrigaria a um segundo
-  // booleano de carregamento para desempatar.
-  const [perguntas, setPerguntas] = useState<Pergunta[] | null>(null);
+
+  /**
+   * Os modelos do grupo do site (0061). `null` e "ainda nao buscados". Quase
+   * sempre vem um so, e a tela segue direto para as perguntas; com mais de um
+   * (o "geral + limpeza"), o inspetor escolhe no topo.
+   */
+  const [modelos, setModelos] = useState<ModeloResumido[] | null>(null);
+  /** O escolhido pelo inspetor, ou o que voltou do rascunho. */
+  const [modeloEscolhido, setModeloEscolhido] = useState<number | null>(null);
+
+  // As perguntas carregadas, junto do modelo de onde vieram: trocar de modelo
+  // torna a lista velha invalida sem precisar de effect para limpa-la -- a
+  // comparacao abaixo ja a descarta. `null` e "ainda nao buscadas", `[]` e
+  // "buscadas e nao ha nenhuma" -- um mostra esqueleto, o outro diz que o
+  // checklist esta vazio.
+  const [carregadas, setCarregadas] = useState<{ modeloId: number; perguntas: PerguntaDoModelo[] } | null>(null);
   const [erroDePerguntas, setErroDePerguntas] = useState<string | null>(null);
   const [respostas, setRespostas] = useState<Record<number, RespostaDoChecklist>>({});
   const [fotos, setFotos] = useState<string[]>([]);
+  const [fotosDePergunta, setFotosDePergunta] = useState<Record<number, string[]>>({});
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -149,7 +163,7 @@ export function TelaDeChecklist({
   const [destaque, setDestaque] = useState<Pendencia["alvo"] | null>(null);
 
   /** Foto aberta em tela cheia. Tocar na miniatura abre; nao remove mais. */
-  const [fotoAberta, setFotoAberta] = useState<string | null>(null);
+  const [fotoAberta, setFotoAberta] = useState<{ uri: string; dono: DonoDaFoto } | null>(null);
 
   /**
    * Remocao com "Desfazer". O arquivo so e apagado do disco (`esquecerFoto`)
@@ -158,6 +172,7 @@ export function TelaDeChecklist({
    */
   const remocaoPendente = useRef<{
     uri: string;
+    dono: DonoDaFoto;
     indice: number;
     espera: ReturnType<typeof setTimeout>;
   } | null>(null);
@@ -197,6 +212,8 @@ export function TelaDeChecklist({
         setMotivo(rascunho.motivo);
         setRespostas(rascunho.respostas);
         setFotos(rascunho.fotos);
+        setModeloEscolhido(rascunho.modeloId);
+        setFotosDePergunta(rascunho.fotosDePergunta);
       })
       .catch((falha) => {
         // Rascunho ilegivel nao impede de preencher: a tela abre vazia, como
@@ -221,50 +238,102 @@ export function TelaDeChecklist({
     if (!rascunhoLido || !funcionarioId) return;
 
     const espera = setTimeout(() => {
-      salvarRascunho(chave, funcionarioId, { motivo, respostas, fotos }).catch((falha) => {
+      salvarRascunho(chave, funcionarioId, {
+        motivo,
+        respostas,
+        fotos,
+        modeloId: modeloEscolhido,
+        fotosDePergunta,
+      }).catch((falha) => {
         capturarErro(falha, { onde: "salvarRascunho", visita: String(chave) });
       });
     }, 500);
 
     return () => clearTimeout(espera);
-  }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos]);
+  }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos, modeloEscolhido, fotosDePergunta]);
 
   /**
-   * As perguntas so sao buscadas quando a CONSULTORIA e escolhida, e nao na
-   * abertura da tela: numa corretiva essa consulta nunca serviria para nada, e
-   * o app roda em rede movel de canteiro de obra.
+   * Os modelos so sao buscados na CONSULTORIA, e nao na abertura da tela: numa
+   * corretiva essa consulta nunca serviria para nada, e o app roda em rede
+   * movel de canteiro de obra.
    */
+  const idDoSite = site?.id ?? null;
+
   useEffect(() => {
-    if (tipo !== "CONSULTORIA" || perguntas !== null) return;
+    if (tipo !== "CONSULTORIA" || modelos !== null) return;
 
     // Mesma guarda do `SessaoProvider`: resposta que chega depois de a tela
     // sair nao pode pintar nada.
     let ativo = true;
 
-    lerPerguntas()
+    // `void`: `lerModelosDoSite` nao rejeita (tem o proprio `catch`). Lista
+    // vazia com erro: a tela mostra o aviso e nao fica em esqueleto para sempre.
+    void lerModelosDoSite({ visitaId, siteId: idDoSite }).then((resultado) => {
+      if (!ativo) return;
+      setModelos(resultado.ok ? resultado.modelos : []);
+      setErroDePerguntas(resultado.ok ? null : resultado.erro);
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, [tipo, modelos, visitaId, idDoSite]);
+
+  /**
+   * O modelo que vale. O do rascunho so se ainda estiver entre os do grupo --
+   * modelo desativado depois de o rascunho nascer nao pode voltar a tela. Com
+   * um modelo so, ele mesmo, sem perguntar nada ao inspetor.
+   */
+  const modeloEfetivo =
+    modelos === null
+      ? null
+      : modelos.some((modelo) => modelo.id === modeloEscolhido)
+        ? modeloEscolhido
+        : modelos.length === 1
+          ? modelos[0].id
+          : null;
+
+  useEffect(() => {
+    if (modeloEfetivo === null || carregadas?.modeloId === modeloEfetivo) return;
+
+    let ativo = true;
+
+    lerPerguntasDoModelo(modeloEfetivo)
       .then((resultado) => {
         if (!ativo) return;
-        setPerguntas(resultado.perguntas);
+        setCarregadas({ modeloId: modeloEfetivo, perguntas: resultado.perguntas });
         setErroDePerguntas(resultado.erro);
       })
       .catch(() => {
-        // `lerPerguntas` ja traduz erro do PostgREST; o que falta e a rejeicao
-        // da camada de rede. Sem este ramo o esqueleto fica na tela para
-        // sempre -- o mesmo spinner eterno que `TelaDeInspecoes` documenta.
+        // `lerPerguntasDoModelo` ja traduz erro do PostgREST; o que falta e a
+        // rejeicao da camada de rede. Sem este ramo o esqueleto fica na tela
+        // para sempre -- o mesmo spinner eterno que `TelaDeInspecoes` documenta.
         if (!ativo) return;
-        setPerguntas([]);
+        setCarregadas({ modeloId: modeloEfetivo, perguntas: [] });
         setErroDePerguntas("Não foi possível carregar as perguntas do checklist.");
       });
 
     return () => {
       ativo = false;
     };
-  }, [tipo, perguntas]);
+  }, [modeloEfetivo, carregadas]);
 
-  // Derivado, e nao um terceiro estado: com `perguntas === null` significando
-  // "ainda nao buscadas", nao ha o que sincronizar -- e por isso o effect
-  // acima nao precisa chamar `setState` no corpo.
-  const carregandoPerguntas = tipo === "CONSULTORIA" && perguntas === null;
+  // Derivados, e nao estados a sincronizar: lista de outro modelo vale como
+  // "ainda nao buscada".
+  const perguntas =
+    modeloEfetivo !== null && carregadas?.modeloId === modeloEfetivo ? carregadas.perguntas : null;
+  const escolhaDeModeloPendente =
+    tipo === "CONSULTORIA" && modelos !== null && modelos.length > 1 && modeloEfetivo === null;
+  const carregandoPerguntas =
+    tipo === "CONSULTORIA" &&
+    erroDePerguntas === null &&
+    (modelos === null || (modeloEfetivo !== null && perguntas === null));
+
+  /** Fotos de pergunta que contam: so as das perguntas do modelo na tela. */
+  const fotosDasPerguntas = useMemo(
+    () => (perguntas ?? []).flatMap((pergunta) => (fotosDePergunta[pergunta.id] ?? []).map((uri) => ({ perguntaId: pergunta.id, uri }))),
+    [perguntas, fotosDePergunta],
+  );
 
   const estadoDoChecklist = useMemo(
     () => ({
@@ -272,10 +341,12 @@ export function TelaDeChecklist({
       motivo,
       perguntas,
       respostas,
-      quantidadeDeFotos: fotos.length,
+      escolhaDeModeloPendente,
+      // Gerais e de pergunta, somadas: qualquer uma comprova a visita.
+      quantidadeDeFotos: fotos.length + (tipo === "CONSULTORIA" ? fotosDasPerguntas.length : 0),
       temAssinatura,
     }),
-    [tipo, motivo, perguntas, respostas, fotos.length, temAssinatura],
+    [tipo, motivo, perguntas, respostas, escolhaDeModeloPendente, fotos.length, fotosDasPerguntas.length, temAssinatura],
   );
   const pendencias = useMemo(() => pendenciasDoChecklist(estadoDoChecklist), [estadoDoChecklist]);
   const progresso = progressoDasPerguntas(estadoDoChecklist);
@@ -312,8 +383,9 @@ export function TelaDeChecklist({
   }, [chave]);
 
   const removerFoto = useCallback(
-    (uri: string) => {
-      const indice = fotos.indexOf(uri);
+    (uri: string, dono: DonoDaFoto) => {
+      const lista = dono === null ? fotos : (fotosDePergunta[dono] ?? []);
+      const indice = lista.indexOf(uri);
       if (indice === -1) return;
 
       // Um desfazer por vez: a remocao anterior, se ainda estava na janela,
@@ -321,24 +393,35 @@ export function TelaDeChecklist({
       confirmarRemocao();
 
       setFotoAberta(null);
-      setFotos((atuais) => atuais.filter((foto) => foto !== uri));
+      if (dono === null) {
+        setFotos((atuais) => atuais.filter((foto) => foto !== uri));
+      } else {
+        setFotosDePergunta((atuais) =>
+          comFotos(atuais, dono, (atuais[dono] ?? []).filter((foto) => foto !== uri)),
+        );
+      }
       remocaoPendente.current = {
         uri,
+        dono,
         indice,
         espera: setTimeout(confirmarRemocao, DURACAO_DO_DESFAZER),
       };
       setTemRemocaoPendente(true);
     },
-    [confirmarRemocao, fotos],
+    [confirmarRemocao, fotos, fotosDePergunta],
   );
 
   const desfazerRemocao = useCallback(() => {
     const pendente = remocaoPendente.current;
     if (!pendente) return;
 
+    const { dono } = pendente;
+    const lista = dono === null ? fotos : (fotosDePergunta[dono] ?? []);
+    const teto = dono === null ? MAXIMO_DE_FOTOS : MAXIMO_DE_FOTOS_POR_PERGUNTA;
+
     // Outra foto ocupou a vaga dentro da janela: nao ha onde devolver esta, e
     // passar do teto quebraria o `esquemaDeChecklistDeVisita` so no envio.
-    if (fotos.length >= MAXIMO_DE_FOTOS) {
+    if (lista.length >= teto) {
       confirmarRemocao();
       return;
     }
@@ -346,18 +429,23 @@ export function TelaDeChecklist({
     clearTimeout(pendente.espera);
     remocaoPendente.current = null;
     setTemRemocaoPendente(false);
-    setFotos((atuais) => {
+
+    const restaurar = (atuais: string[]) => {
       const restauradas = [...atuais];
       restauradas.splice(Math.min(pendente.indice, restauradas.length), 0, pendente.uri);
       return restauradas;
-    });
-  }, [confirmarRemocao, fotos.length]);
+    };
+
+    if (dono === null) setFotos(restaurar);
+    else setFotosDePergunta((atuais) => comFotos(atuais, dono, restaurar(atuais[dono] ?? [])));
+  }, [confirmarRemocao, fotos, fotosDePergunta]);
 
   // Saindo da tela dentro da janela, a remocao vale: o inspetor tocou em
   // remover e nao desfez.
   useEffect(() => confirmarRemocao, [confirmarRemocao]);
 
-  const anexarFoto = useCallback(async () => {
+  /** `dono` nulo: foto do checklist inteiro; um id: foto daquela pergunta. */
+  const anexarFoto = useCallback(async (dono: DonoDaFoto) => {
     try {
       // `requestCameraPermissionsAsync` a cada toque, e nao uma vez na
       // abertura: a permissao pode ser revogada pelas configuracoes do sistema
@@ -389,7 +477,13 @@ export function TelaDeChecklist({
       );
 
       setErro(null);
-      setFotos((atuais) => [...atuais, ...guardadas].slice(0, MAXIMO_DE_FOTOS));
+      if (dono === null) {
+        setFotos((atuais) => [...atuais, ...guardadas].slice(0, MAXIMO_DE_FOTOS));
+      } else {
+        setFotosDePergunta((atuais) =>
+          comFotos(atuais, dono, [...(atuais[dono] ?? []), ...guardadas].slice(0, MAXIMO_DE_FOTOS_POR_PERGUNTA)),
+        );
+      }
     } catch {
       // As duas chamadas acima REJEITAM de verdade -- camera indisponivel,
       // outro seletor ja aberto. A funcao e descartada com `void` no botao,
@@ -455,6 +549,8 @@ export function TelaDeChecklist({
         visitaId: visitaCriada.current,
         tipo,
         motivo: tipo === "CORRETIVA" ? motivo : undefined,
+        modeloId: tipo === "CONSULTORIA" ? (modeloEfetivo ?? undefined) : undefined,
+        fotosDePergunta: tipo === "CONSULTORIA" ? fotosDasPerguntas : undefined,
         respostas:
           tipo === "CONSULTORIA"
             ? lista.map((pergunta) => ({
@@ -490,7 +586,7 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, chave, fotos, funcionarioId, motivo, numeroColeta, pendencias, perguntas, respostas, rolarAte, site, tipo]);
+  }, [aoConcluir, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, pendencias, perguntas, respostas, rolarAte, site, tipo]);
 
   // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
   // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
@@ -554,6 +650,42 @@ export function TelaDeChecklist({
           <View style={estilos.secao} onLayout={(evento) => medirSecao("perguntas", evento)}>
             {erroDePerguntas ? <Aviso mensagem={erroDePerguntas} /> : null}
 
+            {/* So quando o grupo tem mais de um modelo -- com um, a tela segue
+                direto. Fica visivel depois da escolha para permitir trocar:
+                as respostas ficam guardadas por pergunta, entao voltar ao
+                primeiro modelo nao perde o que foi marcado nele. */}
+            {modelos !== null && modelos.length > 1 ? (
+              <View style={estilos.escolhaDoModelo}>
+                <Text style={[estilos.rotulo, escolhaDeModeloPendente && destacar("perguntas") && estilos.rotuloPendente]}>
+                  Qual checklist?
+                </Text>
+                <View accessibilityRole="radiogroup" accessibilityLabel="Qual checklist?" style={estilos.modelos}>
+                  {modelos.map((modelo) => {
+                    const escolhido = modelo.id === modeloEfetivo;
+
+                    return (
+                      <Pressable
+                        key={modelo.id}
+                        onPress={() => setModeloEscolhido(modelo.id)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: escolhido }}
+                        style={({ pressed }) => [
+                          estilos.resposta,
+                          estilos.modelo,
+                          escolhido && ESTILO_DA_ESCOLHA.SIM.opcao,
+                          pressed && estilos.opcaoPressionada,
+                        ]}
+                      >
+                        <Text style={[estilos.respostaTexto, escolhido && ESTILO_DA_ESCOLHA.SIM.texto]}>
+                          {modelo.nome}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             {carregandoPerguntas ? (
               <EsqueletoDaLista />
             ) : (
@@ -579,8 +711,12 @@ export function TelaDeChecklist({
                       accessibilityRole="radiogroup"
                       accessibilityLabel={pergunta.texto}
                     >
-                      {RESPOSTAS_DO_CHECKLIST.map((valor) => {
+                      {respostasDoTipo(pergunta.tipoResposta).map((valor) => {
                         const escolhida = respostas[pergunta.id] === valor;
+                        // Sim/Nao nao e conformidade: "Sim" em "Duvidas com o
+                        // RH?" nao e acerto nem falha, entao os dois ficam na
+                        // cor neutra, e nao no verde/vermelho de Conforme.
+                        const estilo = pergunta.tipoResposta === "SN" ? ESTILO_DA_ESCOLHA.NA : ESTILO_DA_ESCOLHA[valor];
 
                         return (
                           <Pressable
@@ -592,19 +728,26 @@ export function TelaDeChecklist({
                             accessibilityState={{ selected: escolhida }}
                             style={({ pressed }) => [
                               estilos.resposta,
-                              escolhida && ESTILO_DA_ESCOLHA[valor].opcao,
+                              escolhida && estilo.opcao,
                               pressed && estilos.opcaoPressionada,
                             ]}
                           >
-                            <Text
-                              style={[estilos.respostaTexto, escolhida && ESTILO_DA_ESCOLHA[valor].texto]}
-                            >
-                              {ROTULO_DA_RESPOSTA[valor]}
+                            <Text style={[estilos.respostaTexto, escolhida && estilo.texto]}>
+                              {rotuloDaResposta(pergunta.tipoResposta, valor)}
                             </Text>
                           </Pressable>
                         );
                       })}
                     </View>
+
+                    <FotosDaPergunta
+                      fotos={fotosDePergunta[pergunta.id] ?? []}
+                      aoAbrir={(uri) => setFotoAberta({ uri, dono: pergunta.id })}
+                      aoRemover={(uri) => removerFoto(uri, pergunta.id)}
+                      aoTirar={() => {
+                        void anexarFoto(pergunta.id);
+                      }}
+                    />
                   </Cartao>
                 </View>
               ))
@@ -615,7 +758,8 @@ export function TelaDeChecklist({
         <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
           <View style={estilos.cabecalhoDaSecao}>
             <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
-              Fotos ({fotos.length}/{MAXIMO_DE_FOTOS})
+              {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
+              {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"} ({fotos.length}/{MAXIMO_DE_FOTOS})
             </Text>
           </View>
 
@@ -627,14 +771,14 @@ export function TelaDeChecklist({
                 // tela, e o "remover" deixaria de ser alcancavel.
                 <View key={uri} style={estilos.tira}>
                   <Pressable
-                    onPress={() => setFotoAberta(uri)}
+                    onPress={() => setFotoAberta({ uri, dono: null })}
                     accessibilityRole="imagebutton"
                     accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
                   >
                     <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
                   </Pressable>
                   <Pressable
-                    onPress={() => removerFoto(uri)}
+                    onPress={() => removerFoto(uri, null)}
                     // O circulo tem 22 de desenho; o alvo de toque vai a 44
                     // pelo `hitSlop`, sem crescer por cima da foto.
                     hitSlop={11}
@@ -656,7 +800,7 @@ export function TelaDeChecklist({
             larguraTotal
             desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
             aoPressionar={() => {
-              void anexarFoto();
+              void anexarFoto(null);
             }}
           />
         </View>
@@ -756,7 +900,7 @@ export function TelaDeChecklist({
         >
           {fotoAberta ? (
             <Image
-              source={{ uri: fotoAberta }}
+              source={{ uri: fotoAberta.uri }}
               alt="Foto anexada à visita, em tela cheia"
               style={estilos.fotoInteira}
               resizeMode="contain"
@@ -773,7 +917,7 @@ export function TelaDeChecklist({
               titulo="Remover"
               variante="perigo"
               aoPressionar={() => {
-                if (fotoAberta) removerFoto(fotoAberta);
+                if (fotoAberta) removerFoto(fotoAberta.uri, fotoAberta.dono);
               }}
               estilo={estilos.acaoDaFoto}
             />
@@ -785,25 +929,73 @@ export function TelaDeChecklist({
 }
 
 /**
- * Fora do componente e sem `setState`, como `lerVisitas` -- ver a nota em
- * `SessaoProvider` sobre render em cascata.
- *
- * Ordena por `ordem` e nao por `id`: e o que a migration 0042 declara como a
- * sequencia de tela, justamente para uma pergunta nova poder entrar no meio
- * da lista sem reescrever ids ja respondidos.
+ * Fotos de uma pergunta, dentro do cartao dela (0061): miniaturas e um botao
+ * pequeno de camera. Pequeno de proposito -- o cartao e da resposta, e a foto
+ * e opcional; um CTA do tamanho do "Tirar foto" geral disputaria a atencao
+ * com os botoes de resposta, que sao obrigatorios.
  */
-async function lerPerguntas(): Promise<{ perguntas: Pergunta[]; erro: string | null }> {
-  const { data, error } = await supabase
-    .from("perguntas_checklist")
-    .select("id, ordem, texto")
-    .eq("ativo", true)
-    .order("ordem", { ascending: true });
+function FotosDaPergunta({
+  fotos,
+  aoAbrir,
+  aoRemover,
+  aoTirar,
+}: {
+  fotos: string[];
+  aoAbrir: (uri: string) => void;
+  aoRemover: (uri: string) => void;
+  aoTirar: () => void;
+}) {
+  const cheia = fotos.length >= MAXIMO_DE_FOTOS_POR_PERGUNTA;
 
-  if (error) {
-    return { perguntas: [], erro: "Não foi possível carregar as perguntas do checklist." };
-  }
+  return (
+    <View style={estilos.fotosDaPergunta}>
+      {fotos.map((uri, indice) => (
+        // Irmaos, e nao um dentro do outro -- mesma razao das fotos gerais.
+        <View key={uri}>
+          <Pressable
+            onPress={() => aoAbrir(uri)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={`Ver foto ${indice + 1} da pergunta`}
+          >
+            <Image source={{ uri }} alt="Foto da pergunta" style={estilos.miniaturaDaPergunta} />
+          </Pressable>
+          <Pressable
+            onPress={() => aoRemover(uri)}
+            hitSlop={11}
+            accessibilityRole="button"
+            accessibilityLabel={`Remover foto ${indice + 1} da pergunta`}
+            style={estilos.remover}
+          >
+            <Text style={estilos.removerTexto}>✕</Text>
+          </Pressable>
+        </View>
+      ))}
 
-  return { perguntas: data ?? [], erro: null };
+      {cheia ? null : (
+        <Pressable
+          onPress={aoTirar}
+          accessibilityRole="button"
+          accessibilityLabel="Tirar foto desta pergunta"
+          style={({ pressed }) => [estilos.tirarFotoDaPergunta, pressed && estilos.opcaoPressionada]}
+        >
+          <Text style={estilos.tirarFotoDaPerguntaTexto}>
+            {fotos.length === 0 ? "+ Foto" : `+ Foto (${fotos.length}/${MAXIMO_DE_FOTOS_POR_PERGUNTA})`}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Troca a lista de uma pergunta no mapa. Lista vazia sai do mapa: pergunta
+ * sem foto e pergunta ausente, e o rascunho nao guarda chave que nao diz nada.
+ */
+function comFotos(mapa: Record<number, string[]>, perguntaId: number, lista: string[]): Record<number, string[]> {
+  const novo = { ...mapa };
+  if (lista.length === 0) delete novo[perguntaId];
+  else novo[perguntaId] = lista;
+  return novo;
 }
 
 const estilos = StyleSheet.create({
@@ -845,6 +1037,26 @@ const estilos = StyleSheet.create({
     borderRadius: raio.medio,
   },
   respostaTexto: { ...texto(tipografia.botaoDenso, { cor: cores.textoFraco }), textAlign: "center" },
+
+  // Os modelos em coluna, e nao lado a lado como as respostas: sao nomes, de
+  // tamanho imprevisivel, e dois lado a lado quebrariam no meio da palavra.
+  escolhaDoModelo: { gap: espaco.entreItens, marginBottom: espaco.entreItens },
+  modelos: { gap: espaco.minimo },
+  modelo: { flex: 0, paddingHorizontal: espaco.interno },
+
+  fotosDaPergunta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: espaco.minimo },
+  miniaturaDaPergunta: { width: 56, height: 56, borderRadius: raio.medio, backgroundColor: cores.superficie },
+  // Alvo de toque de 44, o minimo, mas baixo e discreto: e opcional.
+  tirarFotoDaPergunta: {
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: espaco.interno,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: cores.borda,
+    borderRadius: raio.medio,
+  },
+  tirarFotoDaPerguntaTexto: texto(tipografia.botaoDenso, { cor: cores.textoFraco }),
 
   tiras: { flexGrow: 0 },
   tira: { marginRight: espaco.minimo },

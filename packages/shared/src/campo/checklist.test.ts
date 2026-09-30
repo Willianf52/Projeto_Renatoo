@@ -4,9 +4,10 @@ import {
   esquemaDeChecklistDeVisita,
   linhaDeChecklist,
   linhasDeFoto,
+  linhasDeFotoDePergunta,
   linhasDeResposta,
 } from "./checklist";
-import { LIMITE_MOTIVO, MAXIMO_DE_FOTOS } from "./regras";
+import { LIMITE_MOTIVO, MAXIMO_DE_FOTOS, MAXIMO_DE_FOTOS_POR_PERGUNTA } from "./regras";
 
 const COMUM = {
   visitaId: 42,
@@ -18,6 +19,7 @@ const CORRETIVA = { ...COMUM, tipo: "CORRETIVA" as const, motivo: "Portão 3 tra
 const CONSULTORIA = {
   ...COMUM,
   tipo: "CONSULTORIA" as const,
+  modeloId: 7,
   respostas: [{ perguntaId: 1, resposta: "SIM" as const }],
 };
 
@@ -154,10 +156,13 @@ describe("pontes com o banco", () => {
       tipo: "CORRETIVA",
       motivo: "Portão 3 travado",
       assinatura_path: "42/assinatura.png",
+      modelo_id: null,
     });
 
     // `null`, e nao ausente: a chave precisa existir para o check do banco ver.
     expect(linhaDeChecklist(consultoria)).toHaveProperty("motivo", null);
+    expect(linhaDeChecklist(consultoria)).toHaveProperty("modelo_id", 7);
+    expect(linhaDeChecklist(corretiva)).toHaveProperty("modelo_id", null);
   });
 
   it("amarra respostas e fotos ao checklist recem-criado", () => {
@@ -170,5 +175,74 @@ describe("pontes com o banco", () => {
     expect(linhasDeFoto(consultoria.fotos, 99)).toEqual([
       { checklist_id: 99, storage_path: "42/foto-1.jpg" },
     ]);
+
+    expect(linhasDeFotoDePergunta([{ perguntaId: 1, caminho: "42/foto-p1.jpg" }], 99)).toEqual([
+      { checklist_id: 99, storage_path: "42/foto-p1.jpg", pergunta_id: 1 },
+    ]);
+  });
+});
+
+describe("esquemaDeChecklistDeVisita — modelo e foto por pergunta (0061)", () => {
+  it("recusa consultoria sem modelo", () => {
+    const { modeloId: _semModelo, ...semModelo } = CONSULTORIA;
+    const resultado = esquemaDeChecklistDeVisita.safeParse(semModelo);
+
+    expect(resultado.success).toBe(false);
+    expect(!resultado.success && primeiroErro(resultado)).toContain("modelo do checklist");
+  });
+
+  it("aceita consultoria so com foto de pergunta -- ela ja comprova a visita", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({
+      ...CONSULTORIA,
+      fotos: [],
+      fotosDePergunta: [{ perguntaId: 1, caminho: "42/foto-p1.jpg" }],
+    });
+
+    expect(resultado.success).toBe(true);
+  });
+
+  it("sem foto nenhuma, geral ou de pergunta, recusa", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({ ...CONSULTORIA, fotos: [] });
+
+    expect(resultado.success).toBe(false);
+    expect(!resultado.success && primeiroErro(resultado)).toBe("Anexe ao menos uma foto.");
+  });
+
+  it("corretiva sem foto continua recusada", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({ ...CORRETIVA, fotos: [] });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("recusa foto de pergunta que nao foi respondida", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({
+      ...CONSULTORIA,
+      fotosDePergunta: [{ perguntaId: 99, caminho: "42/foto-p99.jpg" }],
+    });
+
+    expect(resultado.success).toBe(false);
+    expect(!resultado.success && primeiroErro(resultado)).toContain("não está no checklist");
+  });
+
+  it("recusa foto de pergunta acima do teto por pergunta", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({
+      ...CONSULTORIA,
+      fotosDePergunta: Array.from({ length: MAXIMO_DE_FOTOS_POR_PERGUNTA + 1 }, (_, indice) => ({
+        perguntaId: 1,
+        caminho: `42/foto-p1-${indice}.jpg`,
+      })),
+    });
+
+    expect(resultado.success).toBe(false);
+    expect(!resultado.success && primeiroErro(resultado)).toContain("por pergunta");
+  });
+
+  it("recusa caminho de foto de pergunta fora do formato", () => {
+    const resultado = esquemaDeChecklistDeVisita.safeParse({
+      ...CONSULTORIA,
+      fotosDePergunta: [{ perguntaId: 1, caminho: "sem-pasta.jpg" }],
+    });
+
+    expect(resultado.success).toBe(false);
   });
 });
