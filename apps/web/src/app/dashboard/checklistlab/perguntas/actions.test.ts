@@ -113,27 +113,45 @@ describe("salvarPergunta — validação antes do banco", () => {
     const estado = await salvarPergunta({}, formulario({ texto: "", ordem: "7" }));
 
     // Sem isto o formulário voltaria em branco e a pessoa redigitaria tudo.
-    expect(estado.valores).toEqual({ texto: "", ordem: "7", ativo: true });
+    expect(estado.valores).toEqual({ texto: "", ordem: "7", ativo: true, modelo: "", tipoResposta: "CNA" });
   });
 });
 
 describe("salvarPergunta — escrita", () => {
-  it("cria a pergunta, apara o texto e volta para a listagem", async () => {
-    await salvarPergunta({}, formulario({ texto: "  Extintores no prazo?  ", ordem: "3" }));
+  it("cria a pergunta no modelo, apara o texto e volta para a listagem do modelo", async () => {
+    await salvarPergunta(
+      {},
+      formulario({ texto: "  Extintores no prazo?  ", ordem: "3", modelo: "5", tipo_resposta: "CN" }),
+    );
 
     // Sem "status" no formulário, o default é ativa -- é o lado seguro para um
     // cadastro novo.
     expect(chamadas[0]).toEqual({
       tipo: "insert",
       tabela: "perguntas_checklist",
-      linha: { texto: "Extintores no prazo?", ordem: 3, ativo: true },
+      linha: { texto: "Extintores no prazo?", ordem: 3, ativo: true, modelo_id: 5, tipo_resposta: "CN" },
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(LISTAGEM);
-    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1&modelo=5`);
+  });
+
+  it("recusa cadastro sem modelo antes do banco", async () => {
+    for (const modelo of ["", "abc", "0"]) {
+      const estado = await salvarPergunta({}, formulario({ texto: "Extintores?", ordem: "1", modelo }));
+
+      expect(estado.erro).toBe("Escolha o modelo da pergunta.");
+      expect(chamadas).toHaveLength(0);
+    }
+  });
+
+  it("tipo de resposta fora da lista vira CNA -- o tipo de toda pergunta antiga", async () => {
+    await salvarPergunta({}, formulario({ texto: "Ok?", ordem: "1", modelo: "5", tipo_resposta: "XYZ" }));
+
+    expect(chamadas[0]).toMatchObject({ linha: { tipo_resposta: "CNA" } });
   });
 
   it("grava ativo = false quando o status é inativo", async () => {
-    await salvarPergunta({}, formulario({ texto: "Antiga", ordem: "9", status: "inativo" }));
+    await salvarPergunta({}, formulario({ texto: "Antiga", ordem: "9", modelo: "5", status: "inativo" }));
 
     expect(chamadas[0]).toMatchObject({ linha: { ativo: false } });
   });
@@ -141,22 +159,25 @@ describe("salvarPergunta — escrita", () => {
   it("traduz ordem duplicada em vez de mostrar o erro cru do Postgres", async () => {
     resultados.insert = { error: { code: "23505" } };
 
-    const estado = await salvarPergunta({}, formulario({ texto: "Extintores?", ordem: "1" }));
+    const estado = await salvarPergunta({}, formulario({ texto: "Extintores?", ordem: "1", modelo: "5" }));
 
-    expect(estado.erro).toBe("Já existe uma pergunta nessa ordem. Escolha outro número.");
+    expect(estado.erro).toBe("Já existe uma pergunta nessa ordem neste modelo. Escolha outro número.");
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("traduz recusa do RLS no insert", async () => {
     resultados.insert = { error: { code: "42501" } };
 
-    const estado = await salvarPergunta({}, formulario({ texto: "Extintores?", ordem: "1" }));
+    const estado = await salvarPergunta({}, formulario({ texto: "Extintores?", ordem: "1", modelo: "5" }));
 
     expect(estado.erro).toBe("Você não tem permissão para cadastrar perguntas do checklist.");
   });
 
-  it("edita pela id e volta para a listagem", async () => {
-    await salvarPergunta({}, formulario({ id: "4", texto: "Novo texto", ordem: "2" }));
+  it("edita pela id sem mandar modelo nem tipo -- ficam fora do grant de UPDATE (0061)", async () => {
+    await salvarPergunta(
+      {},
+      formulario({ id: "4", texto: "Novo texto", ordem: "2", modelo: "5", tipo_resposta: "SN" }),
+    );
 
     expect(chamadas[0]).toEqual({
       tipo: "update",
@@ -164,7 +185,7 @@ describe("salvarPergunta — escrita", () => {
       linha: { texto: "Novo texto", ordem: 2, ativo: true },
       id: 4,
     });
-    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
+    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1&modelo=5`);
   });
 
   it("não trata UPDATE de zero linhas como sucesso", async () => {

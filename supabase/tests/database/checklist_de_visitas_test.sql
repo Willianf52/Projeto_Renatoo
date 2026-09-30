@@ -308,15 +308,16 @@ select is(
 -- ---------------------------------------------------------------------------
 -- 10b) Em `perguntas_checklist`, a 0043 abriu UPDATE e manteve DELETE fechado.
 -- ---------------------------------------------------------------------------
-select is(
-  (select coalesce(string_agg(distinct privilege_type, ',' order by privilege_type), '')
-     from information_schema.role_table_grants
-    where grantee = 'authenticated'
-      and table_schema = 'public'
-      and table_name = 'perguntas_checklist'
-      and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')),
-  'UPDATE',
-  'perguntas_checklist da UPDATE a authenticated, mas nao DELETE nem TRUNCATE'
+-- Desde a 0061 o UPDATE e por coluna: texto/ordem/ativo sim, `modelo_id` e
+-- `tipo_resposta` nao (mover ou retipar pergunta respondida reinterpretaria
+-- respostas antigas). O grant de tabela sumiu, entao o assert olha coluna.
+select ok(
+  has_column_privilege('authenticated', 'public.perguntas_checklist', 'texto', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.perguntas_checklist', 'modelo_id', 'UPDATE')
+    and not has_column_privilege('authenticated', 'public.perguntas_checklist', 'tipo_resposta', 'UPDATE')
+    and not has_table_privilege('authenticated', 'public.perguntas_checklist', 'DELETE')
+    and not has_table_privilege('authenticated', 'public.perguntas_checklist', 'TRUNCATE'),
+  'perguntas_checklist: UPDATE so em texto/ordem/ativo; sem DELETE nem TRUNCATE'
 );
 
 -- ---------------------------------------------------------------------------

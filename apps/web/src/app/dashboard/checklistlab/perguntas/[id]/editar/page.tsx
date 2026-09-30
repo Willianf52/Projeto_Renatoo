@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { getOpcoesDeModelos } from "../../../modelos/queries";
 import { PerguntaForm } from "../../PerguntaForm";
 import { getPergunta } from "../../queries";
 import { idNaUrl } from "@/lib/id-na-url";
@@ -15,7 +16,7 @@ import { idNaUrl } from "@/lib/id-na-url";
  */
 export default function EditarPerguntaPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={3} />}>
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={5} />}>
       <Conteudo params={params} />
     </Suspense>
   );
@@ -33,7 +34,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     redirect("/dashboard/checklistlab/perguntas");
   }
 
-  const pergunta = await getPergunta(idNumerico);
+  const [pergunta, modelos] = await Promise.all([getPergunta(idNumerico), getOpcoesDeModelos()]);
   if (!pergunta) notFound();
 
   return (
@@ -43,7 +44,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           items={[
             { label: "ChecklistLab" },
             { label: "Perguntas do Checklist" },
-            { label: `Pergunta ${pergunta.ordem}` },
+            { label: `${pergunta.modelo} · Pergunta ${pergunta.ordem}` },
           ]}
         />
       </div>
@@ -61,10 +62,13 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
 
         <PerguntaForm
           id={pergunta.id}
+          modelos={modelos}
           valoresIniciais={{
             texto: pergunta.texto,
             ordem: String(pergunta.ordem),
             ativo: pergunta.ativo,
+            modelo: String(pergunta.modeloId),
+            tipoResposta: pergunta.tipoResposta,
           }}
         />
       </div>

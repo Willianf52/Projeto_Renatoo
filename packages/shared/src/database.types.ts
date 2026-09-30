@@ -97,18 +97,21 @@ export type Database = {
           checklist_id: number
           criado_em: string
           id: number
+          pergunta_id: number | null
           storage_path: string
         }
         Insert: {
           checklist_id: number
           criado_em?: string
           id?: never
+          pergunta_id?: number | null
           storage_path: string
         }
         Update: {
           checklist_id?: number
           criado_em?: string
           id?: never
+          pergunta_id?: number | null
           storage_path?: string
         }
         Relationships: [
@@ -117,6 +120,13 @@ export type Database = {
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_fotos_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_checklist"
             referencedColumns: ["id"]
           },
         ]
@@ -163,6 +173,7 @@ export type Database = {
           criado_em: string
           enviado_por: string | null
           id: number
+          modelo_id: number | null
           motivo: string | null
           tipo: string
           visita_id: number
@@ -172,6 +183,7 @@ export type Database = {
           criado_em?: string
           enviado_por?: string | null
           id?: never
+          modelo_id?: number | null
           motivo?: string | null
           tipo: string
           visita_id: number
@@ -181,6 +193,7 @@ export type Database = {
           criado_em?: string
           enviado_por?: string | null
           id?: never
+          modelo_id?: number | null
           motivo?: string | null
           tipo?: string
           visita_id?: number
@@ -191,6 +204,13 @@ export type Database = {
             columns: ["enviado_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_visita_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_checklist"
             referencedColumns: ["id"]
           },
           {
@@ -578,6 +598,63 @@ export type Database = {
           },
         ]
       }
+      modelos_checklist: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          nome: string
+          padrao: boolean
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome: string
+          padrao?: boolean
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome?: string
+          padrao?: boolean
+        }
+        Relationships: []
+      }
+      modelos_checklist_grupos: {
+        Row: {
+          criado_em: string
+          grupo_site_id: number
+          modelo_id: number
+        }
+        Insert: {
+          criado_em?: string
+          grupo_site_id: number
+          modelo_id: number
+        }
+        Update: {
+          criado_em?: string
+          grupo_site_id?: number
+          modelo_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelos_checklist_grupos_grupo_site_id_fkey"
+            columns: ["grupo_site_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modelos_checklist_grupos_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_checklist"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       motivos_visita: {
         Row: {
           ativo: boolean
@@ -604,24 +681,38 @@ export type Database = {
           ativo: boolean
           criado_em: string
           id: number
+          modelo_id: number
           ordem: number
           texto: string
+          tipo_resposta: string
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
           id?: never
+          modelo_id: number
           ordem: number
           texto: string
+          tipo_resposta?: string
         }
         Update: {
           ativo?: boolean
           criado_em?: string
           id?: never
+          modelo_id?: number
           ordem?: number
           texto?: string
+          tipo_resposta?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "perguntas_checklist_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_checklist"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -983,6 +1074,8 @@ export type Database = {
         Args: {
           p_assinatura_path: string
           p_fotos: string[]
+          p_fotos_de_pergunta?: Json
+          p_modelo_id?: number
           p_motivo: string
           p_respostas?: Json
           p_tipo: string
@@ -1080,6 +1173,10 @@ export type Database = {
           tem_localizacao: boolean
           visita_id: number
         }[]
+      }
+      sincronizar_grupos_do_modelo: {
+        Args: { p_grupos: number[]; p_modelo_id: number }
+        Returns: undefined
       }
       sincronizar_membros_grupo_usuarios: {
         Args: { p_grupo_id: number; p_membros: string[] }
