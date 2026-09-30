@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ROTULO_DO_TIPO_DE_RESPOSTA, TIPOS_DE_RESPOSTA } from "@projeto-renatoo/shared";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
@@ -13,10 +14,12 @@ const rotuloClasses = "mb-1.5 block text-xs font-medium uppercase tracking-wide 
 export function PerguntaForm({
   id,
   valoresIniciais,
+  modelos,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
   valoresIniciais: ValoresDaPergunta;
+  modelos: { value: string; label: string }[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
     salvarPergunta,
@@ -26,6 +29,8 @@ export function PerguntaForm({
   // Depois de uma recusa, o formulario volta com o que a pessoa tinha
   // digitado, e nao com o valor original do banco.
   const valores = estado.valores ?? valoresIniciais;
+  const editando = id !== undefined;
+  const nomeDoModelo = modelos.find((modelo) => modelo.value === valores.modelo)?.label ?? "";
 
   return (
     <form action={formAction} className="space-y-4 p-4">
@@ -38,6 +43,75 @@ export function PerguntaForm({
         >
           {estado.erro}
         </p>
+      )}
+
+      {/* Modelo e tipo so se escolhem no cadastro: a 0061 deixa os dois fora do
+          grant de UPDATE, porque mover ou retipar pergunta ja respondida
+          reinterpretaria as respostas antigas. Na edicao eles aparecem como
+          texto, e o modelo vai escondido so para a volta cair na listagem
+          filtrada por ele. */}
+      {editando ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <input type="hidden" name="modelo" value={valores.modelo} />
+          <div>
+            <span className={rotuloClasses}>Modelo</span>
+            <p className="text-sm text-white">{nomeDoModelo}</p>
+          </div>
+          <div>
+            <span className={rotuloClasses}>Respostas</span>
+            <p className="text-sm text-white">{ROTULO_DO_TIPO_DE_RESPOSTA[valores.tipoResposta]}</p>
+          </div>
+          <p className="text-xs text-brand-muted sm:col-span-2">
+            Modelo e respostas não mudam depois de cadastrada, para não mudar o sentido das respostas
+            já dadas. Para trocar, desative esta pergunta e cadastre outra.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="modelo" className={rotuloClasses}>
+              Modelo
+              <span className="text-red-400"> *</span>
+            </label>
+            <div className="relative">
+              <select
+                id="modelo"
+                name="modelo"
+                required
+                defaultValue={valores.modelo}
+                className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+              >
+                {modelos.map((modelo) => (
+                  <option key={modelo.value} value={modelo.value}>
+                    {modelo.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="tipo_resposta" className={rotuloClasses}>
+              Respostas
+            </label>
+            <div className="relative">
+              <select
+                id="tipo_resposta"
+                name="tipo_resposta"
+                defaultValue={valores.tipoResposta}
+                className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+              >
+                {TIPOS_DE_RESPOSTA.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {ROTULO_DO_TIPO_DE_RESPOSTA[tipo]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+            </div>
+          </div>
+        </div>
       )}
 
       <div>
@@ -56,8 +130,9 @@ export function PerguntaForm({
           className={getInputClasses(Boolean(estado.erro))}
         />
         <p className="mt-1.5 text-xs text-brand-muted">
-          Define a sequência em que a pergunta aparece no celular do inspetor. Dois números não
-          podem se repetir. Para encaixar uma pergunta no meio da lista, renumere as seguintes.
+          Define a sequência em que a pergunta aparece no celular do inspetor. Dentro do mesmo
+          modelo, dois números não podem se repetir. Para encaixar uma pergunta no meio da lista,
+          renumere as seguintes.
         </p>
       </div>
 
@@ -77,9 +152,6 @@ export function PerguntaForm({
           defaultValue={valores.texto}
           className={`${getInputClasses(Boolean(estado.erro))} resize-y`}
         />
-        <p className="mt-1.5 text-xs text-brand-muted">
-          O inspetor responde Conforme, Não conforme ou Não se aplica.
-        </p>
       </div>
 
       <div>
@@ -108,7 +180,11 @@ export function PerguntaForm({
         <Button type="submit" loading={enviando} disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar"}
         </Button>
-        <Button href={LISTAGEM} variant="secondary" disabled={enviando}>
+        <Button
+          href={valores.modelo ? `${LISTAGEM}?modelo=${encodeURIComponent(valores.modelo)}` : LISTAGEM}
+          variant="secondary"
+          disabled={enviando}
+        >
           Cancelar
         </Button>
       </div>

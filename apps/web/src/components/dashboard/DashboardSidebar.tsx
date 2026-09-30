@@ -165,6 +165,12 @@ const NAV_ITEMS: NavItem[] = [
       // Cadastro antes da consulta, como nos outros modulos: e daqui que sai a
       // lista que o app baixa antes de ir a campo (0042), entao quem abre o
       // modulo pela primeira vez precisa achar isto, nao o historico vazio.
+      // Modelos antes de Perguntas: desde a 0061 toda pergunta pertence a um.
+      {
+        label: "Modelos de Checklist",
+        href: "/dashboard/checklistlab/modelos",
+        icon: ClipboardListIcon,
+      },
       {
         label: "Perguntas do Checklist",
         href: "/dashboard/checklistlab/perguntas",

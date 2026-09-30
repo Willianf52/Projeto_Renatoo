@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { TIPOS_DE_RESPOSTA, type TipoDeResposta } from "@projeto-renatoo/shared";
 import { z } from "zod";
 import { verificarEscritaComRls } from "@/lib/escrita-rls";
 import { texto } from "@/lib/form-data";
@@ -22,6 +23,12 @@ import { createClient } from "@/lib/supabase/server";
  * Sem action de exclusao, de proposito: `perguntas_checklist` nao tem grant de
  * DELETE (0043), porque apagar pergunta ja respondida apagaria historico de
  * inspecao. Despublicar e o campo Status.
+ *
+ * Desde a 0061 toda pergunta pertence a um MODELO e tem um TIPO de resposta.
+ * Os dois so entram no cadastro e nunca na edicao: o grant de UPDATE e por
+ * coluna e deixa `modelo_id`/`tipo_resposta` de fora, porque mover ou retipar
+ * uma pergunta ja respondida reinterpretaria as respostas antigas. Mandar os
+ * dois no update levaria a um 42501 -- entao a linha de edicao nem os carrega.
  */
 
 const LISTAGEM = "/dashboard/checklistlab/perguntas";
@@ -53,6 +60,9 @@ export type ValoresDaPergunta = {
   /** Em texto, pre-validacao -- o campo do formulario devolve string. */
   ordem: string;
   ativo: boolean;
+  /** Id do modelo, em texto. So conta no cadastro -- ver o cabecalho. */
+  modelo: string;
+  tipoResposta: TipoDeResposta;
 };
 
 export type EstadoDoFormulario = {
@@ -68,6 +78,13 @@ function extrairValores(formData: FormData): ValoresDaPergunta {
     // Mesmo select de duas opcoes de `grupo-de-sites`: qualquer coisa
     // diferente de "inativo" cai no lado seguro para um cadastro novo.
     ativo: String(formData.get("status") ?? "") !== "inativo",
+    modelo: texto(formData, "modelo"),
+    // Valor fora da lista vira CNA aqui e a validacao nem precisa recusar: e o
+    // tipo de toda pergunta anterior a 0061, e o select da tela nao oferece
+    // outro valor.
+    tipoResposta: (TIPOS_DE_RESPOSTA as readonly string[]).includes(texto(formData, "tipo_resposta"))
+      ? (texto(formData, "tipo_resposta") as TipoDeResposta)
+      : "CNA",
   };
 }
 
@@ -91,10 +108,11 @@ function validar(
   };
 }
 
-/** `ordem` e unique (constraint `perguntas_checklist_ordem_unica`, 0042). */
+/** `ordem` e unica DENTRO do modelo (`perguntas_checklist_ordem_unica_no_modelo`, 0061). */
 const MENSAGENS_DE_ERRO = {
-  duplicado: "Já existe uma pergunta nessa ordem. Escolha outro número.",
+  duplicado: "Já existe uma pergunta nessa ordem neste modelo. Escolha outro número.",
   semPermissao: "Você não tem permissão para cadastrar perguntas do checklist.",
+  fkInvalida: "O modelo escolhido não existe mais. Recarregue a página.",
   generico: "Não foi possível salvar a pergunta. Tente novamente.",
 };
 
@@ -116,7 +134,16 @@ export async function salvarPergunta(
   const supabase = await createClient();
 
   if (id === null) {
-    const { error } = await supabase.from("perguntas_checklist").insert(validacao.linha);
+    const modeloId = Number(valores.modelo);
+    if (!valores.modelo || !Number.isInteger(modeloId) || modeloId <= 0) {
+      return { erro: "Escolha o modelo da pergunta.", valores };
+    }
+
+    const { error } = await supabase.from("perguntas_checklist").insert({
+      ...validacao.linha,
+      modelo_id: modeloId,
+      tipo_resposta: valores.tipoResposta,
+    });
     if (error) return { erro: traduzirErroPostgres(error.code, MENSAGENS_DE_ERRO), valores };
   } else {
     // Ver `lib/escrita-rls.ts`: um UPDATE barrado pelo RLS nao devolve erro,
@@ -137,5 +164,8 @@ export async function salvarPergunta(
   }
 
   revalidatePath(LISTAGEM);
-  redirect(`${LISTAGEM}?salvo=1`);
+  // Volta para a listagem filtrada pelo modelo: quem cadastra pergunta num
+  // modelo quase sempre cadastra a proxima no mesmo.
+  const filtro = valores.modelo ? `&modelo=${encodeURIComponent(valores.modelo)}` : "";
+  redirect(`${LISTAGEM}?salvo=1${filtro}`);
 }
