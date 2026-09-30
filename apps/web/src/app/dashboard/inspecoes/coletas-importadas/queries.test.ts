@@ -10,6 +10,7 @@ type Limite = { operador: "gte" | "lt" | "lte"; coluna: string; valor: string };
 type Chain = {
   select: (colunas?: string, opcoes?: { count?: string }) => Chain;
   eq: () => Chain;
+  in: () => Chain;
   not: () => Chain;
   is: () => Chain;
   gte: (coluna: string, valor: string) => Chain;
@@ -38,6 +39,7 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
             return chain;
           },
           eq: () => chain,
+          in: () => chain,
           not: () => chain,
           is: () => chain,
           gte: (coluna, valor) => {
@@ -81,12 +83,16 @@ const {
   getColetasParaExportar,
   getFilterOptions,
   montarSelectDeColetas,
+  papeisNaVisita,
   toTableRow,
   LIMITE_EXPORTACAO,
   __limparCacheDeReferencias,
 } = await import("./queries");
 
 const contar = (tabela: string) => tabelasConsultadas.filter((t) => t === tabela).length;
+
+/** Periodo fechado qualquer: sem ele as duas consultas nem chegam ao banco. */
+const PERIODO = { dataInicial: "2026-09-01", dataFinal: "2026-09-30" };
 
 beforeEach(() => {
   __limparCacheDeReferencias();
@@ -207,7 +213,7 @@ describe("getColetas", () => {
    * consulta nova, a mesma linha pode aparecer duas vezes e outra sumir.
    */
   it("desempata a ordenacao por id", async () => {
-    await getColetas({ pagina: 1 });
+    await getColetas({ pagina: 1, ...PERIODO });
 
     expect(ordens).toEqual([
       { tabela: "leituras", coluna: "data_hora", ascending: false },
@@ -222,7 +228,7 @@ describe("getColetas", () => {
    * desculpa por uma imprecisao que nao existe mais.
    */
   it("conta por estimativa, nao exato", async () => {
-    await getColetas({ pagina: 1 });
+    await getColetas({ pagina: 1, ...PERIODO });
 
     expect(contagens.get("leituras")).toBe("estimated");
   });
@@ -257,22 +263,44 @@ describe("getColetas: filtro de periodo", () => {
     ]);
   });
 
-  it("sem data, nao ha limite para aplicar", async () => {
-    await getColetas({ pagina: 1, horaInicial: "14:30" });
+});
 
-    expect(limites).toEqual([]);
+/**
+ * Pedido do dono em 30/09/2026: a tela abre vazia e so lista com Data Inicial
+ * e Data Final. `null` e o sinal para a pagina mostrar o `avisoDePeriodo`.
+ */
+describe("getColetas: so com periodo fechado", () => {
+  it("sem data nenhuma, devolve null e nao consulta leituras", async () => {
+    expect(await getColetas({ pagina: 1, horaInicial: "14:30" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("so com uma das datas, tambem nao consulta", async () => {
+    expect(await getColetas({ pagina: 1, dataInicial: "2026-09-01" })).toBeNull();
+    expect(await getColetas({ pagina: 1, dataFinal: "2026-09-30" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("periodo invertido nao consulta", async () => {
+    expect(await getColetas({ pagina: 1, dataInicial: "2026-09-30", dataFinal: "2026-09-01" })).toBeNull();
+    expect(contar("leituras")).toBe(0);
+  });
+
+  it("com as duas datas na ordem, consulta", async () => {
+    expect(await getColetas({ pagina: 1, ...PERIODO })).toEqual({ rows: [], totalItems: 0 });
+    expect(contar("leituras")).toBe(1);
   });
 });
 
 describe("getColetasParaExportar", () => {
   it("pede LIMITE_EXPORTACAO + 1 linhas, para detectar truncamento sem um count a mais", async () => {
-    await getColetasParaExportar({});
+    await getColetasParaExportar(PERIODO);
 
     expect(ranges).toContainEqual({ tabela: "leituras", from: 0, to: LIMITE_EXPORTACAO });
   });
 
   it("mantem o mesmo desempate por id da listagem paginada", async () => {
-    await getColetasParaExportar({});
+    await getColetasParaExportar(PERIODO);
 
     expect(ordens).toEqual([
       { tabela: "leituras", coluna: "data_hora", ascending: false },
@@ -283,7 +311,7 @@ describe("getColetasParaExportar", () => {
   it("nao truncado quando o resultado cabe no limite", async () => {
     respostas.set("leituras", [{ id: 1, data_hora: "2026-01-01T00:00:00Z", visitas: null }]);
 
-    const { rows, truncado } = await getColetasParaExportar({});
+    const { rows, truncado } = await getColetasParaExportar(PERIODO);
 
     expect(rows).toHaveLength(1);
     expect(truncado).toBe(false);
@@ -292,17 +320,27 @@ describe("getColetasParaExportar", () => {
   it("truncado quando a consulta devolve um a mais que o limite", async () => {
     respostas.set(
       "leituras",
+      // Com area: o caso aqui e o corte da exportacao, nao o papel na visita
+      // (o duble ignora `.range`, e a busca das leituras paginaria para sempre).
       Array.from({ length: LIMITE_EXPORTACAO + 1 }, (_, i) => ({
         id: i,
         data_hora: "2026-01-01T00:00:00Z",
+        areas: { nome: "Início" },
         visitas: null,
       })),
     );
 
-    const { rows, truncado } = await getColetasParaExportar({});
+    const { rows, truncado } = await getColetasParaExportar(PERIODO);
 
     expect(rows).toHaveLength(LIMITE_EXPORTACAO);
     expect(truncado).toBe(true);
+  });
+
+  it("sem periodo exporta vazio, sem consultar -- a tela tambem nao mostra nada", async () => {
+    respostas.set("leituras", [{ id: 1, data_hora: "2026-01-01T00:00:00Z", visitas: null }]);
+
+    expect(await getColetasParaExportar({})).toEqual({ rows: [], truncado: false });
+    expect(contar("leituras")).toBe(0);
   });
 });
 
@@ -310,6 +348,7 @@ describe("toTableRow", () => {
   it("mapeia campos ausentes para string vazia, na ordem de TABLE_COLUMNS", () => {
     const linha = toTableRow({
       id: 1,
+      visita_id: 7,
       data_hora: "2026-08-05T14:30:00-03:00",
       observacao: null,
       data_integracao: null,
@@ -323,11 +362,15 @@ describe("toTableRow", () => {
 
     expect(linha).toHaveLength(11);
     expect(linha.every((campo) => campo === "" || typeof campo === "string")).toBe(true);
+    // Os dois padroes do dono valem mesmo sem nada do banco.
+    expect(linha[2]).toBe("Dispositivo Móvel");
+    expect(linha[7]).toBe("Inspeção");
   });
 
   it("preenche a partir dos relacionamentos quando presentes", () => {
     const linha = toTableRow({
       id: 1,
+      visita_id: 7,
       data_hora: "2026-08-05T14:30:00-03:00",
       observacao: "Portão trancado",
       data_integracao: null,
@@ -351,6 +394,100 @@ describe("toTableRow", () => {
     expect(linha[5]).toBe("Início");
     expect(linha[7]).toBe("Portão trancado");
   });
+
+  const DO_APP = {
+    id: 3,
+    visita_id: 81,
+    data_hora: "2026-09-30T11:55:18Z",
+    observacao: null,
+    data_integracao: null,
+    areas: null,
+    eventos: null,
+    acoes: null,
+    qualificadores: null,
+    qr_codes: null,
+    visitas: {
+      numero_coleta: "9ac5577a-83a9-4922-8372-f009ef1ac27e",
+      profiles: null,
+      coletores_dados: null,
+      sites: null,
+    },
+  };
+
+  it("coleta do app mostra o numero da visita, nao o UUID", () => {
+    expect(toTableRow(DO_APP)[0]).toBe("81");
+  });
+
+  it("area vazia usa o papel na visita; area gravada tem precedencia", () => {
+    expect(toTableRow({ ...DO_APP, papel: "Término" })[5]).toBe("Término");
+    expect(toTableRow({ ...DO_APP, papel: "Término", areas: { nome: "Início" } })[5]).toBe("Início");
+    expect(toTableRow(DO_APP)[5]).toBe("");
+  });
+
+  it("coletor e observacao gravados continuam valendo", () => {
+    const linha = toTableRow({
+      ...DO_APP,
+      observacao: "Portão trancado",
+      visitas: { ...DO_APP.visitas, coletores_dados: { nome: "Coletor 3" } },
+    });
+    expect(linha[2]).toBe("Coletor 3");
+    expect(linha[7]).toBe("Portão trancado");
+  });
+});
+
+describe("papeisNaVisita", () => {
+  it("primeira leitura e Inicio, ultima e Termino, as do meio ficam sem papel", () => {
+    const papeis = papeisNaVisita([
+      { id: 12, visita_id: 67, data_hora: "2026-09-25T18:54:28Z" },
+      { id: 14, visita_id: 67, data_hora: "2026-09-25T18:54:32Z" },
+      { id: 11, visita_id: 67, data_hora: "2026-09-25T18:54:24Z" },
+    ]);
+    expect(papeis.get(11)).toBe("Início");
+    expect(papeis.get(12)).toBeUndefined();
+    expect(papeis.get(14)).toBe("Término");
+  });
+
+  it("visita com uma leitura so tem Inicio", () => {
+    const papeis = papeisNaVisita([{ id: 5, visita_id: 75, data_hora: "2026-09-28T13:05:50Z" }]);
+    expect(papeis.get(5)).toBe("Início");
+    expect(papeis.size).toBe(1);
+  });
+
+  it("empate de horario desempata por id, e visitas nao se misturam", () => {
+    const papeis = papeisNaVisita([
+      { id: 21, visita_id: 1, data_hora: "2026-09-01T10:00:00Z" },
+      { id: 20, visita_id: 1, data_hora: "2026-09-01T10:00:00Z" },
+      { id: 30, visita_id: 2, data_hora: "2026-09-01T09:00:00Z" },
+    ]);
+    expect(papeis.get(20)).toBe("Início");
+    expect(papeis.get(21)).toBe("Término");
+    expect(papeis.get(30)).toBe("Início");
+  });
+});
+
+describe("getColetas: papel na visita", () => {
+  it("busca as leituras das visitas sem area e preenche Inicio/Termino", async () => {
+    respostas.set("leituras", [
+      { ...{ id: 1, visita_id: 9, data_hora: "2026-09-10T10:00:00Z" }, areas: null, visitas: null },
+      { ...{ id: 2, visita_id: 9, data_hora: "2026-09-10T11:00:00Z" }, areas: null, visitas: null },
+    ]);
+
+    const resultado = await getColetas({ pagina: 1, ...PERIODO });
+
+    expect(resultado!.rows.map((row) => row.papel)).toEqual(["Início", "Término"]);
+    // A listagem e a busca das leituras das visitas.
+    expect(contar("leituras")).toBe(2);
+  });
+
+  it("sem linha sem area, nao faz a consulta extra", async () => {
+    respostas.set("leituras", [
+      { id: 1, visita_id: 9, data_hora: "2026-09-10T10:00:00Z", areas: { nome: "Início" }, visitas: null },
+    ]);
+
+    await getColetas({ pagina: 1, ...PERIODO });
+
+    expect(contar("leituras")).toBe(1);
+  });
 });
 
 /**
@@ -372,8 +509,9 @@ describe("extrairFiltros: periodo torto na querystring", () => {
     expect(filtros.dataFinal).toBeUndefined();
     expect(filtros.horaInicial).toBeUndefined();
     expect(filtros.horaFinal).toBeUndefined();
-    // Descartado significa "sem limite", nao "limite invalido".
-    await getColetas(filtros);
+    // Descartado conta como data que falta: a tela pede o periodo, e nada de
+    // literal torto chega ao Postgres.
+    expect(await getColetas(filtros)).toBeNull();
     expect(limites).toEqual([]);
   });
 

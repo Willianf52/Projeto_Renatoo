@@ -48,7 +48,7 @@ export function ImportarGruposForm() {
       {resultado && resultado.pulados.length > 0 && (
         <ListaDeLinhas
           titulo="Linhas puladas"
-          itens={resultado.pulados.map((p) => ({ linha: p.linha, texto: `${p.nome} — ${p.motivo}` }))}
+          itens={resultado.pulados.map((p) => ({ linha: p.linha, texto: `${p.nome}: ${p.motivo}` }))}
         />
       )}
 

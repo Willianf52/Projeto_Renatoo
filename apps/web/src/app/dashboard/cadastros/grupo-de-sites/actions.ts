@@ -196,7 +196,7 @@ export async function salvarGrupoSite(
 
     if ((sitesVinculados?.length ?? 0) !== validacao.siteIds.length) {
       return {
-        erro: "O grupo foi salvo, mas não foi possível vincular todos os sites selecionados — você pode não ter permissão sobre eles, ou algum deixou de existir. Recarregue a página e confira.",
+        erro: "O grupo foi salvo, mas não foi possível vincular todos os sites selecionados. Você pode não ter permissão sobre eles, ou algum deixou de existir. Recarregue a página e confira.",
         valores,
       };
     }

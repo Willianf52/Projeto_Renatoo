@@ -382,7 +382,7 @@ async function lerRodapeDaFila(
 /** Mesma formatacao de `TelaDeInspecoes`: UTC do banco lido no fuso do aparelho. */
 function formatarData(iso: string): string {
   const data = new Date(iso);
-  if (Number.isNaN(data.getTime())) return "—";
+  if (Number.isNaN(data.getTime())) return "";
 
   return data.toLocaleString("pt-BR", {
     day: "2-digit",

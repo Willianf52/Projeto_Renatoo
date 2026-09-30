@@ -228,7 +228,7 @@ type FalhaDoBanco = { message: string; code?: string };
  */
 export function paraOInspetor(erro: FalhaDoBanco): string {
   if (erro.code === "PGRST301" || erro.code === "PGRST303" || /jwt/i.test(erro.message)) {
-    return "Sua sessão expirou. Saia e entre de novo para enviar — as leituras continuam salvas no aparelho.";
+    return "Sua sessão expirou. Saia e entre de novo para enviar. As leituras continuam salvas no aparelho.";
   }
 
   if (/network request failed|failed to fetch|fetch failed/i.test(erro.message)) {

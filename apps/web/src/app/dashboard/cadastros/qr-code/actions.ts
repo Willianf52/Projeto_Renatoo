@@ -24,7 +24,7 @@ const esquemaDeTexto = z.object({
      * na tela e nunca casa com o lote -- o tipo de defeito que ninguem liga
      * ao cadastro. Lista fechada de caracteres resolve sem inventar formato.
      */
-    .regex(/^[A-Za-z0-9._-]+$/, "O código aceita apenas letras, números, ponto, hífen e sublinhado — sem espaços."),
+    .regex(/^[A-Za-z0-9._-]+$/, "O código aceita apenas letras, números, ponto, hífen e sublinhado, sem espaços."),
   finalidade: z.string().max(200, "A finalidade deve ter no máximo 200 caracteres."),
 });
 

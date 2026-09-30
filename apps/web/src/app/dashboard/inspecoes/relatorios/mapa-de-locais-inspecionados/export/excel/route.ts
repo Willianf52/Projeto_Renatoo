@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const dados = (mapa?.linhas ?? []).map((linha) => paraLinhaDeExportacao(linha, dias));
 
   if (mapa?.diasExcedidos) {
-    dados.push(["…", "Resultado truncado — ajuste o período para reduzir o total", ...Array(colunas.length - 2).fill("")]);
+    dados.push(["…", "Resultado truncado: ajuste o período para reduzir o total", ...Array(colunas.length - 2).fill("")]);
   }
 
   return new Response(paraCsv(colunas, dados), {

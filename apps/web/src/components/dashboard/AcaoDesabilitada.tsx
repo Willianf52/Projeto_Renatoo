@@ -32,7 +32,7 @@ export function AcaoDesabilitada({
   className: string;
   children: React.ReactNode;
 }) {
-  const rotulo = `${titulo} — ${motivo}`;
+  const rotulo = `${titulo}: ${motivo}`;
   return (
     <button
       type="button"

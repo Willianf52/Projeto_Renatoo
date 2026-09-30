@@ -37,12 +37,16 @@ describe("DataTable", () => {
     expect(within(tabela).getByRole("cell", { name: "12" })).not.toHaveClass("sticky");
   });
 
-  it("celula vazia vira travessao, na tabela e no cartao", () => {
+  // Pedido do dono (30/09/2026): celula vazia fica vazia -- o travessao que
+  // a tabela desenhava era lido como um simbolo a mais, e nao como "nada".
+  it("celula vazia fica em branco, na tabela e no cartao", () => {
     render(<DataTable columns={COLUNAS} rows={LINHAS} />);
 
-    expect(within(screen.getByRole("table")).getByRole("cell", { name: "—" })).toBeInTheDocument();
+    const centro = within(screen.getByRole("table")).getByRole("cell", { name: "Loja Centro" }).closest("tr")!;
+    expect(within(centro).getAllByRole("cell")[2]).toHaveTextContent(/^$/);
+    expect(screen.queryByText("—")).toBeNull();
     const cartaoDoCentro = within(screen.getByRole("list")).getAllByRole("listitem")[1];
-    expect(within(cartaoDoCentro).getByText("—")).toBeInTheDocument();
+    expect(within(cartaoDoCentro).queryByText("—")).toBeNull();
   });
 
   it("cartao: primeira coluna vira titulo, as outras pares, e as acoes vao para o pe", () => {

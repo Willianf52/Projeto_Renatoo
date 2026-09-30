@@ -18,7 +18,7 @@ export default async function ExportarMapaDeEventosPdfPage({
 
   return (
     <TabelaImpressao
-      titulo={filtros.mes ? `Mapa de Eventos — ${filtros.mes.split("-").reverse().join("/")}` : "Mapa de Eventos"}
+      titulo={filtros.mes ? `Mapa de Eventos de ${filtros.mes.split("-").reverse().join("/")}` : "Mapa de Eventos"}
       colunas={TABLE_COLUMNS}
       linhas={mapa ? paraLinhasDeExportacao(mapa) : []}
       rodape={mapa ? linhaDeTotal(mapa) : undefined}

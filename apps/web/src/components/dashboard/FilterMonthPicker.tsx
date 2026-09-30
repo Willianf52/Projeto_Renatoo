@@ -69,7 +69,7 @@ export function FilterMonthPicker({
       {aberto && (
         <div
           role="dialog"
-          aria-label={`Selecionar mês — ${label}`}
+          aria-label={`Selecionar mês: ${label}`}
           className="absolute left-0 top-[calc(100%+4px)] z-20 w-56 rounded-md border border-slate-800 bg-brand-surface p-3 shadow-lg"
         >
           <div className="mb-2 flex items-center justify-between">

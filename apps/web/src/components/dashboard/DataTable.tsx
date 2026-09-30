@@ -152,7 +152,7 @@ export function DataTable({
                               : ""
                           } ${alinhamento(cellIndex)}`}
                         >
-                          {cell || "—"}
+                          {cell}
                         </td>
                       ))}
                     </tr>
@@ -253,12 +253,12 @@ function Cartoes({
     <ul aria-label={rotulo} className="animate-fade-in lg:hidden">
       {rows.map((row, rowIndex) => (
         <li key={rowIndex} className="border-b border-slate-800/60 px-4 py-4">
-          <p className="text-sm font-semibold text-white">{row[0] || "—"}</p>
+          <p className="text-sm font-semibold text-white">{row[0]}</p>
           <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
             {columns.map((column, indice) =>
               indice === 0 || indice === indiceDeAcoes ? null : (
                 <ParDoCartao key={column} rotulo={column} numerico={numericas.has(indice)}>
-                  {row[indice] || "—"}
+                  {row[indice]}
                 </ParDoCartao>
               ),
             )}

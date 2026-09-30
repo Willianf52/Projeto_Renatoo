@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const { rows, truncado } = await getGruposSitesParaExportar(busca);
   const linhas = rows.map(toTableRow);
   if (truncado) {
-    linhas.push(["…", "Resultado truncado — ajuste os filtros para reduzir o total", "", ""]);
+    linhas.push(["…", "Resultado truncado: ajuste os filtros para reduzir o total", "", ""]);
   }
 
   return new Response(paraCsv(TABLE_COLUMNS, linhas), {

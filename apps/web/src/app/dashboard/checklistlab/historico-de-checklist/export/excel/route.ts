@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   if (historico.truncado) {
     linhas.push([
       "…",
-      `Resultado limitado aos primeiros ${TETO_DO_HISTORICO} — ajuste os filtros para reduzir o total`,
+      `Resultado limitado aos primeiros ${TETO_DO_HISTORICO}: ajuste os filtros para reduzir o total`,
       ...Array(TABLE_COLUMNS.length - 2).fill(""),
     ]);
   }

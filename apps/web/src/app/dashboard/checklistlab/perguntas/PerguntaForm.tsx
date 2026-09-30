@@ -57,7 +57,7 @@ export function PerguntaForm({
         />
         <p className="mt-1.5 text-xs text-brand-muted">
           Define a sequência em que a pergunta aparece no celular do inspetor. Dois números não
-          podem se repetir — para encaixar uma pergunta no meio da lista, renumere as seguintes.
+          podem se repetir. Para encaixar uma pergunta no meio da lista, renumere as seguintes.
         </p>
       </div>
 
@@ -99,7 +99,7 @@ export function PerguntaForm({
           <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
         </div>
         <p className="mt-1.5 text-xs text-brand-muted">
-          Inativa some do checklist do app, mas as respostas já dadas continuam guardadas — é por
+          Inativa some do checklist do app, mas as respostas já dadas continuam guardadas. É por
           isso que não existe excluir aqui.
         </p>
       </div>

@@ -41,7 +41,7 @@ describe("FilterTimePicker", () => {
 
     await user.click(screen.getByRole("button", { name: "Hora Final" }));
 
-    expect(screen.getByRole("dialog", { name: "Horário — Hora Final" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Horário: Hora Final" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Hora" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Minuto" })).toBeInTheDocument();
   });

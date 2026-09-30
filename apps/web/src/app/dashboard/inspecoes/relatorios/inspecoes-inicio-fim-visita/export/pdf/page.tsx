@@ -22,7 +22,7 @@ export default async function ExportarInspecoesInicioFimVisitaPdfPage({
   const resultado = await getInspecoesComInicioEFim(filtros);
   const dados = (resultado?.linhas ?? []).map(paraLinhaDeExportacao);
   if (resultado?.truncado) {
-    dados.push(["…", "Resultado truncado — ajuste o período para reduzir o total", ...Array(TABLE_COLUMNS.length - 2).fill("")]);
+    dados.push(["…", "Resultado truncado: ajuste o período para reduzir o total", ...Array(TABLE_COLUMNS.length - 2).fill("")]);
   }
 
   return (

@@ -34,7 +34,7 @@ export function TabelaImpressao({
       <h1 className="mb-1 text-lg font-semibold">{titulo}</h1>
       <p className="mb-4 text-xs text-slate-600">
         {linhas.length} {linhas.length === 1 ? "registro" : "registros"}
-        {truncado && ` — limitado aos primeiros ${limite}, ajuste os filtros para reduzir o total`}
+        {truncado && `, limitado aos primeiros ${limite}. Ajuste os filtros para reduzir o total`}
       </p>
 
       <table className="w-full border-collapse text-xs">
