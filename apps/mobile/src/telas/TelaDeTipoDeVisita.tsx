@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ROTULO_DO_TIPO, TIPOS_DE_VISITA, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { IconeDeFerramenta, IconeDePessoa, IconeDeSeta } from "../componentes/icones";
-import { cores, espaco, raio, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
 /**
  * Escolha do tipo de visita, antes do checklist.
@@ -75,7 +75,7 @@ export function TelaDeTipoDeVisita({
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: cores.fundo },
-  conteudo: { padding: espaco.interno, gap: espaco.entreItens },
+  conteudo: { ...colunaDeLeitura, padding: espaco.interno, gap: espaco.entreItens },
 
   titulo: texto(tipografia.titulo, { cor: cores.texto }),
   subtitulo: {

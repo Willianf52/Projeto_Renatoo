@@ -25,7 +25,7 @@ import { sincronizar } from "../campo/sincronizacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { capturarErro } from "../lib/observabilidade";
-import { cores, espaco, raio, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
 /**
  * O que abre ao tocar em "Inspecao": a camera da RONDA.
@@ -373,7 +373,7 @@ function SemCamera({
 
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: cores.fundo },
-  conteudo: { padding: espaco.interno, gap: espaco.entreItens },
+  conteudo: { ...colunaDeLeitura, padding: espaco.interno, gap: espaco.entreItens },
 
   // Quadrada: o QR e quadrado, e uma moldura alta so mostraria mais chao.
   moldura: {

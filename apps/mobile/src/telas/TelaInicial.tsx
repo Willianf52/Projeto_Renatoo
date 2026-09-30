@@ -18,7 +18,7 @@ import {
 import { contarPendentes, ultimaSincronizacao } from "../campo/fila";
 import { sincronizar } from "../campo/sincronizacao";
 import { supabase } from "../lib/supabase";
-import { cores, espaco, raio, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 import app from "../../app.json";
 
 /**
@@ -190,22 +190,27 @@ export function TelaInicial() {
   return (
     <View style={estilos.raiz}>
       <View style={[estilos.cabecalho, { paddingTop: bordas.top + espaco.entreItens }]}>
-        <View style={estilos.barra}>
-          <Marca altura={28} />
-          <Pressable
-            onPress={() => void sairComGuarda()}
-            accessibilityRole="button"
-            hitSlop={8}
-            style={({ pressed }) => [estilos.sair, pressed && estilos.sairPressionado]}
-          >
-            <Text style={estilos.sairTexto}>Sair</Text>
-          </Pressable>
-        </View>
+        {/* A faixa do cabecalho vai de borda a borda; o que esta dentro dela
+            segue a coluna de leitura, para a marca e o nome alinharem com os
+            cartoes embaixo no tablet. */}
+        <View style={estilos.cabecalhoMiolo}>
+          <View style={estilos.barra}>
+            <Marca altura={28} />
+            <Pressable
+              onPress={() => void sairComGuarda()}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => [estilos.sair, pressed && estilos.sairPressionado]}
+            >
+              <Text style={estilos.sairTexto}>Sair</Text>
+            </Pressable>
+          </View>
 
-        <Text style={estilos.pergunta}>O que você deseja fazer?</Text>
-        <Text style={estilos.nome} numberOfLines={1}>
-          {nome}
-        </Text>
+          <Text style={estilos.pergunta}>O que você deseja fazer?</Text>
+          <Text style={estilos.nome} numberOfLines={1}>
+            {nome}
+          </Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={estilos.conteudo}>
@@ -395,10 +400,9 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.superficie,
     borderBottomWidth: 1,
     borderBottomColor: cores.borda,
-    paddingHorizontal: espaco.interno,
     paddingBottom: espaco.interno,
-    gap: espaco.minimo,
   },
+  cabecalhoMiolo: { ...colunaDeLeitura, paddingHorizontal: espaco.interno, gap: espaco.minimo },
   barra: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sair: { paddingVertical: espaco.rotulo, paddingHorizontal: espaco.minimo, borderRadius: raio.medio },
   sairPressionado: { opacity: 0.6 },
@@ -406,7 +410,7 @@ const estilos = StyleSheet.create({
   pergunta: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), marginTop: espaco.minimo },
   nome: texto(tipografia.subtitulo, { cor: cores.texto }),
 
-  conteudo: { padding: espaco.interno, gap: espaco.entreItens },
+  conteudo: { ...colunaDeLeitura, padding: espaco.interno, gap: espaco.entreItens },
   grade: { flexDirection: "row", gap: espaco.entreItens },
   // O terceiro cartao sozinho na linha, centralizado e com a largura de um dos
   // de cima -- e a forma do original, e ela nao e enfeite: "Sincronizar" e a

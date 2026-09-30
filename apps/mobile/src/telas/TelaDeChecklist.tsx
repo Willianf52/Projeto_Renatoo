@@ -44,7 +44,7 @@ import { enviarChecklist, type MidiaJaEnviada } from "../lib/envio-de-checklist"
 import { capturarErro } from "../lib/observabilidade";
 import { reduzirFoto } from "../lib/reduzir-foto";
 import { supabase } from "../lib/supabase";
-import { cores, espaco, raio, texto, tipografia } from "../tema";
+import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
 type Pergunta = Pick<Tables<"perguntas_checklist">, "id" | "ordem" | "texto">;
 
@@ -642,67 +642,71 @@ export function TelaDeChecklist({
           falta fica escrito ao lado dele -- antes, numa consultoria de dez
           perguntas, o inspetor so descobria a pendencia rolando ate o fim. */}
       <View style={[estilos.rodape, { paddingBottom: espaco.interno + bordas.bottom }]}>
-        {progresso ? (
-          <View style={estilos.progresso}>
-            <View
-              style={estilos.trilho}
-              accessibilityRole="progressbar"
-              accessibilityLabel="Perguntas respondidas"
-              accessibilityValue={{ min: 0, max: progresso.total, now: progresso.respondidas }}
-            >
+        {/* Miolo na coluna de leitura: a barra vai de borda a borda, mas
+            botao e resumo ficam alinhados com o formulario em cima. */}
+        <View style={estilos.rodapeMiolo}>
+          {progresso ? (
+            <View style={estilos.progresso}>
               <View
-                style={[
-                  estilos.preenchimento,
-                  { width: `${(progresso.respondidas / progresso.total) * 100}%` },
-                ]}
-              />
+                style={estilos.trilho}
+                accessibilityRole="progressbar"
+                accessibilityLabel="Perguntas respondidas"
+                accessibilityValue={{ min: 0, max: progresso.total, now: progresso.respondidas }}
+              >
+                <View
+                  style={[
+                    estilos.preenchimento,
+                    { width: `${(progresso.respondidas / progresso.total) * 100}%` },
+                  ]}
+                />
+              </View>
+              <Text style={estilos.contagem}>
+                {progresso.respondidas}/{progresso.total}
+              </Text>
             </View>
-            <Text style={estilos.contagem}>
-              {progresso.respondidas}/{progresso.total}
-            </Text>
-          </View>
-        ) : null}
+          ) : null}
 
-        {/* O "Desfazer" mora aqui, no lugar da linha de resumo e com a mesma
-            altura, e nao na secao de fotos: la, quando a janela fechava, o
-            "Tirar foto" subia para onde ele estava e o toque atrasado abria a
-            camera. Aqui, sumir nao move nada -- o toque atrasado cai no texto
-            do resumo, que nao faz nada. */}
-        {temRemocaoPendente ? (
-          <View style={estilos.desfazer} accessibilityLiveRegion="polite">
-            <Text style={estilos.resumo}>Foto removida.</Text>
-            <Pressable
-              onPress={desfazerRemocao}
-              hitSlop={espaco.entreItens}
-              accessibilityRole="button"
-              accessibilityLabel="Desfazer remoção da foto"
+          {/* O "Desfazer" mora aqui, no lugar da linha de resumo e com a mesma
+              altura, e nao na secao de fotos: la, quando a janela fechava, o
+              "Tirar foto" subia para onde ele estava e o toque atrasado abria a
+              camera. Aqui, sumir nao move nada -- o toque atrasado cai no texto
+              do resumo, que nao faz nada. */}
+          {temRemocaoPendente ? (
+            <View style={estilos.desfazer} accessibilityLiveRegion="polite">
+              <Text style={estilos.resumo}>Foto removida.</Text>
+              <Pressable
+                onPress={desfazerRemocao}
+                hitSlop={espaco.entreItens}
+                accessibilityRole="button"
+                accessibilityLabel="Desfazer remoção da foto"
+              >
+                <Text style={estilos.desfazerAcao}>Desfazer</Text>
+              </Pressable>
+            </View>
+          ) : erroVisivel ? (
+            <Aviso mensagem={erroVisivel} />
+          ) : (
+            <Text
+              style={[estilos.resumo, pendencias.length === 0 && estilos.resumoPronto]}
+              accessibilityLiveRegion="polite"
             >
-              <Text style={estilos.desfazerAcao}>Desfazer</Text>
-            </Pressable>
-          </View>
-        ) : erroVisivel ? (
-          <Aviso mensagem={erroVisivel} />
-        ) : (
-          <Text
-            style={[estilos.resumo, pendencias.length === 0 && estilos.resumoPronto]}
-            accessibilityLiveRegion="polite"
-          >
-            {textoDoResumo(pendencias)}
-          </Text>
-        )}
+              {textoDoResumo(pendencias)}
+            </Text>
+          )}
 
-        <Botao
-          titulo="Finalizar visita"
-          larguraTotal
-          carregando={enviando}
-          // Nao desabilitado por campo faltando, de proposito: um botao
-          // inerte nao diz *o que* falta. Ele envia e a validacao acima
-          // aponta a pendencia -- que e o comportamento do formulario de
-          // login do painel.
-          aoPressionar={() => {
-            void enviar();
-          }}
-        />
+          <Botao
+            titulo="Finalizar visita"
+            larguraTotal
+            carregando={enviando}
+            // Nao desabilitado por campo faltando, de proposito: um botao
+            // inerte nao diz *o que* falta. Ele envia e a validacao acima
+            // aponta a pendencia -- que e o comportamento do formulario de
+            // login do painel.
+            aoPressionar={() => {
+              void enviar();
+            }}
+          />
+        </View>
       </View>
 
       <Modal
@@ -772,7 +776,7 @@ async function lerPerguntas(): Promise<{ perguntas: Pergunta[]; erro: string | n
 const estilos = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: cores.fundo },
   rolagem: { flex: 1 },
-  conteudo: { padding: espaco.interno, paddingBottom: espaco.secao },
+  conteudo: { ...colunaDeLeitura, padding: espaco.interno, paddingBottom: espaco.secao },
   titulo: texto(tipografia.titulo, { cor: cores.texto }),
   subtitulo: {
     ...texto(tipografia.apoio, { cor: cores.textoFraco }),
@@ -832,13 +836,13 @@ const estilos = StyleSheet.create({
   desfazerAcao: texto(tipografia.botaoDenso, { cor: cores.primaria }),
 
   rodape: {
-    gap: espaco.entreItens,
     paddingHorizontal: espaco.interno,
     paddingTop: espaco.entreItens,
     borderTopWidth: 1,
     borderTopColor: cores.borda,
     backgroundColor: cores.fundo,
   },
+  rodapeMiolo: { ...colunaDeLeitura, gap: espaco.entreItens },
   progresso: { flexDirection: "row", alignItems: "center", gap: espaco.minimo },
   trilho: {
     flex: 1,

@@ -1,4 +1,4 @@
-import type { TextStyle } from "react-native";
+import type { TextStyle, ViewStyle } from "react-native";
 // Importados um a um pelo caminho do peso, e nao do indice do pacote: o
 // indice reexporta as 18 variantes da Inter (nove pesos, cada um com italico),
 // e o Metro empacota tudo que o modulo importado alcanca. Pelo indice, o APK
@@ -8,7 +8,7 @@ import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
-import { cores, espaco, raio, tipografia } from "@projeto-renatoo/shared";
+import { cores, espaco, larguraMaxima, raio, tipografia } from "@projeto-renatoo/shared";
 
 /**
  * Tema do app de campo.
@@ -21,7 +21,19 @@ import { cores, espaco, raio, tipografia } from "@projeto-renatoo/shared";
  *
  * Reexportados para a tela nao precisar saber de onde cada um vem.
  */
-export { cores, espaco, raio, tipografia };
+export { cores, espaco, larguraMaxima, raio, tipografia };
+
+/**
+ * Coluna de conteudo centralizada com a largura de leitura -- o `max-w-3xl
+ * mx-auto` do painel. Vai no `contentContainerStyle` das telas que rolam e no
+ * miolo de barras fixas (o rodape do checklist), para o conteudo e o botao
+ * dele ficarem alinhados no tablet.
+ */
+export const colunaDeLeitura: ViewStyle = {
+  width: "100%",
+  maxWidth: larguraMaxima.leitura,
+  alignSelf: "center",
+};
 
 /**
  * O mapa que o `useFonts` carrega na abertura. A chave e o nome pelo qual

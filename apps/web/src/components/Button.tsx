@@ -19,8 +19,13 @@ const BASE_CLASSES =
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary:
     "bg-brand-green text-brand-navy shadow-sm hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus-visible:ring-brand-green disabled:hover:shadow-sm",
+  // `bg-white/5` e nao `bg-brand-navy` no hover: o navy so aparecia com o
+  // botao em cima de um cartao (superficie); direto no fundo da pagina, que ja
+  // e navy, o hover nao mudava nada. O branco translucido e o mesmo realce de
+  // linha da DataTable e funciona sobre os dois fundos. A borda sobe para
+  // slate-700, o hover de borda dos campos (`FormField`).
   secondary:
-    "border border-slate-800 text-brand-muted hover:bg-brand-navy hover:text-white focus-visible:ring-slate-600",
+    "border border-slate-800 text-brand-muted hover:border-slate-700 hover:bg-white/5 hover:text-white focus-visible:ring-slate-600",
   danger:
     "border border-red-500/40 text-red-300 hover:border-red-500 hover:bg-red-500/10 focus-visible:ring-red-500/40",
 };
