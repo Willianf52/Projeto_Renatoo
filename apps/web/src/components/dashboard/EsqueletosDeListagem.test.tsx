@@ -47,9 +47,19 @@ describe("EsqueletosDeListagem", () => {
 
   it("TabelaEsqueleto: linhas x colunas, na largura minima da DataTable", () => {
     const html = renderToStaticMarkup(<TabelaEsqueleto colunas={4} linhas={3} minWidth="min-w-[800px]" />);
+    const [tabela] = html.split('<div class="lg:hidden">');
 
-    expect(blocosPulsantes(html)).toBe(12);
+    expect(blocosPulsantes(tabela)).toBe(12);
+    expect(tabela).toContain("hidden overflow-x-auto lg:block");
     expect(html).toContain("min-w-[800px]");
+  });
+
+  it("TabelaEsqueleto: abaixo de lg, um cartao por linha, como a DataTable", () => {
+    const html = renderToStaticMarkup(<TabelaEsqueleto colunas={4} linhas={3} />);
+    const [, cartoes] = html.split('<div class="lg:hidden">');
+
+    // Titulo + dois pares por cartao, independente do numero de colunas.
+    expect(blocosPulsantes(cartoes)).toBe(9);
   });
 
   it("FormularioEsqueleto: rotulo e campo por campo, mais os dois botoes", () => {
