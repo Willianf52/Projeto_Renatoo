@@ -82,8 +82,11 @@ export type FilterOptions = {
   checkpoints: FilterOption[];
 };
 
+export type PapelNaVisita = "Início" | "Término";
+
 export type ColetaRow = {
   id: number;
+  visita_id: number;
   data_hora: string;
   observacao: string | null;
   data_integracao: string | null;
@@ -98,6 +101,11 @@ export type ColetaRow = {
     coletores_dados: { nome: string } | null;
     sites: { nome: string } | null;
   } | null;
+  /**
+   * Nao vem do banco: calculado por `completarPapeisNaVisita` para leitura sem
+   * area (as do app de campo). Ver `papeisNaVisita`.
+   */
+  papel?: PapelNaVisita;
 };
 
 function toOptions<T extends Record<string, unknown>>(
@@ -232,6 +240,7 @@ export function __limparCacheDeReferencias() {
 export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boolean): string {
   return `
       id,
+      visita_id,
       data_hora,
       observacao,
       data_integracao,
@@ -357,7 +366,8 @@ export async function getColetas(filtros: ColetaFiltros): Promise<{
   const { data, error, count } = await query;
   if (error) throw error;
 
-  return { rows: (data ?? []) as unknown as ColetaRow[], totalItems: count ?? 0 };
+  const rows = await completarPapeisNaVisita(supabase, (data ?? []) as unknown as ColetaRow[]);
+  return { rows, totalItems: count ?? 0 };
 }
 
 /**
@@ -393,7 +403,78 @@ export async function getColetasParaExportar(
   const { data, error } = await query;
   if (error) throw error;
 
-  return resultadoExportacao((data ?? []) as unknown as ColetaRow[]);
+  const { rows, truncado } = resultadoExportacao((data ?? []) as unknown as ColetaRow[]);
+  return { rows: await completarPapeisNaVisita(supabase, rows), truncado };
+}
+
+/**
+ * Inicio e Termino da leitura que nao tem area (pedido do dono, 30/09/2026).
+ *
+ * As leituras importadas do sistema antigo ja chegam com a area "Inicio" ou
+ * "Termino". As do app de campo nao tem area nenhuma -- o QR so diz o ponto --,
+ * e a coluna ficava vazia. A regra escolhida pelo dono: na visita, a primeira
+ * leitura e Inicio e a ultima e Termino; com uma leitura so, so Inicio; as do
+ * meio ficam sem papel. Empate de horario desempata por id, como a listagem.
+ *
+ * Pura, e recebe TODAS as leituras das visitas: a primeira e a ultima podem
+ * estar fora da pagina ou do periodo filtrado.
+ */
+export function papeisNaVisita(
+  leituras: { id: number; visita_id: number; data_hora: string }[],
+): Map<number, PapelNaVisita> {
+  const porVisita = new Map<number, { id: number; instante: number }[]>();
+  for (const leitura of leituras) {
+    const daVisita = porVisita.get(leitura.visita_id) ?? [];
+    daVisita.push({ id: leitura.id, instante: Date.parse(leitura.data_hora) });
+    porVisita.set(leitura.visita_id, daVisita);
+  }
+
+  const papeis = new Map<number, PapelNaVisita>();
+  for (const daVisita of porVisita.values()) {
+    daVisita.sort((a, b) => a.instante - b.instante || a.id - b.id);
+    papeis.set(daVisita[0].id, "Início");
+    if (daVisita.length > 1) papeis.set(daVisita[daVisita.length - 1].id, "Término");
+  }
+  return papeis;
+}
+
+/** Teto de linhas por resposta do PostgREST (`max_rows` do config.toml). */
+const LINHAS_POR_RESPOSTA = 1000;
+
+/** Visitas por `.in(...)`: a lista vai na URL, e URL longa demais e recusada. */
+const VISITAS_POR_CONSULTA = 100;
+
+/**
+ * Preenche `papel` nas linhas sem area. Busca as leituras das visitas dessas
+ * linhas (so id, visita e horario) em lotes, paginando cada lote -- sem isso
+ * o teto do PostgREST cortaria a ultima leitura de uma ronda longa em
+ * silencio e o Termino cairia na leitura errada.
+ */
+async function completarPapeisNaVisita(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  rows: ColetaRow[],
+): Promise<ColetaRow[]> {
+  const visitas = [...new Set(rows.filter((row) => !row.areas).map((row) => row.visita_id))];
+  if (visitas.length === 0) return rows;
+
+  const leituras: { id: number; visita_id: number; data_hora: string }[] = [];
+  for (let i = 0; i < visitas.length; i += VISITAS_POR_CONSULTA) {
+    const lote = visitas.slice(i, i + VISITAS_POR_CONSULTA);
+    for (let de = 0; ; de += LINHAS_POR_RESPOSTA) {
+      const { data, error } = await supabase
+        .from("leituras")
+        .select("id, visita_id, data_hora")
+        .in("visita_id", lote)
+        .order("id", { ascending: true })
+        .range(de, de + LINHAS_POR_RESPOSTA - 1);
+      if (error) throw error;
+      leituras.push(...((data ?? []) as { id: number; visita_id: number; data_hora: string }[]));
+      if ((data ?? []).length < LINHAS_POR_RESPOSTA) break;
+    }
+  }
+
+  const papeis = papeisNaVisita(leituras);
+  return rows.map((row) => (row.areas ? row : { ...row, papel: papeis.get(row.id) }));
 }
 
 // Reexportada para as telas e rotas que ja consumiam daqui nao terem que saber
@@ -402,20 +483,36 @@ export async function getColetasParaExportar(
 export { formatarDataHora };
 
 /**
+ * O que a coluna Coleta mostra. O lote importado grava o numero inteiro do
+ * sistema de origem (ex.: 1817), e ele continua aparecendo. O app de campo
+ * grava um UUID (migration 0047) -- 36 caracteres que ninguem le nem
+ * procura --, entao no lugar dele vai o numero da visita, curto e unico
+ * (pedido do dono, 30/09/2026). O UUID segue no banco como chave de
+ * idempotencia; so deixa de ser exibido.
+ */
+function codigoDaColeta(leitura: ColetaRow): string {
+  const numero = leitura.visitas?.numero_coleta ?? "";
+  return /^\d+$/.test(numero) ? numero : String(leitura.visita_id);
+}
+
+/**
  * Colunas de texto da linha, na mesma ordem de `TABLE_COLUMNS` em
  * `page.tsx`. Reaproveitada pelas exportacoes de Excel/PDF para nao duplicar
  * o mapeamento campo a campo.
  */
 export function toTableRow(leitura: ColetaRow): string[] {
   return [
-    leitura.visitas?.numero_coleta ?? "",
+    codigoDaColeta(leitura),
     formatarDataHora(leitura.data_hora),
-    leitura.visitas?.coletores_dados?.nome ?? "",
+    // Padroes pedidos pelo dono (30/09/2026) para as leituras do app de
+    // campo, que nao gravam coletor nem observacao: toda coleta hoje vem do
+    // celular, e toda leitura do app e parte de uma inspecao.
+    leitura.visitas?.coletores_dados?.nome || "Dispositivo Móvel",
     leitura.visitas?.profiles?.nome_completo ?? "",
     leitura.visitas?.sites?.nome ?? "",
-    leitura.areas?.nome ?? "",
+    leitura.areas?.nome ?? leitura.papel ?? "",
     leitura.eventos?.nome ?? "",
-    leitura.observacao ?? "",
+    leitura.observacao || "Inspeção",
     leitura.acoes?.nome ?? "",
     leitura.qualificadores?.nome ?? "",
     formatarDataHora(leitura.data_integracao),

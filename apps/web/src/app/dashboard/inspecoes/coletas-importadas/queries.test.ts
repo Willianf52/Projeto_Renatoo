@@ -10,6 +10,7 @@ type Limite = { operador: "gte" | "lt" | "lte"; coluna: string; valor: string };
 type Chain = {
   select: (colunas?: string, opcoes?: { count?: string }) => Chain;
   eq: () => Chain;
+  in: () => Chain;
   not: () => Chain;
   is: () => Chain;
   gte: (coluna: string, valor: string) => Chain;
@@ -38,6 +39,7 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
             return chain;
           },
           eq: () => chain,
+          in: () => chain,
           not: () => chain,
           is: () => chain,
           gte: (coluna, valor) => {
@@ -81,6 +83,7 @@ const {
   getColetasParaExportar,
   getFilterOptions,
   montarSelectDeColetas,
+  papeisNaVisita,
   toTableRow,
   LIMITE_EXPORTACAO,
   __limparCacheDeReferencias,
@@ -317,9 +320,12 @@ describe("getColetasParaExportar", () => {
   it("truncado quando a consulta devolve um a mais que o limite", async () => {
     respostas.set(
       "leituras",
+      // Com area: o caso aqui e o corte da exportacao, nao o papel na visita
+      // (o duble ignora `.range`, e a busca das leituras paginaria para sempre).
       Array.from({ length: LIMITE_EXPORTACAO + 1 }, (_, i) => ({
         id: i,
         data_hora: "2026-01-01T00:00:00Z",
+        areas: { nome: "Início" },
         visitas: null,
       })),
     );
@@ -342,6 +348,7 @@ describe("toTableRow", () => {
   it("mapeia campos ausentes para string vazia, na ordem de TABLE_COLUMNS", () => {
     const linha = toTableRow({
       id: 1,
+      visita_id: 7,
       data_hora: "2026-08-05T14:30:00-03:00",
       observacao: null,
       data_integracao: null,
@@ -355,11 +362,15 @@ describe("toTableRow", () => {
 
     expect(linha).toHaveLength(11);
     expect(linha.every((campo) => campo === "" || typeof campo === "string")).toBe(true);
+    // Os dois padroes do dono valem mesmo sem nada do banco.
+    expect(linha[2]).toBe("Dispositivo Móvel");
+    expect(linha[7]).toBe("Inspeção");
   });
 
   it("preenche a partir dos relacionamentos quando presentes", () => {
     const linha = toTableRow({
       id: 1,
+      visita_id: 7,
       data_hora: "2026-08-05T14:30:00-03:00",
       observacao: "Portão trancado",
       data_integracao: null,
@@ -382,6 +393,100 @@ describe("toTableRow", () => {
     expect(linha[4]).toBe("Cooplivre");
     expect(linha[5]).toBe("Início");
     expect(linha[7]).toBe("Portão trancado");
+  });
+
+  const DO_APP = {
+    id: 3,
+    visita_id: 81,
+    data_hora: "2026-09-30T11:55:18Z",
+    observacao: null,
+    data_integracao: null,
+    areas: null,
+    eventos: null,
+    acoes: null,
+    qualificadores: null,
+    qr_codes: null,
+    visitas: {
+      numero_coleta: "9ac5577a-83a9-4922-8372-f009ef1ac27e",
+      profiles: null,
+      coletores_dados: null,
+      sites: null,
+    },
+  };
+
+  it("coleta do app mostra o numero da visita, nao o UUID", () => {
+    expect(toTableRow(DO_APP)[0]).toBe("81");
+  });
+
+  it("area vazia usa o papel na visita; area gravada tem precedencia", () => {
+    expect(toTableRow({ ...DO_APP, papel: "Término" })[5]).toBe("Término");
+    expect(toTableRow({ ...DO_APP, papel: "Término", areas: { nome: "Início" } })[5]).toBe("Início");
+    expect(toTableRow(DO_APP)[5]).toBe("");
+  });
+
+  it("coletor e observacao gravados continuam valendo", () => {
+    const linha = toTableRow({
+      ...DO_APP,
+      observacao: "Portão trancado",
+      visitas: { ...DO_APP.visitas, coletores_dados: { nome: "Coletor 3" } },
+    });
+    expect(linha[2]).toBe("Coletor 3");
+    expect(linha[7]).toBe("Portão trancado");
+  });
+});
+
+describe("papeisNaVisita", () => {
+  it("primeira leitura e Inicio, ultima e Termino, as do meio ficam sem papel", () => {
+    const papeis = papeisNaVisita([
+      { id: 12, visita_id: 67, data_hora: "2026-09-25T18:54:28Z" },
+      { id: 14, visita_id: 67, data_hora: "2026-09-25T18:54:32Z" },
+      { id: 11, visita_id: 67, data_hora: "2026-09-25T18:54:24Z" },
+    ]);
+    expect(papeis.get(11)).toBe("Início");
+    expect(papeis.get(12)).toBeUndefined();
+    expect(papeis.get(14)).toBe("Término");
+  });
+
+  it("visita com uma leitura so tem Inicio", () => {
+    const papeis = papeisNaVisita([{ id: 5, visita_id: 75, data_hora: "2026-09-28T13:05:50Z" }]);
+    expect(papeis.get(5)).toBe("Início");
+    expect(papeis.size).toBe(1);
+  });
+
+  it("empate de horario desempata por id, e visitas nao se misturam", () => {
+    const papeis = papeisNaVisita([
+      { id: 21, visita_id: 1, data_hora: "2026-09-01T10:00:00Z" },
+      { id: 20, visita_id: 1, data_hora: "2026-09-01T10:00:00Z" },
+      { id: 30, visita_id: 2, data_hora: "2026-09-01T09:00:00Z" },
+    ]);
+    expect(papeis.get(20)).toBe("Início");
+    expect(papeis.get(21)).toBe("Término");
+    expect(papeis.get(30)).toBe("Início");
+  });
+});
+
+describe("getColetas: papel na visita", () => {
+  it("busca as leituras das visitas sem area e preenche Inicio/Termino", async () => {
+    respostas.set("leituras", [
+      { ...{ id: 1, visita_id: 9, data_hora: "2026-09-10T10:00:00Z" }, areas: null, visitas: null },
+      { ...{ id: 2, visita_id: 9, data_hora: "2026-09-10T11:00:00Z" }, areas: null, visitas: null },
+    ]);
+
+    const resultado = await getColetas({ pagina: 1, ...PERIODO });
+
+    expect(resultado!.rows.map((row) => row.papel)).toEqual(["Início", "Término"]);
+    // A listagem e a busca das leituras das visitas.
+    expect(contar("leituras")).toBe(2);
+  });
+
+  it("sem linha sem area, nao faz a consulta extra", async () => {
+    respostas.set("leituras", [
+      { id: 1, visita_id: 9, data_hora: "2026-09-10T10:00:00Z", areas: { nome: "Início" }, visitas: null },
+    ]);
+
+    await getColetas({ pagina: 1, ...PERIODO });
+
+    expect(contar("leituras")).toBe(1);
   });
 });
 
