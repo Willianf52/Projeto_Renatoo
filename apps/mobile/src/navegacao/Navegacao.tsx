@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ROTULO_DO_TIPO, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { useSessao } from "../auth/SessaoProvider";
+import type { SiteParaVisita } from "../campo/visita-pelo-site";
 import { useFaixa } from "../componentes/Faixa";
 import { usePisoDeVersao } from "../lib/usePisoDeVersao";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
@@ -25,15 +26,22 @@ import { cores } from "../tema";
  * `Checklist` recebe `numeroColeta` alem do `visitaId` de proposito: com so o
  * id, a tela abriria sem titulo enquanto busca a visita de novo -- um round
  * trip para redesenhar o que a lista de onde se veio ja tinha na mao.
+ *
+ * `visitaId: null` com `site` e o checklist aberto pelo "Ver sites": a visita
+ * ainda nao existe e so e criada no envio -- ver `campo/visita-pelo-site.ts`.
  */
+export type AlvoDoChecklist =
+  | { visitaId: number; numeroColeta: string; site?: undefined }
+  | { visitaId: null; numeroColeta: string; site: SiteParaVisita };
+
 export type RotasDoApp = {
   Inicio: undefined;
   Leitura: undefined;
   Sites: undefined;
   Inspecoes: undefined;
   Agendados: undefined;
-  TipoDeVisita: { visitaId: number; numeroColeta: string };
-  Checklist: { visitaId: number; numeroColeta: string; tipo: TipoDeVisita };
+  TipoDeVisita: AlvoDoChecklist;
+  Checklist: AlvoDoChecklist & { tipo: TipoDeVisita };
 };
 
 const Pilha = createNativeStackNavigator<RotasDoApp>();
@@ -200,6 +208,7 @@ export function Navegacao() {
           {({ route, navigation }) => (
             <TelaDeChecklist
               visitaId={route.params.visitaId}
+              site={route.params.site}
               numeroColeta={route.params.numeroColeta}
               tipo={route.params.tipo}
               // `pop(2)` e nao `goBack`: ha duas telas entre a origem (a lista

@@ -34,6 +34,7 @@ import {
   type Pendencia,
 } from "../campo/pendencias-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
+import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
@@ -72,11 +73,17 @@ const DURACAO_DO_DESFAZER = 5000;
  */
 export function TelaDeChecklist({
   visitaId,
+  site,
   numeroColeta,
   tipo,
   aoConcluir,
 }: {
-  visitaId: number;
+  /**
+   * `null` quando o checklist veio do "Ver sites": a visita so e criada no
+   * envio (ver `campo/visita-pelo-site.ts`), e ate la `site` diz onde.
+   */
+  visitaId: number | null;
+  site?: SiteParaVisita;
   numeroColeta: string;
   /**
    * Escolhido na tela anterior (`TelaDeTipoDeVisita`), e nao aqui: e o fluxo
@@ -90,6 +97,16 @@ export function TelaDeChecklist({
 }) {
   const { sessao } = useSessao();
   const funcionarioId = sessao?.user.id ?? null;
+
+  /**
+   * Chave do rascunho e da pasta das fotos. Sem visita ainda, e o id do site
+   * negativado -- ids de visita sao positivos, entao as duas nunca colidem, e
+   * voltar ao mesmo site pelo "Ver sites" recupera o que ficou preenchido.
+   */
+  const chave = visitaId ?? -(site?.id ?? 0);
+
+  /** A visita do envio: a da rota, ou a criada no primeiro "Finalizar". */
+  const visitaCriada = useRef<number | null>(visitaId);
 
   const [motivo, setMotivo] = useState("");
   // `null` e "ainda nao buscadas", `[]` e "buscadas e nao ha nenhuma". Os dois
@@ -174,7 +191,7 @@ export function TelaDeChecklist({
     if (!funcionarioId) return;
     let ativo = true;
 
-    lerRascunho(visitaId, funcionarioId)
+    lerRascunho(chave, funcionarioId)
       .then((rascunho) => {
         if (!ativo || !rascunho) return;
         setMotivo(rascunho.motivo);
@@ -184,7 +201,7 @@ export function TelaDeChecklist({
       .catch((falha) => {
         // Rascunho ilegivel nao impede de preencher: a tela abre vazia, como
         // abria antes de o rascunho existir.
-        capturarErro(falha, { onde: "lerRascunho", visita: String(visitaId) });
+        capturarErro(falha, { onde: "lerRascunho", visita: String(chave) });
       })
       .finally(() => {
         if (ativo) setRascunhoLido(true);
@@ -193,7 +210,7 @@ export function TelaDeChecklist({
     return () => {
       ativo = false;
     };
-  }, [visitaId, funcionarioId]);
+  }, [chave, funcionarioId]);
 
   /**
    * Grava a cada mudanca, com um respiro de meio segundo: digitar o motivo
@@ -204,13 +221,13 @@ export function TelaDeChecklist({
     if (!rascunhoLido || !funcionarioId) return;
 
     const espera = setTimeout(() => {
-      salvarRascunho(visitaId, funcionarioId, { motivo, respostas, fotos }).catch((falha) => {
-        capturarErro(falha, { onde: "salvarRascunho", visita: String(visitaId) });
+      salvarRascunho(chave, funcionarioId, { motivo, respostas, fotos }).catch((falha) => {
+        capturarErro(falha, { onde: "salvarRascunho", visita: String(chave) });
       });
     }, 500);
 
     return () => clearTimeout(espera);
-  }, [rascunhoLido, funcionarioId, visitaId, motivo, respostas, fotos]);
+  }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos]);
 
   /**
    * As perguntas so sao buscadas quando a CONSULTORIA e escolhida, e nao na
@@ -291,8 +308,8 @@ export function TelaDeChecklist({
     clearTimeout(pendente.espera);
     remocaoPendente.current = null;
     setTemRemocaoPendente(false);
-    esquecerFoto(visitaId, pendente.uri);
-  }, [visitaId]);
+    esquecerFoto(chave, pendente.uri);
+  }, [chave]);
 
   const removerFoto = useCallback(
     (uri: string) => {
@@ -368,7 +385,7 @@ export function TelaDeChecklist({
       // na tela -- ver `guardarFoto`. Nessa ordem: o rascunho guarda a versao
       // que vai ser enviada, e nao a de 12 MP.
       const guardadas = await Promise.all(
-        resultado.assets.map(async (a) => guardarFoto(visitaId, await reduzirFoto(a.uri))),
+        resultado.assets.map(async (a) => guardarFoto(chave, await reduzirFoto(a.uri))),
       );
 
       setErro(null);
@@ -382,7 +399,7 @@ export function TelaDeChecklist({
       setDestaque(null);
       setErro("Não foi possível abrir a câmera. Tente de novo.");
     }
-  }, [visitaId]);
+  }, [chave]);
 
   const enviar = useCallback(async () => {
     if (envioEmVoo.current) return;
@@ -418,8 +435,24 @@ export function TelaDeChecklist({
 
       setEnviando(true);
 
+      // Depois das checagens locais e antes da primeira foto: o caminho da
+      // midia no Storage leva o id da visita. Guardado na ref, um segundo
+      // "Finalizar" depois de falha no envio reusa a mesma visita.
+      if (visitaCriada.current === null) {
+        if (!site || !funcionarioId) {
+          setErro("Não foi possível registrar a visita. Tente de novo.");
+          return;
+        }
+        const criada = await criarVisitaPeloSite(site, funcionarioId, numeroColeta);
+        if (!criada.ok) {
+          setErro(criada.erro);
+          return;
+        }
+        visitaCriada.current = criada.visitaId;
+      }
+
       const resultado = await enviarChecklist({
-        visitaId,
+        visitaId: visitaCriada.current,
         tipo,
         motivo: tipo === "CORRETIVA" ? motivo : undefined,
         respostas:
@@ -441,8 +474,8 @@ export function TelaDeChecklist({
 
       // O checklist ja esta no banco: o rascunho perdeu o motivo de existir.
       // Falhar aqui nao desfaz o envio, entao so registra e segue.
-      await descartarRascunho(visitaId).catch((falha) => {
-        capturarErro(falha, { onde: "descartarRascunho", visita: String(visitaId) });
+      await descartarRascunho(chave).catch((falha) => {
+        capturarErro(falha, { onde: "descartarRascunho", visita: String(chave) });
       });
 
       aoConcluir();
@@ -457,7 +490,7 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, fotos, motivo, pendencias, perguntas, respostas, rolarAte, tipo, visitaId]);
+  }, [aoConcluir, chave, fotos, funcionarioId, motivo, numeroColeta, pendencias, perguntas, respostas, rolarAte, site, tipo]);
 
   // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
   // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
