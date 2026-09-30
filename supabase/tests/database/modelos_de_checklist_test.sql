@@ -225,7 +225,7 @@ select is(
        where f.checklist_id = r.valor
          and f.pergunta_id = (select valor from ids_teste where chave = 'pergunta_modelo')))
    from ids_teste r where r.chave = 'checklist_novo'),
-  'true/1',
+  't/1',
   'registrar_checklist grava o modelo e a foto da pergunta'
 );
 
