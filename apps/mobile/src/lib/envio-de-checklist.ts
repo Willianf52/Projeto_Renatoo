@@ -39,8 +39,12 @@ export type EnvioDeChecklist = {
   motivo?: string;
   /** Preenchido so na CONSULTORIA. */
   respostas?: RespostaDeChecklist[];
+  /** O modelo respondido (0061). So na CONSULTORIA. */
+  modeloId?: number;
   /** URIs locais devolvidas pelo seletor de imagem. */
   fotos: string[];
+  /** Fotos de cada pergunta, URIs locais. So na CONSULTORIA. */
+  fotosDePergunta?: { perguntaId: number; uri: string }[];
   /** PNG em base64, sem o prefixo `data:`. */
   assinatura: string;
 };
@@ -100,6 +104,24 @@ export async function enviarChecklist(
       fotos.push(caminho);
     }
 
+    // Mesmo mapa de "ja subiu" das fotos gerais: a chave e o arquivo local, e
+    // uma foto so esta num lugar por vez (geral ou de uma pergunta).
+    const fotosDePergunta: { perguntaId: number; caminho: string }[] = [];
+
+    for (const { perguntaId, uri } of envio.fotosDePergunta ?? []) {
+      const origem = `foto:${uri}`;
+      let caminho = jaEnviadas.get(origem);
+
+      if (caminho === undefined) {
+        caminho = caminhoDeMidiaDaVisita(envio.visitaId, `foto-p${perguntaId}-${sufixo()}`, "jpg");
+        const falha = await subir(caminho, await new File(uri).arrayBuffer(), "image/jpeg");
+        if (falha) return { ok: false, erro: falha };
+        jaEnviadas.set(origem, caminho);
+      }
+
+      fotosDePergunta.push({ perguntaId, caminho });
+    }
+
     // A validacao autoritativa roda aqui, com os caminhos ja reais: o esquema
     // do shared e o mesmo que o painel usa, e e ele que garante que uma
     // CORRETIVA sem motivo (ou uma CONSULTORIA com um) nao chega ao banco.
@@ -115,8 +137,10 @@ export async function enviarChecklist(
         : {
             visitaId: envio.visitaId,
             tipo: "CONSULTORIA",
+            modeloId: envio.modeloId,
             respostas: envio.respostas ?? [],
             fotos,
+            fotosDePergunta,
             assinaturaPath,
           },
     );
@@ -147,6 +171,14 @@ export async function enviarChecklist(
               resposta: resposta.resposta,
               observacao: resposta.observacao,
             }))
+          : [],
+      // Na corretiva vao o default do RPC: `p_modelo_id` nulo (o RPC ignora
+      // modelo fora da consultoria) e nenhuma foto de pergunta. O tipo
+      // gerado nao aceita `null` num argumento com default, dai `undefined`.
+      p_modelo_id: dados.tipo === "CONSULTORIA" ? dados.modeloId : undefined,
+      p_fotos_de_pergunta:
+        dados.tipo === "CONSULTORIA"
+          ? dados.fotosDePergunta.map((foto) => ({ pergunta_id: foto.perguntaId, storage_path: foto.caminho }))
           : [],
     });
 

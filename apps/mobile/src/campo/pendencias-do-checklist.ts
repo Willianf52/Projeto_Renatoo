@@ -20,6 +20,12 @@ export type EstadoDoChecklist = {
   /** `null` e "ainda carregando", como na tela. */
   perguntas: readonly { id: number }[] | null;
   respostas: Readonly<Record<number, unknown>>;
+  /**
+   * O grupo do site tem mais de um modelo e o inspetor ainda nao escolheu
+   * (0061). Enquanto isso nao ha lista de perguntas para responder.
+   */
+  escolhaDeModeloPendente?: boolean;
+  /** Gerais e de pergunta, somadas: qualquer uma comprova a visita. */
   quantidadeDeFotos: number;
   temAssinatura: boolean;
 };
@@ -61,6 +67,18 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
 }
 
 function pendenciaDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
+  // Antes de "carregando": sem modelo escolhido as perguntas nem comecam a
+  // carregar, e "aguarde" mandaria o inspetor esperar por algo que so ele
+  // pode destravar.
+  if (estado.escolhaDeModeloPendente) {
+    return {
+      alvo: "perguntas",
+      perguntaId: null,
+      faltam: null,
+      mensagem: "Escolha qual checklist responder.",
+    };
+  }
+
   if (estado.perguntas === null) {
     // Antes caia no "Nenhuma pergunta cadastrada" -- falso enquanto a lista
     // ainda esta a caminho, e o inspetor ia atras de um problema que nao ha.

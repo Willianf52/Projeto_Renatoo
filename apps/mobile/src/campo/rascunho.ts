@@ -1,5 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
-import { MAXIMO_DE_FOTOS, RESPOSTAS_DO_CHECKLIST, type RespostaDoChecklist } from "@projeto-renatoo/shared";
+import {
+  MAXIMO_DE_FOTOS,
+  MAXIMO_DE_FOTOS_POR_PERGUNTA,
+  RESPOSTAS_DO_CHECKLIST,
+  type RespostaDoChecklist,
+} from "@projeto-renatoo/shared";
 
 import { abrirFila } from "./fila";
 
@@ -27,6 +32,14 @@ export type Rascunho = {
   motivo: string;
   respostas: Record<number, RespostaDoChecklist>;
   fotos: string[];
+  /**
+   * O modelo escolhido (0061). `null` num rascunho anterior aos modelos, ou
+   * antes de o inspetor escolher -- a tela escolhe sozinha quando o grupo so
+   * tem um.
+   */
+  modeloId: number | null;
+  /** Fotos de cada pergunta, pelo id da pergunta. */
+  fotosDePergunta: Record<number, string[]>;
 };
 
 function pastaDaVisita(visitaId: number): Directory {
@@ -41,19 +54,23 @@ export async function salvarRascunho(
   const banco = await abrirFila();
   await banco.runAsync(
     `insert into rascunhos_de_checklist
-       (visita_id, funcionario_id, motivo, respostas, fotos, atualizado_em)
-     values (?, ?, ?, ?, ?, ?)
+       (visita_id, funcionario_id, motivo, respostas, fotos, modelo_id, fotos_de_pergunta, atualizado_em)
+     values (?, ?, ?, ?, ?, ?, ?, ?)
      on conflict (visita_id) do update set
        funcionario_id = excluded.funcionario_id,
        motivo = excluded.motivo,
        respostas = excluded.respostas,
        fotos = excluded.fotos,
+       modelo_id = excluded.modelo_id,
+       fotos_de_pergunta = excluded.fotos_de_pergunta,
        atualizado_em = excluded.atualizado_em`,
     visitaId,
     funcionarioId,
     rascunho.motivo,
     JSON.stringify(rascunho.respostas),
     JSON.stringify(rascunho.fotos),
+    rascunho.modeloId,
+    JSON.stringify(rascunho.fotosDePergunta),
     new Date().toISOString(),
   );
 }
@@ -68,8 +85,15 @@ export async function salvarRascunho(
  */
 export async function lerRascunho(visitaId: number, funcionarioId: string): Promise<Rascunho | null> {
   const banco = await abrirFila();
-  const linha = await banco.getFirstAsync<{ motivo: string; respostas: string; fotos: string }>(
-    "select motivo, respostas, fotos from rascunhos_de_checklist where visita_id = ? and funcionario_id = ?",
+  const linha = await banco.getFirstAsync<{
+    motivo: string;
+    respostas: string;
+    fotos: string;
+    modelo_id: number | null;
+    fotos_de_pergunta: string | null;
+  }>(
+    `select motivo, respostas, fotos, modelo_id, fotos_de_pergunta
+       from rascunhos_de_checklist where visita_id = ? and funcionario_id = ?`,
     visitaId,
     funcionarioId,
   );
@@ -79,7 +103,9 @@ export async function lerRascunho(visitaId: number, funcionarioId: string): Prom
   return {
     motivo: linha.motivo,
     respostas: respostasValidas(lerJson(linha.respostas)),
-    fotos: fotosQueAindaExistem(lerJson(linha.fotos)),
+    fotos: fotosQueAindaExistem(lerJson(linha.fotos), MAXIMO_DE_FOTOS),
+    modeloId: Number.isInteger(linha.modelo_id) ? linha.modelo_id : null,
+    fotosDePergunta: fotosDePerguntaValidas(lerJson(linha.fotos_de_pergunta ?? "{}")),
   };
 }
 
@@ -144,7 +170,22 @@ function respostasValidas(valor: unknown): Record<number, RespostaDoChecklist> {
   return validas;
 }
 
-function fotosQueAindaExistem(valor: unknown): string[] {
+/** Mesmo filtro das fotos gerais, pergunta a pergunta; pergunta sem foto que
+ * sobrou sai do mapa. */
+function fotosDePerguntaValidas(valor: unknown): Record<number, string[]> {
+  if (typeof valor !== "object" || valor === null || Array.isArray(valor)) return {};
+
+  const validas: Record<number, string[]> = {};
+  for (const [chave, fotos] of Object.entries(valor)) {
+    const id = Number(chave);
+    if (!Number.isInteger(id)) continue;
+    const existentes = fotosQueAindaExistem(fotos, MAXIMO_DE_FOTOS_POR_PERGUNTA);
+    if (existentes.length > 0) validas[id] = existentes;
+  }
+  return validas;
+}
+
+function fotosQueAindaExistem(valor: unknown, teto: number): string[] {
   if (!Array.isArray(valor)) return [];
 
   return valor
@@ -156,5 +197,5 @@ function fotosQueAindaExistem(valor: unknown): string[] {
         return false;
       }
     })
-    .slice(0, MAXIMO_DE_FOTOS);
+    .slice(0, teto);
 }

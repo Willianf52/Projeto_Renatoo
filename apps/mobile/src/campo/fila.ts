@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 4;
+const VERSAO_DO_SCHEMA = 5;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -184,6 +184,19 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
         finalidade  text,
         ativo       integer not null
       );
+    `);
+  }
+
+  if (versao < 5) {
+    /**
+     * Checklist por modelo (migration 0061 do banco): o rascunho guarda qual
+     * modelo o inspetor escolheu e as fotos de cada pergunta. Colunas com
+     * default, entao o rascunho que ja estava no aparelho continua lendo --
+     * sem modelo (a tela escolhe de novo) e sem foto de pergunta.
+     */
+    await banco.execAsync(`
+      alter table rascunhos_de_checklist add column modelo_id integer;
+      alter table rascunhos_de_checklist add column fotos_de_pergunta text not null default '{}';
     `);
   }
 

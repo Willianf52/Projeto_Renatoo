@@ -4,6 +4,7 @@ import {
   LIMITE_MOTIVO,
   LIMITE_OBSERVACAO,
   MAXIMO_DE_FOTOS,
+  MAXIMO_DE_FOTOS_POR_PERGUNTA,
   MINIMO_DE_FOTOS,
 } from "./regras";
 
@@ -95,20 +96,28 @@ export const esquemaDeRespostaDoChecklist = z.object({
   observacao: textoOpcional("A observação", LIMITE_OBSERVACAO),
 });
 
+export const esquemaDeFotoDePergunta = z.object({
+  perguntaId: referencia("A pergunta da foto"),
+  caminho: caminhoDeMidia("A foto"),
+});
+
 /**
  * Comum aos dois tipos: foto e assinatura. A tela pede os dois em qualquer
  * caminho, entao eles ficam fora da uniao -- so o que **difere** entra nela.
+ *
+ * `fotos` sao as do checklist inteiro. Sem `.min` aqui desde a 0061: a
+ * consultoria tambem tem foto por pergunta, e o "ao menos uma foto" vale para
+ * a soma das duas -- conferido no `superRefine` do fim.
  */
 const comumDoChecklist = {
   visitaId: referencia("A visita"),
   fotos: z
     .array(caminhoDeMidia("A foto"))
-    .min(MINIMO_DE_FOTOS, "Anexe ao menos uma foto.")
     .max(MAXIMO_DE_FOTOS, `Anexe no máximo ${MAXIMO_DE_FOTOS} fotos.`),
   assinaturaPath: caminhoDeMidia("A assinatura"),
 };
 
-export const esquemaDeChecklistDeVisita = z.discriminatedUnion("tipo", [
+const uniaoDoChecklist = z.discriminatedUnion("tipo", [
   z.object({
     ...comumDoChecklist,
     tipo: z.literal("CORRETIVA"),
@@ -119,6 +128,10 @@ export const esquemaDeChecklistDeVisita = z.discriminatedUnion("tipo", [
   z.object({
     ...comumDoChecklist,
     tipo: z.literal("CONSULTORIA"),
+    // Qual lista de perguntas foi respondida (0061). Obrigatorio aqui, embora
+    // o banco caia no padrao sem ele: esse fallback existe para o APK antigo,
+    // e o app novo sempre sabe qual modelo mostrou.
+    modeloId: referencia("O modelo do checklist"),
     // Uma consultoria sem resposta nenhuma e um checklist em branco -- o
     // equivalente da "visita sem leitura" que `esquemaDeVisitaDeCampo` recusa.
     // O numero de perguntas nao e fixado aqui de proposito: sao 10 hoje, e o
@@ -131,10 +144,52 @@ export const esquemaDeChecklistDeVisita = z.discriminatedUnion("tipo", [
         (respostas) => new Set(respostas.map((r) => r.perguntaId)).size === respostas.length,
         "A mesma pergunta foi respondida mais de uma vez.",
       ),
+    fotosDePergunta: z.array(esquemaDeFotoDePergunta).default([]),
   }),
 ]);
 
+/**
+ * Regras que cruzam campos, e por isso nao cabem em cada campo:
+ *   - ao menos uma foto no checklist, somando as gerais e as de pergunta;
+ *   - foto de pergunta so de pergunta respondida, e no maximo
+ *     `MAXIMO_DE_FOTOS_POR_PERGUNTA` por pergunta.
+ * O banco confere de novo que a pergunta e do modelo (trigger da 0061).
+ */
+export const esquemaDeChecklistDeVisita = uniaoDoChecklist.superRefine((checklist, contexto) => {
+  const fotosDePergunta = checklist.tipo === "CONSULTORIA" ? checklist.fotosDePergunta : [];
+
+  if (checklist.fotos.length + fotosDePergunta.length < MINIMO_DE_FOTOS) {
+    contexto.addIssue({ code: "custom", path: ["fotos"], message: "Anexe ao menos uma foto." });
+  }
+
+  if (checklist.tipo !== "CONSULTORIA") return;
+
+  const respondidas = new Set(checklist.respostas.map((resposta) => resposta.perguntaId));
+  const porPergunta = new Map<number, number>();
+
+  for (const foto of fotosDePergunta) {
+    if (!respondidas.has(foto.perguntaId)) {
+      contexto.addIssue({
+        code: "custom",
+        path: ["fotosDePergunta"],
+        message: "Há foto de uma pergunta que não está no checklist.",
+      });
+      return;
+    }
+    porPergunta.set(foto.perguntaId, (porPergunta.get(foto.perguntaId) ?? 0) + 1);
+  }
+
+  if ([...porPergunta.values()].some((quantidade) => quantidade > MAXIMO_DE_FOTOS_POR_PERGUNTA)) {
+    contexto.addIssue({
+      code: "custom",
+      path: ["fotosDePergunta"],
+      message: `Anexe no máximo ${MAXIMO_DE_FOTOS_POR_PERGUNTA} fotos por pergunta.`,
+    });
+  }
+});
+
 export type RespostaDeChecklist = z.output<typeof esquemaDeRespostaDoChecklist>;
+export type FotoDePergunta = z.output<typeof esquemaDeFotoDePergunta>;
 export type ChecklistDeVisita = z.output<typeof esquemaDeChecklistDeVisita>;
 
 /**
@@ -155,6 +210,9 @@ export function linhaDeChecklist(
     tipo: checklist.tipo,
     motivo: checklist.tipo === "CORRETIVA" ? checklist.motivo : null,
     assinatura_path: checklist.assinaturaPath,
+    // Mesmo raciocinio do `motivo`: `null` explicito na corretiva, para o
+    // check `checklists_visita_modelo_por_tipo` (0061) ver os dois lados.
+    modelo_id: checklist.tipo === "CONSULTORIA" ? checklist.modeloId : null,
   };
 }
 
@@ -175,6 +233,17 @@ export function linhasDeFoto(
   checklistId: number,
 ): TablesInsert<"checklist_fotos">[] {
   return fotos.map((storage_path) => ({ checklist_id: checklistId, storage_path }));
+}
+
+export function linhasDeFotoDePergunta(
+  fotos: FotoDePergunta[],
+  checklistId: number,
+): TablesInsert<"checklist_fotos">[] {
+  return fotos.map((foto) => ({
+    checklist_id: checklistId,
+    storage_path: foto.caminho,
+    pergunta_id: foto.perguntaId,
+  }));
 }
 
 /**
