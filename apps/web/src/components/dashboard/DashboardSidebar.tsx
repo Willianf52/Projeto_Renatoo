@@ -162,20 +162,9 @@ const NAV_ITEMS: NavItem[] = [
     label: "ChecklistLab",
     icon: ClipboardListIcon,
     children: [
-      // Cadastro antes da consulta, como nos outros modulos: e daqui que sai a
-      // lista que o app baixa antes de ir a campo (0042), entao quem abre o
-      // modulo pela primeira vez precisa achar isto, nao o historico vazio.
-      // Modelos antes de Perguntas: desde a 0061 toda pergunta pertence a um.
-      {
-        label: "Modelos de Checklist",
-        href: "/dashboard/checklistlab/modelos",
-        icon: ClipboardListIcon,
-      },
-      {
-        label: "Perguntas do Checklist",
-        href: "/dashboard/checklistlab/perguntas",
-        icon: ClipboardListIcon,
-      },
+      // Sem cadastro de modelos e perguntas no painel (decisao do dono em
+      // 01/10/2026): as tabelas continuam (0042/0061) e o app segue lendo
+      // delas, mas o conteudo entra por importacao, nao por tela.
       {
         label: "Histórico de Checklist",
         href: "/dashboard/checklistlab/historico-de-checklist",

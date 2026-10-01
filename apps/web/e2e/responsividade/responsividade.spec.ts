@@ -58,8 +58,6 @@ const PAGINAS_DO_PAINEL = [
   "/dashboard/cadastros/qr-code",
   "/dashboard/cadastros/qr-code/novo",
   "/dashboard/cadastros/trocar-senha",
-  "/dashboard/checklistlab/perguntas",
-  "/dashboard/checklistlab/perguntas/novo",
   "/dashboard/checklistlab/historico-de-checklist",
 ];
 
