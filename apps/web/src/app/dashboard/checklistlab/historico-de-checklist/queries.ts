@@ -737,8 +737,7 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
  * A ordenacao nao pode ir na consulta: `order` sobre recurso embutido vale
  * para as colunas do proprio embutido, e `ordem` esta um nivel abaixo, em
  * `perguntas_checklist`. Ordenar aqui e a alternativa -- e a sequencia importa,
- * porque e a mesma que o inspetor viu no celular (0042 e
- * `perguntas/queries.ts` documentam o porque).
+ * porque e a mesma que o inspetor viu no celular (a 0042 documenta o porque).
  */
 export function ordenarRespostas(
   respostas: ChecklistDetalheBruto["checklist_respostas"],
