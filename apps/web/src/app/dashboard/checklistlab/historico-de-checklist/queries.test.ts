@@ -11,6 +11,7 @@ import {
   textoDaConclusao,
   textoDaSituacao,
   toTableRow,
+  totalDoModelo,
   type ChecklistBruto,
   type Filtros,
 } from "./queries";
@@ -20,7 +21,7 @@ const SEM_FILTROS: Filtros = { campoData: "envio", ordem: "recentes" };
 function bruto(
   id: number,
   tipo: "CONSULTORIA" | "CORRETIVA",
-  respostas: { resposta: string; observacao?: string | null }[],
+  respostas: { resposta: string; observacao?: string | null; tipo?: string }[],
   extra: Partial<ChecklistBruto> = {},
 ): ChecklistBruto {
   return {
@@ -28,6 +29,8 @@ function bruto(
     tipo,
     motivo: tipo === "CORRETIVA" ? "Portão danificado" : null,
     criado_em: "2026-09-08T14:30:00-03:00",
+    modelo_id: tipo === "CONSULTORIA" ? 5 : null,
+    modelos_checklist: tipo === "CONSULTORIA" ? { nome: "Portaria" } : null,
     visitas: {
       numero_coleta: `${id}/2026`,
       criado_em: "2026-09-08T09:00:00-03:00",
@@ -35,7 +38,11 @@ function bruto(
       profiles: { nome_completo: "Ana Souza" },
       sites: { nome: "ACE Limpeza" },
     },
-    checklist_respostas: respostas.map((r) => ({ resposta: r.resposta, observacao: r.observacao ?? null })),
+    checklist_respostas: respostas.map((r) => ({
+      resposta: r.resposta,
+      observacao: r.observacao ?? null,
+      perguntas_checklist: { tipo_resposta: r.tipo ?? "CNA" },
+    })),
     ...extra,
   };
 }
@@ -54,6 +61,7 @@ describe("extrairFiltros", () => {
         data_final: "2026-09-30",
         numero_ano: "12/2026",
         checklist: "CORRETIVA",
+        modelo: "9",
         ordem: "antigos",
         site: "3",
         grupo_site: "4",
@@ -70,6 +78,7 @@ describe("extrairFiltros", () => {
       dataFinal: "2026-09-30",
       numeroAno: "12/2026",
       checklist: "CORRETIVA",
+      modelo: "9",
       ordem: "antigos",
       site: "3",
       grupoSite: "4",
@@ -91,7 +100,7 @@ describe("extrairFiltros", () => {
     });
   });
 
-  it("ignora `status`, que a tela mostra mas o schema nao tem", () => {
+  it("ignora `status`, que a tela ja mostrou mas o schema nao tem", () => {
     expect(Object.keys(extrairFiltros({ status: "1" }))).not.toContain("status");
   });
 
@@ -147,6 +156,20 @@ describe("montarLinha", () => {
   it("deixa a nota nula quando nao ha SIM nem NAO", () => {
     expect(linha(bruto(1, "CONSULTORIA", [{ resposta: "NA" }])).nota).toBeNull();
     expect(linha(bruto(2, "CORRETIVA", [])).nota).toBeNull();
+  });
+
+  it("o Nao de uma pergunta Sim/Nao nao e nao conformidade nem pesa na nota (0061)", () => {
+    const l = linha(
+      bruto(1, "CONSULTORIA", [{ resposta: "SIM" }, { resposta: "NAO", tipo: "SN" }, { resposta: "SIM", tipo: "SN" }]),
+    );
+    expect(l.naoConformidades).toBe(0);
+    expect(l.nota).toBe(100);
+    expect(textoDaSituacao(l)).toBe("Conforme");
+  });
+
+  it("traz o nome do modelo, vazio na corretiva", () => {
+    expect(linha(bruto(1, "CONSULTORIA", [])).modelo).toBe("Portaria");
+    expect(linha(bruto(2, "CORRETIVA", [])).modelo).toBe("");
   });
 
   it("usa o motivo do checklist na corretiva e o da visita na consultoria", () => {
@@ -216,6 +239,10 @@ describe("aplicarFiltrosDerivados", () => {
     expect(ids({ ...SEM_FILTROS, conclusao: "concluido" })).toEqual([2, 3]);
   });
 
+  it("busca livre acha pelo nome do modelo", () => {
+    expect(ids({ ...SEM_FILTROS, busca: "portaria" })).toEqual([1, 2]);
+  });
+
   it("busca livre varre numero, site, responsavel, motivo e tipo, sem diferenciar caixa", () => {
     expect(ids({ ...SEM_FILTROS, busca: "ACE" })).toEqual([1, 2, 3]);
     expect(ids({ ...SEM_FILTROS, busca: "portão" })).toEqual([3]);
@@ -236,15 +263,16 @@ describe("aplicarFiltrosDerivados", () => {
 describe("toTableRow", () => {
   it("devolve uma coluna por cabecalho, com a nota em percentual", () => {
     const colunas = toTableRow(linha(bruto(7, "CONSULTORIA", [{ resposta: "SIM" }, { resposta: "NAO" }])));
-    expect(colunas).toHaveLength(10);
+    expect(colunas).toHaveLength(11);
     expect(colunas[0]).toBe("7");
     expect(colunas[1]).toBe("7/2026");
     expect(colunas[2]).toBe("Consultoria");
-    expect(colunas[9]).toBe("50%");
+    expect(colunas[3]).toBe("Portaria");
+    expect(colunas[10]).toBe("50%");
   });
 
   it("deixa a nota vazia quando nao ha como calcular -- a tabela ja vira travessao", () => {
-    expect(toTableRow(linha(bruto(8, "CORRETIVA", [])))[9]).toBe("");
+    expect(toTableRow(linha(bruto(8, "CORRETIVA", [])))[10]).toBe("");
   });
 });
 
@@ -261,15 +289,29 @@ describe("idValido", () => {
   });
 });
 
+describe("totalDoModelo", () => {
+  it("conta as perguntas do modelo respondido, e zero na corretiva", () => {
+    const porModelo = new Map([
+      [5, 12],
+      [6, 30],
+    ]);
+    expect(totalDoModelo(porModelo, 5)).toBe(12);
+    expect(totalDoModelo(porModelo, 7)).toBe(0);
+    expect(totalDoModelo(porModelo, null)).toBe(0);
+  });
+});
+
 describe("rotuloDaResposta", () => {
-  it("traduz os tres valores do check do banco", () => {
-    expect(rotuloDaResposta("SIM")).toBe("Sim");
-    expect(rotuloDaResposta("NAO")).toBe("Não");
-    expect(rotuloDaResposta("NA")).toBe("Não se aplica");
+  it("le pela pergunta: Conforme numa de conformidade, Sim numa Sim/Nao", () => {
+    expect(rotuloDaResposta("CNA", "SIM")).toBe("Conforme");
+    expect(rotuloDaResposta("CNA", "NAO")).toBe("Não conforme");
+    expect(rotuloDaResposta("CNA", "NA")).toBe("Não se aplica");
+    expect(rotuloDaResposta("SN", "SIM")).toBe("Sim");
+    expect(rotuloDaResposta("SN", "NAO")).toBe("Não");
   });
 
   it("devolve o valor cru quando nao conhece -- nao vira celula vazia", () => {
-    expect(rotuloDaResposta("TALVEZ")).toBe("TALVEZ");
+    expect(rotuloDaResposta("CNA", "TALVEZ")).toBe("TALVEZ");
   });
 });
 
@@ -278,7 +320,7 @@ describe("ordenarRespostas", () => {
     resposta: "SIM",
     observacao: null,
     pergunta_id: perguntaId,
-    perguntas_checklist: ordem === null ? null : { ordem, texto },
+    perguntas_checklist: ordem === null ? null : { ordem, texto, tipo_resposta: "CNA" },
   });
 
   it("ordena pela ordem da pergunta, nao pela ordem que o PostgREST devolveu", () => {
@@ -295,11 +337,30 @@ describe("ordenarRespostas", () => {
 
   it("ja traduz a resposta para o rotulo de tela", () => {
     const [primeira] = ordenarRespostas([
-      { resposta: "NAO", observacao: "Extintor vencido", pergunta_id: 1, perguntas_checklist: { ordem: 1, texto: "Extintores em dia?" } },
+      {
+        resposta: "NAO",
+        observacao: "Extintor vencido",
+        pergunta_id: 1,
+        perguntas_checklist: { ordem: 1, texto: "Extintores em dia?", tipo_resposta: "CNA" },
+      },
     ]);
-    expect(primeira.resposta).toBe("Não");
+    expect(primeira.resposta).toBe("Não conforme");
+    expect(primeira.valor).toBe("NAO");
     expect(primeira.observacao).toBe("Extintor vencido");
     expect(primeira.pergunta).toBe("Extintores em dia?");
+  });
+
+  it("pendura em cada resposta as fotos da propria pergunta (0061)", () => {
+    const ordenadas = ordenarRespostas(
+      [resposta(10, 1), resposta(20, 2)],
+      [
+        { id: 1, criado_em: "2026-09-30T10:00:00Z", pergunta_id: 20 },
+        { id: 2, criado_em: "2026-09-30T10:01:00Z", pergunta_id: null },
+        { id: 3, criado_em: "2026-09-30T10:02:00Z", pergunta_id: 20 },
+      ],
+    );
+    expect(ordenadas[0].fotos).toEqual([]);
+    expect(ordenadas[1].fotos.map((foto) => foto.id)).toEqual([1, 3]);
   });
 });
 

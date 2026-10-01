@@ -1,3 +1,10 @@
+import {
+  notaDoChecklist,
+  rotuloDaResposta as rotuloDaRespostaPorTipo,
+  tipoDeResposta,
+  type RespostaDoChecklist as ValorDaResposta,
+  type TipoDeResposta,
+} from "@projeto-renatoo/shared";
 import { dataValida, fimExclusivoDoFiltro, formatarDataHora, inicioDoFiltro } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike } from "@/lib/postgrest-escape";
@@ -48,6 +55,8 @@ export type Filtros = {
   numeroAno?: string;
   /** `tipo` da tabela: CORRETIVA ou CONSULTORIA. */
   checklist?: string;
+  /** Id do modelo respondido (0061), em texto. */
+  modelo?: string;
   ordem: "recentes" | "antigos";
   site?: string;
   grupoSite?: string;
@@ -124,6 +133,7 @@ export function extrairFiltros(params: SearchParams): Filtros {
     // o Postgres recusar a consulta e a tela inteira cair. Invalido agora e
     // ignorado, como se o filtro nao tivesse vindo.
     site: filtroDeId(primeiro(params.site)),
+    modelo: filtroDeId(primeiro(params.modelo)),
     grupoSite: filtroDeId(primeiro(params.grupo_site)),
     grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
     responsavel: filtroDeUuid(primeiro(params.responsavel)),
@@ -137,6 +147,7 @@ export function extrairFiltros(params: SearchParams): Filtros {
 export type Opcao = { value: string; label: string };
 
 export type OpcoesFiltros = {
+  modelos: Opcao[];
   sites: Opcao[];
   gruposSites: Opcao[];
   gruposUsuarios: Opcao[];
@@ -164,7 +175,10 @@ function toOptions<T extends Record<string, unknown>>(
 export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   const supabase = await createClient();
 
-  const [sites, gruposSites, gruposUsuarios, responsaveis] = await Promise.all([
+  const [modelos, sites, gruposSites, gruposUsuarios, responsaveis] = await Promise.all([
+    // Inativos tambem: o historico tem checklist respondido em modelo que foi
+    // desligado depois, e ele precisa continuar filtravel.
+    supabase.from("modelos_checklist").select("id, nome").order("nome"),
     supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_usuarios").select("id, nome").order("nome"),
@@ -172,6 +186,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   ]);
 
   return {
+    modelos: toOptions(modelos.data, "id", "nome"),
     sites: toOptions(sites.data, "id", "nome"),
     gruposSites: toOptions(gruposSites.data, "id", "nome"),
     gruposUsuarios: toOptions(gruposUsuarios.data, "id", "nome"),
@@ -185,6 +200,9 @@ export type ChecklistBruto = {
   tipo: string;
   motivo: string | null;
   criado_em: string;
+  /** Nulo na CORRETIVA (check `checklists_visita_modelo_por_tipo`, 0061). */
+  modelo_id: number | null;
+  modelos_checklist: { nome: string } | null;
   visitas: {
     numero_coleta: string;
     criado_em: string;
@@ -192,7 +210,12 @@ export type ChecklistBruto = {
     profiles: { nome_completo: string | null } | null;
     sites: { nome: string } | null;
   } | null;
-  checklist_respostas: { resposta: string; observacao: string | null }[];
+  checklist_respostas: {
+    resposta: string;
+    observacao: string | null;
+    /** O tipo decide se o "NAO" e nao conformidade (0061). */
+    perguntas_checklist: { tipo_resposta: string } | null;
+  }[];
 };
 
 export type HistoricoLinha = {
@@ -203,6 +226,8 @@ export type HistoricoLinha = {
   numeroAno: string;
   /** "Consultoria" | "Corretiva" -- o `tipo` em capitalizacao de tela. */
   checklist: string;
+  /** Nome do modelo respondido; vazio na corretiva. */
+  modelo: string;
   enviadoEm: string;
   responsavel: string;
   site: string;
@@ -222,8 +247,8 @@ export type HistoricoLinha = {
   respondidas: number;
   totalPerguntas: number;
   naoConformidades: number;
-  /** Percentual de SIM entre as respostas que sao SIM ou NAO. `null` quando
-   * nao ha nenhuma das duas -- so 'NA', ou nenhuma resposta. */
+  /** `notaDoChecklist` do shared: percentual de Conforme entre as perguntas
+   * de conformidade, sem "Nao se aplica" nem Sim/Nao. `null` sem o que medir. */
   nota: number | null;
 };
 
@@ -232,18 +257,23 @@ export type HistoricoLinha = {
  * Deriva as tres colunas que a tela mostra e que nao existem como coluna no
  * banco.
  *
- * `totalPerguntas` e a contagem de perguntas ATIVAS hoje, nao a de quando o
- * checklist foi enviado -- o banco nao guarda a segunda (a 0042 grava resposta
- * por `pergunta_id`, sem versionar o questionario). Cadastrar uma pergunta
- * nova, portanto, faz checklists antigos passarem a aparecer como
- * "Incompleto". E o comportamento correto para quem quer saber o que falta
- * responder hoje, e o unico calculavel com o schema atual.
+ * `totalPerguntas` e a contagem de perguntas ATIVAS hoje DO MODELO respondido,
+ * nao a de quando o checklist foi enviado -- o banco nao guarda a segunda (a
+ * 0042 grava resposta por `pergunta_id`, sem versionar o questionario).
+ * Cadastrar uma pergunta nova num modelo, portanto, faz checklists antigos
+ * dele passarem a aparecer como "Incompleto". E o comportamento correto para
+ * quem quer saber o que falta responder hoje, e o unico calculavel.
+ *
+ * Nao conformidade e so o "Nao conforme": o "Nao" de uma pergunta Sim/Nao
+ * ("Duvidas com o RH?") nao reprova o posto (0061). A nota segue a mesma regra,
+ * em `notaDoChecklist`, a funcao que o app tambem usa.
  */
 export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): HistoricoLinha {
   const respostas = bruto.checklist_respostas ?? [];
-  const sim = respostas.filter((r) => r.resposta === "SIM").length;
-  const nao = respostas.filter((r) => r.resposta === "NAO").length;
-  const decididas = sim + nao;
+  const comTipo = respostas
+    .filter((r): r is typeof r & { resposta: ValorDaResposta } => ["SIM", "NAO", "NA"].includes(r.resposta))
+    .map((r) => ({ tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta), resposta: r.resposta }));
+  const nao = comTipo.filter((r) => r.tipo !== "SN" && r.resposta === "NAO").length;
 
   const motivoDaVisita = bruto.visitas?.motivos_visita?.nome ?? "";
 
@@ -252,6 +282,7 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     tipo: bruto.tipo,
     numeroAno: bruto.visitas?.numero_coleta ?? "",
     checklist: bruto.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
+    modelo: bruto.modelos_checklist?.nome ?? "",
     enviadoEm: bruto.criado_em,
     responsavel: bruto.visitas?.profiles?.nome_completo ?? "",
     site: bruto.visitas?.sites?.nome ?? "",
@@ -265,7 +296,7 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     respondidas: respostas.length,
     totalPerguntas,
     naoConformidades: nao,
-    nota: decididas > 0 ? Math.round((sim / decididas) * 100) : null,
+    nota: notaDoChecklist(comTipo),
   };
 }
 
@@ -354,7 +385,8 @@ export function aplicarFiltrosDerivados(
         contem(linha.site, busca) ||
         contem(linha.responsavel, busca) ||
         contem(linha.motivo, busca) ||
-        contem(linha.checklist, busca);
+        contem(linha.checklist, busca) ||
+        contem(linha.modelo, busca);
       if (!casa) return false;
     }
 
@@ -379,7 +411,8 @@ export function aplicarFiltrosDerivados(
  */
 export function montarSelect(precisaProfile: boolean): string {
   return `
-    id, tipo, motivo, criado_em,
+    id, tipo, motivo, criado_em, modelo_id,
+    modelos_checklist ( nome ),
     visitas!inner (
       numero_coleta,
       criado_em,
@@ -390,7 +423,7 @@ export function montarSelect(precisaProfile: boolean): string {
       ),
       sites!inner ( id, nome, grupo_site_id )
     ),
-    checklist_respostas ( resposta, observacao )
+    checklist_respostas ( resposta, observacao, perguntas_checklist ( tipo_resposta ) )
   `;
 }
 
@@ -403,6 +436,7 @@ function aplicarFiltros(query: any, filtros: Filtros) {
   let q = query;
 
   if (filtros.checklist) q = q.eq("tipo", filtros.checklist);
+  if (filtros.modelo) q = q.eq("modelo_id", filtros.modelo);
   if (filtros.site) q = q.eq("visitas.sites.id", filtros.site);
   if (filtros.grupoSite) q = q.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
   if (filtros.responsavel) q = q.eq("visitas.funcionario_id", filtros.responsavel);
@@ -435,19 +469,36 @@ export type Historico = {
 };
 
 /**
- * Quantas perguntas o checklist de CONSULTORIA tem hoje. Head + count exato:
- * so o numero interessa, entao nao ha por que trazer as linhas.
+ * Quantas perguntas ativas cada modelo tem hoje, por id do modelo.
+ *
+ * Era um `count` so, do cadastro inteiro -- certo enquanto havia uma lista
+ * global, errado desde a 0061: um checklist de 12 perguntas apareceria
+ * "Incompleto (12/900)". Traz so a coluna `modelo_id` das ativas e conta aqui;
+ * `buscarEmPaginas` porque o cadastro importado passa das mil linhas do
+ * `max_rows` do PostgREST, e o corte seria calado.
  */
-async function contarPerguntasAtivas(
+async function contarPerguntasAtivasPorModelo(
   supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from("perguntas_checklist")
-    .select("id", { count: "exact", head: true })
-    .eq("ativo", true);
+): Promise<Map<number, number>> {
+  const { linhas } = await buscarEmPaginas<{ modelo_id: number }>(
+    (de, ate) =>
+      supabase
+        .from("perguntas_checklist")
+        .select("modelo_id")
+        .eq("ativo", true)
+        .order("id")
+        .range(de, ate),
+    TETO_DO_HISTORICO,
+  );
 
-  if (error) throw error;
-  return count ?? 0;
+  const porModelo = new Map<number, number>();
+  for (const { modelo_id } of linhas) porModelo.set(modelo_id, (porModelo.get(modelo_id) ?? 0) + 1);
+  return porModelo;
+}
+
+/** O total que `montarLinha` recebe: o do modelo respondido, zero na corretiva. */
+export function totalDoModelo(porModelo: Map<number, number>, modeloId: number | null): number {
+  return modeloId === null ? 0 : (porModelo.get(modeloId) ?? 0);
 }
 
 /**
@@ -468,8 +519,8 @@ export async function getHistorico(filtros: Filtros): Promise<Historico> {
   const precisaProfile = Boolean(filtros.grupoUsuario);
   const ascendente = filtros.ordem === "antigos";
 
-  const [totalPerguntas, resultado] = await Promise.all([
-    contarPerguntasAtivas(supabase),
+  const [perguntasPorModelo, resultado] = await Promise.all([
+    contarPerguntasAtivasPorModelo(supabase),
     buscarEmPaginas<ChecklistBruto>(
       (de, ate) =>
         aplicarFiltros(
@@ -497,7 +548,9 @@ export async function getHistorico(filtros: Filtros): Promise<Historico> {
   }
 
   const brutos = resultado.linhas;
-  const linhas = brutos.map((bruto) => montarLinha(bruto, totalPerguntas));
+  const linhas = brutos.map((bruto) =>
+    montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id)),
+  );
 
   return {
     linhas: aplicarFiltrosDerivados(linhas, filtros),
@@ -509,6 +562,7 @@ export const TABLE_COLUMNS = [
   "ID",
   "Número/Ano",
   "Checklist",
+  "Modelo",
   "Enviado em",
   "Responsável",
   "Site",
@@ -528,6 +582,7 @@ export function toTableRow(linha: HistoricoLinha): string[] {
     String(linha.id),
     linha.numeroAno,
     linha.checklist,
+    linha.modelo,
     formatarDataHora(linha.enviadoEm),
     linha.responsavel,
     linha.site,
@@ -542,21 +597,17 @@ export function toTableRow(linha: HistoricoLinha): string[] {
 // Tela de detalhe
 // ---------------------------------------------------------------------------
 
-const RESPOSTA_ROTULOS: Record<string, string> = {
-  SIM: "Sim",
-  NAO: "Não",
-  NA: "Não se aplica",
-};
-
 /**
- * O banco guarda 'NA' sem acento e 'NAO' sem cedilha (check
- * `checklist_respostas_resposta_check`, 0042) porque o valor e chave, nao
- * texto de tela. A traducao mora aqui, num lugar so, e nao espalhada por
- * `page.tsx` -- desconhecido cai nele mesmo em vez de virar celula vazia, que
- * esconderia um valor novo entrando no banco sem a tela saber.
+ * Rotulo de tela de uma resposta, pelo tipo da pergunta -- `rotuloDaResposta`
+ * do shared, o mesmo texto que o inspetor tocou no app (SIM e "Conforme" numa
+ * pergunta de conformidade, "Sim" numa Sim/Nao). Valor fora do dominio cai
+ * nele mesmo em vez de virar celula vazia, que esconderia um valor novo
+ * entrando no banco sem a tela saber.
  */
-export function rotuloDaResposta(resposta: string): string {
-  return RESPOSTA_ROTULOS[resposta] ?? resposta;
+export function rotuloDaResposta(tipo: TipoDeResposta, resposta: string): string {
+  return ["SIM", "NAO", "NA"].includes(resposta)
+    ? rotuloDaRespostaPorTipo(tipo, resposta as ValorDaResposta)
+    : resposta;
 }
 
 export type RespostaDoChecklist = {
@@ -566,9 +617,14 @@ export type RespostaDoChecklist = {
    * honesto e o que evita um `!` no meio da tela. */
   ordem: number | null;
   pergunta: string;
+  /** Valor gravado (SIM/NAO/NA): e por ele que a tela decide a cor. */
+  valor: string;
+  tipo: TipoDeResposta;
   /** Ja traduzida por `rotuloDaResposta`. */
   resposta: string;
   observacao: string | null;
+  /** As fotos desta pergunta (0061). */
+  fotos: FotoDoChecklist[];
 };
 
 export type FotoDoChecklist = { id: number; criadoEm: string };
@@ -583,6 +639,7 @@ export type ChecklistDetalhe = {
   motivoDaCorretiva: string | null;
   motivoDaVisita: string;
   respostas: RespostaDoChecklist[];
+  /** So as gerais: as de pergunta vao em `respostas[].fotos`. */
   fotos: FotoDoChecklist[];
   temAssinatura: boolean;
   /** Quem de fato enviou (0059): o inspetor dono da visita ou um GESTOR que a
@@ -603,9 +660,9 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
     resposta: string;
     observacao: string | null;
     pergunta_id: number;
-    perguntas_checklist: { ordem: number; texto: string } | null;
+    perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string } | null;
   }[];
-  checklist_fotos: { id: number; criado_em: string }[];
+  checklist_fotos: { id: number; criado_em: string; pergunta_id: number | null }[];
   enviado_por_perfil: { nome_completo: string | null } | null;
 };
 
@@ -622,13 +679,14 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
 export async function getChecklist(id: number): Promise<ChecklistDetalhe | null> {
   const supabase = await createClient();
 
-  const [totalPerguntas, resultado] = await Promise.all([
-    contarPerguntasAtivas(supabase),
+  const [perguntasPorModelo, resultado] = await Promise.all([
+    contarPerguntasAtivasPorModelo(supabase),
     supabase
       .from("checklists_visita")
       .select(
         `
-        id, tipo, motivo, criado_em, visita_id, assinatura_path,
+        id, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
+        modelos_checklist ( nome ),
         visitas (
           numero_coleta,
           criado_em,
@@ -638,9 +696,9 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
         ),
         checklist_respostas (
           resposta, observacao, pergunta_id,
-          perguntas_checklist ( ordem, texto )
+          perguntas_checklist ( ordem, texto, tipo_resposta )
         ),
-        checklist_fotos ( id, criado_em ),
+        checklist_fotos ( id, criado_em, pergunta_id ),
         enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )
       `,
       )
@@ -652,15 +710,22 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
   if (!resultado.data) return null;
 
   const bruto = resultado.data as unknown as ChecklistDetalheBruto;
+  const respostas = ordenarRespostas(bruto.checklist_respostas ?? [], bruto.checklist_fotos ?? []);
+  const comResposta = new Set(respostas.map((resposta) => resposta.perguntaId));
 
   return {
-    linha: montarLinha(bruto, totalPerguntas),
+    linha: montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id)),
     visitaId: bruto.visita_id,
     registradoEm: bruto.visitas?.criado_em ?? bruto.criado_em,
     motivoDaCorretiva: bruto.motivo,
     motivoDaVisita: bruto.visitas?.motivos_visita?.nome ?? "",
-    respostas: ordenarRespostas(bruto.checklist_respostas ?? []),
-    fotos: (bruto.checklist_fotos ?? []).map((foto) => ({ id: foto.id, criadoEm: foto.criado_em })),
+    respostas,
+    // Foto de pergunta sem resposta na lista (nao deveria existir: o trigger
+    // da 0061 exige pergunta do modelo, e o app so manda de respondida) entra
+    // nas gerais -- sumir da tela seria pior que aparecer fora do lugar.
+    fotos: (bruto.checklist_fotos ?? [])
+      .filter((foto) => foto.pergunta_id === null || !comResposta.has(foto.pergunta_id))
+      .map(paraFoto),
     temAssinatura: Boolean(bruto.assinatura_path),
     enviadoPor: bruto.enviado_por_perfil?.nome_completo ?? null,
   };
@@ -677,16 +742,27 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
  */
 export function ordenarRespostas(
   respostas: ChecklistDetalheBruto["checklist_respostas"],
+  fotos: ChecklistDetalheBruto["checklist_fotos"] = [],
 ): RespostaDoChecklist[] {
   return respostas
-    .map((r) => ({
-      perguntaId: r.pergunta_id,
-      ordem: r.perguntas_checklist?.ordem ?? null,
-      pergunta: r.perguntas_checklist?.texto ?? "",
-      resposta: rotuloDaResposta(r.resposta),
-      observacao: r.observacao,
-    }))
+    .map((r) => {
+      const tipo = tipoDeResposta(r.perguntas_checklist?.tipo_resposta);
+      return {
+        perguntaId: r.pergunta_id,
+        ordem: r.perguntas_checklist?.ordem ?? null,
+        pergunta: r.perguntas_checklist?.texto ?? "",
+        valor: r.resposta,
+        tipo,
+        resposta: rotuloDaResposta(tipo, r.resposta),
+        observacao: r.observacao,
+        fotos: fotos.filter((foto) => foto.pergunta_id === r.pergunta_id).map(paraFoto),
+      };
+    })
     .sort((a, b) => (a.ordem ?? Number.MAX_SAFE_INTEGER) - (b.ordem ?? Number.MAX_SAFE_INTEGER));
+}
+
+function paraFoto(foto: { id: number; criado_em: string }): FotoDoChecklist {
+  return { id: foto.id, criadoEm: foto.criado_em };
 }
 
 /**
