@@ -122,12 +122,25 @@ async function Detalhe({ params, searchParams }: Props) {
           titulo={`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`}
           atraso="160ms"
         >
-          <TabelaDeRespostas respostas={detalhe.respostas} />
+          <TabelaDeRespostas checklistId={linha.id} respostas={detalhe.respostas} />
         </Cartao>
       )}
 
-      <Cartao titulo={`Fotos (${detalhe.fotos.length})`} atraso="200ms">
-        <Fotos checklistId={linha.id} fotos={detalhe.fotos} />
+      {/* Na consultoria, "gerais": as fotos de cada pergunta (0061) ja
+          aparecem na linha dela, na tabela acima. */}
+      <Cartao
+        titulo={`${linha.tipo === TIPO_CONSULTORIA ? "Fotos gerais" : "Fotos"} (${detalhe.fotos.length})`}
+        atraso="200ms"
+      >
+        <Fotos
+          checklistId={linha.id}
+          fotos={detalhe.fotos}
+          vazio={
+            linha.tipo === TIPO_CONSULTORIA && detalhe.respostas.some((resposta) => resposta.fotos.length > 0)
+              ? "As fotos deste checklist foram tiradas nas perguntas, e estão na tabela de respostas."
+              : "Nenhuma foto foi enviada junto com este checklist."
+          }
+        />
       </Cartao>
 
       <Cartao titulo="Assinatura do responsável no local" atraso="240ms">
@@ -178,6 +191,9 @@ function Resumo({ detalhe }: { detalhe: ChecklistDetalhe }) {
     { rotulo: "ID", valor: String(linha.id) },
     { rotulo: "Número/Ano", valor: linha.numeroAno },
     { rotulo: "Checklist", valor: linha.checklist },
+    // Vazio na corretiva, que nao tem modelo (0061) -- a celula em branco e a
+    // convencao da tela para "nao se aplica".
+    { rotulo: "Modelo", valor: linha.modelo },
     { rotulo: "Site", valor: linha.site },
     { rotulo: "Responsável", valor: linha.responsavel },
     { rotulo: "Motivo da visita", valor: detalhe.motivoDaVisita },
@@ -207,7 +223,13 @@ function Resumo({ detalhe }: { detalhe: ChecklistDetalhe }) {
   );
 }
 
-function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respostas"] }) {
+function TabelaDeRespostas({
+  checklistId,
+  respostas,
+}: {
+  checklistId: number;
+  respostas: ChecklistDetalhe["respostas"];
+}) {
   if (respostas.length === 0) {
     return (
       <Vazio
@@ -226,7 +248,7 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
       tabIndex={0}
       className="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green"
     >
-      <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+      <table className="w-full min-w-[880px] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-slate-800 text-xs font-semibold uppercase tracking-wide text-brand-muted">
             <th scope="col" className="w-16 whitespace-nowrap px-4 py-3">
@@ -241,6 +263,9 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
             <th scope="col" className="px-4 py-3">
               Observação
             </th>
+            <th scope="col" className="w-48 whitespace-nowrap px-4 py-3">
+              Fotos
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -253,11 +278,18 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
               <td className="px-4 py-3 text-brand-muted">{resposta.ordem}</td>
               <td className="px-4 py-3 text-white">{resposta.pergunta}</td>
               <td className="px-4 py-3">
-                <span className={`font-medium ${corDaResposta(resposta.resposta)}`}>
-                  {resposta.resposta}
-                </span>
+                <span className={`font-medium ${corDaResposta(resposta)}`}>{resposta.resposta}</span>
               </td>
               <td className="px-4 py-3 text-brand-muted">{resposta.observacao}</td>
+              <td className="px-4 py-3">
+                {resposta.fotos.length > 0 ? (
+                  <div className="flex gap-2">
+                    {resposta.fotos.map((foto) => (
+                      <MiniaturaDaFoto key={foto.id} checklistId={checklistId} fotoId={foto.id} tamanho="h-12 w-12" />
+                    ))}
+                  </div>
+                ) : null}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -266,55 +298,69 @@ function TabelaDeRespostas({ respostas }: { respostas: ChecklistDetalhe["respost
   );
 }
 
-/** So o "Não" ganha cor de alerta: e a resposta que vira nao conformidade no
- * resumo, e colorir as tres transformaria a coluna num arco-iris sem
- * hierarquia. */
-function corDaResposta(resposta: string): string {
-  if (resposta === "Não") return "text-red-400";
-  if (resposta === "Sim") return "text-brand-green";
+/**
+ * "Nao conforme" em vermelho, que e o que vira nao conformidade no resumo;
+ * "Conforme" em verde; o resto neutro. Pelo VALOR gravado e pelo tipo, e nao
+ * pelo rotulo: numa pergunta Sim/Nao ("Duvidas com o RH?") o "Nao" nao e
+ * defeito do posto, e fica neutro como no app (0061).
+ */
+function corDaResposta(resposta: ChecklistDetalhe["respostas"][number]): string {
+  if (resposta.tipo === "SN") return "text-white";
+  if (resposta.valor === "NAO") return "text-red-400";
+  if (resposta.valor === "SIM") return "text-brand-green";
   return "text-brand-muted";
+}
+
+/** Miniatura que abre a foto inteira numa aba -- a mesma das fotos gerais. */
+function MiniaturaDaFoto({
+  checklistId,
+  fotoId,
+  tamanho,
+}: {
+  checklistId: number;
+  fotoId: number;
+  tamanho: string;
+}) {
+  const href = `${LISTAGEM}/${checklistId}/fotos/${fotoId}`;
+
+  return (
+    // Link comum e nao <Link>: o destino nao e uma rota de tela, e sim bytes
+    // de imagem -- prefetch do roteador nao ajuda e baixaria a foto inteira so
+    // por passar o mouse.
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block overflow-hidden rounded-md border border-slate-800 transition-all duration-200 hover:border-brand-green"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- a rota exige a
+          sessao de quem pede (ver midia.ts); next/image buscaria sem cookie. */}
+      <img src={href} alt={`Foto do checklist ${checklistId}`} className={`${tamanho} bg-brand-navy object-cover`} />
+    </a>
+  );
 }
 
 function Fotos({
   checklistId,
   fotos,
+  vazio,
 }: {
   checklistId: number;
   fotos: ChecklistDetalhe["fotos"];
+  vazio: string;
 }) {
   if (fotos.length === 0) {
-    return (
-      <Vazio titulo="Sem fotos" descricao="Nenhuma foto foi enviada junto com este checklist." />
-    );
+    return <Vazio titulo="Sem fotos" descricao={vazio} />;
   }
 
   return (
     <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 lg:grid-cols-4">
-      {fotos.map((foto) => {
-        const href = `${LISTAGEM}/${checklistId}/fotos/${foto.id}`;
-        return (
-          <li key={foto.id}>
-            {/* Link comum e nao <Link>: o destino nao e uma rota de tela, e
-                sim bytes de imagem -- prefetch do roteador nao ajuda e
-                baixaria a foto inteira so por passar o mouse. */}
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block overflow-hidden rounded-md border border-slate-800 transition-all duration-200 hover:border-brand-green"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- mesmo
-                  motivo da assinatura: a rota exige a sessao de quem pede. */}
-              <img
-                src={href}
-                alt={`Foto do checklist ${checklistId}`}
-                className="h-40 w-full bg-brand-navy object-cover"
-              />
-            </a>
-            <p className="mt-1 text-xs text-brand-muted">{formatarDataHora(foto.criadoEm)}</p>
-          </li>
-        );
-      })}
+      {fotos.map((foto) => (
+        <li key={foto.id}>
+          <MiniaturaDaFoto checklistId={checklistId} fotoId={foto.id} tamanho="h-40 w-full" />
+          <p className="mt-1 text-xs text-brand-muted">{formatarDataHora(foto.criadoEm)}</p>
+        </li>
+      ))}
     </ul>
   );
 }

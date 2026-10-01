@@ -194,12 +194,11 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
           defaultValue={filtros.conclusao}
           options={CONCLUSAO_OPCOES}
         />
-        {/* Sem contrapartida no schema: `checklists_visita` (0042) so aceita
-            INSERT -- um checklist enviado nao e cancelado nem reaberto, entao
-            todas as linhas teriam o mesmo Status. O campo fica visivel (igual
-            a referencia, e igual ao "Checklists" de registro-de-rondas) mas
-            sem opcao nenhuma pra escolher, e `extrairFiltros` nao le `status`. */}
-        <FilterSelect label="Status" name="status" options={[]} />
+        {/* No lugar do "Status", que ficava visivel sem opcao nenhuma:
+            `checklists_visita` so aceita INSERT (0042), entao nao ha status a
+            filtrar. O Modelo (0061) e o filtro que o sistema de referencia
+            chamava de "Checklists", e ocupa a vaga sem desalinhar a grade. */}
+        <FilterSelect label="Modelo" name="modelo" defaultValue={filtros.modelo} options={opcoes.modelos} />
         <FilterInput label="Busca Livre" name="busca" defaultValue={filtros.busca} />
         <FilterInput
           label="Busca Livre Respostas tipo Texto"
