@@ -44,7 +44,7 @@ describe("pedirNovaSenha", () => {
   it("manda o link para a pagina de nova senha do portal, com o e-mail normalizado", async () => {
     expect(await pedirNovaSenha(" Fulano@Empresa.com ", PORTAL)).toEqual({ ok: true });
     expect(estado.chamadas).toEqual([
-      { email: "fulano@empresa.com", opcoes: { redirectTo: `${PORTAL}/auth/callback?next=/nova-senha` } },
+      { email: "fulano@empresa.com", opcoes: { redirectTo: `${PORTAL}/auth/sessao?next=/nova-senha` } },
     ]);
   });
 
