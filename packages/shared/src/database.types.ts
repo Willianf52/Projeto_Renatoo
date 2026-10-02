@@ -51,6 +51,35 @@ export type Database = {
         }
         Relationships: []
       }
+      atalhos_fixados: {
+        Row: {
+          criado_em: string
+          perfil_id: string
+          posicao: number
+          rota: string
+        }
+        Insert: {
+          criado_em?: string
+          perfil_id?: string
+          posicao: number
+          rota: string
+        }
+        Update: {
+          criado_em?: string
+          perfil_id?: string
+          posicao?: number
+          rota?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atalhos_fixados_perfil_id_fkey"
+            columns: ["perfil_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auditoria: {
         Row: {
           ator_id: string | null
@@ -1174,6 +1203,10 @@ export type Database = {
           visita_id: number
         }[]
       }
+      salvar_atalhos_fixados: {
+        Args: { p_atalhos: Json }
+        Returns: undefined
+      }
       sincronizar_grupos_do_modelo: {
         Args: { p_grupos: number[]; p_modelo_id: number }
         Returns: undefined
@@ -1181,6 +1214,13 @@ export type Database = {
       sincronizar_membros_grupo_usuarios: {
         Args: { p_grupo_id: number; p_membros: string[] }
         Returns: undefined
+      }
+      uso_das_minhas_telas: {
+        Args: { p_ate: string; p_desde: string }
+        Returns: {
+          rota: string
+          vezes: number
+        }[]
       }
       visitas_do_periodo: {
         Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
