@@ -62,6 +62,7 @@ test.describe("Acessibilidade sem sessao", () => {
  * rodando no meio da troca audita uma pagina que esta sumindo.
  */
 const TELAS_COM_SESSAO: [nome: string, caminho: string][] = [
+  ["principal", "/dashboard/principal"],
   ["coletas-importadas", "/dashboard/inspecoes/coletas-importadas"],
   ["registro-de-rondas", "/dashboard/inspecoes/relatorios/registro-de-rondas"],
   ["site-planta", "/dashboard/cadastros/site-planta"],

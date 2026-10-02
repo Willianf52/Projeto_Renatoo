@@ -5,13 +5,14 @@
 --   1) o autor vem do banco, nao do cliente -- nem `perfil_id` nem `cargo`
 --      sao gravaveis pela sessao;
 --   2) o teto de tamanho e a lista fechada de eventos seguram lixo;
---   3) so a gestao le; quem registra nao le o que os outros registraram;
+--   3) a gestao le tudo; quem nao e gestao le so o proprio uso (0062) e
+--      nunca o que os outros registraram;
 --   4) conta inativa e `anon` nao registram nada.
 -- ============================================================================
 
 begin;
 
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -70,11 +71,12 @@ select throws_ok(
   'detalhes acima do teto de tamanho e recusado'
 );
 
--- Quem registra nao le: a policy de SELECT e so da gestao.
+-- Desde a 0062, cada pessoa le o PROPRIO uso (a Pagina Principal ordena os
+-- atalhos por ele). Que nao le o dos outros e conferido no fim.
 select is(
   (select count(*)::int from public.eventos_de_uso),
-  0,
-  'OPERADOR nao le eventos de uso'
+  1,
+  'OPERADOR le o proprio evento'
 );
 reset role;
 
@@ -103,6 +105,17 @@ select cmp_ok(
   '=',
   2,
   'GESTOR le os eventos de todos'
+);
+reset role;
+
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "e5100000-0000-0000-0000-000000000002", "role": "authenticated"}';
+
+select is(
+  (select count(*)::int from public.eventos_de_uso
+    where perfil_id is distinct from 'e5100000-0000-0000-0000-000000000002'),
+  0,
+  'OPERADOR nao le os eventos dos outros -- nem o login do GESTOR'
 );
 reset role;
 

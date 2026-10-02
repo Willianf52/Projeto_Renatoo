@@ -32,6 +32,7 @@ const PAGINAS_PUBLICAS = ["/", "/recuperar-senha"];
 /** As telas de listagem e de formulario do menu. Paginas de exportar ficam de
  * fora: a de PDF abre o dialogo de impressao, e a de Excel e download. */
 const PAGINAS_DO_PAINEL = [
+  "/dashboard/principal",
   "/dashboard/inspecoes/coletas-importadas",
   "/dashboard/inspecoes/relatorios/horas-por-usuario",
   "/dashboard/inspecoes/relatorios/inspecoes-inicio-fim-visita",

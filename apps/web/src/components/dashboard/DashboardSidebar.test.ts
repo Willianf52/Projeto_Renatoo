@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { naRota } from "./DashboardSidebar";
+import { naRota } from "./telas-do-menu";
 
 const MAPA = "/dashboard/eventos/relatorios/mapa-de-eventos";
 
