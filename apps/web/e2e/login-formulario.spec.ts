@@ -21,7 +21,7 @@ test.describe("Formulário de login", () => {
   test("e-mail malformado mostra 'E-mail inválido'", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail").fill("nao-e-um-email");
+    await page.getByLabel("E-mail", { exact: true }).fill("nao-e-um-email");
     await page.getByRole("textbox", { name: "Senha" }).fill("qualquer-coisa");
     await page.getByRole("button", { name: "Entrar" }).click();
 
@@ -31,7 +31,7 @@ test.describe("Formulário de login", () => {
   test("credenciais inexistentes mostram 'E-mail ou senha incorretos.'", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail").fill(`inexistente-${Date.now()}@teste.local`);
+    await page.getByLabel("E-mail", { exact: true }).fill(`inexistente-${Date.now()}@teste.local`);
     await page.getByRole("textbox", { name: "Senha" }).fill("senha-qualquer-123");
     await page.getByRole("button", { name: "Entrar" }).click();
 
@@ -50,7 +50,7 @@ test.describe("Formulário de login", () => {
   test("5 tentativas falhas bloqueiam o formulário por 30s", async ({ page }) => {
     await page.goto("/");
 
-    const email = page.getByLabel("E-mail");
+    const email = page.getByLabel("E-mail", { exact: true });
     const senha = page.getByRole("textbox", { name: "Senha" });
     const entrar = page.getByRole("button", { name: "Entrar" });
 

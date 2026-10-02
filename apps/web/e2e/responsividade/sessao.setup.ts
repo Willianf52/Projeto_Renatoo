@@ -24,7 +24,7 @@ setup.skip(!EMAIL || !SENHA, "sem E2E_EMAIL/E2E_PASSWORD: so as paginas publicas
 
 setup("sessao para a varredura do painel", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("E-mail").fill(EMAIL!);
+  await page.getByLabel("E-mail", { exact: true }).fill(EMAIL!);
   await page.getByRole("textbox", { name: "Senha" }).fill(SENHA!);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/dashboard/);
