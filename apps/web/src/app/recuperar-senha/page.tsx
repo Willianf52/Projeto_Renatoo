@@ -5,7 +5,10 @@ import { FormEvent, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
 import { EMAIL_REGEX, FormField } from "@/components/FormField";
 import { createClient } from "@/lib/supabase/client";
-import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared";
+// Pelo subcaminho, e nao pelo indice do shared: o login pre-carrega esta
+// pagina pelo link "Perdeu sua Senha?", e o indice puxava junto codigo que
+// ela nao usa (+39 kB no orcamento de desempenho do login).
+import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared/recuperacao-de-senha";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
