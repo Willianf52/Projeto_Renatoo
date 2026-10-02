@@ -55,8 +55,13 @@ function NavegacaoDaSidebar({
               className="animate-fade-in-left"
               style={{ animationDelay: `${index * 60}ms` }}
             >
+              {/* Sem prefetch: os outros links do menu ficam dentro de secoes
+                  fechadas e o Next nao os pre-carrega; este fica sempre a
+                  vista, e o pre-carregamento custava uma requisicao a mais em
+                  toda tela do painel (orcamento de desempenho). */}
               <Link
                 href={item.href}
+                prefetch={false}
                 onClick={onCloseMobile}
                 aria-current={isActive ? "page" : undefined}
                 className={`group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-all duration-200 ${

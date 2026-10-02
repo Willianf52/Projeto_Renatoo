@@ -1203,10 +1203,7 @@ export type Database = {
           visita_id: number
         }[]
       }
-      salvar_atalhos_fixados: {
-        Args: { p_atalhos: Json }
-        Returns: undefined
-      }
+      salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }
       sincronizar_grupos_do_modelo: {
         Args: { p_grupos: number[]; p_modelo_id: number }
         Returns: undefined
