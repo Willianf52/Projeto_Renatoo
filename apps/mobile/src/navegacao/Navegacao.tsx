@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { DarkTheme, NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
@@ -14,6 +15,7 @@ import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
 import { TelaDeLeitura } from "../telas/TelaDeLeitura";
 import { TelaDeLogin } from "../telas/TelaDeLogin";
+import { TelaDeRecuperarSenha } from "../telas/TelaDeRecuperarSenha";
 import { TelaDeSites } from "../telas/TelaDeSites";
 import { TelaDeTipoDeVisita } from "../telas/TelaDeTipoDeVisita";
 import { TelaInicial } from "../telas/TelaInicial";
@@ -105,7 +107,7 @@ export function Navegacao() {
   }
 
   if (!sessao) {
-    return <TelaDeLogin />;
+    return <TelasDeAcesso />;
   }
 
   // Sessao valida, perfil ainda a caminho: esperar evita classificar como
@@ -230,4 +232,20 @@ export function Navegacao() {
       </Pilha.Navigator>
     </NavigationContainer>
   );
+}
+
+/**
+ * Login e "Esqueceu a senha?": as duas telas de quem nao tem sessao. Troca por
+ * estado, e nao por pilha, pelo mesmo motivo de o login nao ser rota (ver
+ * acima). O e-mail digitado no login vai junto, para nao digitar de novo.
+ */
+function TelasDeAcesso() {
+  const [recuperando, setRecuperando] = useState<string | null>(null);
+  const voltar = useCallback(() => setRecuperando(null), []);
+
+  if (recuperando !== null) {
+    return <TelaDeRecuperarSenha emailInicial={recuperando} aoVoltar={voltar} />;
+  }
+
+  return <TelaDeLogin aoEsquecerSenha={setRecuperando} />;
 }

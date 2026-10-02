@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "./Button";
 import { EMAIL_REGEX, FormField } from "./FormField";
 import { createClient } from "@/lib/supabase/client";
+import { assinarEmailLembrado, guardarEmailLembrado, lerEmailLembrado } from "@/lib/email-lembrado";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { registrarEvento } from "@/lib/telemetria";
 
@@ -62,7 +63,16 @@ function lerBloqueioSalvo(): { tentativas?: number; ate?: number } {
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  // "Lembrar meu e-mail" (02/10/2026). O guardado vem por
+  // `useSyncExternalStore`, e nao por inicializador do useState: o servidor
+  // renderiza sem localStorage, e o snapshot de servidor ("") e o que deixa a
+  // hidratacao casar antes de o valor real entrar. `null` nos dois estados =
+  // "a pessoa ainda nao mexeu", e vale o guardado.
+  const emailLembrado = useSyncExternalStore(assinarEmailLembrado, lerEmailLembrado, () => "");
+  const [emailDigitado, setEmail] = useState<string | null>(null);
+  const email = emailDigitado ?? emailLembrado;
+  const [lembrarMarcado, setLembrarEmail] = useState<boolean | null>(null);
+  const lembrarEmail = lembrarMarcado ?? emailLembrado !== "";
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({
     email: "",
@@ -184,6 +194,8 @@ export function LoginForm() {
     }
 
     setTentativasFalhas(0);
+    // Desmarcada, apaga o que estava guardado: e o "esquecer" da caixa.
+    guardarEmailLembrado(lembrarEmail ? trimmedEmail : "");
     // Telemetria (P2-4): o cargo quem grava e o banco, a partir da sessao que
     // acabou de nascer. Nao espera o insert -- a navegacao nao depende dele.
     registrarEvento("login");
@@ -254,7 +266,20 @@ export function LoginForm() {
         </p>
       )}
 
-      <div className="flex justify-end animate-fade-in-up" style={{ animationDelay: "260ms" }}>
+      <div
+        className="flex items-center justify-between gap-3 animate-fade-in-up"
+        style={{ animationDelay: "260ms" }}
+      >
+        <label htmlFor="lembrar-email" className="inline-flex cursor-pointer items-center gap-2 text-xs text-brand-muted">
+          <input
+            id="lembrar-email"
+            type="checkbox"
+            checked={lembrarEmail}
+            onChange={(event) => setLembrarEmail(event.target.checked)}
+            className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+          />
+          Lembrar meu e-mail
+        </label>
         <Link
           href="/recuperar-senha"
           className="group inline-flex items-center gap-1.5 text-xs text-brand-muted transition-colors hover:text-brand-green"

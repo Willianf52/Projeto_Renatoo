@@ -138,3 +138,12 @@ export function IconeDeSeta({ tamanho = 20, cor }: PropsDeIcone) {
     </Svg>
   );
 }
+
+/** Marca da caixa "Lembrar meu e-mail". */
+export function IconeDeConfere({ tamanho = 14, cor }: PropsDeIcone) {
+  return (
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6 9 17l-5-5" stroke={cor} {...COMUNS} strokeWidth={3} />
+    </Svg>
+  );
+}

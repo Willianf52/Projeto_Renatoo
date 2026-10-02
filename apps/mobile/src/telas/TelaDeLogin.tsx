@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -21,15 +20,16 @@ import {
   segundosRestantes,
   type EstadoDoLimite,
 } from "../auth/limite-de-tentativas";
+import { guardarEmailLembrado, lerEmailLembrado } from "../auth/email-lembrado";
 import { guardarLimite, lerLimiteGuardado } from "../auth/limite-guardado";
 import { useSessao } from "../auth/SessaoProvider";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
+import { CaixaDeMarcar } from "../componentes/CaixaDeMarcar";
 import { Campo } from "../componentes/Campo";
 import { useAbalo, useEntrada } from "../componentes/entrada";
 import { IconeDeCadeado } from "../componentes/icones";
 import { Marca } from "../componentes/Marca";
-import { env } from "../lib/env";
 import { supabase } from "../lib/supabase";
 import { cores, espaco, texto, tipografia } from "../tema";
 
@@ -48,8 +48,19 @@ const LARGURA_DO_FORMULARIO = 320;
  * num celular em pe, e forcar uma versao dele em cima dos campos empurraria o
  * formulario para debaixo do teclado.
  */
-export function TelaDeLogin() {
+export function TelaDeLogin({
+  aoEsquecerSenha,
+}: {
+  /** Abre a tela de recuperar senha, levando o e-mail ja digitado. */
+  aoEsquecerSenha: (email: string) => void;
+}) {
   const [email, setEmail] = useState("");
+  /**
+   * "Lembrar meu e-mail" (02/10/2026). So o e-mail: a senha fica com o
+   * chaveiro do aparelho -- ver `auth/email-lembrado.ts`. Comeca desmarcada e
+   * so vem marcada se ja havia e-mail guardado.
+   */
+  const [lembrarEmail, setLembrarEmail] = useState(false);
   const [senha, setSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -100,6 +111,23 @@ export function TelaDeLogin() {
       if (!ativo) return;
       setLimite(guardado);
       setSegundos(segundosRestantes(guardado, Date.now()));
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  // O e-mail lembrado chega depois do primeiro render (Keystore e assincrono).
+  // So preenche se a pessoa ainda nao comecou a digitar.
+  useEffect(() => {
+    let ativo = true;
+
+    void lerEmailLembrado().then((guardado) => {
+      if (!ativo || !guardado) return;
+      setEmail((atual) => atual || guardado);
+      setLembrarEmail(true);
+      campoDeSenha.current?.focus();
     });
 
     return () => {
@@ -197,6 +225,8 @@ export function TelaDeLogin() {
     // a gravacao -- a troca de tela nao deve ficar presa a uma escrita no
     // Keystore, e nada le este valor antes da proxima abertura do login.
     void guardarLimite(LIMITE_ZERADO);
+    // Desmarcada, apaga o que estava guardado: e o "esquecer" da caixa.
+    void guardarEmailLembrado(lembrarEmail ? email : null);
 
     // Sem setEnviando(false) no sucesso: a troca de tela desmonta este
     // componente, e atualizar estado depois disso avisa em console a toa.
@@ -237,6 +267,9 @@ export function TelaDeLogin() {
               }}
               autoCapitalize="none"
               autoComplete="email"
+              // `username` e nao `emailAddress`: e o par que o iOS usa para
+              // casar e-mail e senha no chaveiro e oferecer os dois juntos.
+              textContentType="username"
               autoCorrect={false}
               keyboardType="email-address"
               inputMode="email"
@@ -277,21 +310,23 @@ export function TelaDeLogin() {
 
           {aviso ? <Aviso mensagem={aviso} estilo={estilos.banner} /> : null}
 
-          {env.urlDoPortal ? (
-            <Animated.View style={[estilos.linha, entradaDoLink]}>
-              <Pressable
-                onPress={() => {
-                  void Linking.openURL(`${env.urlDoPortal}/recuperar-senha`);
-                }}
-                accessibilityRole="link"
-                hitSlop={8}
-                style={({ pressed }) => [estilos.link, pressed && estilos.linkPressionado]}
-              >
-                <IconeDeCadeado cor={cores.textoFraco} />
-                <Text style={estilos.linkTexto}>Perdeu sua Senha?</Text>
-              </Pressable>
-            </Animated.View>
-          ) : null}
+          <Animated.View style={[estilos.linha, entradaDoLink]}>
+            <CaixaDeMarcar
+              rotulo="Lembrar meu e-mail"
+              marcada={lembrarEmail}
+              aoMudar={setLembrarEmail}
+              desabilitada={enviando}
+            />
+            <Pressable
+              onPress={() => aoEsquecerSenha(email)}
+              accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => [estilos.link, pressed && estilos.linkPressionado]}
+            >
+              <IconeDeCadeado cor={cores.textoFraco} />
+              <Text style={estilos.linkTexto}>Perdeu sua Senha?</Text>
+            </Pressable>
+          </Animated.View>
 
           <Animated.View style={[estilos.acao, entradaDoBotao]}>
             <Botao
@@ -322,7 +357,13 @@ const estilos = StyleSheet.create({
   marca: { alignItems: "center", marginBottom: espaco.secao },
   campoSeguinte: { marginTop: espaco.entreCampos },
   banner: { marginTop: espaco.entreCampos },
-  linha: { marginTop: espaco.entreCampos, alignItems: "flex-end" },
+  linha: {
+    marginTop: espaco.entreCampos,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: espaco.minimo,
+  },
   link: { flexDirection: "row", alignItems: "center", gap: espaco.rotulo },
   linkPressionado: { opacity: 0.6 },
   linkTexto: texto(tipografia.nota, { cor: cores.textoFraco }),
