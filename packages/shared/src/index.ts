@@ -4,3 +4,4 @@ export * from "./supabase-client";
 export * from "./campo";
 export * from "./sessao";
 export * from "./tema";
+export * from "./recuperacao-de-senha";
