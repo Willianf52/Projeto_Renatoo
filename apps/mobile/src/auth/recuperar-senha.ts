@@ -1,4 +1,5 @@
 import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared";
 
 import { supabase } from "../lib/supabase";
 
@@ -14,7 +15,8 @@ import { supabase } from "../lib/supabase";
  *
  * MESMA RESPOSTA COM OU SEM CONTA, como no painel: dizer "e-mail nao
  * cadastrado" transformaria a tela num verificador de quem tem conta. A unica
- * excecao e falta de rede, que nao revela nada e o inspetor precisa saber.
+ * excecao e o que nao revela nada sobre o e-mail: falta de rede e o limite
+ * de envio do projeto (`eLimiteDeEnvioDoProjeto`, no shared).
  */
 
 /** O mesmo `EMAIL_REGEX` do `FormField.tsx` do painel. */
@@ -47,6 +49,10 @@ export async function pedirNovaSenha(
 
     if (error && isAuthRetryableFetchError(error)) {
       return { ok: false, erro: "Sem conexão. Verifique o sinal e tente de novo." };
+    }
+
+    if (eLimiteDeEnvioDoProjeto(error)) {
+      return { ok: false, erro: AVISO_DE_LIMITE_DE_EMAIL };
     }
   } catch {
     return { ok: false, erro: "Sem conexão. Verifique o sinal e tente de novo." };

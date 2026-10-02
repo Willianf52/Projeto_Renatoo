@@ -5,6 +5,10 @@ import { FormEvent, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
 import { EMAIL_REGEX, FormField } from "@/components/FormField";
 import { createClient } from "@/lib/supabase/client";
+// Pelo subcaminho, e nao pelo indice do shared: o login pre-carrega esta
+// pagina pelo link "Perdeu sua Senha?", e o indice puxava junto codigo que
+// ela nao usa (+39 kB no orcamento de desempenho do login).
+import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared/recuperacao-de-senha";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
@@ -32,13 +36,20 @@ export default function RecuperarSenhaPage() {
     setLoading(true);
 
     const supabase = createClient();
-    await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+    const { error: erroDoEnvio } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
       redirectTo: `${window.location.origin}/auth/callback?next=/nova-senha`,
     });
 
-    // A confirmacao é sempre a mesma, com ou sem erro: revelar se o e-mail
-    // existe permitiria enumerar contas cadastradas.
     setLoading(false);
+
+    // A confirmacao é sempre a mesma, com ou sem erro: revelar se o e-mail
+    // existe permitiria enumerar contas cadastradas. A unica excecao e o
+    // limite de envio do projeto, que vale para todos (ver o shared).
+    if (eLimiteDeEnvioDoProjeto(erroDoEnvio)) {
+      setError(AVISO_DE_LIMITE_DE_EMAIL);
+      return;
+    }
+
     setEmail("");
     setSubmitted(true);
   };

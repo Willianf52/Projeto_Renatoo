@@ -63,6 +63,14 @@ describe("pedirNovaSenha", () => {
     expect(await pedirNovaSenha("a@b.com", PORTAL)).toEqual({ ok: true });
   });
 
+  it("limite de envio do projeto avisa; o limite por usuario nao, para nao revelar a conta", async () => {
+    estado.resposta = { error: { status: 429, code: "over_email_send_rate_limit" } };
+    expect(await pedirNovaSenha("a@b.com", PORTAL)).toMatchObject({ ok: false, erro: expect.stringMatching(/Muitos pedidos/) });
+
+    estado.resposta = { error: { status: 429, code: "over_request_rate_limit" } };
+    expect(await pedirNovaSenha("a@b.com", PORTAL)).toEqual({ ok: true });
+  });
+
   it("sem rede, avisa", async () => {
     estado.resposta = { error: { rede: true } };
     expect(await pedirNovaSenha("a@b.com", PORTAL)).toMatchObject({ ok: false, erro: expect.stringMatching(/Sem conexão/) });
