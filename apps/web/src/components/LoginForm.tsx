@@ -267,10 +267,14 @@ export function LoginForm() {
       )}
 
       <div
-        className="flex items-center justify-between gap-3 animate-fade-in-up"
+        // Os dois textos juntos pedem ~275px, e a coluna do login no desktop
+        // tem 240-262px: lado a lado, "Lembrar meu e-mail" quebrava no meio.
+        // Cada um fica inteiro (`whitespace-nowrap`) e o link desce para a
+        // linha de baixo, a direita, so quando nao cabe.
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 animate-fade-in-up"
         style={{ animationDelay: "260ms" }}
       >
-        <label htmlFor="lembrar-email" className="inline-flex cursor-pointer items-center gap-2 text-xs text-brand-muted">
+        <label htmlFor="lembrar-email" className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap text-xs text-brand-muted">
           <input
             id="lembrar-email"
             type="checkbox"
@@ -282,7 +286,7 @@ export function LoginForm() {
         </label>
         <Link
           href="/recuperar-senha"
-          className="group inline-flex items-center gap-1.5 text-xs text-brand-muted transition-colors hover:text-brand-green"
+          className="group ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-brand-muted transition-colors hover:text-brand-green"
         >
           <svg
             aria-hidden="true"
