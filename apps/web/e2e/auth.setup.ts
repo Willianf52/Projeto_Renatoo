@@ -72,7 +72,7 @@ setup("contas do stack local e sessao do gestor", async ({ page }) => {
   }
 
   await page.goto("/");
-  await page.getByLabel("E-mail").fill(CONTAS.gestor.email);
+  await page.getByLabel("E-mail", { exact: true }).fill(CONTAS.gestor.email);
   await page.getByRole("textbox", { name: "Senha" }).fill(CONTAS.gestor.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/dashboard/);

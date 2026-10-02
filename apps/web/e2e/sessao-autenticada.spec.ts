@@ -33,7 +33,7 @@ test.describe("Login com conta ativa", () => {
   test("login bem-sucedido leva ao dashboard", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail").fill(EMAIL!);
+    await page.getByLabel("E-mail", { exact: true }).fill(EMAIL!);
     await page.getByRole("textbox", { name: "Senha" }).fill(PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 
@@ -46,7 +46,7 @@ test.describe("Login com conta ativa", () => {
     await page.goto("/dashboard/inspecoes/coletas-importadas");
     await expect(page).toHaveURL(/redirectTo=/);
 
-    await page.getByLabel("E-mail").fill(EMAIL!);
+    await page.getByLabel("E-mail", { exact: true }).fill(EMAIL!);
     await page.getByRole("textbox", { name: "Senha" }).fill(PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 
@@ -60,7 +60,7 @@ test.describe("Login com conta desativada", () => {
   test("conta desativada é barrada com a mensagem certa", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail").fill(INATIVO_EMAIL!);
+    await page.getByLabel("E-mail", { exact: true }).fill(INATIVO_EMAIL!);
     await page.getByRole("textbox", { name: "Senha" }).fill(INATIVO_PASSWORD!);
     await page.getByRole("button", { name: "Entrar" }).click();
 

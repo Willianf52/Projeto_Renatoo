@@ -142,11 +142,23 @@ overrides:
 # A dispensa tambem cai se o app de campo passar a declarar `scheme` e
 # `linking` -- ai o parser volta a receber URL de terceiro, e a premissa de
 # "nao alcancavel" acima deixa de valer.
+#
+# GHSA-86w9-cpqp-85rv (high, 02/10/2026): node-forge <= 1.4.0 aceita
+# DigestAlgorithm aninhado a mais na verificacao de assinatura RSA PKCS#1 v1.5.
+# O advisory aponta 1.4.1 como corrigida, mas ela AINDA NAO FOI PUBLICADA no
+# npm (a mais nova e a 1.4.0, de 03/2026) -- nao ha override possivel.
+# Entra so por apps/mobile > expo > @expo/cli (assinatura de build iOS local)
+# e @expo/code-signing-certificates (assinatura de OTA): ferramenta de
+# desenvolvimento, fora do bundle do app, e o projeto nao usa assinatura de
+# OTA ("Code Signing Key: N/A" no `eas update:list`). Nada aqui verifica
+# assinatura vinda de terceiro. Revisitar quando a 1.4.1 sair: trocar esta
+# dispensa por override `node-forge@<1.4.1: '>=1.4.1'`.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
     - GHSA-vcc3-ghjq-m6fr
+    - GHSA-86w9-cpqp-85rv
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
