@@ -357,14 +357,18 @@ const estilos = StyleSheet.create({
   marca: { alignItems: "center", marginBottom: espaco.secao },
   campoSeguinte: { marginTop: espaco.entreCampos },
   banner: { marginTop: espaco.entreCampos },
+  // Mesma regra do login do painel: em tela estreita o link desce para a
+  // linha de baixo, a direita, em vez de quebrar "Lembrar meu e-mail" no meio.
   linha: {
     marginTop: espaco.entreCampos,
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: espaco.minimo,
+    columnGap: espaco.minimo,
+    rowGap: espaco.minimo,
   },
-  link: { flexDirection: "row", alignItems: "center", gap: espaco.rotulo },
+  link: { flexDirection: "row", alignItems: "center", gap: espaco.rotulo, marginLeft: "auto" },
   linkPressionado: { opacity: 0.6 },
   linkTexto: texto(tipografia.nota, { cor: cores.textoFraco }),
   acao: { marginTop: espaco.entreCampos },
