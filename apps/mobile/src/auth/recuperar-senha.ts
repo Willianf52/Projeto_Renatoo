@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase";
  * "Esqueceu a senha?" dentro do app (pedido do dono, 02/10/2026). Antes era so
  * um link que abria o portal no navegador.
  *
- * O e-mail que chega e o mesmo do painel: o link leva a `/nova-senha` do
+ * O link do e-mail termina na `/nova-senha` do
  * portal, onde a senha nova e escolhida com a politica de senha que ja mora
  * la (`apps/web/src/app/nova-senha`). Refazer essa tela no app seria uma
  * segunda politica para desencontrar da primeira, e o link do e-mail abre no
@@ -38,9 +38,11 @@ export async function pedirNovaSenha(
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      // Sem o endereco do portal (Expo Go sem `.env.local` completo), o
-      // Supabase usa a Site URL do projeto -- que e o proprio portal.
-      redirectTo: urlDoPortal ? `${urlDoPortal}/auth/callback?next=/nova-senha` : undefined,
+      // `/auth/sessao`, e nao `/auth/callback`: o pedido sai daqui no fluxo
+      // implicito, com os tokens no fragmento do link, e so essa pagina do
+      // portal os le (ver `apps/web/src/lib/sessao-do-link.ts`). Sem o
+      // endereco do portal, o Supabase usa a Site URL do projeto.
+      redirectTo: urlDoPortal ? `${urlDoPortal}/auth/sessao?next=/nova-senha` : undefined,
     });
 
     if (error && isAuthRetryableFetchError(error)) {
