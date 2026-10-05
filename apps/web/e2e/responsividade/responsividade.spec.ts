@@ -40,6 +40,7 @@ const PAGINAS_DO_PAINEL = [
   "/dashboard/inspecoes/relatorios/ranking-de-inspecoes",
   "/dashboard/inspecoes/relatorios/registro-de-rondas",
   "/dashboard/inspecoes/relatorios/visitas-de-supervisao",
+  "/dashboard/eventos/painel-de-eventos",
   "/dashboard/eventos/relatorios/eventos-por-site",
   "/dashboard/eventos/relatorios/graficos-de-eventos",
   "/dashboard/eventos/relatorios/mapa-de-eventos",

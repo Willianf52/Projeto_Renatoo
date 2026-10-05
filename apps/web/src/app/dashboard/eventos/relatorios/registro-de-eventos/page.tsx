@@ -174,21 +174,20 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 }
 
 /**
- * Link de "Ações": as coletas que originaram a linha, em Coletas Importadas.
+ * Link de "Ações": o Painel de Eventos ja filtrado por site, evento e periodo,
+ * como a lupa do sistema de referencia (05/10/2026). Antes abria Coletas
+ * Importadas, que so tem as leituras importadas -- e as ocorrencias abertas
+ * pelo checklist (0063), que sao quase todas, nao estao la.
  *
- * O periodo so vai junto quando o relatorio esta recortando por DATA DO
- * EVENTO: Coletas Importadas filtra por `data_hora` e nao por
- * `data_integracao`, entao mandar as mesmas datas no modo "Data de Inserção"
- * abriria uma lista que nao bate com a Quantidade da linha. Sem as datas a
- * lista vem mais larga -- larga e verdadeira e melhor que estreita e errada.
+ * O Painel recorta pela data de abertura da ocorrencia, que e a mesma nos dois
+ * modos ("Data de Inserção" e "Data do Evento"): a ocorrencia nasce no
+ * servidor, no envio do checklist.
  */
-function hrefDasColetas(filtros: Filtros, linha: LinhaDeEvento): string {
-  const query = new URLSearchParams({ local: String(linha.siteId), evento: String(linha.eventoId) });
-  if (filtros.baseDeData === "evento") {
-    if (filtros.dataInicial) query.set("data_inicial", filtros.dataInicial);
-    if (filtros.dataFinal) query.set("data_final", filtros.dataFinal);
-  }
-  return `/dashboard/inspecoes/coletas-importadas?${query.toString()}`;
+function hrefDoPainel(filtros: Filtros, linha: LinhaDeEvento): string {
+  const query = new URLSearchParams({ sites: String(linha.siteId), evento: String(linha.eventoId) });
+  if (filtros.dataInicial) query.set("data_inicial", filtros.dataInicial);
+  if (filtros.dataFinal) query.set("data_final", filtros.dataFinal);
+  return `/dashboard/eventos/painel-de-eventos?${query.toString()}`;
 }
 
 async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPromise }) {
@@ -221,8 +220,8 @@ async function CorpoDoRegistro({ searchParams }: { searchParams: SearchParamsPro
     <Centro key="percentual">{formatarPercentual(linha.percentual)}</Centro>,
     <Centro key="acoes">
       <Acao
-        titulo={`Ver as coletas de ${linha.eventoNome} em ${linha.siteNome}`}
-        href={hrefDasColetas(filtros, linha)}
+        titulo={`Ver os eventos de ${linha.eventoNome} em ${linha.siteNome} no Painel de Eventos`}
+        href={hrefDoPainel(filtros, linha)}
         className="mx-auto hover:bg-white/10"
       >
         <SearchIcon className="h-4 w-4" />
