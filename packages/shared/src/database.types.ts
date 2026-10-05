@@ -705,10 +705,105 @@ export type Database = {
         }
         Relationships: []
       }
+      ocorrencias: {
+        Row: {
+          aberta_por: string | null
+          ano: number
+          checklist_id: number
+          criado_em: string
+          evento_id: number
+          id: number
+          numero: number
+          observacao: string | null
+          pergunta_id: number
+          pergunta_texto: string
+          resposta: string
+          site_id: number
+          status: string
+          visita_id: number
+        }
+        Insert: {
+          aberta_por?: string | null
+          ano: number
+          checklist_id: number
+          criado_em?: string
+          evento_id: number
+          id?: never
+          numero: number
+          observacao?: string | null
+          pergunta_id: number
+          pergunta_texto: string
+          resposta: string
+          site_id: number
+          status?: string
+          visita_id: number
+        }
+        Update: {
+          aberta_por?: string | null
+          ano?: number
+          checklist_id?: number
+          criado_em?: string
+          evento_id?: number
+          id?: never
+          numero?: number
+          observacao?: string | null
+          pergunta_id?: number
+          pergunta_texto?: string
+          resposta?: string
+          site_id?: number
+          status?: string
+          visita_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocorrencias_aberta_por_fkey"
+            columns: ["aberta_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_pergunta_id_fkey"
+            columns: ["pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_checklist"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_visita_id_fkey"
+            columns: ["visita_id"]
+            isOneToOne: false
+            referencedRelation: "visitas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perguntas_checklist: {
         Row: {
           ativo: boolean
           criado_em: string
+          evento_id: number | null
           id: number
           modelo_id: number
           ordem: number
@@ -718,6 +813,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           criado_em?: string
+          evento_id?: number | null
           id?: never
           modelo_id: number
           ordem: number
@@ -727,6 +823,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           criado_em?: string
+          evento_id?: number | null
           id?: never
           modelo_id?: number
           ordem?: number
@@ -734,6 +831,13 @@ export type Database = {
           tipo_resposta?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "perguntas_checklist_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "perguntas_checklist_modelo_id_fkey"
             columns: ["modelo_id"]
