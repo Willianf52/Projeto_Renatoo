@@ -13,6 +13,7 @@
 --   9) Nem muda o status direto (42501).
 --  10) A base dos relatorios de Eventos conta as ocorrencias.
 --  11) A funcao do trigger nao e executavel por `authenticated`.
+--  (Os itens 1 e 2 sao conferidos num assert so: 10 asserts.)
 --
 -- Ids alheios vao para `ids_teste` (sem RLS) antes de trocar de role -- ver a
 -- nota em `checklist_de_visitas_test.sql`.
@@ -20,7 +21,7 @@
 
 begin;
 
-select plan(11);
+select plan(10);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -162,7 +163,7 @@ select is(
   (select format('%s|%s|%s', count(distinct numero), max(numero) - min(numero), bool_and(ano = extract(year from now() at time zone 'America/Sao_Paulo')))
      from public.ocorrencias
     where checklist_id = (select valor from ids_teste where chave = 'checklist_1')),
-  '3|2|true',
+  '3|2|t',
   'numero/ano sequencial e sem repetir'
 );
 
@@ -171,7 +172,7 @@ select is(
           bool_and(pergunta_texto like '%0063'))
      from public.ocorrencias
     where checklist_id = (select valor from ids_teste where chave = 'checklist_1')),
-  'true|true|true',
+  't|t|t',
   'nasce AGUARDANDO, aberta pelo autor da visita, com o texto da pergunta'
 );
 
