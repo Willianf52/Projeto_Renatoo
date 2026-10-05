@@ -153,12 +153,21 @@ overrides:
 # OTA ("Code Signing Key: N/A" no `eas update:list`). Nada aqui verifica
 # assinatura vinda de terceiro. Revisitar quando a 1.4.1 sair: trocar esta
 # dispensa por override `node-forge@<1.4.1: '>=1.4.1'`.
+#
+# GHSA-vfj7-8cjw-p6xm (high, 05/10/2026): braces <= 3.0.3, estouro de pilha com
+# padrao glob muito aninhado. Mesma situacao do node-forge acima: o advisory
+# aponta 3.0.4, que AINDA NAO FOI PUBLICADA (a mais nova e a 3.0.3, de 2024).
+# Entra so por ferramenta de desenvolvimento e build (eslint/fast-glob,
+# metro-file-map, vitest), que recebe padrao da configuracao do proprio
+# projeto, nunca de usuario. Revisitar quando a 3.0.4 sair: trocar por
+# override `braces@<3.0.4: '>=3.0.4'`.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
     - GHSA-vcc3-ghjq-m6fr
     - GHSA-86w9-cpqp-85rv
+    - GHSA-vfj7-8cjw-p6xm
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
