@@ -48,7 +48,17 @@ export async function podeAdministrarGruposDeUsuarios(): Promise<boolean> {
   return consultarPermissao("pode_administrar_grupos_usuarios", "administrar grupos de usuários");
 }
 
+/**
+ * Chama `pode_ver_toda_operacao()`: GESTOR e SUPERVISOR. E a regua de quem
+ * analisa e finaliza ocorrencia (migration 0064) -- a tela so decide entre
+ * mostrar o formulario e mostrar o botao desabilitado; o RLS e o portao.
+ */
+export async function podeVerTodaAOperacao(): Promise<boolean> {
+  return consultarPermissao("pode_ver_toda_operacao", "ver toda a operação");
+}
+
 type FuncaoDePermissao =
+  | "pode_ver_toda_operacao"
   | "pode_administrar_cadastros"
   | "pode_administrar_usuarios"
   | "pode_administrar_grupos_usuarios";

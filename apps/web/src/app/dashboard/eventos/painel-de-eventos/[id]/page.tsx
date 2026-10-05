@@ -2,32 +2,46 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/dashboard/Skeleton";
 import { ChevronLeftIcon, ClipboardListIcon, PdfIcon } from "@/components/dashboard/icons";
 import { FUSO_DO_PROJETO } from "@/lib/data-hora";
-import { getOcorrencia, idValido, rotuloDoStatus, type OcorrenciaDetalhe } from "../queries";
+import { podeVerTodaAOperacao } from "@/lib/permissoes";
+import { AbrirPeloHash } from "../AbrirPeloHash";
+import { aceitaAndamento } from "../andamentos";
+import { FormularioDeAndamento } from "../FormularioDeAndamento";
+import {
+  getOcorrencia,
+  getOpcoesDoAndamento,
+  idValido,
+  rotuloDoStatus,
+  type AndamentoDaOcorrencia,
+  type OcorrenciaDetalhe,
+  type SearchParams,
+} from "../queries";
 
 const PAINEL = "/dashboard/eventos/painel-de-eventos";
 const HISTORICO = "/dashboard/checklistlab/historico-de-checklist";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> };
 
 /**
  * "Registro de Evento On-Line" -- o detalhe da ocorrencia, como o
  * `vlab_evento_registrado.php` do sistema de referencia: os mesmos campos, na
  * mesma ordem. O que o sistema ainda nao tem fica com o rotulo e vazio
  * (Classificacao, SubTipo, Descricao, E-mails Enviados), como la quando nao
- * ha dado. "Adicionar Analise" e "Finalizar" sao o item 5 do plano da #164.
+ * ha dado. "Adicionar Analise" e "Finalizar" (0064) abrem os formularios
+ * abaixo para quem ve toda a operacao; para os demais, ficam desabilitados.
  *
  * `notFound()` responde igual para "nao existe" e "o RLS nao deixa ver", sem
  * oraculo de ids -- mesma regra do Historico de Checklist.
  */
-export default function EventoRegistradoPage({ params }: Props) {
+export default function EventoRegistradoPage({ params, searchParams }: Props) {
   return (
     <Suspense fallback={<Skeleton className="h-96 w-full rounded-lg" />}>
-      <Detalhe params={params} />
+      <Detalhe params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -46,7 +60,7 @@ function dataHora(iso: string): string {
   return `${DATA_HORA.format(new Date(iso)).replace(", ", " - ")} hs`;
 }
 
-async function Detalhe({ params }: Props) {
+async function Detalhe({ params, searchParams }: Props) {
   const { id } = await params;
   const idNumerico = idValido(id);
   if (idNumerico === null) notFound();
@@ -54,8 +68,18 @@ async function Detalhe({ params }: Props) {
   const ocorrencia = await getOcorrencia(idNumerico);
   if (!ocorrencia) notFound();
 
+  // Quem pode e o banco que decide; aqui so se escolhe entre o formulario e o
+  // botao desabilitado. Os cadastros do formulario so sao lidos se for preciso.
+  const aberta = aceitaAndamento(ocorrencia.status);
+  const podeAgir = await podeVerTodaAOperacao();
+  const opcoes = podeAgir && aberta ? await getOpcoesDoAndamento() : null;
+
   return (
     <div className="space-y-4">
+      <Suspense fallback={null}>
+        <AvisoDeSalvo searchParams={searchParams} listagem={`${PAINEL}/${ocorrencia.id}`} mensagem="Registro salvo com sucesso." />
+      </Suspense>
+
       <div className="animate-fade-in">
         <Breadcrumbs items={[{ label: "Eventos" }, { label: "Painel de Eventos", href: PAINEL }, { label: "Evento Registrado" }]} />
       </div>
@@ -113,14 +137,54 @@ async function Detalhe({ params }: Props) {
         )}
       </Secao>
 
-      <div className="flex flex-wrap justify-end gap-2">
-        <AcaoDesabilitada titulo="Adicionar Análise" className="h-10 rounded-md bg-sky-700/40 px-4 text-sm font-semibold">
-          ADICIONAR ANÁLISE
-        </AcaoDesabilitada>
-        <AcaoDesabilitada titulo="Finalizar" className="h-10 rounded-md bg-red-700/40 px-4 text-sm font-semibold">
-          FINALIZAR
-        </AcaoDesabilitada>
-      </div>
+      <Secao titulo={`Análises e finalização (${ocorrencia.andamentos.length})`}>
+        {ocorrencia.andamentos.length > 0 ? (
+          <ol className="divide-y divide-slate-800">
+            {ocorrencia.andamentos.map((andamento) => (
+              <CartaoDoAndamento key={andamento.id} andamento={andamento} />
+            ))}
+          </ol>
+        ) : (
+          <p className="px-4 py-4 text-sm text-brand-muted">Nenhuma análise registrada para este evento.</p>
+        )}
+      </Secao>
+
+      {opcoes ? (
+        <>
+          <AbrirPeloHash ids={ANCORAS} />
+          <div className="flex flex-wrap justify-end gap-2">
+            <a href="#analise" className={`${BOTAO} bg-brand-green text-brand-navy hover:bg-brand-green-hover`}>
+              ADICIONAR ANÁLISE
+            </a>
+            <a href="#finalizar" className={`${BOTAO} bg-red-600 text-white hover:bg-red-500`}>
+              FINALIZAR
+            </a>
+          </div>
+          <FormularioRecolhido id="analise" titulo="Adicionar Análise">
+            <FormularioDeAndamento ocorrenciaId={ocorrencia.id} tipo="ANALISE" opcoes={opcoes} />
+          </FormularioRecolhido>
+          <FormularioRecolhido id="finalizar" titulo="Finalizar o Atendimento deste Evento">
+            <FormularioDeAndamento ocorrenciaId={ocorrencia.id} tipo="FINALIZACAO" opcoes={opcoes} />
+          </FormularioRecolhido>
+        </>
+      ) : (
+        <div className="flex flex-wrap justify-end gap-2">
+          <AcaoDesabilitada
+            titulo="Adicionar Análise"
+            motivo={aberta ? "sem permissão" : "ocorrência encerrada"}
+            className={`${BOTAO} bg-slate-700/60 text-slate-300`}
+          >
+            ADICIONAR ANÁLISE
+          </AcaoDesabilitada>
+          <AcaoDesabilitada
+            titulo="Finalizar"
+            motivo={aberta ? "sem permissão" : "ocorrência encerrada"}
+            className={`${BOTAO} bg-slate-700/60 text-slate-300`}
+          >
+            FINALIZAR
+          </AcaoDesabilitada>
+        </div>
+      )}
     </div>
   );
 }
@@ -170,6 +234,77 @@ function Campos({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+const ANCORAS = ["analise", "finalizar"];
+const BOTAO =
+  "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors";
+
+/** Recolhido, como a secao do sistema de referencia; a ancora da URL abre. */
+function FormularioRecolhido({ id, titulo, children }: { id: string; titulo: string; children: React.ReactNode }) {
+  return (
+    <details id={id} className="group scroll-mt-20 overflow-hidden rounded-lg bg-brand-surface shadow-sm">
+      <summary className="cursor-pointer list-none border-b border-transparent px-4 py-3 text-sm font-semibold text-white group-open:border-slate-800 [&::-webkit-details-marker]:hidden">
+        {titulo}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+function CartaoDoAndamento({ andamento }: { andamento: AndamentoDaOcorrencia }) {
+  const finalizacao = andamento.tipo === "FINALIZACAO";
+  const campos: { rotulo: string; valor: string }[] = [
+    { rotulo: "Tipo de Análise", valor: andamento.tipoDeAnalise },
+    ...(finalizacao ? [] : [{ rotulo: "Classificação", valor: andamento.classificacao }]),
+    ...(finalizacao ? [] : [{ rotulo: "Responsável", valor: andamento.responsavel }]),
+    ...(finalizacao ? [] : [{ rotulo: "Grupo de Usuários", valor: andamento.grupo }]),
+    ...(finalizacao ? [] : [{ rotulo: "Apoio", valor: andamento.apoio.join(", ") }]),
+    ...(finalizacao ? [{ rotulo: "Avisar", valor: andamento.avisar.join(", ") }] : []),
+    { rotulo: "E-mails externos", valor: andamento.emailsExternos.join(", ") },
+  ].filter((campo) => campo.valor);
+
+  return (
+    <li className="space-y-3 px-4 py-4">
+      <p className="text-sm font-semibold text-white">
+        {finalizacao ? "Finalização" : "Análise"}
+        <span className="ml-2 font-normal text-brand-muted">
+          {dataHora(andamento.criadoEm)}
+          {andamento.autor ? ` · ${andamento.autor}` : ""}
+        </span>
+      </p>
+      <p className="whitespace-pre-line break-words text-sm text-white">
+        <span className="text-brand-muted">{finalizacao ? "Ações realizadas: " : "Análise do evento: "}</span>
+        {andamento.texto}
+      </p>
+      {campos.length > 0 && (
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+          {campos.map((campo) => (
+            <div key={campo.rotulo} className="grid grid-cols-[9rem_1fr] gap-2">
+              <dt className="text-brand-muted">{campo.rotulo}:</dt>
+              <dd className="min-w-0 break-words text-white">{campo.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {andamento.anexos.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {andamento.anexos.map((anexo) => (
+            <li key={anexo.id}>
+              <a
+                href={`${PAINEL}/anexos/${anexo.id}`}
+                target="_blank"
+                rel="noopener"
+                className="inline-flex items-center rounded-md border border-slate-700 px-3 py-1.5 text-xs text-white transition-colors hover:border-brand-green hover:text-brand-green"
+              >
+                {anexo.nome}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 
