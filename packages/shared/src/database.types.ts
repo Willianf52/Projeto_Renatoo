@@ -705,6 +705,139 @@ export type Database = {
         }
         Relationships: []
       }
+      ocorrencia_andamentos: {
+        Row: {
+          apoio: string[]
+          autor_id: string | null
+          avisar: string[]
+          classificacao_id: number | null
+          criado_em: string
+          emails_externos: string[]
+          grupo_usuario_id: number | null
+          id: number
+          ocorrencia_id: number
+          responsavel_id: string | null
+          texto: string
+          tipo: string
+          tipo_analise_id: number
+        }
+        Insert: {
+          apoio?: string[]
+          autor_id?: string | null
+          avisar?: string[]
+          classificacao_id?: number | null
+          criado_em?: string
+          emails_externos?: string[]
+          grupo_usuario_id?: number | null
+          id?: never
+          ocorrencia_id: number
+          responsavel_id?: string | null
+          texto: string
+          tipo: string
+          tipo_analise_id: number
+        }
+        Update: {
+          apoio?: string[]
+          autor_id?: string | null
+          avisar?: string[]
+          classificacao_id?: number | null
+          criado_em?: string
+          emails_externos?: string[]
+          grupo_usuario_id?: number | null
+          id?: never
+          ocorrencia_id?: number
+          responsavel_id?: string | null
+          texto?: string
+          tipo?: string
+          tipo_analise_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocorrencia_andamentos_autor_id_fkey"
+            columns: ["autor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_andamentos_classificacao_id_fkey"
+            columns: ["classificacao_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_de_classificacao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_andamentos_grupo_usuario_id_fkey"
+            columns: ["grupo_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_andamentos_ocorrencia_id_fkey"
+            columns: ["ocorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "ocorrencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_andamentos_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_andamentos_tipo_analise_id_fkey"
+            columns: ["tipo_analise_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_de_analise"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ocorrencia_arquivos: {
+        Row: {
+          andamento_id: number
+          criado_em: string
+          id: number
+          nome_original: string
+          ocorrencia_id: number
+          storage_path: string
+        }
+        Insert: {
+          andamento_id: number
+          criado_em?: string
+          id?: never
+          nome_original: string
+          ocorrencia_id: number
+          storage_path: string
+        }
+        Update: {
+          andamento_id?: number
+          criado_em?: string
+          id?: never
+          nome_original?: string
+          ocorrencia_id?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocorrencia_arquivos_andamento_id_fkey"
+            columns: ["andamento_id"]
+            isOneToOne: false
+            referencedRelation: "ocorrencia_andamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_arquivos_ocorrencia_id_fkey"
+            columns: ["ocorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "ocorrencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ocorrencias: {
         Row: {
           aberta_por: string | null
@@ -712,6 +845,7 @@ export type Database = {
           checklist_id: number
           criado_em: string
           evento_id: number
+          finalizada_em: string | null
           id: number
           numero: number
           observacao: string | null
@@ -728,6 +862,7 @@ export type Database = {
           checklist_id: number
           criado_em?: string
           evento_id: number
+          finalizada_em?: string | null
           id?: never
           numero: number
           observacao?: string | null
@@ -744,6 +879,7 @@ export type Database = {
           checklist_id?: number
           criado_em?: string
           evento_id?: number
+          finalizada_em?: string | null
           id?: never
           numero?: number
           observacao?: string | null
@@ -1091,6 +1227,48 @@ export type Database = {
           },
         ]
       }
+      tipos_de_analise: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
+      }
+      tipos_de_classificacao: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
+      }
       tipos_servico: {
         Row: {
           ativo: boolean
@@ -1203,6 +1381,22 @@ export type Database = {
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      registrar_andamento_da_ocorrencia: {
+        Args: {
+          p_apoio?: string[]
+          p_arquivos?: Json
+          p_avisar?: string[]
+          p_classificacao_id?: number
+          p_emails_externos?: string[]
+          p_grupo_usuario_id?: number
+          p_ocorrencia_id: number
+          p_responsavel_id?: string
+          p_texto: string
+          p_tipo: string
+          p_tipo_analise_id: number
+        }
+        Returns: number
+      }
       registrar_checklist: {
         Args: {
           p_assinatura_path: string

@@ -182,7 +182,6 @@ export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
 // O construtor do PostgREST muda de tipo a cada `.eq`; os filtros sao os
 // mesmos para a lista e para o resumo, entao recebem e devolvem o construtor
 // sem amarrar o tipo de linha.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function aplicarFiltros(consulta: any, filtros: Filtros, comStatus: boolean) {
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
   let q = consulta.gte("criado_em", inicio).lt("criado_em", fim);
@@ -274,10 +273,46 @@ export function idValido(valor: string): number | null {
   return idNaUrl(valor);
 }
 
+export type AnexoDoAndamento = { id: number; nome: string };
+
+export type AndamentoDaOcorrencia = {
+  id: number;
+  tipo: "ANALISE" | "FINALIZACAO";
+  criadoEm: string;
+  /** Vazio quando quem le nao enxerga o perfil (o INSPETOR so le o proprio). */
+  autor: string;
+  tipoDeAnalise: string;
+  classificacao: string;
+  texto: string;
+  responsavel: string;
+  grupo: string;
+  apoio: string[];
+  avisar: string[];
+  emailsExternos: string[];
+  anexos: AnexoDoAndamento[];
+};
+
 export type OcorrenciaDetalhe = LinhaDoPainel & {
   checklistId: number;
   site: string;
   fotos: number[];
+  andamentos: AndamentoDaOcorrencia[];
+};
+
+type AndamentoDoBanco = {
+  id: number;
+  tipo: string;
+  criado_em: string;
+  texto: string;
+  apoio: string[];
+  avisar: string[];
+  emails_externos: string[];
+  responsavel_id: string | null;
+  autor_id: string | null;
+  tipos_de_analise: { nome: string } | null;
+  tipos_de_classificacao: { nome: string } | null;
+  grupos_usuarios: { nome: string } | null;
+  ocorrencia_arquivos: { id: number; nome_original: string }[];
 };
 
 export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | null> {
@@ -289,16 +324,101 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
   const linha = paraLinha(data as unknown as LinhaDoBanco);
   const bruto = data as unknown as LinhaDoBanco;
 
-  const { data: fotos } = await supabase
-    .from("checklist_fotos")
-    .select("id")
-    .eq("checklist_id", bruto.checklist_id)
-    .order("id");
+  const [{ data: fotos }, { data: andamentos }] = await Promise.all([
+    supabase.from("checklist_fotos").select("id").eq("checklist_id", bruto.checklist_id).order("id"),
+    supabase
+      .from("ocorrencia_andamentos")
+      .select(
+        `id, tipo, criado_em, texto, apoio, avisar, emails_externos, responsavel_id, autor_id,
+         tipos_de_analise ( nome ), tipos_de_classificacao ( nome ), grupos_usuarios ( nome ),
+         ocorrencia_arquivos ( id, nome_original )`,
+      )
+      .eq("ocorrencia_id", id)
+      .order("criado_em", { ascending: true })
+      .order("id", { ascending: true }),
+  ]);
+
+  const doBanco = (andamentos ?? []) as unknown as AndamentoDoBanco[];
+
+  // Nomes das pessoas citadas. O RLS de `profiles` decide quem aparece: a
+  // gestao ve todo mundo, o INSPETOR so a si mesmo -- o resto vira vazio.
+  const ids = Array.from(
+    new Set(doBanco.flatMap((a) => [a.autor_id, a.responsavel_id, ...a.apoio, ...a.avisar]).filter((v): v is string => Boolean(v))),
+  );
+  const nomes = new Map<string, string>();
+  if (ids.length > 0) {
+    const { data: perfis } = await supabase.from("profiles").select("id, nome_completo").in("id", ids);
+    for (const perfil of perfis ?? []) nomes.set(perfil.id, perfil.nome_completo ?? "");
+  }
+  const nomeDe = (uuid: string | null) => (uuid ? (nomes.get(uuid) ?? "") : "");
 
   return {
     ...linha,
     checklistId: bruto.checklist_id,
     site: bruto.sites?.nome ?? "",
     fotos: (fotos ?? []).map((f) => f.id),
+    andamentos: doBanco.map((a) => ({
+      id: a.id,
+      tipo: a.tipo === "FINALIZACAO" ? "FINALIZACAO" : "ANALISE",
+      criadoEm: a.criado_em,
+      autor: nomeDe(a.autor_id),
+      tipoDeAnalise: a.tipos_de_analise?.nome ?? "",
+      classificacao: a.tipos_de_classificacao?.nome ?? "",
+      texto: a.texto,
+      responsavel: nomeDe(a.responsavel_id),
+      grupo: a.grupos_usuarios?.nome ?? "",
+      apoio: a.apoio.map(nomeDe).filter(Boolean),
+      avisar: a.avisar.map(nomeDe).filter(Boolean),
+      emailsExternos: a.emails_externos,
+      anexos: [...a.ocorrencia_arquivos]
+        .sort((x, y) => x.id - y.id)
+        .map((arquivo) => ({ id: arquivo.id, nome: arquivo.nome_original })),
+    })),
   };
+}
+
+export type OpcoesDoAndamento = {
+  tiposDeAnalise: Opcao[];
+  classificacoes: Opcao[];
+  usuarios: Opcao[];
+  grupos: Opcao[];
+  /** Os usuarios de cada grupo: escolher o grupo preenche o Apoio. */
+  membrosPorGrupo: Record<string, string[]>;
+};
+
+/** So para quem pode analisar: os cadastros sao legiveis so pela gestao (0064). */
+export async function getOpcoesDoAndamento(): Promise<OpcoesDoAndamento> {
+  const supabase = await createClient();
+  const [tipos, classificacoes, usuarios, grupos, membros] = await Promise.all([
+    supabase.from("tipos_de_analise").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("tipos_de_classificacao").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.from("grupos_usuarios").select("id, nome").order("nome"),
+    supabase.from("grupos_usuarios_membros").select("grupo_id, profile_id"),
+  ]);
+
+  const membrosPorGrupo: Record<string, string[]> = {};
+  for (const m of membros.data ?? []) {
+    (membrosPorGrupo[String(m.grupo_id)] ??= []).push(m.profile_id);
+  }
+
+  return {
+    tiposDeAnalise: (tipos.data ?? []).map((t) => ({ value: String(t.id), label: t.nome })),
+    classificacoes: (classificacoes.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
+    usuarios: (usuarios.data ?? []).map((u) => ({ value: u.id, label: u.nome_completo ?? "" })),
+    grupos: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
+    membrosPorGrupo,
+  };
+}
+
+/** Anexo de um andamento: o caminho e o nome, para a rota que o entrega. */
+export async function getAnexo(id: number): Promise<{ caminho: string; nome: string } | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ocorrencia_arquivos")
+    .select("storage_path, nome_original")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { caminho: data.storage_path, nome: data.nome_original };
 }

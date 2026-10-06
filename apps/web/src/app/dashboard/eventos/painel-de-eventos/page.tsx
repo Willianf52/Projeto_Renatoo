@@ -18,6 +18,8 @@ import {
   SearchIcon,
 } from "@/components/dashboard/icons";
 import { FUSO_DO_PROJETO } from "@/lib/data-hora";
+import { podeVerTodaAOperacao } from "@/lib/permissoes";
+import { aceitaAndamento } from "./andamentos";
 import { DescricaoDoEvento } from "./DescricaoDoEvento";
 import {
   anelDoStatus,
@@ -58,8 +60,8 @@ type SearchParamsPromise = Promise<SearchParams>;
  * de referencia: a lupa do Registro de Eventos abre esta tela ja filtrada.
  * As regras e a consulta estao em `queries.ts`.
  *
- * "Analisar" e "Finalizar" aparecem desabilitados: sao o item 5 do plano. No
- * sistema de referencia, nenhuma das 789 ocorrencias de 2026 passou por eles.
+ * "Analisar" e "Finalizar" levam ao detalhe (0064, item 5 do plano). So
+ * quem ve toda a operacao age; para os demais ficam desabilitados.
  *
  * Pagina sem `async` -- ver o cabecalho de
  * `inspecoes/coletas-importadas/page.tsx` (Cache Components).
@@ -82,7 +84,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
   const params = await searchParams;
   const agora = new Date();
   const filtros = extrairFiltros(params, agora);
-  const painel = await getPainel(filtros);
+  const [painel, podeAgir] = await Promise.all([getPainel(filtros), podeVerTodaAOperacao()]);
 
   return (
     <>
@@ -113,7 +115,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
 
         <DataTable
           columns={COLUNAS}
-          rows={painel.linhas.map((linha) => celulas(linha, agora))}
+          rows={painel.linhas.map((linha) => celulas(linha, agora, podeAgir))}
           page={filtros.pagina}
           totalPages={Math.max(1, Math.ceil(painel.total / PAGE_SIZE))}
           totalItems={painel.total}
@@ -201,7 +203,7 @@ async function FormularioDeFiltros({ filtros }: { filtros: Filtros }) {
 const DATA = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: FUSO_DO_PROJETO });
 const HORA = new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone: FUSO_DO_PROJETO });
 
-function celulas(linha: LinhaDoPainel, agora: Date): React.ReactNode[] {
+function celulas(linha: LinhaDoPainel, agora: Date, podeAgir: boolean): React.ReactNode[] {
   const criado = new Date(linha.criadoEm);
   return [
     linha.numeroAno,
@@ -223,14 +225,56 @@ function celulas(linha: LinhaDoPainel, agora: Date): React.ReactNode[] {
       >
         <SearchIcon className="h-4 w-4" />
       </Link>
-      <AcaoDesabilitada titulo="Analisar este Evento" className="h-8 w-8 hover:bg-transparent">
+      <AcaoDeAndamento linha={linha} ancora="analise" titulo="Analisar este Evento" podeAgir={podeAgir}>
         <ChatIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
-      <AcaoDesabilitada titulo="Finalizar o Atendimento deste Evento" className="h-8 w-8 hover:bg-transparent">
+      </AcaoDeAndamento>
+      <AcaoDeAndamento linha={linha} ancora="finalizar" titulo="Finalizar o Atendimento deste Evento" podeAgir={podeAgir}>
         <PowerIcon className="h-4 w-4" />
-      </AcaoDesabilitada>
+      </AcaoDeAndamento>
     </div>,
   ];
+}
+
+/**
+ * "Analisar" e "Finalizar": levam ao detalhe da ocorrencia com a secao ja
+ * aberta (`#analise`, `#finalizar`). So quem ve toda a operacao age, e so em
+ * ocorrencia que ainda aceita andamento -- o banco confere de novo (0064).
+ */
+function AcaoDeAndamento({
+  linha,
+  ancora,
+  titulo,
+  podeAgir,
+  children,
+}: {
+  linha: LinhaDoPainel;
+  ancora: "analise" | "finalizar";
+  titulo: string;
+  podeAgir: boolean;
+  children: React.ReactNode;
+}) {
+  if (!podeAgir || !aceitaAndamento(linha.status)) {
+    return (
+      <AcaoDesabilitada
+        titulo={titulo}
+        motivo={podeAgir ? "ocorrência encerrada" : "sem permissão"}
+        className="h-8 w-8 hover:bg-transparent"
+      >
+        {children}
+      </AcaoDesabilitada>
+    );
+  }
+
+  return (
+    <Link
+      href={`${BASE}/${linha.id}#${ancora}`}
+      title={titulo}
+      aria-label={`${titulo}: evento ${linha.numeroAno}`}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10"
+    >
+      {children}
+    </Link>
+  );
 }
 
 /** O status com o tempo desde a abertura (dias, horas, minutos). */
