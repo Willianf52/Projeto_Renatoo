@@ -13,7 +13,9 @@ onlyBuiltDependencies:
 
 overrides:
   postcss: ^8.5.18
-  sharp: ^0.35.4
+  # GHSA-wq5f-xc86-pv6w (high, 06/10/2026): sharp < 0.35.5 traz um librsvg
+  # vulneravel. Entra por apps/web > next (otimizacao de imagem).
+  sharp: ^0.35.5
   brace-expansion: ^1.1.20
   js-yaml: ^4.3.2
   nanoid: ^3.3.17
@@ -22,6 +24,11 @@ overrides:
   # apps/mobile > expo > @expo/metro-config > postcss (ferramenta de build do
   # app). A 1.2.2 saiu em 30/09/2026 e e compativel (correcao de patch).
   source-map-js: ^1.2.2
+  # GHSA-pqg4-j6r4-53mv (critical, 06/10/2026): shell-quote >= 1.8.4 < 1.11.0
+  # deixa injetar comando pelo `quote()` com quebra de linha. Entra por
+  # apps/mobile > @react-navigation/native > ferramentas do React Native, so em
+  # desenvolvimento. A 1.11.0 saiu em 29/09/2026 (minor compativel).
+  shell-quote: ^1.11.0
   # GHSA-w5hq-g745-h8pq (moderate): uuid < 11.1.1 nao confere o limite do
   # buffer em v3/v5/v6 quando `buf` e passado. Entra so por
   # apps/mobile > expo > @expo/config-plugins > xcode, que declara `^7.0.3` e
