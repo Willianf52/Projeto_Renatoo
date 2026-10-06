@@ -27,10 +27,19 @@ export function BarChart({
   itens,
   cor = "#7dd3fc",
   tituloEixoY,
+  rotulo = "Ranking de Inspeções por funcionário",
+  formatarValor = String,
+  id,
 }: {
   itens: { nome: string; valor: number }[];
   cor?: string;
   tituloEixoY?: string;
+  /** `aria-label` do grafico. O padrao e o da primeira tela que o usou. */
+  rotulo?: string;
+  /** Texto em cima de cada barra; o padrao escreve o numero como veio. */
+  formatarValor?: (valor: number) => string;
+  /** Id do `<svg>`, para o `MenuDoGrafico` exportar a imagem. */
+  id?: string;
 }) {
   const valorMaximo = Math.max(0, ...itens.map((item) => item.valor));
   const { max, passo } = calcularEscalaY(valorMaximo);
@@ -45,7 +54,7 @@ export function BarChart({
   const baseY = MARGEM_TOPO + ALTURA_GRAFICO;
 
   return (
-    <svg width={largura} height={altura} role="img" aria-label="Ranking de Inspeções por funcionário">
+    <svg id={id} width={largura} height={altura} role="img" aria-label={rotulo}>
       {tituloEixoY && (
         <text
           x={12}
@@ -80,7 +89,7 @@ export function BarChart({
           <g key={`${item.nome}-${indice}`} className="animate-fade-in-up" style={{ animationDelay: `${indice * 50}ms` }}>
             <rect x={x} y={y} width={LARGURA_BARRA} height={alturaBarra} rx={3} fill={cor} />
             <text x={centroX} y={y - 6} textAnchor="middle" fill="#ffffff" fontSize={11} fontWeight={600}>
-              {item.valor}
+              {formatarValor(item.valor)}
             </text>
             <text
               x={centroX}
