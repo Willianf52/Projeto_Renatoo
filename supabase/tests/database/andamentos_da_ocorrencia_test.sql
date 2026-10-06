@@ -137,7 +137,8 @@ select 'andamento_fim', public.registrar_andamento_da_ocorrencia(
 select is(
   (select format('%s|%s', status, finalizada_em is not null) from public.ocorrencias
     where id = (select valor from ids_teste where chave = 'oc_1')),
-  'ATENDIDO|true',
+  -- `format('%s', <boolean>)` escreve `t`/`f`, nao `true`/`false`.
+  'ATENDIDO|t',
   'a finalizacao leva a ATENDIDO e grava finalizada_em'
 );
 
