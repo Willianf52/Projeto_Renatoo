@@ -456,6 +456,21 @@ export function SiteForm({
           className="sm:col-span-2"
         />
 
+        <Campo id="emails_eventos" rotulo="E-mails Eventos" className="sm:col-span-2">
+          <textarea
+            id="emails_eventos"
+            name="emails_eventos"
+            rows={2}
+            defaultValue={valores.emailsEventos}
+            placeholder="contato@cliente.com.br, gerente@cliente.com.br"
+            aria-describedby="emails_eventos_ajuda"
+            className={`${getInputClasses(false)} resize-y`}
+          />
+          <p id="emails_eventos_ajuda" className="mt-1 text-xs text-brand-muted">
+            Recebem um e-mail quando uma ocorrência deste site abre e quando é finalizada. Separe por vírgula; até 20.
+          </p>
+        </Campo>
+
         <Campo id="status" rotulo="Status">
           <Select
             id="status"

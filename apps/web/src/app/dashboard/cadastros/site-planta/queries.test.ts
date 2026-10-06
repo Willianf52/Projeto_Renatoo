@@ -82,6 +82,7 @@ function siteRow(extra: Record<string, unknown> = {}) {
     filial: null,
     info_adicional_1: null,
     info_adicional_2: null,
+    emails_eventos: [],
     recebe_visita: true,
     gerar_qrcode_automatico: true,
     gerar_registro_coletas: false,

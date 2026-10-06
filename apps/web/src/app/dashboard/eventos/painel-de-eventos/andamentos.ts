@@ -5,6 +5,8 @@
  * Pura, sem React nem Supabase, para ser testada sozinha.
  */
 
+import { lerListaDeEmails } from "@/lib/lista-de-emails";
+
 export type TipoDeAndamento = "ANALISE" | "FINALIZACAO";
 
 export const MAXIMO_DE_ARQUIVOS = 10;
@@ -104,19 +106,9 @@ export function caminhoValido(ocorrenciaId: number, caminho: string): boolean {
 
 export type AnexoEnviado = { storage_path: string; nome: string };
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /** "a@x.com; b@y.com, a@x.com" -> ["a@x.com", "b@y.com"], ou o erro. */
 export function lerEmails(texto: string): { ok: true; emails: string[] } | { ok: false; erro: string } {
-  const itens = texto
-    .split(/[\s,;]+/)
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  const unicos = Array.from(new Set(itens));
-  const invalido = unicos.find((e) => !EMAIL.test(e) || e.length > 254);
-  if (invalido) return { ok: false, erro: `E-mail inválido: ${invalido}` };
-  if (unicos.length > MAXIMO_DE_EMAILS) return { ok: false, erro: `No máximo ${MAXIMO_DE_EMAILS} e-mails externos.` };
-  return { ok: true, emails: unicos };
+  return lerListaDeEmails(texto, MAXIMO_DE_EMAILS, "e-mails externos");
 }
 
 export type DadosDoAndamento = {

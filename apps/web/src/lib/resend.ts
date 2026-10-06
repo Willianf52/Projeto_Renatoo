@@ -28,6 +28,41 @@ function getResendClient(): Resend {
  */
 const REMETENTE = "Up Serviços <onboarding@resend.dev>";
 
+/**
+ * Remetente dos e-mails das ocorrencias, que vao para gente de fora (contatos
+ * dos sites). `EMAIL_REMETENTE` (ex.: "Up Serviços <eventos@dominio>") so
+ * deve ser configurada depois do dominio verificado na Resend. Sem ela o envio
+ * fica em MODO DE TESTE: remetente de teste, e so o dono da conta Resend
+ * (`ALERTA_OPERACAO_EMAIL`) recebe -- o resto espera na fila (migration 0065).
+ */
+export function configuracaoDoRemetente(): { remetente: string; somente: string[] | null } {
+  const remetente = process.env.EMAIL_REMETENTE?.trim();
+  if (remetente) return { remetente, somente: null };
+  const dono = process.env.ALERTA_OPERACAO_EMAIL?.trim().toLowerCase();
+  return { remetente: REMETENTE, somente: dono ? [dono] : [] };
+}
+
+/**
+ * Um e-mail de ocorrencia. `chave` vira a chave de idempotencia na Resend: um
+ * reenvio da mesma linha da fila (a funcao caiu depois de enviar e antes de
+ * marcar) nao chega duas vezes.
+ */
+export async function enviarEmailDeOcorrencia(mensagem: {
+  remetente: string;
+  para: string;
+  assunto: string;
+  texto: string;
+  chave: string;
+}): Promise<string | null> {
+  const resend = getResendClient();
+  const { data, error } = await resend.emails.send(
+    { from: mensagem.remetente, to: mensagem.para, subject: mensagem.assunto, text: mensagem.texto },
+    { idempotencyKey: mensagem.chave },
+  );
+  if (error) throw new Error(error.message);
+  return data?.id ?? null;
+}
+
 export async function enviarAvisoSenhaAlterada(destinatario: string) {
   const resend = getResendClient();
 

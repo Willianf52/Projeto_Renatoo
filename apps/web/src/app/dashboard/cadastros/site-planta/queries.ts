@@ -51,6 +51,7 @@ export type SiteRow = {
   filial: string | null;
   info_adicional_1: string | null;
   info_adicional_2: string | null;
+  emails_eventos: string[];
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -75,7 +76,7 @@ export type SiteRow = {
 const COLUNAS = `
   id, nome, sigla, regional, cidade, uf, latitude, longitude, observacao, ativo, criado_em,
   site_superior_id, cep, endereco, numero, bairro, complemento, pais, raio_metros,
-  cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2,
+  cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2, emails_eventos,
   recebe_visita, gerar_qrcode_automatico, gerar_registro_coletas,
   grupo_site_id, tipo_servico_id, responsavel_id,
   grupos_sites ( nome ),

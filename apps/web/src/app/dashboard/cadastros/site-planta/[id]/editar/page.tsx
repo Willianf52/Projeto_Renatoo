@@ -91,6 +91,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             filial: site.filial ?? "",
             infoAdicional1: site.info_adicional_1 ?? "",
             infoAdicional2: site.info_adicional_2 ?? "",
+            emailsEventos: site.emails_eventos.join(", "),
             recebeVisita: site.recebe_visita,
             gerarQrcodeAutomatico: site.gerar_qrcode_automatico,
             gerarRegistroColetas: site.gerar_registro_coletas,

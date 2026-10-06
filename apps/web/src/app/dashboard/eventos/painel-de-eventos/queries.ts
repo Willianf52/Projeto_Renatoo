@@ -292,12 +292,44 @@ export type AndamentoDaOcorrencia = {
   anexos: AnexoDoAndamento[];
 };
 
+/** Uma linha de "E-mails Enviados" (fila da 0065). */
+export type EmailDaOcorrencia = {
+  id: number;
+  destinatario: string;
+  motivo: string;
+  status: string;
+  criadoEm: string;
+  enviadoEm: string | null;
+};
+
 export type OcorrenciaDetalhe = LinhaDoPainel & {
   checklistId: number;
   site: string;
   fotos: number[];
   andamentos: AndamentoDaOcorrencia[];
+  emails: EmailDaOcorrencia[];
 };
+
+const MOTIVO_DO_EMAIL: Record<string, string> = {
+  ABERTURA: "Abertura",
+  ANALISE: "Análise",
+  FINALIZACAO: "Finalização",
+};
+
+export function rotuloDoMotivoDoEmail(motivo: string): string {
+  return MOTIVO_DO_EMAIL[motivo] ?? motivo;
+}
+
+/**
+ * Situacao do e-mail para quem le o detalhe. "Na fila" cobre o PENDENTE e o
+ * ENVIANDO: a diferenca e de segundos e nao muda o que a pessoa faz.
+ */
+export function rotuloDaSituacaoDoEmail(status: string): string {
+  if (status === "ENVIADO") return "Enviado";
+  if (status === "FALHOU") return "Falhou";
+  if (status === "DESCARTADO") return "Não enviado";
+  return "Na fila";
+}
 
 type AndamentoDoBanco = {
   id: number;
@@ -324,7 +356,7 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
   const linha = paraLinha(data as unknown as LinhaDoBanco);
   const bruto = data as unknown as LinhaDoBanco;
 
-  const [{ data: fotos }, { data: andamentos }] = await Promise.all([
+  const [{ data: fotos }, { data: andamentos }, { data: emails }] = await Promise.all([
     supabase.from("checklist_fotos").select("id").eq("checklist_id", bruto.checklist_id).order("id"),
     supabase
       .from("ocorrencia_andamentos")
@@ -335,6 +367,11 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
       )
       .eq("ocorrencia_id", id)
       .order("criado_em", { ascending: true })
+      .order("id", { ascending: true }),
+    supabase
+      .from("ocorrencia_emails")
+      .select("id, destinatario, motivo, status, criado_em, enviado_em")
+      .eq("ocorrencia_id", id)
       .order("id", { ascending: true }),
   ]);
 
@@ -373,6 +410,14 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
       anexos: [...a.ocorrencia_arquivos]
         .sort((x, y) => x.id - y.id)
         .map((arquivo) => ({ id: arquivo.id, nome: arquivo.nome_original })),
+    })),
+    emails: (emails ?? []).map((e) => ({
+      id: e.id,
+      destinatario: e.destinatario,
+      motivo: e.motivo,
+      status: e.status,
+      criadoEm: e.criado_em,
+      enviadoEm: e.enviado_em,
     })),
   };
 }
