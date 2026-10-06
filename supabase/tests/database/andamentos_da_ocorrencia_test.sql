@@ -118,7 +118,7 @@ select lives_ok(
 
 select is(
   (select format('%s|%s', (select status from public.ocorrencias where id = o.valor),
-                 (select count(*) from public.ocorrencia_andamentos where ocorrencia_id = o.valor)))
+                 (select count(*) from public.ocorrencia_andamentos where ocorrencia_id = o.valor))
      from ids_teste o where o.chave = 'oc_1'),
   'EM_ANALISE|2',
   'a segunda analise nao muda o status e o historico tem as duas'
