@@ -79,7 +79,11 @@ export function montarEmailDeOcorrencia(d: DadosDaMensagem): { assunto: string; 
     "",
     `Ver no portal: ${d.link}`,
     "",
-    "Mensagem automática do Portal Operacional Up Serviços. Para deixar de receber, peça ao gestor do contrato que retire este e-mail do cadastro do site.",
+    // Generico de proposito: desde a 0068 o mesmo aviso vai aos contatos do
+    // site E ao superior de quem abriu, e cada um deixa de receber por um
+    // caminho diferente (o cadastro do site, ou a caixa "Evento" no cadastro
+    // do usuario) -- o gestor do contrato sabe qual.
+    "Mensagem automática do Portal Operacional Up Serviços. Para deixar de receber, fale com o gestor do contrato.",
   );
 
   return { assunto, texto: linhas.join("\n") };

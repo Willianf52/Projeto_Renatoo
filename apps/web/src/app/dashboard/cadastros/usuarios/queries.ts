@@ -39,6 +39,10 @@ export type UsuarioRow = {
   /** So vem em `getUsuario`, para preencher o select do formulario -- a
    * listagem exibe o nome do superior, nao o id. */
   superior_id?: string | null;
+  /** "Enviar E-mail para o Superior?" (0068) -- tambem so em `getUsuario`. */
+  email_superior_ocorrencia?: boolean;
+  email_superior_checklist?: boolean;
+  email_superior_evento?: boolean;
 };
 
 const rotuloNivel = (cargo: string) =>
@@ -230,7 +234,10 @@ export async function getUsuario(id: string): Promise<UsuarioRow | null> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select(montarSelectDeUsuarios(false) + ", superior_id")
+    .select(
+      montarSelectDeUsuarios(false) +
+        ", superior_id, email_superior_ocorrencia, email_superior_checklist, email_superior_evento",
+    )
     .eq("id", id)
     .maybeSingle();
 

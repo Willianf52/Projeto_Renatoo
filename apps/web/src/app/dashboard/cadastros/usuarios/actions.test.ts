@@ -36,6 +36,7 @@ const {
     sessao: { data: { user: { id: "quem-edita" } } },
     limparEscopo: { error: null as Erro },
     inserirEscopo: { error: null as Erro },
+    dadosPessoais: { error: null as Erro },
     inserirAuditoria: { error: null as Erro },
   };
 
@@ -76,8 +77,17 @@ const {
         registrar("inserirEscopo", linhas);
         return Promise.resolve(resultados.inserirEscopo);
       },
+      // Dados pessoais (0068): tabela propria, com upsert ou delete.
+      upsert: async (linha: unknown) => {
+        registrar("gravarDadosPessoais", tabela, linha);
+        return resultados.dadosPessoais;
+      },
       delete: () => ({
         eq: async (coluna: string, valor: unknown) => {
+          if (tabela === "dados_pessoais_dos_usuarios") {
+            registrar("limparDadosPessoais", tabela, coluna, valor);
+            return resultados.dadosPessoais;
+          }
           registrar("limparEscopo", tabela, coluna, valor);
           return resultados.limparEscopo;
         },
@@ -153,6 +163,7 @@ beforeEach(() => {
   resultados.trocarSenha = { error: null };
   resultados.sessao = { data: { user: { id: "quem-edita" } } };
   resultados.limparEscopo = { error: null };
+  resultados.dadosPessoais = { error: null };
   resultados.inserirEscopo = { error: null };
   resultados.inserirAuditoria = { error: null };
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -368,7 +379,9 @@ describe("edição", () => {
     // limpa o vinculo em vez de ignora-lo -- ver a suite "escopo do cliente".
     // `inserirAuditoria` entra depois do `updatePerfil`: e o registro em
     // `auditoria` que a acao grava explicitamente (migration 0034).
-    expect(tipos()).toEqual(["limparEscopo", "updatePerfil", "inserirAuditoria"]);
+    // `limparDadosPessoais`: sem CPF/RE/telefone/celular, a linha da 0068
+    // nao existe -- apagar e o "salvar em branco" dela.
+    expect(tipos()).toEqual(["limparEscopo", "updatePerfil", "limparDadosPessoais", "inserirAuditoria"]);
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
@@ -586,5 +599,62 @@ describe("service_role ausente", () => {
 
     expect(estado.erro).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("dados pessoais e e-mail ao superior (0068)", () => {
+  it("grava CPF, RE, telefone e celular so com digitos, na tabela propria", async () => {
+    await salvarUsuario(
+      {},
+      formulario({
+        ...EDITAR,
+        cpf: "529.982.247-25",
+        re: " RE-77 ",
+        telefone: "(11) 3333-4444",
+        celular: "(11) 98765-4321",
+      }),
+    );
+
+    expect(primeira("gravarDadosPessoais")?.args[0]).toBe("dados_pessoais_dos_usuarios");
+    expect(primeira("gravarDadosPessoais")?.args[1]).toMatchObject({
+      profile_id: "alvo-id",
+      cpf: "52998224725",
+      re: "RE-77",
+      telefone: "1133334444",
+      celular: "11987654321",
+    });
+  });
+
+  it("nao poe os dados pessoais na auditoria", async () => {
+    await salvarUsuario({}, formulario({ ...EDITAR, cpf: "529.982.247-25" }));
+
+    expect(JSON.stringify(primeira("inserirAuditoria")?.args[0])).not.toContain("52998224725");
+  });
+
+  it("CPF invalido e recusado antes de qualquer escrita", async () => {
+    const estado = await salvarUsuario({}, formulario({ ...EDITAR, cpf: "111.111.111-11" }));
+
+    expect(estado.erro).toBe("CPF inválido.");
+    expect(estado.valores?.cpf).toBe("111.111.111-11");
+    expect(tipos()).not.toContain("updatePerfil");
+  });
+
+  it("as tres caixas vao para o perfil", async () => {
+    await salvarUsuario({}, formulario({ ...EDITAR, email_superior_checklist: "on", email_superior_evento: "on" }));
+
+    expect(primeira("updatePerfil")?.args[0]).toMatchObject({
+      email_superior_ocorrencia: false,
+      email_superior_checklist: true,
+      email_superior_evento: true,
+    });
+  });
+
+  it("na criacao, falha nos dados pessoais desfaz a conta", async () => {
+    resultados.dadosPessoais = { error: { message: "falha" } };
+
+    const estado = await salvarUsuario({}, formulario({ ...CRIAR, cpf: "529.982.247-25" }));
+
+    expect(estado.erro).toBeDefined();
+    expect(tipos()).toContain("deleteUser");
   });
 });
