@@ -100,6 +100,10 @@ export type ColetaRow = {
     profiles: { nome_completo: string } | null;
     coletores_dados: { nome: string } | null;
     sites: { nome: string } | null;
+    /** Um-para-um (`checklists_visita_visita_unica`, 0042): o PostgREST
+     * devolve o objeto ou `null`. So decide se a lixeira da linha fica ativa
+     * -- ver `temChecklist`. */
+    checklists_visita?: { id: number } | { id: number }[] | null;
   } | null;
   /**
    * Nao vem do banco: calculado por `completarPapeisNaVisita` para leitura sem
@@ -224,6 +228,33 @@ export async function getFilterOptions(): Promise<FilterOptions> {
   };
 }
 
+/**
+ * Listas do cadastro manual (migration 0067): as mesmas dos filtros, mais as
+ * acoes, que a tela nao filtra. `acoes` e referencia global (`usuario_ativo`,
+ * 0004), sem recorte por usuario.
+ */
+export async function getOpcoesDoCadastro(): Promise<
+  Pick<FilterOptions, "coletoresDados" | "funcionarios" | "locais" | "areas" | "eventos" | "qualificadores"> & {
+    acoes: FilterOption[];
+  }
+> {
+  const supabase = await createClient();
+  const [opcoes, acoes] = await Promise.all([
+    getFilterOptions(),
+    supabase.from("acoes").select("id, nome").eq("ativo", true).order("nome"),
+  ]);
+
+  return {
+    coletoresDados: opcoes.coletoresDados,
+    funcionarios: opcoes.funcionarios,
+    locais: opcoes.locais,
+    areas: opcoes.areas,
+    eventos: opcoes.eventos,
+    qualificadores: opcoes.qualificadores,
+    acoes: toOptions(acoes.data, "id", "nome"),
+  };
+}
+
 /** Apenas para teste: zera o cache entre casos. */
 export function __limparCacheDeReferencias() {
   referenciasCache = null;
@@ -253,9 +284,21 @@ export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boole
         numero_coleta,
         profiles ( nome_completo ),
         coletores_dados ( nome ),
-        ${precisaSite ? "sites!inner" : "sites"} ( nome )
+        ${precisaSite ? "sites!inner" : "sites"} ( nome ),
+        checklists_visita ( id )
       )
       `;
+}
+
+/**
+ * A coleta e de uma visita com checklist enviado? Essas nao se excluem
+ * (trigger da 0067): o checklist se exclui no Historico, e a inspecao fica
+ * inteira. Aceita objeto ou lista, para nao depender de o PostgREST
+ * reconhecer o um-para-um.
+ */
+export function temChecklist(leitura: ColetaRow): boolean {
+  const checklist = leitura.visitas?.checklists_visita;
+  return Array.isArray(checklist) ? checklist.length > 0 : Boolean(checklist);
 }
 
 type ColetaFiltrosSemPagina = Omit<ColetaFiltros, "pagina">;

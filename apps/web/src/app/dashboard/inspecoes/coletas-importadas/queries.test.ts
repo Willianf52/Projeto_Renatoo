@@ -84,6 +84,7 @@ const {
   getFilterOptions,
   montarSelectDeColetas,
   papeisNaVisita,
+  temChecklist,
   toTableRow,
   LIMITE_EXPORTACAO,
   __limparCacheDeReferencias,
@@ -554,5 +555,18 @@ describe("extrairFiltros: id fora do tipo na querystring", () => {
       area: "7",
       checkpoint: "12",
     });
+  });
+});
+
+describe("temChecklist", () => {
+  const leitura = (checklists_visita: unknown) =>
+    ({ visitas: { numero_coleta: "1", profiles: null, coletores_dados: null, sites: null, checklists_visita } }) as never;
+
+  it("aceita o objeto do um-para-um e a lista, vazia ou nao", () => {
+    expect(temChecklist(leitura({ id: 3 }))).toBe(true);
+    expect(temChecklist(leitura([{ id: 3 }]))).toBe(true);
+    expect(temChecklist(leitura(null))).toBe(false);
+    expect(temChecklist(leitura([]))).toBe(false);
+    expect(temChecklist({ visitas: null } as never)).toBe(false);
   });
 });

@@ -29,18 +29,22 @@ export async function AvisoDeSalvo({
   searchParams,
   listagem,
   mensagem,
+  parametro = PARAMETRO_DE_SALVO,
 }: {
   searchParams: Promise<SearchParams>;
   /** Caminho da listagem, para o `cleanHref` quando nao sobra parametro. */
   listagem: string;
   mensagem: string;
+  /** Outro sinal na mesma tela -- o `excluido=1` de Coletas Importadas, ao
+   * lado do `salvo=1` do cadastro --, cada um com a sua mensagem. */
+  parametro?: string;
 }) {
   const params = await searchParams;
-  if (primeiro(params[PARAMETRO_DE_SALVO]) !== "1") return null;
+  if (primeiro(params[parametro]) !== "1") return null;
 
   const query = new URLSearchParams();
   for (const [chave, valor] of Object.entries(params)) {
-    if (chave === PARAMETRO_DE_SALVO) continue;
+    if (chave === parametro) continue;
     const v = primeiro(valor);
     if (v) query.set(chave, v);
   }
