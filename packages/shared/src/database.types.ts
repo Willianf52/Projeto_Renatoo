@@ -1420,6 +1420,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cadastrar_coletas_manuais: {
+        Args: {
+          p_acao_id?: number
+          p_area_id?: number
+          p_coletor_dados_id?: number
+          p_data_hora: string
+          p_evento_id?: number
+          p_funcionario_id: string
+          p_qualificador_id?: number
+          p_quantidade: number
+          p_site_id: number
+        }
+        Returns: number
+      }
       consumir_limite_de_taxa: {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number

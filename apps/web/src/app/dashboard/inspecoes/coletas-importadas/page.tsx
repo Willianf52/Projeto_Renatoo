@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { Acao } from "@/components/dashboard/Acao";
+import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { AvisoDePeriodo } from "@/components/dashboard/AvisoDePeriodo";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
@@ -12,11 +14,16 @@ import {
   FiltrosEmGradeEsqueleto,
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
-import { ExcelIcon, FilterIcon, PdfIcon } from "@/components/dashboard/icons";
+import { ExcelIcon, FilterIcon, PdfIcon, TrashIcon } from "@/components/dashboard/icons";
+import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { avisoDePeriodo } from "@/lib/relatorios";
+import { BotaoExcluirColeta } from "./BotaoExcluirColeta";
+import { FormularioDeCadastroManual } from "./FormularioDeCadastroManual";
 import {
   getColetas,
   getFilterOptions,
+  getOpcoesDoCadastro,
+  temChecklist,
   toTableRow,
   extrairFiltros,
   primeiro,
@@ -42,6 +49,8 @@ const TABLE_COLUMNS = [
   "Qualificador",
   "Data Integração",
 ];
+
+const LISTAGEM = "/dashboard/inspecoes/coletas-importadas";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
@@ -73,6 +82,20 @@ export default function ColetasImportadasPage({
         <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Coletas Importadas" }]} />
       </div>
 
+      {/* Os dois sinais das escritas da tela (0067): o cadastro manual volta
+          com `salvo=1`, a exclusao com `excluido=1`. */}
+      <Suspense fallback={null}>
+        <AvisoDeSalvo searchParams={searchParams} listagem={LISTAGEM} mensagem="Coletas cadastradas com sucesso." />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem={LISTAGEM}
+          mensagem="Coleta excluída com sucesso."
+          parametro="excluido"
+        />
+      </Suspense>
+
       <div
         className="overflow-hidden rounded-lg bg-brand-surface shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
         style={{ animationDelay: "80ms" }}
@@ -86,6 +109,12 @@ export default function ColetasImportadasPage({
             <AcoesDeExportacao searchParams={searchParams} />
           </Suspense>
         </div>
+
+        {/* Sem esqueleto: para quem nao e GESTOR a faixa nao existe, e um
+            esqueleto no lugar dela seria um buraco que some. */}
+        <Suspense fallback={null}>
+          <CadastroManual />
+        </Suspense>
 
         <Suspense fallback={<FiltrosEmGradeEsqueleto celulas={16} />}>
           <FormularioDeFiltros searchParams={searchParams} />
@@ -239,10 +268,19 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
   );
 }
 
+/** O cadastro manual (0067), so para GESTOR -- quem o banco deixa gravar
+ * coleta em nome de outro funcionario. Para os demais a faixa nao aparece,
+ * como no sistema antigo, em que o botao nem existe no perfil do dono. */
+async function CadastroManual() {
+  if (!(await podeAdministrarUsuarios())) return null;
+  const opcoes = await getOpcoesDoCadastro();
+  return <FormularioDeCadastroManual opcoes={opcoes} />;
+}
+
 async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPromise }) {
   const params = await searchParams;
   const filtros = extrairFiltros(params);
-  const resultado = await getColetas(filtros);
+  const [resultado, podeExcluir] = await Promise.all([getColetas(filtros), podeAdministrarUsuarios()]);
 
   // Sem Data Inicial e Data Final a tela abre vazia, com o aviso do que falta
   // -- ver `temPeriodoFechado` em queries.ts.
@@ -260,7 +298,42 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
   }
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
-  const rows = resultado.rows.map(toTableRow);
+
+  // Os filtros atuais, para a exclusao voltar a mesma pagina filtrada.
+  const filtrosAtuais = new URLSearchParams();
+  for (const [chave, valor] of Object.entries(params)) {
+    const v = primeiro(valor);
+    if (v && chave !== "salvo" && chave !== "excluido") filtrosAtuais.set(chave, v);
+  }
+
+  // "Acoes" so para GESTOR, como a lixeira por linha (0067). Fica fora de
+  // `TABLE_COLUMNS` pelo mesmo motivo de Historico de Checklist: a lista das
+  // colunas de texto e a das exportacoes, e botao nao vira celula.
+  const columns = podeExcluir ? [...TABLE_COLUMNS, "Ações"] : TABLE_COLUMNS;
+  const rows = resultado.rows.map((leitura) => {
+    const linha: React.ReactNode[] = toTableRow(leitura);
+    if (!podeExcluir) return linha;
+    return [
+      ...linha,
+      temChecklist(leitura) ? (
+        <AcaoDesabilitada
+          key={leitura.id}
+          titulo={`Excluir coleta ${linha[0]}`}
+          motivo="visita com checklist enviado; exclua o checklist no Histórico"
+          className="bg-red-600/20"
+        >
+          <TrashIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      ) : (
+        <BotaoExcluirColeta
+          key={leitura.id}
+          leituraId={leitura.id}
+          coleta={String(linha[0])}
+          filtros={filtrosAtuais.toString()}
+        />
+      ),
+    ];
+  });
 
   const buildPageHref = (pagina: number) => {
     const query = new URLSearchParams();
@@ -274,7 +347,7 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
 
   return (
     <DataTable
-      columns={TABLE_COLUMNS}
+      columns={columns}
       rows={rows}
       page={filtros.pagina}
       totalPages={totalPages}

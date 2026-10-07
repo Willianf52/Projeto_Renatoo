@@ -39,4 +39,19 @@ describe("AvisoDeSalvo", () => {
 
     expect(elemento?.props).toMatchObject({ cleanHref: `${LISTAGEM}?busca=a` });
   });
+
+  it("outro sinal na mesma tela: so ele dispara, e so ele sai da URL", async () => {
+    const excluido = await AvisoDeSalvo({
+      searchParams: Promise.resolve({ excluido: "1", data_inicial: "2026-10-01" }),
+      listagem: LISTAGEM,
+      mensagem: "Coleta excluída com sucesso.",
+      parametro: "excluido",
+    });
+
+    expect(excluido?.props).toMatchObject({
+      message: "Coleta excluída com sucesso.",
+      cleanHref: `${LISTAGEM}?data_inicial=2026-10-01`,
+    });
+    expect(await avisoCom({ excluido: "1" })).toBeNull();
+  });
 });
