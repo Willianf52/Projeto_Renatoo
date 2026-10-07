@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   aplicarFiltrosDerivados,
+  camposDoResumo,
   estaConcluido,
   extrairFiltros,
   idValido,
+  linhasDeRespostas,
   montarLinha,
   montarSelect,
   ordenarRespostas,
@@ -13,7 +15,9 @@ import {
   toTableRow,
   totalDoModelo,
   type ChecklistBruto,
+  type ChecklistDetalhe,
   type Filtros,
+  type RespostaParaExportar,
 } from "./queries";
 
 const SEM_FILTROS: Filtros = { campoData: "envio", ordem: "recentes" };
@@ -425,5 +429,92 @@ describe("textosDeResposta", () => {
     expect(
       aplicarFiltrosDerivados([consultoria], { ...SEM_FILTROS, buscaRespostas: "programada" }),
     ).toEqual([]);
+  });
+});
+
+describe("linhasDeRespostas", () => {
+  const resposta = (
+    checklistId: number,
+    ordem: number,
+    valor: string,
+    extra: Partial<RespostaParaExportar> = {},
+  ): RespostaParaExportar => ({
+    checklist_id: checklistId,
+    resposta: valor,
+    observacao: null,
+    perguntas_checklist: { ordem, texto: `Pergunta ${ordem}`, tipo_resposta: "CNA" },
+    ...extra,
+  });
+
+  it("uma linha por resposta, na ordem das perguntas, com o checklist repetido", () => {
+    const consultoria = linha(bruto(7, "CONSULTORIA", []));
+    const linhas = linhasDeRespostas(
+      [consultoria],
+      [resposta(7, 2, "NAO", { observacao: "Extintor vencido" }), resposta(7, 1, "SIM")],
+    );
+
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0].slice(0, 4)).toEqual(["7", "7/2026", "Consultoria", "Portaria"]);
+    expect(linhas[0].slice(5, 7)).toEqual(["Ana Souza", "ACE Limpeza"]);
+    expect(linhas[0].slice(7)).toEqual(["1", "Pergunta 1", "Conforme", ""]);
+    expect(linhas[1].slice(7)).toEqual(["2", "Pergunta 2", "Não conforme", "Extintor vencido"]);
+  });
+
+  it("o rotulo segue o tipo da pergunta: NAO numa Sim/Nao e 'Não', nao 'Não conforme'", () => {
+    const linhas = linhasDeRespostas(
+      [linha(bruto(7, "CONSULTORIA", []))],
+      [resposta(7, 1, "NAO", { perguntas_checklist: { ordem: 1, texto: "Duvidas com o RH", tipo_resposta: "SN" } })],
+    );
+
+    expect(linhas[0][9]).toBe("Não");
+  });
+
+  it("segue a ordem da listagem, nao a das respostas", () => {
+    const linhas = linhasDeRespostas(
+      [linha(bruto(9, "CONSULTORIA", [])), linha(bruto(3, "CONSULTORIA", []))],
+      [resposta(3, 1, "SIM"), resposta(9, 1, "SIM")],
+    );
+
+    expect(linhas.map((l) => l[0])).toEqual(["9", "3"]);
+  });
+
+  it("checklist sem resposta sai numa linha so; a corretiva leva o motivo na Observacao", () => {
+    const linhas = linhasDeRespostas(
+      [linha(bruto(4, "CONSULTORIA", [])), linha(bruto(5, "CORRETIVA", []))],
+      [],
+      new Map([[5, "Portão danificado"]]),
+    );
+
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0].slice(7)).toEqual(["", "", "", ""]);
+    expect(linhas[1].slice(7)).toEqual(["", "", "", "Portão danificado"]);
+  });
+});
+
+describe("camposDoResumo", () => {
+  it("o mesmo cabecalho para a tela de detalhe e o PDF unificado", () => {
+    const detalhe: ChecklistDetalhe = {
+      linha: linha(bruto(1, "CONSULTORIA", [{ resposta: "SIM" }]), 1),
+      visitaId: 10,
+      registradoEm: "2026-09-08T09:00:00-03:00",
+      motivoDaCorretiva: null,
+      motivoDaVisita: "Visita programada",
+      respostas: [],
+      fotos: [],
+      temAssinatura: false,
+      enviadoPor: null,
+    };
+
+    const campos = Object.fromEntries(camposDoResumo(detalhe).map((c) => [c.rotulo, c.valor]));
+
+    expect(campos).toMatchObject({
+      ID: "1",
+      "Número/Ano": "1/2026",
+      Modelo: "Portaria",
+      "Enviado por": "",
+      Situação: "Conforme",
+      Conclusão: "Concluído (1/1)",
+      Nota: "100%",
+    });
   });
 });

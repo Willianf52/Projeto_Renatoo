@@ -108,6 +108,7 @@ test.describe("rotas de arquivo sem sessao", () => {
     "/dashboard/inspecoes/coletas-importadas/export/excel",
     "/dashboard/cadastros/qr-code/export/excel",
     "/dashboard/checklistlab/historico-de-checklist/1/assinatura",
+    "/dashboard/checklistlab/historico-de-checklist/export/respostas",
   ]) {
     test(`${caminho}: redireciona ao login sem entregar o arquivo`, async ({ request }) => {
       const resposta = await request.get(caminho, { maxRedirects: 0 });

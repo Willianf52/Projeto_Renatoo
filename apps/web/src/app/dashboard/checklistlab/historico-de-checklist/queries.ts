@@ -9,7 +9,7 @@ import { dataValida, fimExclusivoDoFiltro, formatarDataHora, inicioDoFiltro } fr
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
-import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
+import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 import { filtroDeId, filtroDeUuid, idNaUrl } from "@/lib/id-na-url";
 
 export const PAGE_SIZE = 25;
@@ -667,49 +667,93 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
 };
 
 /**
+ * Sem `!inner` em `visitas` aqui, ao contrario da listagem: no detalhe a
+ * consulta e por id, nao ha o que filtrar por coluna de visita, e o inner
+ * existia justamente para viabilizar aqueles filtros.
+ */
+const SELECT_DO_DETALHE = `
+  id, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
+  modelos_checklist ( nome ),
+  visitas (
+    numero_coleta,
+    criado_em,
+    motivos_visita ( nome ),
+    profiles ( nome_completo ),
+    sites ( nome )
+  ),
+  checklist_respostas (
+    resposta, observacao, pergunta_id,
+    perguntas_checklist ( ordem, texto, tipo_resposta )
+  ),
+  checklist_fotos ( id, criado_em, pergunta_id ),
+  enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )
+`;
+
+/**
  * Um checklist com tudo que a tela de detalhe mostra.
  *
- * Sem `!inner` em `visitas` aqui, ao contrario da listagem: numa consulta de
- * uma linha so nao ha o que filtrar por coluna de visita, e o inner existia
- * justamente para viabilizar aqueles filtros. `maybeSingle` e nao `single`:
- * id inexistente -- ou fora do escopo de RLS de quem pediu, que da no mesmo
- * daqui -- e um 404 da tela, nao um erro do Postgres subindo ate a fronteira
- * de erro do App Router.
+ * `maybeSingle` e nao `single`: id inexistente -- ou fora do escopo de RLS de
+ * quem pediu, que da no mesmo daqui -- e um 404 da tela, nao um erro do
+ * Postgres subindo ate a fronteira de erro do App Router.
  */
 export async function getChecklist(id: number): Promise<ChecklistDetalhe | null> {
   const supabase = await createClient();
 
   const [perguntasPorModelo, resultado] = await Promise.all([
     contarPerguntasAtivasPorModelo(supabase),
-    supabase
-      .from("checklists_visita")
-      .select(
-        `
-        id, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
-        modelos_checklist ( nome ),
-        visitas (
-          numero_coleta,
-          criado_em,
-          motivos_visita ( nome ),
-          profiles ( nome_completo ),
-          sites ( nome )
-        ),
-        checklist_respostas (
-          resposta, observacao, pergunta_id,
-          perguntas_checklist ( ordem, texto, tipo_resposta )
-        ),
-        checklist_fotos ( id, criado_em, pergunta_id ),
-        enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )
-      `,
-      )
-      .eq("id", id)
-      .maybeSingle(),
+    supabase.from("checklists_visita").select(SELECT_DO_DETALHE).eq("id", id).maybeSingle(),
   ]);
 
   if (resultado.error) throw resultado.error;
   if (!resultado.data) return null;
 
-  const bruto = resultado.data as unknown as ChecklistDetalheBruto;
+  return montarDetalhe(resultado.data as unknown as ChecklistDetalheBruto, perguntasPorModelo);
+}
+
+/**
+ * Quantos checklists o "Exportar PDF Unificado" junta num arquivo. No sistema
+ * antigo o botao leva todos os ids do filtro; aqui ha teto porque cada
+ * checklist traz respostas, fotos e assinatura, e uma pagina de impressao com
+ * milhares deles trava o navegador antes de abrir o dialogo.
+ */
+export const TETO_DO_PDF_UNIFICADO = 100;
+
+/** Ids por consulta no `.in()`: mantem a URL do PostgREST curta. */
+const IDS_POR_CONSULTA = 100;
+
+function emLotes<T>(itens: readonly T[], tamanho: number): T[][] {
+  const lotes: T[][] = [];
+  for (let i = 0; i < itens.length; i += tamanho) lotes.push(itens.slice(i, i + tamanho));
+  return lotes;
+}
+
+/**
+ * O detalhe de varios checklists, na ordem dos `ids` recebidos (a da
+ * listagem). Id que o RLS nao deixa ver simplesmente nao volta.
+ */
+export async function getChecklistsDetalhados(ids: readonly number[]): Promise<ChecklistDetalhe[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+
+  const [perguntasPorModelo, ...lotes] = await Promise.all([
+    contarPerguntasAtivasPorModelo(supabase),
+    ...emLotes(ids, IDS_POR_CONSULTA).map((lote) =>
+      supabase.from("checklists_visita").select(SELECT_DO_DETALHE).in("id", lote),
+    ),
+  ]);
+
+  const porId = new Map<number, ChecklistDetalhe>();
+  for (const lote of lotes) {
+    if (lote.error) throw lote.error;
+    for (const bruto of (lote.data ?? []) as unknown as ChecklistDetalheBruto[]) {
+      porId.set(bruto.id, montarDetalhe(bruto, perguntasPorModelo));
+    }
+  }
+
+  return ids.flatMap((id) => porId.get(id) ?? []);
+}
+
+function montarDetalhe(bruto: ChecklistDetalheBruto, perguntasPorModelo: Map<number, number>): ChecklistDetalhe {
   const respostas = ordenarRespostas(bruto.checklist_respostas ?? [], bruto.checklist_fotos ?? []);
   const comResposta = new Set(respostas.map((resposta) => resposta.perguntaId));
 
@@ -728,6 +772,179 @@ export async function getChecklist(id: number): Promise<ChecklistDetalhe | null>
       .map(paraFoto),
     temAssinatura: Boolean(bruto.assinatura_path),
     enviadoPor: bruto.enviado_por_perfil?.nome_completo ?? null,
+  };
+}
+
+/**
+ * Os campos do cabecalho de um checklist, na ordem da tela. Mora aqui, e nao
+ * no `page.tsx` do detalhe, porque o PDF Unificado imprime o mesmo cabecalho:
+ * duas listas escritas a mao se desencontrariam no primeiro campo novo.
+ */
+export function camposDoResumo(detalhe: ChecklistDetalhe): { rotulo: string; valor: string }[] {
+  const { linha } = detalhe;
+
+  return [
+    { rotulo: "ID", valor: String(linha.id) },
+    { rotulo: "Número/Ano", valor: linha.numeroAno },
+    { rotulo: "Checklist", valor: linha.checklist },
+    // Vazio na corretiva, que nao tem modelo (0061) -- a celula em branco e a
+    // convencao da tela para "nao se aplica".
+    { rotulo: "Modelo", valor: linha.modelo },
+    { rotulo: "Site", valor: linha.site },
+    { rotulo: "Responsável", valor: linha.responsavel },
+    { rotulo: "Motivo da visita", valor: detalhe.motivoDaVisita },
+    { rotulo: "Enviado em", valor: formatarDataHora(linha.enviadoEm) },
+    // Pode nao ser o Responsavel: desde a 0059 um GESTOR fecha a visita de um
+    // inspetor, e e isto que o relatorio precisa mostrar.
+    { rotulo: "Enviado por", valor: detalhe.enviadoPor ?? "" },
+    { rotulo: "Visita registrada em", valor: formatarDataHora(detalhe.registradoEm) },
+    { rotulo: "Situação", valor: textoDaSituacao(linha) },
+    { rotulo: "Conclusão", valor: textoDaConclusao(linha) },
+    { rotulo: "Nota", valor: linha.nota === null ? "" : `${linha.nota}%` },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Exportar Respostas para Excel
+// ---------------------------------------------------------------------------
+
+/** Uma linha por resposta: as colunas do checklist se repetem em cada uma,
+ * para a planilha poder ser filtrada por site, pergunta ou resposta sem
+ * precisar de um segundo arquivo. */
+export const RESPOSTAS_COLUMNS = [
+  "ID",
+  "Número/Ano",
+  "Checklist",
+  "Modelo",
+  "Enviado em",
+  "Responsável",
+  "Site",
+  "Ordem",
+  "Pergunta",
+  "Resposta",
+  "Observação",
+];
+
+export type RespostaParaExportar = {
+  checklist_id: number;
+  resposta: string;
+  observacao: string | null;
+  perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string } | null;
+};
+
+/**
+ * Monta as linhas da planilha, na ordem da listagem e, dentro de cada
+ * checklist, na ordem das perguntas.
+ *
+ * Checklist sem resposta nenhuma tambem sai, numa linha com as colunas de
+ * resposta em branco: sumir da planilha faria o total de checklists dela
+ * discordar da tela. Na CORRETIVA, que nao tem questionario (0042), a linha
+ * leva o motivo digitado pelo inspetor na Observacao.
+ */
+export function linhasDeRespostas(
+  linhas: readonly HistoricoLinha[],
+  respostas: readonly RespostaParaExportar[],
+  motivos: ReadonlyMap<number, string | null> = new Map(),
+): string[][] {
+  const porChecklist = new Map<number, RespostaParaExportar[]>();
+  for (const resposta of respostas) {
+    const lista = porChecklist.get(resposta.checklist_id) ?? [];
+    lista.push(resposta);
+    porChecklist.set(resposta.checklist_id, lista);
+  }
+
+  return linhas.flatMap((linha) => {
+    const doChecklist = [
+      String(linha.id),
+      linha.numeroAno,
+      linha.checklist,
+      linha.modelo,
+      formatarDataHora(linha.enviadoEm),
+      linha.responsavel,
+      linha.site,
+    ];
+
+    const lista = (porChecklist.get(linha.id) ?? [])
+      .slice()
+      .sort(
+        (a, b) =>
+          (a.perguntas_checklist?.ordem ?? Number.MAX_SAFE_INTEGER) -
+          (b.perguntas_checklist?.ordem ?? Number.MAX_SAFE_INTEGER),
+      );
+
+    if (lista.length === 0) {
+      const motivo = linha.tipo === TIPO_CORRETIVA ? (motivos.get(linha.id) ?? "") : "";
+      return [[...doChecklist, "", "", "", motivo]];
+    }
+
+    return lista.map((resposta) => [
+      ...doChecklist,
+      resposta.perguntas_checklist ? String(resposta.perguntas_checklist.ordem) : "",
+      resposta.perguntas_checklist?.texto ?? "",
+      rotuloDaResposta(tipoDeResposta(resposta.perguntas_checklist?.tipo_resposta), resposta.resposta),
+      resposta.observacao ?? "",
+    ]);
+  });
+}
+
+export type RespostasDoHistorico = {
+  linhas: string[][];
+  /** O historico passou do teto, ou as respostas passaram do delas. */
+  truncado: boolean;
+};
+
+/**
+ * As respostas de todos os checklists do filtro, ja em linhas de planilha.
+ *
+ * Parte da mesma `getHistorico` da tela, para a planilha trazer exatamente os
+ * checklists que a listagem mostra (Situacao, Conclusao e as buscas livres sao
+ * decididas em memoria), e busca as respostas desses ids em lotes.
+ */
+export async function getRespostasDoHistorico(filtros: Filtros): Promise<RespostasDoHistorico> {
+  const historico = await getHistorico(filtros);
+  const supabase = await createClient();
+  const ids = historico.linhas.map((linha) => linha.id);
+
+  const respostas: RespostaParaExportar[] = [];
+  let atingiuTeto = false;
+
+  for (const lote of emLotes(ids, IDS_POR_CONSULTA)) {
+    const restante = TETO_DE_AGREGACAO - respostas.length;
+    const resultado = await buscarEmPaginas<RespostaParaExportar>(
+      (de, ate) =>
+        supabase
+          .from("checklist_respostas")
+          .select("checklist_id, resposta, observacao, perguntas_checklist ( ordem, texto, tipo_resposta )")
+          .in("checklist_id", lote)
+          // Chave primaria inteira: ordem estavel entre as paginas.
+          .order("checklist_id")
+          .order("pergunta_id")
+          .range(de, ate),
+      restante,
+    );
+    respostas.push(...resultado.linhas);
+    if (resultado.atingiuTeto) {
+      atingiuTeto = true;
+      break;
+    }
+  }
+
+  if (atingiuTeto) {
+    erro(
+      gerarIdDeRequisicao(),
+      `Histórico de Checklist: teto de ${TETO_DE_AGREGACAO} respostas atingido na exportação.`,
+    );
+  }
+
+  // O motivo da corretiva: `linha.motivo` cai no motivo da VISITA na
+  // consultoria, mas na corretiva e sempre o digitado (ver `montarLinha`).
+  const motivos = new Map(
+    historico.linhas.filter((linha) => linha.tipo === TIPO_CORRETIVA).map((linha) => [linha.id, linha.motivo]),
+  );
+
+  return {
+    linhas: linhasDeRespostas(historico.linhas, respostas, motivos),
+    truncado: historico.truncado || atingiuTeto,
   };
 }
 
