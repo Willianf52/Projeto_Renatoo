@@ -17,7 +17,7 @@
 --     referencia nao existe aqui;
 --   - CPF, RE, telefone e celular: so quem administra usuarios (GESTOR) ve.
 --
--- DADOS PESSOAIS EM TABELA PROPRIA, sem policy nenhuma para `authenticated`:
+-- DADOS PESSOAIS EM TABELA PROPRIA, com a policy que nega tudo a `authenticated`:
 -- nem a propria pessoa nem a gestao os le pela API. Quem le e escreve e
 -- `cadastros/usuarios`, com a service_role, atras de
 -- `pode_administrar_usuarios()` -- o mesmo portao das colunas de poder do
@@ -48,9 +48,18 @@ create table if not exists public.dados_pessoais_dos_usuarios (
 );
 
 comment on table public.dados_pessoais_dos_usuarios is
-  'CPF, RE, telefone e celular do usuario ("Dados pessoais" do cadastro). Sem policy para authenticated: so a service_role, atras de pode_administrar_usuarios(). Ver migration 0068.';
+  'CPF, RE, telefone e celular do usuario ("Dados pessoais" do cadastro). Nenhum acesso pela API: so a service_role, atras de pode_administrar_usuarios(). Ver migration 0068.';
 
 alter table public.dados_pessoais_dos_usuarios enable row level security;
+
+-- A policy que existe NEGA, como em `limites_de_taxa` (0048): a decisao fica
+-- escrita no catalogo, e nao como excecao em `rls_ligado_em_todo_o_schema_test`.
+-- A service_role ignora RLS e nao e afetada.
+drop policy if exists "Nenhum acesso pela API" on public.dados_pessoais_dos_usuarios;
+create policy "Nenhum acesso pela API" on public.dados_pessoais_dos_usuarios
+  for all to anon, authenticated
+  using (false)
+  with check (false);
 
 revoke all on public.dados_pessoais_dos_usuarios from anon, authenticated;
 grant all on public.dados_pessoais_dos_usuarios to service_role;
@@ -140,6 +149,13 @@ create index if not exists checklist_emails_checklist_idx on public.checklist_em
 create index if not exists checklist_emails_fila_idx on public.checklist_emails (id) where status in ('PENDENTE', 'ENVIANDO');
 
 alter table public.checklist_emails enable row level security;
+
+-- Mesma policy que nega da tabela acima: a fila nao aparece em tela nenhuma.
+drop policy if exists "Nenhum acesso pela API" on public.checklist_emails;
+create policy "Nenhum acesso pela API" on public.checklist_emails
+  for all to anon, authenticated
+  using (false)
+  with check (false);
 
 revoke all on public.checklist_emails from anon, authenticated;
 grant all on public.checklist_emails to service_role;
