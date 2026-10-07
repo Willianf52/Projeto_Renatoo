@@ -5,12 +5,13 @@ import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/dashboard/Skeleton";
 import { ChevronLeftIcon, ClipboardListIcon, SearchIcon } from "@/components/dashboard/icons";
 import { formatarDataHora } from "@/lib/data-hora";
+import { podeAdministrarUsuarios } from "@/lib/permissoes";
+import { BotaoExcluirChecklist } from "../BotaoExcluirChecklist";
 import {
+  camposDoResumo,
   getChecklist,
   idValido,
   primeiro,
-  textoDaConclusao,
-  textoDaSituacao,
   TIPO_CONSULTORIA,
   type ChecklistDetalhe,
   type SearchParams,
@@ -104,7 +105,7 @@ async function Detalhe({ params, searchParams }: Props) {
             Checklist de {linha.checklist} ({linha.numeroAno || `#${linha.id}`})
           </h1>
           <Suspense fallback={<Skeleton className="h-10 w-44" />}>
-            <BotaoVoltar searchParams={searchParams} />
+            <AcoesDoDetalhe checklistId={linha.id} searchParams={searchParams} />
           </Suspense>
         </div>
 
@@ -170,9 +171,18 @@ async function Detalhe({ params, searchParams }: Props) {
 }
 
 /** Volta para a listagem preservando os filtros com que a pessoa chegou --
- * sem isto, abrir um checklist e voltar significaria refiltrar tudo. */
-async function BotaoVoltar({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const params = await searchParams;
+ * sem isto, abrir um checklist e voltar significaria refiltrar tudo. O
+ * "Excluir checklist" (0066) leva os mesmos filtros, e so aparece para quem o
+ * banco deixa excluir (GESTOR): para os demais o botao nao existe, como no
+ * sistema antigo. */
+async function AcoesDoDetalhe({
+  checklistId,
+  searchParams,
+}: {
+  checklistId: number;
+  searchParams: Promise<SearchParams>;
+}) {
+  const [params, podeExcluir] = await Promise.all([searchParams, podeAdministrarUsuarios()]);
 
   const query = new URLSearchParams();
   for (const [chave, valor] of Object.entries(params)) {
@@ -182,35 +192,18 @@ async function BotaoVoltar({ searchParams }: { searchParams: Promise<SearchParam
   const texto = query.toString();
 
   return (
-    <Button href={texto ? `${LISTAGEM}?${texto}` : LISTAGEM} variant="secondary" className="group">
-      <ChevronLeftIcon className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
-      Voltar ao histórico
-    </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      {podeExcluir && <BotaoExcluirChecklist checklistId={checklistId} filtros={texto} />}
+      <Button href={texto ? `${LISTAGEM}?${texto}` : LISTAGEM} variant="secondary" className="group">
+        <ChevronLeftIcon className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
+        Voltar ao histórico
+      </Button>
+    </div>
   );
 }
 
 function Resumo({ detalhe }: { detalhe: ChecklistDetalhe }) {
-  const { linha } = detalhe;
-
-  const campos: { rotulo: string; valor: string }[] = [
-    { rotulo: "ID", valor: String(linha.id) },
-    { rotulo: "Número/Ano", valor: linha.numeroAno },
-    { rotulo: "Checklist", valor: linha.checklist },
-    // Vazio na corretiva, que nao tem modelo (0061) -- a celula em branco e a
-    // convencao da tela para "nao se aplica".
-    { rotulo: "Modelo", valor: linha.modelo },
-    { rotulo: "Site", valor: linha.site },
-    { rotulo: "Responsável", valor: linha.responsavel },
-    { rotulo: "Motivo da visita", valor: detalhe.motivoDaVisita },
-    { rotulo: "Enviado em", valor: formatarDataHora(linha.enviadoEm) },
-    // Pode nao ser o Responsavel: desde a 0059 um GESTOR fecha a visita de um
-    // inspetor, e e isto que o relatorio precisa mostrar.
-    { rotulo: "Enviado por", valor: detalhe.enviadoPor ?? "" },
-    { rotulo: "Visita registrada em", valor: formatarDataHora(detalhe.registradoEm) },
-    { rotulo: "Situação", valor: textoDaSituacao(linha) },
-    { rotulo: "Conclusão", valor: textoDaConclusao(linha) },
-    { rotulo: "Nota", valor: linha.nota === null ? "" : `${linha.nota}%` },
-  ];
+  const campos = camposDoResumo(detalhe);
 
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-4 p-4 sm:grid-cols-2 lg:grid-cols-3">

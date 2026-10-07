@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Acao } from "@/components/dashboard/Acao";
+import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
@@ -57,6 +58,16 @@ export default function HistoricoDeChecklistPage({
         <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Histórico de Checklist" }]} />
       </div>
 
+      {/* A unica escrita desta tela e o "Excluir checklist" do detalhe, que
+          volta para ca com `salvo=1`. */}
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem="/dashboard/checklistlab/historico-de-checklist"
+          mensagem="Checklist excluído com sucesso."
+        />
+      </Suspense>
+
       <div
         className="overflow-hidden rounded-lg bg-brand-surface shadow-sm transition-shadow duration-300 animate-fade-in-up hover:shadow-md"
         style={{ animationDelay: "80ms" }}
@@ -66,7 +77,7 @@ export default function HistoricoDeChecklistPage({
             <ClipboardListIcon className="h-4 w-4" />
             Histórico de Checklist
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={4} />}>
             <AcoesDeExportacao searchParams={searchParams} />
           </Suspense>
         </div>
@@ -111,10 +122,28 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
+      {/* Uma linha por resposta, contra uma por checklist no botao ao lado.
+          Amarelo e azul, como os dois botoes de mesmo nome no sistema antigo. */}
+      <Acao
+        titulo="Exportar Respostas para Excel"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/respostas${queryExportacao}`}
+        className="bg-amber-500/40"
+        target="_blank"
+      >
+        <ExcelIcon className="h-4 w-4" />
+      </Acao>
       <Acao
         titulo="Exportar para PDF"
         href={`/dashboard/checklistlab/historico-de-checklist/export/pdf${queryExportacao}`}
         className="bg-red-600/40"
+        target="_blank"
+      >
+        <PdfIcon className="h-4 w-4" />
+      </Acao>
+      <Acao
+        titulo="Exportar PDF Unificado"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/pdf-unificado${queryExportacao}`}
+        className="bg-sky-600/40"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />

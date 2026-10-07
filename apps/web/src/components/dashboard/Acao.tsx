@@ -25,6 +25,10 @@ export function Acao({
       title={titulo}
       aria-label={titulo}
       target={target}
+      // Destino em aba nova e rota de exportacao: o prefetch baixaria a
+      // pagina de impressao (com a consulta inteira por tras) so por o botao
+      // aparecer na tela, e a aba nova nao aproveita nada dele.
+      prefetch={target === "_blank" ? false : undefined}
       // `noreferrer` junto do `noopener` (achado B-5 da auditoria de 28/08).
       // Hoje todo destino e da propria origem -- rota de exportacao -- entao
       // nenhum dos dois muda nada na pratica; e o valor completo que se

@@ -300,9 +300,12 @@ select is(
     where grantee = 'authenticated'
       and table_schema = 'public'
       and table_name in ('checklists_visita', 'checklist_respostas', 'checklist_fotos')
-      and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')),
+      and privilege_type in ('UPDATE', 'DELETE', 'TRUNCATE')
+      -- A excecao: o DELETE do checklist inteiro, so para GESTOR pela policy
+      -- (0066, "Excluir checklist"). Respostas e fotos saem pela cascata.
+      and not (table_name = 'checklists_visita' and privilege_type = 'DELETE')),
   0,
-  'authenticated nao tem UPDATE/DELETE/TRUNCATE nas tabelas de campo do checklist'
+  'authenticated nao tem UPDATE/DELETE/TRUNCATE nas tabelas de campo do checklist (fora o DELETE da 0066)'
 );
 
 -- ---------------------------------------------------------------------------
