@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { processarFilaDeEmailsDeChecklist } from "@/lib/fila-de-emails-de-checklist";
 import { processarFilaDeEmails } from "@/lib/fila-de-emails-de-ocorrencia";
 import { limitarTaxa } from "@/lib/limite-compartilhado";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
@@ -45,6 +46,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
   }
 
-  const resultado = await processarFilaDeEmails(admin, new URL(request.url).origin, idRequisicao);
-  return NextResponse.json(resultado);
+  // As duas filas (0065 e 0068), em sequencia: a Resend tem um limite so.
+  const origem = new URL(request.url).origin;
+  const ocorrencias = await processarFilaDeEmails(admin, origem, idRequisicao);
+  const checklists = await processarFilaDeEmailsDeChecklist(admin, origem, idRequisicao);
+  return NextResponse.json({
+    enviados: ocorrencias.enviados + checklists.enviados,
+    falhas: ocorrencias.falhas + checklists.falhas,
+  });
 }

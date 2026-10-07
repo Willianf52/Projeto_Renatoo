@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@projeto-renatoo/shared";
 import { NIVEIS_ACESSO, TIPOS_USUARIO, VALORES_VAZIOS } from "./constantes";
+import { erroDosDadosPessoais, paraGravar } from "./dados-pessoais";
 
 /** Default da coluna `profiles.pais` (migration 0058). */
 const PAIS_PADRAO = VALORES_VAZIOS.pais;
@@ -75,6 +76,15 @@ export type ValoresDoUsuario = {
   /** Ids de `grupos_sites` que um CLIENTE enxerga (migration 0014). Ignorado
    * para os demais niveis, que nao tem escopo restrito. */
   gruposDoCliente: string[];
+  /** Migration 0068: `dados_pessoais_dos_usuarios`, so pela service_role. */
+  cpf: string;
+  re: string;
+  telefone: string;
+  celular: string;
+  /** "Enviar E-mail para o Superior?" (0068). */
+  emailSuperiorOcorrencia: boolean;
+  emailSuperiorChecklist: boolean;
+  emailSuperiorEvento: boolean;
 };
 
 const CARGO_CLIENTE = "CLIENTE";
@@ -104,6 +114,13 @@ function extrairValores(formData: FormData): ValoresDoUsuario {
       .getAll("grupos_do_cliente")
       .map((valor) => String(valor).trim())
       .filter(Boolean),
+    cpf: texto(formData, "cpf"),
+    re: texto(formData, "re"),
+    telefone: texto(formData, "telefone"),
+    celular: texto(formData, "celular"),
+    emailSuperiorOcorrencia: formData.get("email_superior_ocorrencia") !== null,
+    emailSuperiorChecklist: formData.get("email_superior_checklist") !== null,
+    emailSuperiorEvento: formData.get("email_superior_evento") !== null,
   };
 }
 
@@ -136,7 +153,30 @@ function validar(valores: ValoresDoUsuario): string | null {
     return "Grupo de sites inválido.";
   }
 
-  return null;
+  return erroDosDadosPessoais(valores);
+}
+
+/**
+ * Grava `dados_pessoais_dos_usuarios` (migration 0068): upsert com o que veio,
+ * ou apaga a linha quando os quatro campos ficaram em branco -- "sem dados
+ * pessoais" e ausencia de linha, nao uma linha de nulos.
+ */
+async function gravarDadosPessoais(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  valores: ValoresDoUsuario,
+): Promise<string | null> {
+  const dados = paraGravar(valores);
+
+  if (Object.values(dados).every((valor) => valor === null)) {
+    const { error } = await admin.from("dados_pessoais_dos_usuarios").delete().eq("profile_id", profileId);
+    return error?.message ?? null;
+  }
+
+  const { error } = await admin
+    .from("dados_pessoais_dos_usuarios")
+    .upsert({ profile_id: profileId, ...dados, atualizado_em: new Date().toISOString() });
+  return error?.message ?? null;
 }
 
 /**
@@ -312,6 +352,9 @@ export async function salvarUsuario(
     tipo: valores.tipo,
     ativo: valores.ativo,
     superior_id: valores.superiorId || null,
+    email_superior_ocorrencia: valores.emailSuperiorOcorrencia,
+    email_superior_checklist: valores.emailSuperiorChecklist,
+    email_superior_evento: valores.emailSuperiorEvento,
   };
 
   if (criando) {
@@ -365,6 +408,15 @@ export async function salvarUsuario(
       erro(idRequisicao, "Administração de usuários: falha ao gravar escopo; conta desfeita.", erroEscopo);
       return recusar(traduzirErro(erroEscopo), valores);
     }
+
+    // Os dados pessoais nao entram na `auditoria` acima: la eles virariam
+    // uma segunda copia de CPF, legivel por outro caminho.
+    const erroDados = await gravarDadosPessoais(admin, data.user.id, valores);
+    if (erroDados) {
+      await admin.auth.admin.deleteUser(data.user.id);
+      erro(idRequisicao, "Administração de usuários: falha ao gravar dados pessoais; conta desfeita.", erroDados);
+      return recusar(traduzirErro(erroDados), valores);
+    }
   } else {
     // Colunas por extenso, e nao so `cargo, ativo` como antes: viram
     // `dados_antigos` do registro em `auditoria` mais abaixo, e um diff que so
@@ -372,7 +424,9 @@ export async function salvarUsuario(
     // superior.
     const { data: atual, error: erroLeitura } = await admin
       .from("profiles")
-      .select("nome_completo, login, funcao, cargo, tipo, ativo, superior_id")
+      .select(
+        "nome_completo, login, funcao, cargo, tipo, ativo, superior_id, email_superior_ocorrencia, email_superior_checklist, email_superior_evento",
+      )
       .eq("id", idAlvo)
       .maybeSingle();
 
@@ -401,6 +455,12 @@ export async function salvarUsuario(
     if (error) {
       erro(idRequisicao, "Administração de usuários: falha ao atualizar perfil.", error);
       return recusar(traduzirErro(error.message), valores);
+    }
+
+    const erroDados = await gravarDadosPessoais(admin, idAlvo, valores);
+    if (erroDados) {
+      erro(idRequisicao, "Administração de usuários: falha ao gravar dados pessoais.", erroDados);
+      return recusar(traduzirErro(erroDados), valores);
     }
 
     await registrarAuditoria(admin, idRequisicao, {

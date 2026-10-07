@@ -1,4 +1,5 @@
 import { after, NextResponse, type NextRequest } from "next/server";
+import { processarFilaDeEmailsDeChecklist } from "@/lib/fila-de-emails-de-checklist";
 import { processarFilaDeEmails } from "@/lib/fila-de-emails-de-ocorrencia";
 import { limitarTaxa } from "@/lib/limite-compartilhado";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
@@ -64,11 +65,18 @@ export async function POST(request: NextRequest) {
   }
 
   const origem = new URL(request.url).origin;
+  // As duas filas: o aviso do banco e o mesmo para os e-mails das ocorrencias
+  // (0065) e para o do checklist ao superior (0068). Uma nao segura a outra.
   after(async () => {
     try {
       await processarFilaDeEmails(admin, origem, idRequisicao);
     } catch (falha) {
       erro(idRequisicao, "Webhook ocorrencia-emails: falha ao processar a fila.", falha);
+    }
+    try {
+      await processarFilaDeEmailsDeChecklist(admin, origem, idRequisicao);
+    } catch (falha) {
+      erro(idRequisicao, "Webhook ocorrencia-emails: falha ao processar a fila dos checklists.", falha);
     }
   });
 

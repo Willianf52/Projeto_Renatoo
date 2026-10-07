@@ -121,6 +121,53 @@ export type Database = {
           },
         ]
       }
+      checklist_emails: {
+        Row: {
+          checklist_id: number
+          criado_em: string
+          destinatario: string
+          enviado_em: string | null
+          erro: string | null
+          id: number
+          id_externo: string | null
+          reservado_em: string | null
+          status: string
+          tentativas: number
+        }
+        Insert: {
+          checklist_id: number
+          criado_em?: string
+          destinatario: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: never
+          id_externo?: string | null
+          reservado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Update: {
+          checklist_id?: number
+          criado_em?: string
+          destinatario?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: never
+          id_externo?: string | null
+          reservado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_emails_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_fotos: {
         Row: {
           checklist_id: number
@@ -271,6 +318,41 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      dados_pessoais_dos_usuarios: {
+        Row: {
+          atualizado_em: string
+          celular: string | null
+          cpf: string | null
+          profile_id: string
+          re: string | null
+          telefone: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          celular?: string | null
+          cpf?: string | null
+          profile_id: string
+          re?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          celular?: string | null
+          cpf?: string | null
+          profile_id?: string
+          re?: string | null
+          telefone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dados_pessoais_dos_usuarios_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       eventos: {
         Row: {
@@ -1049,6 +1131,9 @@ export type Database = {
           cargo: string
           created_at: string
           email: string
+          email_superior_checklist: boolean
+          email_superior_evento: boolean
+          email_superior_ocorrencia: boolean
           funcao: string | null
           id: string
           login: string | null
@@ -1062,6 +1147,9 @@ export type Database = {
           cargo?: string
           created_at?: string
           email: string
+          email_superior_checklist?: boolean
+          email_superior_evento?: boolean
+          email_superior_ocorrencia?: boolean
           funcao?: string | null
           id: string
           login?: string | null
@@ -1075,6 +1163,9 @@ export type Database = {
           cargo?: string
           created_at?: string
           email?: string
+          email_superior_checklist?: boolean
+          email_superior_evento?: boolean
+          email_superior_ocorrencia?: boolean
           funcao?: string | null
           id?: string
           login?: string | null
@@ -1577,6 +1668,14 @@ export type Database = {
           observacao: string
           tem_localizacao: boolean
           visita_id: number
+        }[]
+      }
+      reservar_emails_de_checklist: {
+        Args: { p_limite?: number; p_somente?: string[] }
+        Returns: {
+          checklist_id: number
+          destinatario: string
+          id: number
         }[]
       }
       reservar_emails_de_ocorrencia: {

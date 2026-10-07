@@ -42,6 +42,34 @@ function Campo({
   );
 }
 
+const CAMPOS_PESSOAIS = [
+  { name: "cpf", chave: "cpf", rotulo: "CPF", exemplo: "000.000.000-00", numerico: true },
+  { name: "re", chave: "re", rotulo: "R.E.", exemplo: "", numerico: false },
+  { name: "telefone", chave: "telefone", rotulo: "Telefone", exemplo: "(11) 0000-0000", numerico: true },
+  { name: "celular", chave: "celular", rotulo: "Celular", exemplo: "(11) 90000-0000", numerico: true },
+] as const;
+
+const CAIXAS_DO_SUPERIOR = [
+  {
+    name: "email_superior_ocorrencia",
+    chave: "emailSuperiorOcorrencia",
+    rotulo: "Ocorrência",
+    ajuda: "Fica gravado, mas ainda não envia: o portal não tem o módulo de Ocorrências do sistema antigo.",
+  },
+  {
+    name: "email_superior_checklist",
+    chave: "emailSuperiorChecklist",
+    rotulo: "Checklist / ChecklistLab",
+    ajuda: "Quando o usuário envia um checklist.",
+  },
+  {
+    name: "email_superior_evento",
+    chave: "emailSuperiorEvento",
+    rotulo: "Evento",
+    ajuda: "Quando um checklist do usuário abre uma ocorrência no Painel de Eventos.",
+  },
+] as const;
+
 export function UsuarioForm({
   id,
   valoresIniciais,
@@ -238,6 +266,54 @@ export function UsuarioForm({
           {(criando || senha !== "") && <PasswordRulesList password={senha} />}
         </Campo>
       </div>
+
+      {/* Migration 0068. Fora de `profiles` no banco: so a service_role le,
+          atras da mesma checagem que abre este formulario. */}
+      <fieldset className="rounded-md border border-slate-800 p-4">
+        <legend className={`${rotuloClasses} mb-0 px-2`}>Dados pessoais</legend>
+        <p className="mb-3 text-xs text-brand-muted">Visíveis só para quem administra usuários.</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {CAMPOS_PESSOAIS.map((campo) => (
+            <Campo key={campo.name} id={campo.name} rotulo={campo.rotulo}>
+              <input
+                id={campo.name}
+                name={campo.name}
+                type="text"
+                inputMode={campo.numerico ? "numeric" : undefined}
+                placeholder={campo.exemplo}
+                defaultValue={valores[campo.chave]}
+                className={getInputClasses(false)}
+              />
+            </Campo>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* "Enviar E-mail para o Superior?" do sistema de referencia (0068):
+          quando ESTE usuario gera o que estiver marcado, o superior recebe. */}
+      <fieldset className="rounded-md border border-slate-800 p-4">
+        <legend className={`${rotuloClasses} mb-0 px-2`}>Enviar e-mail para o superior?</legend>
+        <p className="mb-3 text-xs text-brand-muted">
+          Quando este usuário gerar o que estiver marcado, o superior dele recebe um e-mail.
+        </p>
+        <div className="space-y-2">
+          {CAIXAS_DO_SUPERIOR.map((caixa) => (
+            <label key={caixa.name} htmlFor={caixa.name} className="flex items-start gap-2 text-sm text-white">
+              <input
+                id={caixa.name}
+                name={caixa.name}
+                type="checkbox"
+                defaultChecked={valores[caixa.chave]}
+                className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
+              />
+              <span>
+                {caixa.rotulo}
+                <span className="block text-xs text-brand-muted">{caixa.ajuda}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {/* Escopo do cliente (migration 0014). Sem vínculo nenhum um CLIENTE não
           enxerga operação alguma -- que é o padrão seguro, mas parece conta

@@ -6,6 +6,7 @@ import { UserIcon } from "@/components/dashboard/icons";
 import { filtroDeUuid } from "@/lib/id-na-url";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { UsuarioForm } from "../../UsuarioForm";
+import { getDadosPessoais } from "../../ler-dados-pessoais";
 import {
   getEscopoDoCliente,
   getGruposSitesParaEscopo,
@@ -40,11 +41,13 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     redirect(LISTAGEM);
   }
 
-  const [usuario, superiores, gruposSites, escopo] = await Promise.all([
+  // `getDadosPessoais` le com a service_role: so depois da checagem acima.
+  const [usuario, superiores, gruposSites, escopo, dadosPessoais] = await Promise.all([
     getUsuario(id),
     getSuperiores(id),
     getGruposSitesParaEscopo(),
     getEscopoDoCliente(id),
+    getDadosPessoais(id),
   ]);
   if (!usuario) notFound();
 
@@ -89,6 +92,10 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             superiorId: usuario.superior_id ?? "",
             ativo: usuario.ativo,
             gruposDoCliente: escopo,
+            ...dadosPessoais,
+            emailSuperiorOcorrencia: usuario.email_superior_ocorrencia ?? false,
+            emailSuperiorChecklist: usuario.email_superior_checklist ?? false,
+            emailSuperiorEvento: usuario.email_superior_evento ?? false,
           }}
         />
       </div>

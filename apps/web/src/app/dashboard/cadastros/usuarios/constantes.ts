@@ -110,6 +110,16 @@ export const VALORES_VAZIOS = {
   // cadastro vindo de fora do app, que e outro caminho.
   ativo: true,
   gruposDoCliente: [] as string[],
+  // Migration 0068. Os dados pessoais nascem em branco e nunca sao copiados
+  // no Duplicar (identificam a pessoa); as caixas de e-mail ao superior,
+  // desmarcadas -- avisar alguem e um ato deliberado.
+  cpf: "",
+  re: "",
+  telefone: "",
+  celular: "",
+  emailSuperiorOcorrencia: false,
+  emailSuperiorChecklist: false,
+  emailSuperiorEvento: false,
 };
 
 /** O que a conta de origem empresta no Duplicar -- nada que a identifique. */
