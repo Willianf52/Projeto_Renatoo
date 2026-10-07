@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/verificar-importacoes",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/enviar-emails-de-ocorrencia",
+      "schedule": "0 11 * * *"
     }
   ]
 }

@@ -57,6 +57,7 @@ describe("valoresParaDuplicar", () => {
       "observacao",
       "infoAdicional1",
       "infoAdicional2",
+      "emailsEventos",
     ] as const) {
       expect(valores[campo], campo).toBe("");
     }

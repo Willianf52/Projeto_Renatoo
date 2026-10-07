@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { verificarEscritaComRls } from "@/lib/escrita-rls";
 import { texto } from "@/lib/form-data";
+import { lerListaDeEmails } from "@/lib/lista-de-emails";
 import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
 
@@ -70,6 +71,8 @@ export type ValoresDoSite = {
   filial: string;
   infoAdicional1: string;
   infoAdicional2: string;
+  /** "E-mails Eventos" (0065), como digitado: separados por virgula ou linha. */
+  emailsEventos: string;
   recebeVisita: boolean;
   gerarQrcodeAutomatico: boolean;
   gerarRegistroColetas: boolean;
@@ -108,6 +111,7 @@ function extrairValores(formData: FormData): ValoresDoSite {
     filial: texto(formData, "filial"),
     infoAdicional1: texto(formData, "info_adicional_1"),
     infoAdicional2: texto(formData, "info_adicional_2"),
+    emailsEventos: texto(formData, "emails_eventos"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     recebeVisita: formData.get("recebe_visita") !== null,
     gerarQrcodeAutomatico: formData.get("gerar_qrcode_automatico") !== null,
@@ -143,6 +147,7 @@ type LinhaDoSite = {
   filial: string | null;
   info_adicional_1: string | null;
   info_adicional_2: string | null;
+  emails_eventos: string[];
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -247,6 +252,10 @@ function validar(
   const longitude = lerCoordenada(valores.longitude, 180, "A longitude");
   if (!longitude.ok) return longitude;
 
+  // Mesmo teto do CHECK `sites_emails_eventos_validos` (0065).
+  const emails = lerListaDeEmails(valores.emailsEventos, 20, "e-mails de eventos");
+  if (!emails.ok) return emails;
+
   return {
     ok: true,
     linha: {
@@ -276,6 +285,7 @@ function validar(
       filial: valores.filial || null,
       info_adicional_1: valores.infoAdicional1 || null,
       info_adicional_2: valores.infoAdicional2 || null,
+      emails_eventos: emails.emails,
       recebe_visita: valores.recebeVisita,
       gerar_qrcode_automatico: valores.gerarQrcodeAutomatico,
       gerar_registro_coletas: valores.gerarRegistroColetas,

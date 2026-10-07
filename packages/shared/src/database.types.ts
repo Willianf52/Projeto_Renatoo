@@ -838,6 +838,66 @@ export type Database = {
           },
         ]
       }
+      ocorrencia_emails: {
+        Row: {
+          andamento_id: number | null
+          criado_em: string
+          destinatario: string
+          enviado_em: string | null
+          erro: string | null
+          id: number
+          id_externo: string | null
+          motivo: string
+          ocorrencia_id: number
+          reservado_em: string | null
+          status: string
+          tentativas: number
+        }
+        Insert: {
+          andamento_id?: number | null
+          criado_em?: string
+          destinatario: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: never
+          id_externo?: string | null
+          motivo: string
+          ocorrencia_id: number
+          reservado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Update: {
+          andamento_id?: number | null
+          criado_em?: string
+          destinatario?: string
+          enviado_em?: string | null
+          erro?: string | null
+          id?: never
+          id_externo?: string | null
+          motivo?: string
+          ocorrencia_id?: number
+          reservado_em?: string | null
+          status?: string
+          tentativas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocorrencia_emails_andamento_id_fkey"
+            columns: ["andamento_id"]
+            isOneToOne: false
+            referencedRelation: "ocorrencia_andamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_emails_ocorrencia_id_fkey"
+            columns: ["ocorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "ocorrencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ocorrencias: {
         Row: {
           aberta_por: string | null
@@ -1100,6 +1160,7 @@ export type Database = {
           complemento: string | null
           criado_em: string
           criado_por: string | null
+          emails_eventos: string[]
           endereco: string | null
           filial: string | null
           gerar_qrcode_automatico: boolean
@@ -1133,6 +1194,7 @@ export type Database = {
           complemento?: string | null
           criado_em?: string
           criado_por?: string | null
+          emails_eventos?: string[]
           endereco?: string | null
           filial?: string | null
           gerar_qrcode_automatico?: boolean
@@ -1166,6 +1228,7 @@ export type Database = {
           complemento?: string | null
           criado_em?: string
           criado_por?: string | null
+          emails_eventos?: string[]
           endereco?: string | null
           filial?: string | null
           gerar_qrcode_automatico?: boolean
@@ -1361,6 +1424,7 @@ export type Database = {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number
       }
+      lista_de_emails_valida: { Args: { p_emails: string[] }; Returns: boolean }
       ocorrencias_de_evento: {
         Args: {
           p_filtros?: Json
@@ -1499,6 +1563,16 @@ export type Database = {
           observacao: string
           tem_localizacao: boolean
           visita_id: number
+        }[]
+      }
+      reservar_emails_de_ocorrencia: {
+        Args: { p_limite?: number; p_somente?: string[] }
+        Returns: {
+          andamento_id: number
+          destinatario: string
+          id: number
+          motivo: string
+          ocorrencia_id: number
         }[]
       }
       salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }

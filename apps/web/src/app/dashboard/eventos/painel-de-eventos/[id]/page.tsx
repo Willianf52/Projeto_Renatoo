@@ -16,8 +16,11 @@ import {
   getOcorrencia,
   getOpcoesDoAndamento,
   idValido,
+  rotuloDaSituacaoDoEmail,
+  rotuloDoMotivoDoEmail,
   rotuloDoStatus,
   type AndamentoDaOcorrencia,
+  type EmailDaOcorrencia,
   type OcorrenciaDetalhe,
   type SearchParams,
 } from "../queries";
@@ -31,7 +34,7 @@ type Props = { params: Promise<{ id: string }>; searchParams: Promise<SearchPara
  * "Registro de Evento On-Line" -- o detalhe da ocorrencia, como o
  * `vlab_evento_registrado.php` do sistema de referencia: os mesmos campos, na
  * mesma ordem. O que o sistema ainda nao tem fica com o rotulo e vazio
- * (Classificacao, SubTipo, Descricao, E-mails Enviados), como la quando nao
+ * (Classificacao, SubTipo, Descricao), como la quando nao
  * ha dado. "Adicionar Analise" e "Finalizar" (0064) abrem os formularios
  * abaixo para quem ve toda a operacao; para os demais, ficam desabilitados.
  *
@@ -105,7 +108,7 @@ async function Detalhe({ params, searchParams }: Props) {
       </div>
 
       <Secao titulo="E-mails Enviados">
-        <p className="px-4 py-4 text-sm text-brand-muted">Nenhum e-mail enviado para este evento.</p>
+        <EmailsEnviados emails={ocorrencia.emails} />
       </Secao>
 
       <Secao titulo="Localização">
@@ -305,6 +308,38 @@ function CartaoDoAndamento({ andamento }: { andamento: AndamentoDaOcorrencia }) 
         </ul>
       )}
     </li>
+  );
+}
+
+/** Destinatario, momento, data/hora e situacao, como "E-mails Enviados" da
+ * referencia -- mais a situacao, porque aqui o envio e uma fila (0065). */
+function EmailsEnviados({ emails }: { emails: EmailDaOcorrencia[] }) {
+  if (emails.length === 0) {
+    return <p className="px-4 py-4 text-sm text-brand-muted">Nenhum e-mail enviado para este evento.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-sm">
+        <thead className="border-b border-slate-800 text-xs uppercase text-brand-muted">
+          <tr>
+            <th className="px-4 py-2">Destinatário</th>
+            <th className="px-4 py-2">Momento</th>
+            <th className="px-4 py-2">Data / Hora</th>
+            <th className="px-4 py-2">Situação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {emails.map((e) => (
+            <tr key={e.id} className="border-b border-slate-800/60">
+              <td className="px-4 py-2 text-white">{e.destinatario}</td>
+              <td className="px-4 py-2">{rotuloDoMotivoDoEmail(e.motivo)}</td>
+              <td className="px-4 py-2 tabular-nums">{dataHora(e.enviadoEm ?? e.criadoEm)}</td>
+              <td className="px-4 py-2">{rotuloDaSituacaoDoEmail(e.status)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

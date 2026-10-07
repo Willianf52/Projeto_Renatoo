@@ -267,6 +267,30 @@ describe("endereço, hierarquia e códigos", () => {
     expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({ pais: "Brasil" });
   });
 
+  it("grava os e-mails de eventos em minúsculas e sem repetidos", async () => {
+    await salvarSite(
+      {},
+      formulario({ ...MINIMO, emails_eventos: "Contato@Cliente.com.br; gerente@cliente.com.br\ncontato@cliente.com.br" }),
+    );
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      emails_eventos: ["contato@cliente.com.br", "gerente@cliente.com.br"],
+    });
+  });
+
+  it("sem e-mails de eventos grava lista vazia", async () => {
+    await salvarSite({}, formulario(MINIMO));
+
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({ emails_eventos: [] });
+  });
+
+  it("recusa e-mail de eventos inválido", async () => {
+    const estado = await salvarSite({}, formulario({ ...MINIMO, emails_eventos: "contato@cliente, sem-arroba" }));
+
+    expect(estado.erro).toBe("E-mail inválido: contato@cliente");
+    expect(chamadas).toHaveLength(0);
+  });
+
   it("recusa raio negativo, que o banco aceitaria", async () => {
     const estado = await salvarSite({}, formulario({ ...MINIMO, raio_metros: "-5" }));
 

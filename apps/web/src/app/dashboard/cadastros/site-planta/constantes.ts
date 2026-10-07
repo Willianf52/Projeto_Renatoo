@@ -34,6 +34,9 @@ export const VALORES_VAZIOS = {
   filial: "",
   infoAdicional1: "",
   infoAdicional2: "",
+  // Contatos avisados das ocorrencias do site (0065). Nao vai no Duplicar:
+  // sao as pessoas de um posto, nao da operacao.
+  emailsEventos: "",
   // Os tres seguem os defaults da 0021: site novo recebe visita e gera QR-Code,
   // e nao gera registro em coletas -- este ultimo cria dado, entao o padrao
   // seguro e nao criar.
