@@ -18,7 +18,7 @@
 -- leitura leva "Cadastro manual" na Observacao, para nunca ser confundida com
 -- inspecao feita no local, e vai para a `auditoria` com quem a cadastrou. A
 -- data da coleta fica na janela das leituras de campo (0054): ate 30 dias
--- para tras, sem futuro.
+-- para tras, sem futuro. As policies de INSERT de campo (0060) nao mudam.
 --
 -- EXCLUSAO: DELETE em `leituras` para GESTOR, pela policy. A visita que fica
 -- sem leitura e sem checklist sai junto (trigger), para nao sobrar visita
@@ -29,43 +29,46 @@
 -- ============================================================================
 
 -- 1) Cadastro manual ---------------------------------------------------------------
--- O GESTOR grava em nome de OUTRO funcionario, e as policies de campo (0060)
--- so deixam gravar a propria visita: estas duas policies somam a dele. O
--- grant de coluna da 0054 nao muda -- `data_integracao` fica em branco, como
--- nas leituras do app -- e o trigger da 0054 continua valendo, entao a data
--- da coleta fica na mesma janela das leituras de campo.
+-- O GESTOR grava em nome de OUTRO funcionario -- e isso a 0060 fechou de
+-- proposito para INSERT direto: "registrar visita em nome de outra pessoa
+-- continua fechado para todo mundo". As policies de campo NAO mudam. A unica
+-- porta e esta funcao, que confere o cargo, marca a leitura como "Cadastro
+-- manual" e grava a auditoria -- nao da para usa-la para pendurar leitura
+-- forjada na visita real de um inspetor: ela so cria visita nova.
+--
+-- O trabalho e `security definer` num schema fora do PostgREST (`escrita`),
+-- e `public` so tem o envelope `security invoker`: a regra da 0050 (nenhuma
+-- funcao `security definer` em `public` chamavel por quem esta logado), no
+-- mesmo molde de `autorizacao`. O trigger da 0054 continua valendo -- a
+-- sessao segue `authenticated` --, entao a data da coleta fica na janela das
+-- leituras de campo.
 
-drop policy if exists "Gestor cadastra coleta manual" on public.visitas;
-create policy "Gestor cadastra coleta manual" on public.visitas
-  for insert to authenticated
-  with check (autorizacao.pode_administrar_usuarios());
+create schema if not exists escrita;
+revoke all on schema escrita from public;
+grant usage on schema escrita to authenticated, service_role;
 
-drop policy if exists "Gestor cadastra leitura manual" on public.leituras;
-create policy "Gestor cadastra leitura manual" on public.leituras
-  for insert to authenticated
-  with check (autorizacao.pode_administrar_usuarios());
+comment on schema escrita is
+  'Escritas controladas (security definer) chamadas por envelope em public. Fora do PostgREST de proposito -- ver migration 0067.';
 
--- `security invoker`: as policies acima sao o portao, pela regra da 0050
--- (nenhuma funcao `security definer` em `public` chamavel por quem esta
--- logado). A checagem de cargo aqui so da a mensagem certa antes do RLS.
-create or replace function public.cadastrar_coletas_manuais(
+create or replace function escrita.cadastrar_coletas_manuais(
   p_site_id bigint,
   p_funcionario_id uuid,
   p_data_hora timestamptz,
   p_quantidade integer,
-  p_coletor_dados_id bigint default null,
-  p_area_id bigint default null,
-  p_evento_id bigint default null,
-  p_acao_id bigint default null,
-  p_qualificador_id bigint default null
+  p_coletor_dados_id bigint,
+  p_area_id bigint,
+  p_evento_id bigint,
+  p_acao_id bigint,
+  p_qualificador_id bigint
 )
 returns integer
 language plpgsql
-security invoker
-set search_path = public, pg_temp
+security definer
+set search_path = escrita, public, pg_temp
 as $$
 declare
   v_visita_id bigint;
+  v_leitura public.leituras%rowtype;
 begin
   if not autorizacao.pode_administrar_usuarios() then
     raise exception 'Somente GESTOR cadastra coleta manual' using errcode = '42501';
@@ -82,37 +85,69 @@ begin
     raise exception 'A data da coleta deve ficar entre os ultimos 30 dias e agora' using errcode = '22008';
   end if;
 
+  -- O RLS nao filtra aqui (definer): local e funcionario conferidos a mao.
+  if not exists (select 1 from public.sites s where s.id = p_site_id and s.ativo) then
+    raise exception 'Local inexistente ou inativo' using errcode = '23503';
+  end if;
+  if not exists (select 1 from public.profiles p where p.id = p_funcionario_id and p.ativo) then
+    raise exception 'Funcionario inexistente ou inativo' using errcode = '23503';
+  end if;
+
   for i in 1..p_quantidade loop
-    insert into public.visitas (numero_coleta, site_id, funcionario_id, coletor_dados_id)
-    values (gen_random_uuid()::text, p_site_id, p_funcionario_id, p_coletor_dados_id)
+    insert into public.visitas (numero_coleta, site_id, funcionario_id, coletor_dados_id, data_integracao)
+    values (gen_random_uuid()::text, p_site_id, p_funcionario_id, p_coletor_dados_id, now())
     returning id into v_visita_id;
 
     insert into public.leituras (
-      visita_id, data_hora, area_id, evento_id, acao_id, qualificador_id, observacao, tem_localizacao
+      visita_id, data_hora, area_id, evento_id, acao_id, qualificador_id,
+      observacao, tem_localizacao, data_integracao
     ) values (
-      v_visita_id, p_data_hora, p_area_id, p_evento_id, p_acao_id, p_qualificador_id, 'Cadastro manual', false
-    );
+      v_visita_id, p_data_hora, p_area_id, p_evento_id, p_acao_id, p_qualificador_id,
+      'Cadastro manual', false, now()
+    )
+    returning * into v_leitura;
+
+    insert into public.auditoria (tabela, registro_id, operacao, ator_id, dados_antigos, dados_novos)
+    values ('leituras', v_leitura.id::text, 'INSERT', auth.uid(), null, to_jsonb(v_leitura));
   end loop;
 
   return p_quantidade;
 end;
 $$;
 
+revoke all on function escrita.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint) from public, anon;
+grant execute on function escrita.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint) to authenticated;
+
+-- O envelope que o painel chama por RPC: mesmo nome, roda como quem chama.
+create or replace function public.cadastrar_coletas_manuais(
+  p_site_id bigint,
+  p_funcionario_id uuid,
+  p_data_hora timestamptz,
+  p_quantidade integer,
+  p_coletor_dados_id bigint default null,
+  p_area_id bigint default null,
+  p_evento_id bigint default null,
+  p_acao_id bigint default null,
+  p_qualificador_id bigint default null
+)
+returns integer
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select escrita.cadastrar_coletas_manuais(
+    p_site_id, p_funcionario_id, p_data_hora, p_quantidade,
+    p_coletor_dados_id, p_area_id, p_evento_id, p_acao_id, p_qualificador_id
+  );
+$$;
+
 comment on function public.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint) is
   'Cadastro manual de coletas (Coletas Importadas): N visitas com uma leitura
-   cada, em nome do funcionario escolhido. So GESTOR, pelas policies da 0067.';
+   cada, em nome do funcionario escolhido. So GESTOR. Envelope de
+   escrita.cadastrar_coletas_manuais -- migration 0067.';
 
 revoke all on function public.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint) from public, anon;
 grant execute on function public.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint) to authenticated;
-
--- Quem cadastrou: a leitura manual vai para a `auditoria` com o autor. So
--- ela -- a leitura de campo de todo dia nao.
-drop trigger if exists auditoria_da_leitura_manual on public.leituras;
-create trigger auditoria_da_leitura_manual
-  after insert on public.leituras
-  for each row
-  when (new.observacao = 'Cadastro manual')
-  execute function public.registrar_auditoria();
 
 -- 2) Exclusao por linha -------------------------------------------------------------
 
@@ -184,7 +219,7 @@ create trigger visita_vazia_sai
 
 -- 3) Rastro na auditoria ----------------------------------------------------------
 -- So DELETE aqui: inserir leitura e o trabalho de campo de todo dia (a manual
--- ja tem o trigger proprio, acima).
+-- ja grava a propria linha, acima).
 
 drop trigger if exists auditoria_trigger on public.leituras;
 create trigger auditoria_trigger

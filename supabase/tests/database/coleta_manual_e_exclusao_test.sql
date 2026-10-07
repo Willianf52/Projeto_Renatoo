@@ -8,11 +8,12 @@
 --   4) SUPERVISOR nao exclui; GESTOR exclui, e a visita vazia sai junto.
 --   5) Coleta de visita com checklist fica -- 23514.
 --   6) Funcoes dos triggers fora do alcance de `authenticated`; RPC fora de `anon`.
+--   7) Fora da funcao, a 0060 segue: GESTOR nao grava em nome de outro.
 -- ============================================================================
 
 begin;
 
-select plan(14);
+select plan(15);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -117,9 +118,10 @@ select is(
      join public.visitas v on v.id = l.visita_id
     where v.site_id = (select valor from ids_teste where chave = 'site')
       and v.funcionario_id = 'f0000000-0000-0000-0000-000000000672'
-      and l.observacao = 'Cadastro manual'),
+      and l.observacao = 'Cadastro manual'
+      and l.data_integracao is not null),
   3,
-  'tres visitas do funcionario escolhido, uma leitura cada, marcadas como cadastro manual'
+  'tres visitas do funcionario escolhido, uma leitura cada, marcadas como cadastro manual e integradas'
 );
 
 select is(
@@ -191,9 +193,23 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint)', 'EXECUTE'),
-  'anon nao chama o cadastro manual'
+  not has_function_privilege('anon', 'public.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint)', 'EXECUTE')
+  and not has_function_privilege('anon', 'escrita.cadastrar_coletas_manuais(bigint, uuid, timestamptz, integer, bigint, bigint, bigint, bigint, bigint)', 'EXECUTE'),
+  'anon nao chama o cadastro manual, nem o envelope nem o trabalho'
 );
+
+-- A 0060 segue valendo: fora da funcao, o GESTOR nao grava em nome de outro.
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000671", "role": "authenticated"}';
+
+select throws_ok(
+  format($$ insert into public.visitas (numero_coleta, site_id, funcionario_id) values ('96799', %L, %L) $$,
+    (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000000672'),
+  '42501', null,
+  'INSERT direto em nome de outro funcionario continua fechado (0060)'
+);
+
+reset role;
 
 select * from finish();
 rollback;
