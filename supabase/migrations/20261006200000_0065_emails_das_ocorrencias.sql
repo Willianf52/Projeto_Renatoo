@@ -48,7 +48,7 @@ create or replace function public.lista_de_emails_valida(p_emails text[])
 returns boolean
 language sql
 immutable
-set search_path = ''
+set search_path = pg_catalog, pg_temp
 as $$
   select coalesce(bool_and(e ~ '^[^\s@]+@[^\s@]+\.[^\s@]+$' and length(e) <= 254), true)
     from unnest(p_emails) as e
