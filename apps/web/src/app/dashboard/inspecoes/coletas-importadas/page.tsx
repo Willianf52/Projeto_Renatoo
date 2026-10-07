@@ -17,6 +17,7 @@ import {
 import { ExcelIcon, FilterIcon, PdfIcon, TrashIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { avisoDePeriodo } from "@/lib/relatorios";
+import { BotaoCadastroManual } from "./BotaoCadastroManual";
 import { BotaoExcluirColeta } from "./BotaoExcluirColeta";
 import { FormularioDeCadastroManual } from "./FormularioDeCadastroManual";
 import {
@@ -105,13 +106,13 @@ export default function ColetasImportadasPage({
             <FilterIcon className="h-4 w-4" />
             Coletas Importadas
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={3} />}>
             <AcoesDeExportacao searchParams={searchParams} />
           </Suspense>
         </div>
 
-        {/* Sem esqueleto: para quem nao e GESTOR a faixa nao existe, e um
-            esqueleto no lugar dela seria um buraco que some. */}
+        {/* Sem esqueleto: o bloco nasce fechado (abre pelo "+"), e para quem
+            nao e GESTOR nem existe -- um esqueleto aqui seria um buraco. */}
         <Suspense fallback={null}>
           <CadastroManual />
         </Suspense>
@@ -143,13 +144,16 @@ function montarQueryDeExportacao(params: SearchParams): string {
   return texto ? `?${texto}` : "";
 }
 
-/** Os dois botoes de exportar. Dependem so do `searchParams`, nao do banco --
- * por isso tem fronteira propria e resolvem antes das outras duas. */
+/** Os dois botoes de exportar e, para GESTOR, o "+" do cadastro manual (0067),
+ * no mesmo lugar do sistema antigo. A permissao e a mesma consulta, cacheada
+ * na requisicao, que `CadastroManual` faz logo abaixo. */
 async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const queryExportacao = montarQueryDeExportacao(await searchParams);
+  const [params, podeCadastrar] = await Promise.all([searchParams, podeAdministrarUsuarios()]);
+  const queryExportacao = montarQueryDeExportacao(params);
 
   return (
     <div className="flex items-center gap-2">
+      {podeCadastrar && <BotaoCadastroManual />}
       <Acao
         titulo="Exportar para Excel"
         href={`/dashboard/inspecoes/coletas-importadas/export/excel${queryExportacao}`}
@@ -269,8 +273,8 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 }
 
 /** O cadastro manual (0067), so para GESTOR -- quem o banco deixa gravar
- * coleta em nome de outro funcionario. Para os demais a faixa nao aparece,
- * como no sistema antigo, em que o botao nem existe no perfil do dono. */
+ * coleta em nome de outro funcionario. Para os demais nem o "+" nem o bloco
+ * aparecem, como no sistema antigo para o nivel Supervisor. */
 async function CadastroManual() {
   if (!(await podeAdministrarUsuarios())) return null;
   const opcoes = await getOpcoesDoCadastro();

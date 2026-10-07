@@ -1,11 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/Button";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterTimePicker } from "@/components/dashboard/FilterTimePicker";
-import { PlusCircleIcon } from "@/components/dashboard/icons";
 import { cadastrarColetas, type EstadoDoCadastro } from "./actions";
 import { MAXIMO_DE_COLETAS } from "./cadastro-manual";
 
@@ -21,24 +20,42 @@ export type OpcoesDoCadastro = {
   qualificadores: Opcao[];
 };
 
+/** Id do bloco que o botao "+" do cabecalho abre e fecha (`aria-controls`). */
+export const ID_DO_CADASTRO_MANUAL = "cadastro-manual-de-coleta";
+
+/** Sinal entre o botao "+" e o formulario: estao em fronteiras de Suspense
+ * diferentes (o cabecalho e a faixa de baixo), sem um pai cliente em comum. */
+export const EVENTO_ALTERNAR_CADASTRO = "alternar-cadastro-manual";
+
 /**
  * Cadastro manual de coletas, como o do sistema antigo: os mesmos campos, na
  * mesma ordem, e a quantidade de coletas iguais a cadastrar de uma vez.
- * Recolhido por padrao (`<details>`), para nao empurrar os filtros -- o uso
- * de todo dia da tela -- para baixo. So aparece para GESTOR (ver `page.tsx`).
+ * Fechado por padrao e aberto pelo botao "+" do cabecalho, como la (o
+ * `btn_create` que mostra o `#addForm`). So aparece para GESTOR (ver
+ * `page.tsx`). Uma recusa da action mantem o bloco aberto: so da para enviar
+ * com ele aberto, e o estado de `aberto` nao muda na resposta.
  */
 export function FormularioDeCadastroManual({ opcoes }: { opcoes: OpcoesDoCadastro }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoCadastro, FormData>(cadastrarColetas, {});
   const valores = estado.valores ?? {};
+  const [aberto, setAberto] = useState(false);
+
+  useEffect(() => {
+    const alternar = () => setAberto((atual) => !atual);
+    window.addEventListener(EVENTO_ALTERNAR_CADASTRO, alternar);
+    return () => window.removeEventListener(EVENTO_ALTERNAR_CADASTRO, alternar);
+  }, []);
 
   return (
-    <details className="group border-b border-slate-800" open={Boolean(estado.erro)}>
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-white hover:bg-white/5 [&::-webkit-details-marker]:hidden">
-        <PlusCircleIcon className="h-4 w-4 transition-transform duration-200 group-open:rotate-45" />
-        Cadastrar coleta manual
-      </summary>
+    <section
+      id={ID_DO_CADASTRO_MANUAL}
+      aria-label="Cadastrar coleta manual"
+      hidden={!aberto}
+      className="border-b border-slate-800"
+    >
+      <h2 className="px-4 pt-3 text-sm font-semibold text-white">Cadastrar coleta manual</h2>
 
-      <form action={formAction} className="space-y-3 px-4 pb-4">
+      <form action={formAction} className="space-y-3 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           <FilterDatePicker label="Data" name="data" defaultValue={valores.data} />
           <FilterTimePicker label="Hora" name="hora" defaultValue={valores.hora} />
@@ -86,6 +103,6 @@ export function FormularioDeCadastroManual({ opcoes }: { opcoes: OpcoesDoCadastr
           Salvar
         </Button>
       </form>
-    </details>
+    </section>
   );
 }
