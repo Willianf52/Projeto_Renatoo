@@ -18,6 +18,9 @@ export type GrupoSiteRow = {
   ativo: boolean;
 };
 
+/** Linha da exportacao: o grupo e os sites que pertencem a ele hoje. */
+export type GrupoSiteParaExportar = GrupoSiteRow & { sites: { nome: string; ativo: boolean }[] };
+
 /** Forma usada pelo formulario -- inclui `grupo_pai_id` (migration 0024), que
  * a listagem e a exportacao nao precisam. */
 export type GrupoSiteDetalhe = GrupoSiteRow & { grupo_pai_id: number | null };
@@ -79,13 +82,14 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
  */
 export async function getGruposSitesParaExportar(
   busca: string | undefined,
-): Promise<{ rows: GrupoSiteRow[]; truncado: boolean }> {
+): Promise<{ rows: GrupoSiteParaExportar[]; truncado: boolean }> {
   const supabase = await createClient();
 
   const query = comBusca(
     supabase
       .from("grupos_sites")
-      .select("id, nome, descricao, ativo")
+      // `sites ( nome, ativo )`: so o Excel usa (coluna "Sites"); o PDF ignora.
+      .select("id, nome, descricao, ativo, sites ( nome, ativo )")
       .order("nome", { ascending: true })
       .range(0, LIMITE_EXPORTACAO),
     busca,
@@ -94,7 +98,7 @@ export async function getGruposSitesParaExportar(
   const { data, error } = await query;
   if (error) throw error;
 
-  return resultadoExportacao((data ?? []) as GrupoSiteRow[]);
+  return resultadoExportacao((data ?? []) as unknown as GrupoSiteParaExportar[]);
 }
 
 export async function getGrupoSite(id: number): Promise<GrupoSiteDetalhe | null> {
@@ -218,4 +222,34 @@ export async function getSitesParaSelecao(): Promise<SiteParaSelecao[]> {
 /** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
 export function toTableRow(grupo: GrupoSiteRow): string[] {
   return [String(grupo.id), grupo.nome, grupo.ativo ? "Ativo" : "Inativo", grupo.descricao ?? ""];
+}
+
+/** Colunas do "Exportar para Excel": as da tela mais "Sites", como no sistema
+ * antigo (lido em 09/10/2026 num CSV exportado de la). */
+export const COLUNAS_DO_EXCEL = ["ID", "Nome", "Status", "Descrição", "Sites"];
+
+/**
+ * A coluna "Sites" do Excel, no formato do antigo: os nomes separados por
+ * ponto e virgula, CADA UM seguido do seu `;` -- inclusive o ultimo
+ * (`ACE Limpeza;`, `Adibo;Aldeia;`). Em ordem alfabetica e so os sites ativos:
+ * na amostra do antigo, a contagem por grupo bate mais vezes assim (44 de 72
+ * grupos, contra 32 contando os inativos).
+ *
+ * LIMITE CONHECIDO: la um site pode estar em varios grupos (179 de 244 sites
+ * distintos aparecem em mais de um, e o grupo "UP Servicos" lista quase todos).
+ * Aqui `sites.grupo_site_id` guarda um grupo so, entao a lista de cada grupo e
+ * a de quem pertence a ele hoje -- nos grupos que no antigo se sobrepoem, as
+ * duas listas diferem.
+ */
+export function textoDosSites(sites: { nome: string; ativo: boolean }[]): string {
+  return sites
+    .filter((site) => site.ativo)
+    .map((site) => site.nome)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .map((nome) => `${nome};`)
+    .join("");
+}
+
+export function toLinhaDoExcel(grupo: GrupoSiteParaExportar): string[] {
+  return [...toTableRow(grupo), textoDosSites(grupo.sites ?? [])];
 }

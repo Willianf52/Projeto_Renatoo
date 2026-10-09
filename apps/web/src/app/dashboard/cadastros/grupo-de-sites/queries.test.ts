@@ -49,8 +49,15 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 // `podeAdministrarCadastros` saiu daqui para `lib/permissoes.ts` quando a tela
 // de Site / Planta passou a precisar da mesma regra -- os testes dela foram
 // junto, para `lib/permissoes.test.ts`.
-const { getGruposSitesParaExportar, getGruposSitesParaPai, montarHierarquiaDeSites, LIMITE_EXPORTACAO } =
-  await import("./queries");
+const {
+  COLUNAS_DO_EXCEL,
+  getGruposSitesParaExportar,
+  getGruposSitesParaPai,
+  montarHierarquiaDeSites,
+  textoDosSites,
+  toLinhaDoExcel,
+  LIMITE_EXPORTACAO,
+} = await import("./queries");
 
 beforeEach(() => {
   rpcResultado.data = null;
@@ -162,5 +169,54 @@ describe("montarHierarquiaDeSites", () => {
 
     expect(opcoes).toHaveLength(2);
     expect(opcoes.map((o) => o.id).sort()).toEqual([1, 2]);
+  });
+});
+
+describe("coluna Sites do Excel", () => {
+  it("pede os sites junto com o grupo", async () => {
+    await getGruposSitesParaExportar(undefined);
+
+    const select = chamadas.find((c) => c.metodo === "select");
+    expect(String(select?.args[0])).toContain("sites ( nome, ativo )");
+  });
+
+  it("cada nome seguido do seu ponto e virgula, como no antigo", () => {
+    expect(textoDosSites([{ nome: "ACE Limpeza", ativo: true }])).toBe("ACE Limpeza;");
+    expect(
+      textoDosSites([
+        { nome: "Sicredi Osasco", ativo: true },
+        { nome: "Sicredi Cotia", ativo: true },
+      ]),
+    ).toBe("Sicredi Cotia;Sicredi Osasco;");
+  });
+
+  it("so os ativos, em ordem alfabetica sem distinguir caixa nem acento", () => {
+    expect(
+      textoDosSites([
+        { nome: "ipiranga", ativo: true },
+        { nome: "Ibiúna", ativo: true },
+        { nome: "Zeta", ativo: false },
+        { nome: "Água Branca", ativo: true },
+      ]),
+    ).toBe("Água Branca;Ibiúna;ipiranga;");
+  });
+
+  it("grupo sem site ativo fica com a celula vazia", () => {
+    expect(textoDosSites([])).toBe("");
+    expect(textoDosSites([{ nome: "Fechado", ativo: false }])).toBe("");
+  });
+
+  it("a linha do Excel e a da tela mais a coluna Sites, na ordem do cabecalho", () => {
+    const linha = toLinhaDoExcel({
+      id: 9220,
+      nome: "ACE Limpeza",
+      descricao: null,
+      ativo: true,
+      sites: [{ nome: "ACE Limpeza", ativo: true }],
+    });
+
+    expect(COLUNAS_DO_EXCEL).toEqual(["ID", "Nome", "Status", "Descrição", "Sites"]);
+    expect(linha).toEqual(["9220", "ACE Limpeza", "Ativo", "", "ACE Limpeza;"]);
+    expect(linha).toHaveLength(COLUNAS_DO_EXCEL.length);
   });
 });
