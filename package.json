@@ -20,16 +20,16 @@
     "types:generate:remoto": "supabase gen types typescript --linked --schema public > packages/shared/src/database.types.ts"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^16.3.6",
-    "@typescript-eslint/eslint-plugin": "^8.70.1",
-    "@typescript-eslint/parser": "^8.70.1",
+    "@next/eslint-plugin-next": "^16.3.8",
+    "@typescript-eslint/eslint-plugin": "^8.71.1",
+    "@typescript-eslint/parser": "^8.71.1",
     "eslint": "^9",
-    "eslint-config-next": "^16.3.6",
+    "eslint-config-next": "^16.3.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "supabase": "^2.117.0",
+    "supabase": "^2.119.0",
     "typescript": "^5"
   }
 }
