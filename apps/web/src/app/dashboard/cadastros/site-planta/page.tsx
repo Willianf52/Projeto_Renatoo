@@ -21,6 +21,7 @@ import {
   PdfIcon,
   PencilIcon,
   PlusCircleIcon,
+  UploadIcon,
 } from "@/components/dashboard/icons";
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
@@ -144,7 +145,7 @@ export default function SitePlantaPage({ searchParams }: { searchParams: SearchP
               <ContadorDeSites searchParams={searchParams} />
             </Suspense>
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={3} />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={4} />}>
             <AcoesDoCabecalho searchParams={searchParams} />
           </Suspense>
         </div>
@@ -187,6 +188,16 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   return (
     <div className="flex items-center gap-2">
+      {/* Mesma regua do Grupo de Sites: importar antes de exportar. */}
+      {podeAdministrar ? (
+        <Acao titulo="Importar sites" href="/dashboard/cadastros/site-planta/importar" className="bg-sky-600/40">
+          <UploadIcon className="h-4 w-4" />
+        </Acao>
+      ) : (
+        <AcaoDesabilitada titulo="Importar sites" motivo="você não tem permissão" className="bg-sky-600/40">
+          <UploadIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      )}
       <Acao
         titulo="Exportar para Excel"
         href={`/dashboard/cadastros/site-planta/export/excel${queryExportacao}`}
