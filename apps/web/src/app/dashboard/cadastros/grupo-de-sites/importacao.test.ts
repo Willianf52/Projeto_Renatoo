@@ -21,6 +21,20 @@ describe("planejarImportacao", () => {
     });
   });
 
+  it("aceita o Excel de hoje, que traz a coluna Sites: ela e ignorada", () => {
+    const plano = planejarImportacao(
+      [[...CABECALHO_DO_EXPORTAR, "Sites"], ["9220", "ACE Limpeza", "Ativo", "", "ACE Limpeza;ACE Norte;"]],
+      [],
+    );
+
+    expect(plano).toEqual({
+      ok: true,
+      novos: [{ nome: "ACE Limpeza", descricao: null, ativo: true }],
+      pulados: [],
+      erros: [],
+    });
+  });
+
   it("acha as colunas pelo nome, em qualquer ordem, com ou sem acento", () => {
     const plano = planejarImportacao([["descricao", "NOME"], ["Texto", "Grupo A"]], []);
 
