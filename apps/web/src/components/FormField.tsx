@@ -5,7 +5,7 @@ import { useState } from "react";
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const inputBaseClasses =
-  "w-full rounded-lg border bg-brand-navy px-4 py-3 text-white outline-none transition-all placeholder:text-brand-muted";
+  "w-full rounded-lg border bg-brand-navy px-4 py-3 text-white outline-none transition-all placeholder:text-brand-muted disabled:cursor-not-allowed disabled:opacity-60";
 
 export const getInputClasses = (hasError: boolean) =>
   `${inputBaseClasses} ${
@@ -92,7 +92,7 @@ export function FormField({
         )}
       </div>
       {error && (
-        <p id={errorId} className="mt-1.5 text-xs text-red-400">
+        <p id={errorId} className="mt-1.5 text-xs text-red-400 animate-slide-down">
           {error}
         </p>
       )}
