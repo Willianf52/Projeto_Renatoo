@@ -1,5 +1,6 @@
 import { Directory, File, Paths } from "expo-file-system";
 import {
+  LIMITE_OBSERVACAO,
   MAXIMO_DE_FOTOS,
   MAXIMO_DE_FOTOS_POR_PERGUNTA,
   RESPOSTAS_DO_CHECKLIST,
@@ -40,6 +41,8 @@ export type Rascunho = {
   modeloId: number | null;
   /** Fotos de cada pergunta, pelo id da pergunta. */
   fotosDePergunta: Record<number, string[]>;
+  /** Observacao de cada pergunta, pelo id da pergunta. So as preenchidas. */
+  observacoes: Record<number, string>;
 };
 
 function pastaDaVisita(visitaId: number): Directory {
@@ -54,8 +57,8 @@ export async function salvarRascunho(
   const banco = await abrirFila();
   await banco.runAsync(
     `insert into rascunhos_de_checklist
-       (visita_id, funcionario_id, motivo, respostas, fotos, modelo_id, fotos_de_pergunta, atualizado_em)
-     values (?, ?, ?, ?, ?, ?, ?, ?)
+       (visita_id, funcionario_id, motivo, respostas, fotos, modelo_id, fotos_de_pergunta, observacoes, atualizado_em)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?)
      on conflict (visita_id) do update set
        funcionario_id = excluded.funcionario_id,
        motivo = excluded.motivo,
@@ -63,6 +66,7 @@ export async function salvarRascunho(
        fotos = excluded.fotos,
        modelo_id = excluded.modelo_id,
        fotos_de_pergunta = excluded.fotos_de_pergunta,
+       observacoes = excluded.observacoes,
        atualizado_em = excluded.atualizado_em`,
     visitaId,
     funcionarioId,
@@ -71,6 +75,7 @@ export async function salvarRascunho(
     JSON.stringify(rascunho.fotos),
     rascunho.modeloId,
     JSON.stringify(rascunho.fotosDePergunta),
+    JSON.stringify(rascunho.observacoes),
     new Date().toISOString(),
   );
 }
@@ -91,8 +96,9 @@ export async function lerRascunho(visitaId: number, funcionarioId: string): Prom
     fotos: string;
     modelo_id: number | null;
     fotos_de_pergunta: string | null;
+    observacoes: string | null;
   }>(
-    `select motivo, respostas, fotos, modelo_id, fotos_de_pergunta
+    `select motivo, respostas, fotos, modelo_id, fotos_de_pergunta, observacoes
        from rascunhos_de_checklist where visita_id = ? and funcionario_id = ?`,
     visitaId,
     funcionarioId,
@@ -106,6 +112,7 @@ export async function lerRascunho(visitaId: number, funcionarioId: string): Prom
     fotos: fotosQueAindaExistem(lerJson(linha.fotos), MAXIMO_DE_FOTOS),
     modeloId: Number.isInteger(linha.modelo_id) ? linha.modelo_id : null,
     fotosDePergunta: fotosDePerguntaValidas(lerJson(linha.fotos_de_pergunta ?? "{}")),
+    observacoes: observacoesValidas(lerJson(linha.observacoes ?? "{}")),
   };
 }
 
@@ -165,6 +172,21 @@ function respostasValidas(valor: unknown): Record<number, RespostaDoChecklist> {
     const id = Number(chave);
     if (Number.isInteger(id) && (RESPOSTAS_DO_CHECKLIST as readonly unknown[]).includes(resposta)) {
       validas[id] = resposta as RespostaDoChecklist;
+    }
+  }
+  return validas;
+}
+
+/** Texto por pergunta; vazio sai do mapa, e o que passar do teto do esquema e
+ * cortado -- o envio recusaria o checklist inteiro por uma observacao longa. */
+function observacoesValidas(valor: unknown): Record<number, string> {
+  if (typeof valor !== "object" || valor === null || Array.isArray(valor)) return {};
+
+  const validas: Record<number, string> = {};
+  for (const [chave, texto] of Object.entries(valor)) {
+    const id = Number(chave);
+    if (Number.isInteger(id) && typeof texto === "string" && texto.trim() !== "") {
+      validas[id] = texto.slice(0, LIMITE_OBSERVACAO);
     }
   }
   return validas;
