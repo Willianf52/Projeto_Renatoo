@@ -65,6 +65,25 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "@sentry/react-native"
         update-types: ["version-update:semver-major"]
+      # PAUSA ATE A ENTREGA DE 26/10/2026 -- retirar este bloco depois dela.
+      # - expo e expo-*: mudam codigo nativo; o APK 1.1.0 nos aparelhos tem o
+      #   nativo antigo, e uma OTA com o JS novo pode quebrar o app do piloto.
+      #   Sobem num APK novo, nao por OTA (PR #188).
+      # - @react-navigation/*: minor da navegacao do app, mesmo motivo de prazo.
+      # - supabase (CLI): a 2.119 muda o formato do database.types.ts e
+      #   derruba o check `banco` ate regenerar o arquivo (PR #188).
+      # - next e o par de lint dele: travados em ~16.3.8 na #182; a 16.4 e
+      #   minor nova e fica para depois da entrega.
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@react-navigation/*"
+      - dependency-name: "supabase"
+      - dependency-name: "next"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@next/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
