@@ -24,6 +24,7 @@ import {
 import { sincronizar } from "../campo/sincronizacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
+import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
 import { capturarErro } from "../lib/observabilidade";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
@@ -97,6 +98,11 @@ export function TelaDeLeitura() {
         if (ativo) setAberta(r);
       })
       .catch((falha) => capturarErro(falha, { onde: "rondaAberta" }));
+
+    // As perguntas do checklist vao junto, para o "Ver sites" funcionar
+    // sem sinal tambem (`checklist-guardado.ts`). Sem rede falha calada: vale
+    // a copia anterior.
+    atualizarCopiaDoChecklist().catch(() => undefined);
 
     atualizarCatalogo()
       .then(() => {

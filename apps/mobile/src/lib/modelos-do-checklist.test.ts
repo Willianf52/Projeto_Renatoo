@@ -8,11 +8,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 type Resposta = { data: unknown; error: { message: string } | null };
 
-const { respostas, filtros } = vi.hoisted(() => ({
+const { respostas, filtros, guardada } = vi.hoisted(() => ({
   respostas: {} as Record<string, Resposta>,
   /** `[tabela, coluna, valor]` de cada `.eq()`, para conferir o recorte. */
   filtros: [] as [string, string, unknown][],
+  /** A copia do aparelho (`checklist-guardado.ts`); nula = nunca baixada. */
+  guardada: { copia: null as unknown },
 }));
+
+vi.mock("./checklist-guardado", async () => {
+  const real = await vi.importActual<typeof import("./checklist-guardado")>("./checklist-guardado");
+  return { ...real, lerCopiaDoChecklist: () => Promise.resolve(guardada.copia) };
+});
+vi.mock("../campo/fila", () => ({ abrirFila: vi.fn() }));
 
 vi.mock("./supabase", () => {
   function construtor(tabela: string) {
@@ -43,6 +51,7 @@ const LIMPEZA = { id: 3, nome: "Limpeza", padrao: false, ativo: true };
 beforeEach(() => {
   for (const chave of Object.keys(respostas)) delete respostas[chave];
   filtros.length = 0;
+  guardada.copia = null;
   respostas.modelos_checklist = { data: [PADRAO, GERAL, LIMPEZA], error: null };
   respostas.modelos_checklist_grupos = {
     data: [
@@ -124,5 +133,30 @@ describe("lerPerguntasDoModelo", () => {
       perguntas: [],
       erro: "Não foi possível carregar as perguntas do checklist.",
     });
+  });
+});
+
+describe("sem sinal: a copia do aparelho", () => {
+  const copia = {
+    gruposDosSites: { "5": 10 },
+    modelos: [PADRAO, GERAL, LIMPEZA],
+    ligacoes: [{ modelo_id: 3, grupo_site_id: 10 }],
+    perguntas: { "3": [{ id: 7, ordem: 1, texto: "Uniforme", tipoResposta: "CNA" }] },
+  };
+
+  it("modelos e perguntas saem da copia quando o servidor falha", async () => {
+    respostas.sites = { data: null, error: { message: "FetchError: Network request failed" } };
+    respostas.perguntas_checklist = { data: null, error: { message: "FetchError: Network request failed" } };
+    guardada.copia = copia;
+
+    expect(await lerModelosDoSite({ visitaId: null, siteId: 5 })).toEqual({ ok: true, modelos: [LIMPEZA] });
+    expect(await lerPerguntasDoModelo(3)).toEqual({ perguntas: copia.perguntas["3"], erro: null });
+  });
+
+  it("com sinal vale o servidor, mesmo havendo copia", async () => {
+    respostas.sites = { data: { grupo_site_id: 10 }, error: null };
+    guardada.copia = { ...copia, ligacoes: [] };
+
+    expect(await lerModelosDoSite({ visitaId: null, siteId: 5 })).toEqual({ ok: true, modelos: [GERAL, LIMPEZA] });
   });
 });

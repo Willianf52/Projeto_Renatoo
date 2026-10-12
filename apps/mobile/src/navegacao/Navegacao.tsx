@@ -76,7 +76,7 @@ const TEMA: Theme = {
  * historico para voltar.
  */
 export function Navegacao() {
-  const { sessao, perfil, carregando, erroDePerfil, sair } = useSessao();
+  const { sessao, perfil, carregando, erroDePerfil, sair, recarregarPerfil } = useSessao();
   const { bloqueado: versaoVelhaDemais } = usePisoDeVersao();
   const { mostrar } = useFaixa();
 
@@ -117,7 +117,14 @@ export function Navegacao() {
   }
 
   if (!perfil) {
-    return <TelaDeAcessoBloqueado motivo="sem-perfil" perfil={null} aoSair={sair} />;
+    return (
+      <TelaDeAcessoBloqueado
+        motivo="sem-perfil"
+        perfil={null}
+        aoSair={sair}
+        aoTentarDeNovo={() => void recarregarPerfil()}
+      />
+    );
   }
 
   if (!perfil.ativo) {

@@ -17,6 +17,7 @@ import {
 } from "../componentes/icones";
 import { contarPendentes, ultimaSincronizacao } from "../campo/fila";
 import { sincronizar } from "../campo/sincronizacao";
+import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
 import { supabase } from "../lib/supabase";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 import app from "../../app.json";
@@ -106,6 +107,8 @@ export function TelaInicial() {
       // O id da SESSAO, nunca o gravado na linha da fila: e o mesmo token que
       // assina o insert, e a policy da 0036 exige que os dois batam.
       const resultado = await sincronizar(idDoUsuario);
+      // Aproveita o sinal para renovar a copia do checklist no aparelho.
+      void atualizarCopiaDoChecklist().catch(() => undefined);
       const enviadas = resultado.visitasCriadas + resultado.leiturasCriadas;
 
       if (resultado.falhas.length > 0) {
