@@ -35,6 +35,7 @@ export function SelecaoMultipla({
   const [marcados, setMarcados] = useState<Set<string>>(() => new Set(iniciais));
   const [busca, setBusca] = useState("");
   const termo = busca.trim().toLowerCase();
+  const visiveis = opcoes.filter((opcao) => opcao.label.toLowerCase().includes(termo));
 
   // Fechado por padrao, como qualquer combobox: a lista so aparece ao clicar
   // no campo ou na seta, e fecha ao clicar fora -- a seta antes era so um
@@ -79,7 +80,9 @@ export function SelecaoMultipla({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
       <div
         ref={containerRef}
-        className="min-w-0 flex-1 overflow-hidden rounded-md border border-slate-800 bg-brand-navy"
+        // Mesma borda dos campos de filtro (`FilterField`): realce no hover e
+        // verde com foco em qualquer parte da caixa -- busca, etiqueta ou seta.
+        className="min-w-0 flex-1 overflow-hidden rounded-md border border-slate-800 bg-brand-navy transition-colors duration-200 hover:border-slate-700 focus-within:border-brand-green focus-within:ring-1 focus-within:ring-brand-green"
       >
         <div className={`relative ${aberto ? "border-b border-slate-800" : ""}`}>
           {/* Cada selecionado vira uma etiqueta removivel dentro da propria
@@ -98,7 +101,9 @@ export function SelecaoMultipla({
                     type="button"
                     onClick={() => alternar(opcao.value)}
                     aria-label={`Remover ${opcao.label}`}
-                    className="text-brand-muted hover:text-red-400"
+                    // 24px de alvo (WCAG 2.2, 2.5.8) em vez da largura do "x";
+                    // as margens negativas mantem a etiqueta do mesmo tamanho.
+                    className="-my-1 -ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded text-brand-muted transition-colors hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
                   >
                     ×
                   </button>
@@ -122,7 +127,7 @@ export function SelecaoMultipla({
             onClick={() => setAberto((atual) => !atual)}
             aria-label={aberto ? "Fechar lista" : "Abrir lista"}
             aria-expanded={aberto}
-            className="absolute right-2 top-3 flex h-6 w-6 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-surface hover:text-white"
+            className="absolute right-2 top-3 flex h-6 w-6 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-surface hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           >
             <ChevronDownIcon
               className={`h-4 w-4 transition-transform duration-200 ${aberto ? "rotate-180" : ""}`}
@@ -134,26 +139,28 @@ export function SelecaoMultipla({
           <div role="listbox" aria-multiselectable="true" className="max-h-52 overflow-y-auto p-1">
             {opcoes.length === 0 ? (
               <p className="px-3 py-1.5 text-sm text-brand-muted">{textoSemOpcoes}</p>
+            ) : visiveis.length === 0 ? (
+              // Sem isto a busca sem resultado deixava a lista aberta e vazia,
+              // e parecia que o campo tinha travado.
+              <p className="px-3 py-1.5 text-sm text-brand-muted">Nada encontrado para &ldquo;{busca.trim()}&rdquo;.</p>
             ) : (
-              opcoes
-                .filter((opcao) => opcao.label.toLowerCase().includes(termo))
-                .map((opcao) => {
-                  const selecionado = marcados.has(opcao.value);
-                  return (
-                    <button
-                      key={opcao.value}
-                      type="button"
-                      role="option"
-                      aria-selected={selecionado}
-                      onClick={() => alternar(opcao.value)}
-                      className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
-                        selecionado ? "bg-white/5 text-brand-muted" : "text-white hover:bg-brand-green/10"
-                      }`}
-                    >
-                      {opcao.label}
-                    </button>
-                  );
-                })
+              visiveis.map((opcao) => {
+                const selecionado = marcados.has(opcao.value);
+                return (
+                  <button
+                    key={opcao.value}
+                    type="button"
+                    role="option"
+                    aria-selected={selecionado}
+                    onClick={() => alternar(opcao.value)}
+                    className={`block w-full rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                      selecionado ? "bg-white/5 text-brand-muted" : "text-white hover:bg-brand-green/10"
+                    }`}
+                  >
+                    {opcao.label}
+                  </button>
+                );
+              })
             )}
           </div>
         )}

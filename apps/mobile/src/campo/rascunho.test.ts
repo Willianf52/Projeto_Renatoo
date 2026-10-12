@@ -1,3 +1,4 @@
+import { LIMITE_OBSERVACAO } from "@projeto-renatoo/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -18,6 +19,8 @@ const estado = vi.hoisted(() => ({
       // Opcionais: a linha gravada antes da versao 5 do schema local nao tem.
       modelo_id?: number | null;
       fotos_de_pergunta?: string | null;
+      // Opcional: a linha gravada antes da versao 6 do schema local nao tem.
+      observacoes?: string | null;
     }
   >(),
   arquivosQueExistem: new Set<string>(),
@@ -32,13 +35,14 @@ vi.mock("./fila", () => ({
         estado.linhas.delete(args[0] as number);
         return;
       }
-      const [visitaId, funcionarioId, motivo, respostas, fotos, modeloId, fotosDePergunta] = args as [
+      const [visitaId, funcionarioId, motivo, respostas, fotos, modeloId, fotosDePergunta, observacoes] = args as [
         number,
         string,
         string,
         string,
         string,
         number | null,
+        string,
         string,
       ];
       estado.linhas.set(visitaId, {
@@ -48,6 +52,7 @@ vi.mock("./fila", () => ({
         fotos,
         modelo_id: modeloId,
         fotos_de_pergunta: fotosDePergunta,
+        observacoes,
       });
     },
     getFirstAsync: async (_sql: string, visitaId: number, funcionarioId: string) => {
@@ -118,6 +123,7 @@ describe("ida e volta", () => {
       fotos: ["doc/rascunhos/42/foto-1.jpg"],
       modeloId: 7,
       fotosDePergunta: { 2: ["doc/rascunhos/42/foto-p2.jpg"] },
+      observacoes: { 2: "Torneira pingando" },
     });
 
     expect(await lerRascunho(42, A)).toEqual({
@@ -126,11 +132,12 @@ describe("ida e volta", () => {
       fotos: ["doc/rascunhos/42/foto-1.jpg"],
       modeloId: 7,
       fotosDePergunta: { 2: ["doc/rascunhos/42/foto-p2.jpg"] },
+      observacoes: { 2: "Torneira pingando" },
     });
   });
 
   it("nao entrega o rascunho de outro inspetor no mesmo aparelho", async () => {
-    await salvarRascunho(42, A, { motivo: "x", respostas: {}, fotos: [], modeloId: null, fotosDePergunta: {} });
+    await salvarRascunho(42, A, { motivo: "x", respostas: {}, fotos: [], modeloId: null, fotosDePergunta: {}, observacoes: {} });
 
     expect(await lerRascunho(42, B)).toBeNull();
   });
@@ -146,14 +153,35 @@ describe("o que volta do disco e conferido", () => {
       fotos: [],
       modeloId: null,
       fotosDePergunta: {},
+      observacoes: {},
     });
+  });
+
+  it("observacao vazia sai do mapa, e a longa e cortada no teto do esquema", async () => {
+    estado.linhas.set(42, {
+      funcionario_id: A,
+      motivo: "",
+      respostas: "{}",
+      fotos: "[]",
+      observacoes: JSON.stringify({ 1: "  ", 2: "x".repeat(LIMITE_OBSERVACAO + 50), z: "sem id", 3: 7 }),
+    });
+
+    const observacoes = (await lerRascunho(42, A))?.observacoes;
+    expect(Object.keys(observacoes ?? {})).toEqual(["2"]);
+    expect(observacoes?.[2]).toHaveLength(LIMITE_OBSERVACAO);
+  });
+
+  it("rascunho de antes da versao 6 volta sem observacao", async () => {
+    estado.linhas.set(42, { funcionario_id: A, motivo: "", respostas: "{}", fotos: "[]", observacoes: null });
+
+    expect((await lerRascunho(42, A))?.observacoes).toEqual({});
   });
 
   it("rascunho de antes da versao 5 volta sem modelo e sem foto de pergunta", async () => {
     // A linha gravada pelo app antigo: as colunas novas chegam nulas.
     estado.linhas.set(42, { funcionario_id: A, motivo: "", respostas: "{}", fotos: "[]", modelo_id: null, fotos_de_pergunta: null });
 
-    expect(await lerRascunho(42, A)).toMatchObject({ modeloId: null, fotosDePergunta: {} });
+    expect(await lerRascunho(42, A)).toMatchObject({ modeloId: null, fotosDePergunta: {}, observacoes: {} });
   });
 
   it("foto de pergunta cujo arquivo sumiu nao volta, e a pergunta vazia sai do mapa", async () => {
@@ -209,7 +237,7 @@ describe("fotos", () => {
 });
 
 it("descartar apaga a linha e a pasta das fotos", async () => {
-  await salvarRascunho(42, A, { motivo: "x", respostas: {}, fotos: [], modeloId: null, fotosDePergunta: {} });
+  await salvarRascunho(42, A, { motivo: "x", respostas: {}, fotos: [], modeloId: null, fotosDePergunta: {}, observacoes: {} });
 
   await descartarRascunho(42);
 

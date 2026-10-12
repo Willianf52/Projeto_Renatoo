@@ -17,6 +17,7 @@ import * as SeletorDeImagem from "expo-image-picker";
 import {
   alturaDeControle,
   LIMITE_MOTIVO,
+  LIMITE_OBSERVACAO,
   MAXIMO_DE_FOTOS,
   MAXIMO_DE_FOTOS_POR_PERGUNTA,
   respostasDoTipo,
@@ -72,6 +73,12 @@ const DURACAO_DO_DESFAZER = 5000;
  *
  * Foto e assinatura ficam fora do galho condicional porque os dois caminhos
  * pedem os dois -- e o que `comumDoChecklist` no esquema do shared ja diz.
+ *
+ * UMA PERGUNTA POR VEZ (pedido do dono, 11/10/2026, como no app do sistema de
+ * referencia): na consultoria, cada pergunta ocupa a tela, com "Progresso do
+ * checklist X de N" e Anterior/Proximo no rodape; depois da ultima vem o
+ * resumo, com as fotos gerais, a assinatura e o "Finalizar visita". A
+ * corretiva continua numa tela so -- e o motivo, uma foto e a assinatura.
  */
 export function TelaDeChecklist({
   visitaId,
@@ -131,6 +138,16 @@ export function TelaDeChecklist({
   const [respostas, setRespostas] = useState<Record<number, RespostaDoChecklist>>({});
   const [fotos, setFotos] = useState<string[]>([]);
   const [fotosDePergunta, setFotosDePergunta] = useState<Record<number, string[]>>({});
+  /** Observacao de cada pergunta (o "Adicione observacao" da referencia). */
+  const [observacoes, setObservacoes] = useState<Record<number, string>>({});
+
+  /**
+   * Em qual pergunta o inspetor esta, amarrada ao modelo: trocar de modelo
+   * comeca do inicio dele sem effect para zerar. `null` ate o primeiro toque
+   * -- ate la a tela abre na primeira pergunta sem resposta, que e onde um
+   * rascunho recuperado deve reabrir.
+   */
+  const [posicao, setPosicao] = useState<{ modeloId: number; indice: number } | null>(null);
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -153,7 +170,6 @@ export function TelaDeChecklist({
   const rolagem = useRef<ScrollView>(null);
   const campoDoMotivo = useRef<TextInput>(null);
   const posicaoDaSecao = useRef<Partial<Record<Secao, number>>>({});
-  const posicaoDaPergunta = useRef<Record<number, number>>({});
 
   /**
    * Pendencia da ultima tentativa de envio, para pintar o item na tela. So o
@@ -214,6 +230,7 @@ export function TelaDeChecklist({
         setFotos(rascunho.fotos);
         setModeloEscolhido(rascunho.modeloId);
         setFotosDePergunta(rascunho.fotosDePergunta);
+        setObservacoes(rascunho.observacoes);
       })
       .catch((falha) => {
         // Rascunho ilegivel nao impede de preencher: a tela abre vazia, como
@@ -244,13 +261,14 @@ export function TelaDeChecklist({
         fotos,
         modeloId: modeloEscolhido,
         fotosDePergunta,
+        observacoes,
       }).catch((falha) => {
         capturarErro(falha, { onde: "salvarRascunho", visita: String(chave) });
       });
     }, 500);
 
     return () => clearTimeout(espera);
-  }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos, modeloEscolhido, fotosDePergunta]);
+  }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos, modeloEscolhido, fotosDePergunta, observacoes]);
 
   /**
    * Os modelos so sao buscados na CONSULTORIA, e nao na abertura da tela: numa
@@ -351,25 +369,68 @@ export function TelaDeChecklist({
   const pendencias = useMemo(() => pendenciasDoChecklist(estadoDoChecklist), [estadoDoChecklist]);
   const progresso = progressoDasPerguntas(estadoDoChecklist);
 
+  // Paginacao da consultoria. `indice === total` e o resumo.
+  const total = perguntas?.length ?? 0;
+  const paginado = tipo === "CONSULTORIA" && total > 0;
+  const primeiraSemResposta = perguntas ? perguntas.findIndex((pergunta) => !respostas[pergunta.id]) : -1;
+  const indice = !paginado
+    ? 0
+    : posicao !== null && posicao.modeloId === modeloEfetivo
+      ? Math.min(posicao.indice, total)
+      : primeiraSemResposta === -1
+        ? total
+        : primeiraSemResposta;
+  const perguntaAtual = paginado && indice < total ? (perguntas ?? [])[indice] : null;
+  // Fotos gerais, assinatura e "Finalizar": na corretiva sempre; na
+  // consultoria, so no resumo. Escolhendo o modelo ou carregando, nada disso.
+  const noFechamento = perguntaAtual === null && !escolhaDeModeloPendente && !carregandoPerguntas;
+
+  /** Leva a uma pergunta (ou ao resumo, com `total`) e volta a tela ao topo. */
+  const irPara = useCallback(
+    (destino: number) => {
+      if (modeloEfetivo === null) return;
+      setPosicao({ modeloId: modeloEfetivo, indice: destino });
+      setErro(null);
+      setDestaque(null);
+      rolagem.current?.scrollTo({ y: 0, animated: false });
+    },
+    [modeloEfetivo],
+  );
+
+  const avancar = useCallback(() => {
+    if (perguntaAtual === null) return;
+    if (!respostas[perguntaAtual.id]) {
+      setErro("Responda esta pergunta para continuar.");
+      setDestaque("perguntas");
+      return;
+    }
+    irPara(indice + 1);
+  }, [indice, irPara, perguntaAtual, respostas]);
+
   const rolarAte = useCallback((pendencia: Pendencia) => {
+    // Pergunta sem resposta nao se alcanca rolando: cada uma tem a sua tela.
+    if (pendencia.alvo === "perguntas") {
+      const destino = (perguntas ?? []).findIndex((pergunta) => pergunta.id === pendencia.perguntaId);
+      if (destino !== -1) {
+        if (modeloEfetivo !== null) setPosicao({ modeloId: modeloEfetivo, indice: destino });
+        rolagem.current?.scrollTo({ y: 0, animated: false });
+      }
+      return;
+    }
+
     const secao = posicaoDaSecao.current[pendencia.alvo];
     if (secao === undefined) return;
-
-    const dentroDaSecao =
-      pendencia.alvo === "perguntas" && pendencia.perguntaId !== null
-        ? (posicaoDaPergunta.current[pendencia.perguntaId] ?? 0)
-        : 0;
 
     rolagem.current?.scrollTo({
       // Um respiro acima do item: colado na borda de cima, o cartao parece
       // cortado e o inspetor nao ve de onde a tela veio.
-      y: Math.max(0, secao + dentroDaSecao - espaco.confortavel),
+      y: Math.max(0, secao - espaco.confortavel),
       animated: true,
     });
 
     // O motivo e digitado: alem de mostrar o campo, ja deixa o teclado pronto.
     if (pendencia.alvo === "motivo") campoDoMotivo.current?.focus();
-  }, []);
+  }, [modeloEfetivo, perguntas]);
 
   /** Fecha a janela do "Desfazer" e apaga o arquivo de vez. */
   const confirmarRemocao = useCallback(() => {
@@ -556,7 +617,7 @@ export function TelaDeChecklist({
             ? lista.map((pergunta) => ({
                 perguntaId: pergunta.id,
                 resposta: respostas[pergunta.id],
-                observacao: null,
+                observacao: observacoes[pergunta.id]?.trim() || null,
               }))
             : undefined,
         fotos,
@@ -586,7 +647,7 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, pendencias, perguntas, respostas, rolarAte, site, tipo]);
+  }, [aoConcluir, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, observacoes, pendencias, perguntas, respostas, rolarAte, site, tipo]);
 
   // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
   // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
@@ -651,10 +712,10 @@ export function TelaDeChecklist({
             {erroDePerguntas ? <Aviso mensagem={erroDePerguntas} /> : null}
 
             {/* So quando o grupo tem mais de um modelo -- com um, a tela segue
-                direto. Fica visivel depois da escolha para permitir trocar:
+                direto. Fica na tela da primeira pergunta para permitir trocar:
                 as respostas ficam guardadas por pergunta, entao voltar ao
                 primeiro modelo nao perde o que foi marcado nele. */}
-            {modelos !== null && modelos.length > 1 ? (
+            {modelos !== null && modelos.length > 1 && (escolhaDeModeloPendente || (perguntaAtual !== null && indice === 0)) ? (
               <View style={estilos.escolhaDoModelo}>
                 <Text style={[estilos.rotulo, escolhaDeModeloPendente && destacar("perguntas") && estilos.rotuloPendente]}>
                   Qual checklist?
@@ -688,131 +749,192 @@ export function TelaDeChecklist({
 
             {carregandoPerguntas ? (
               <EsqueletoDaLista />
-            ) : (
-              (perguntas ?? []).map((pergunta) => (
+            ) : perguntaAtual ? (
+              <Cartao
+                key={perguntaAtual.id}
+                estilo={[
+                  estilos.pergunta,
+                  destacar("perguntas") && !respostas[perguntaAtual.id] && estilos.perguntaPendente,
+                ]}
+              >
+                <Text style={estilos.perguntaTexto}>
+                  {perguntaAtual.ordem}. {perguntaAtual.texto}
+                </Text>
+
+                {/* Uma opcao por linha, como na referencia: com a pergunta
+                    sozinha na tela ha espaco, e o alvo de toque fica do tamanho
+                    da largura -- mais facil de acertar em pe e de luva. */}
                 <View
-                  key={pergunta.id}
-                  onLayout={(evento) => {
-                    posicaoDaPergunta.current[pergunta.id] = evento.nativeEvent.layout.y;
-                  }}
+                  style={estilos.respostasEmColuna}
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel={perguntaAtual.texto}
                 >
-                  <Cartao
-                    estilo={[
-                      estilos.pergunta,
-                      destacar("perguntas") && !respostas[pergunta.id] && estilos.perguntaPendente,
-                    ]}
-                  >
-                    <Text style={estilos.perguntaTexto}>
-                      {pergunta.ordem}. {pergunta.texto}
-                    </Text>
+                  {respostasDoTipo(perguntaAtual.tipoResposta).map((valor) => {
+                    const escolhida = respostas[perguntaAtual.id] === valor;
+                    // Sim/Nao nao e conformidade: "Sim" em "Duvidas com o
+                    // RH?" nao e acerto nem falha, entao os dois ficam na
+                    // cor neutra, e nao no verde/vermelho de Conforme.
+                    const estilo = perguntaAtual.tipoResposta === "SN" ? ESTILO_DA_ESCOLHA.NA : ESTILO_DA_ESCOLHA[valor];
 
-                    <View
-                      style={estilos.respostas}
-                      accessibilityRole="radiogroup"
-                      accessibilityLabel={pergunta.texto}
-                    >
-                      {respostasDoTipo(pergunta.tipoResposta).map((valor) => {
-                        const escolhida = respostas[pergunta.id] === valor;
-                        // Sim/Nao nao e conformidade: "Sim" em "Duvidas com o
-                        // RH?" nao e acerto nem falha, entao os dois ficam na
-                        // cor neutra, e nao no verde/vermelho de Conforme.
-                        const estilo = pergunta.tipoResposta === "SN" ? ESTILO_DA_ESCOLHA.NA : ESTILO_DA_ESCOLHA[valor];
-
-                        return (
-                          <Pressable
-                            key={valor}
-                            onPress={() =>
-                              setRespostas((atuais) => ({ ...atuais, [pergunta.id]: valor }))
-                            }
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: escolhida }}
-                            style={({ pressed }) => [
-                              estilos.resposta,
-                              escolhida && estilo.opcao,
-                              pressed && estilos.opcaoPressionada,
-                            ]}
-                          >
-                            <Text style={[estilos.respostaTexto, escolhida && estilo.texto]}>
-                              {rotuloDaResposta(pergunta.tipoResposta, valor)}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    <FotosDaPergunta
-                      fotos={fotosDePergunta[pergunta.id] ?? []}
-                      aoAbrir={(uri) => setFotoAberta({ uri, dono: pergunta.id })}
-                      aoRemover={(uri) => removerFoto(uri, pergunta.id)}
-                      aoTirar={() => {
-                        void anexarFoto(pergunta.id);
-                      }}
-                    />
-                  </Cartao>
+                    return (
+                      <Pressable
+                        key={valor}
+                        onPress={() => {
+                          setRespostas((atuais) => ({ ...atuais, [perguntaAtual.id]: valor }));
+                          // O aviso do "Proximo" e desta pergunta: respondida,
+                          // ele sai -- as outras sem resposta nao o mantem.
+                          setErro(null);
+                          setDestaque(null);
+                          // Fixa a posicao no primeiro toque: sem isto, a tela
+                          // seguiria a "primeira sem resposta" e pularia para a
+                          // proxima sozinha, antes do "Proximo".
+                          if (modeloEfetivo !== null) {
+                            setPosicao((atual) =>
+                              atual !== null && atual.modeloId === modeloEfetivo
+                                ? atual
+                                : { modeloId: modeloEfetivo, indice },
+                            );
+                          }
+                        }}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: escolhida }}
+                        style={({ pressed }) => [
+                          estilos.resposta,
+                          estilos.respostaEmLinha,
+                          escolhida && estilo.opcao,
+                          pressed && estilos.opcaoPressionada,
+                        ]}
+                      >
+                        <Text style={[estilos.respostaTexto, escolhida && estilo.texto]}>
+                          {rotuloDaResposta(perguntaAtual.tipoResposta, valor)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-              ))
-            )}
+
+                <FotosDaPergunta
+                  fotos={fotosDePergunta[perguntaAtual.id] ?? []}
+                  aoAbrir={(uri) => setFotoAberta({ uri, dono: perguntaAtual.id })}
+                  aoRemover={(uri) => removerFoto(uri, perguntaAtual.id)}
+                  aoTirar={() => {
+                    void anexarFoto(perguntaAtual.id);
+                  }}
+                />
+
+                <Campo
+                  rotulo="Observação"
+                  valor={observacoes[perguntaAtual.id] ?? ""}
+                  aoMudar={(valor) => setObservacoes((atuais) => comObservacao(atuais, perguntaAtual.id, valor))}
+                  placeholder="Adicione observação"
+                  maxLength={LIMITE_OBSERVACAO}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </Cartao>
+            ) : paginado ? (
+              // O resumo: cada pergunta com a resposta dada. Tocar volta a ela.
+              <View style={estilos.resumoDasRespostas}>
+                <Text style={estilos.rotulo}>Resumo</Text>
+                {(perguntas ?? []).map((pergunta, posicaoNaLista) => {
+                  const resposta = respostas[pergunta.id];
+                  const quantasFotos = fotosDePergunta[pergunta.id]?.length ?? 0;
+                  const extras = [
+                    quantasFotos > 0 ? (quantasFotos === 1 ? "1 foto" : `${quantasFotos} fotos`) : null,
+                    observacoes[pergunta.id] ? "com observação" : null,
+                  ].filter(Boolean);
+
+                  return (
+                    <Pressable
+                      key={pergunta.id}
+                      onPress={() => irPara(posicaoNaLista)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Rever a pergunta ${pergunta.ordem}`}
+                      style={({ pressed }) => [estilos.linhaDoResumo, pressed && estilos.opcaoPressionada]}
+                    >
+                      <Text style={estilos.linhaDoResumoTexto}>
+                        {pergunta.ordem}. {pergunta.texto}
+                      </Text>
+                      <Text
+                        style={[
+                          estilos.linhaDoResumoResposta,
+                          (!resposta || (resposta === "NAO" && pergunta.tipoResposta !== "SN")) && estilos.rotuloPendente,
+                        ]}
+                      >
+                        {resposta ? rotuloDaResposta(pergunta.tipoResposta, resposta) : "Sem resposta"}
+                        {extras.length > 0 ? ` · ${extras.join(" · ")}` : ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         ) : null}
 
-        <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
-          <View style={estilos.cabecalhoDaSecao}>
-            <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
-              {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
-              {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"} ({fotos.length}/{MAXIMO_DE_FOTOS})
-            </Text>
-          </View>
+        {noFechamento ? (
+          <>
+            <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
+              <View style={estilos.cabecalhoDaSecao}>
+                <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
+                  {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
+                  {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"} ({fotos.length}/{MAXIMO_DE_FOTOS})
+                </Text>
+              </View>
 
-          {fotos.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
-              {fotos.map((uri, indice) => (
-                // Miniatura e "remover" sao irmaos, e nao um dentro do outro:
-                // um Pressable acessivel engole os filhos para o leitor de
-                // tela, e o "remover" deixaria de ser alcancavel.
-                <View key={uri} style={estilos.tira}>
-                  <Pressable
-                    onPress={() => setFotoAberta({ uri, dono: null })}
-                    accessibilityRole="imagebutton"
-                    accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
-                  >
-                    <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => removerFoto(uri, null)}
-                    // O circulo tem 22 de desenho; o alvo de toque vai a 44
-                    // pelo `hitSlop`, sem crescer por cima da foto.
-                    hitSlop={11}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remover foto ${indice + 1}`}
-                    style={estilos.remover}
-                  >
-                    <Text style={estilos.removerTexto}>✕</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </ScrollView>
-          ) : null}
+              {fotos.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
+                  {fotos.map((uri, indice) => (
+                    // Miniatura e "remover" sao irmaos, e nao um dentro do outro:
+                    // um Pressable acessivel engole os filhos para o leitor de
+                    // tela, e o "remover" deixaria de ser alcancavel.
+                    <View key={uri} style={estilos.tira}>
+                      <Pressable
+                        onPress={() => setFotoAberta({ uri, dono: null })}
+                        accessibilityRole="imagebutton"
+                        accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
+                      >
+                        <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => removerFoto(uri, null)}
+                        // O circulo tem 22 de desenho; o alvo de toque vai a 44
+                        // pelo `hitSlop`, sem crescer por cima da foto.
+                        hitSlop={11}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remover foto ${indice + 1}`}
+                        style={estilos.remover}
+                      >
+                        <Text style={estilos.removerTexto}>✕</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : null}
 
-          <Botao
-            titulo="Tirar foto"
-            variante="secundaria"
-            tamanho="medio"
-            larguraTotal
-            desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
-            aoPressionar={() => {
-              void anexarFoto(null);
-            }}
-          />
-        </View>
+              <Botao
+                titulo="Tirar foto"
+                variante="secundaria"
+                tamanho="medio"
+                larguraTotal
+                desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
+                aoPressionar={() => {
+                  void anexarFoto(null);
+                }}
+              />
+            </View>
 
-        <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
-          <AreaDeAssinatura
-            rotulo="Assinatura do responsável"
-            aoMudar={setTemAssinatura}
-            aoAssinar={setAssinando}
-            ref={assinatura}
-          />
-        </View>
+            <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
+              <AreaDeAssinatura
+                rotulo="Assinatura do responsável"
+                aoMudar={setTemAssinatura}
+                aoAssinar={setAssinando}
+                ref={assinatura}
+              />
+            </View>
+          </>
+        ) : null}
       </ScrollView>
 
       {/* Rodape fixo: o "Finalizar" fica sempre na zona do polegar, e o que
@@ -822,7 +944,23 @@ export function TelaDeChecklist({
         {/* Miolo na coluna de leitura: a barra vai de borda a borda, mas
             botao e resumo ficam alinhados com o formulario em cima. */}
         <View style={estilos.rodapeMiolo}>
-          {progresso ? (
+          {perguntaAtual ? (
+            // "Progresso do checklist X de N", como na referencia: a posicao na
+            // lista, e nao quantas foram respondidas -- isso o resumo mostra.
+            <View style={estilos.progresso}>
+              <View
+                style={estilos.trilho}
+                accessibilityRole="progressbar"
+                accessibilityLabel="Progresso do checklist"
+                accessibilityValue={{ min: 0, max: total, now: indice + 1 }}
+              >
+                <View style={[estilos.preenchimento, { width: `${((indice + 1) / total) * 100}%` }]} />
+              </View>
+              <Text style={estilos.contagem}>
+                Progresso do checklist {indice + 1} de {total}
+              </Text>
+            </View>
+          ) : progresso ? (
             <View style={estilos.progresso}>
               <View
                 style={estilos.trilho}
@@ -862,27 +1000,62 @@ export function TelaDeChecklist({
             </View>
           ) : erroVisivel ? (
             <Aviso mensagem={erroVisivel} />
-          ) : (
+          ) : perguntaAtual ? null : (
             <Text
               style={[estilos.resumo, pendencias.length === 0 && estilos.resumoPronto]}
               accessibilityLiveRegion="polite"
             >
-              {textoDoResumo(pendencias)}
+              {escolhaDeModeloPendente ? "Escolha o checklist acima para começar." : textoDoResumo(pendencias)}
             </Text>
           )}
 
-          <Botao
-            titulo="Finalizar visita"
-            larguraTotal
-            carregando={enviando}
-            // Nao desabilitado por campo faltando, de proposito: um botao
-            // inerte nao diz *o que* falta. Ele envia e a validacao acima
-            // aponta a pendencia -- que e o comportamento do formulario de
-            // login do painel.
-            aoPressionar={() => {
-              void enviar();
-            }}
-          />
+          {perguntaAtual ? (
+            <View style={estilos.navegacao}>
+              <View style={estilos.botaoDaNavegacao}>
+                <Botao
+                  titulo="Anterior"
+                  variante="secundaria"
+                  larguraTotal
+                  desabilitado={indice === 0}
+                  aoPressionar={() => irPara(indice - 1)}
+                />
+              </View>
+              <View style={estilos.botaoDaNavegacao}>
+                <Botao
+                  titulo={indice === total - 1 ? "Ver resumo" : "Próximo"}
+                  larguraTotal
+                  aoPressionar={avancar}
+                />
+              </View>
+            </View>
+          ) : escolhaDeModeloPendente ? null : (
+            <View style={estilos.navegacao}>
+              {paginado ? (
+                <View style={estilos.botaoDaNavegacao}>
+                  <Botao
+                    titulo="Anterior"
+                    variante="secundaria"
+                    larguraTotal
+                    aoPressionar={() => irPara(total - 1)}
+                  />
+                </View>
+              ) : null}
+              <View style={estilos.botaoDaNavegacao}>
+                <Botao
+                  titulo="Finalizar visita"
+                  larguraTotal
+                  carregando={enviando}
+                  // Nao desabilitado por campo faltando, de proposito: um botao
+                  // inerte nao diz *o que* falta. Ele envia e a validacao acima
+                  // aponta a pendencia -- que e o comportamento do formulario de
+                  // login do painel.
+                  aoPressionar={() => {
+                    void enviar();
+                  }}
+                />
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -987,6 +1160,14 @@ function FotosDaPergunta({
   );
 }
 
+/** Troca a observacao de uma pergunta no mapa; vazia sai, como as fotos. */
+function comObservacao(mapa: Record<number, string>, perguntaId: number, texto: string): Record<number, string> {
+  const novo = { ...mapa };
+  if (texto === "") delete novo[perguntaId];
+  else novo[perguntaId] = texto;
+  return novo;
+}
+
 /**
  * Troca a lista de uma pergunta no mapa. Lista vazia sai do mapa: pergunta
  * sem foto e pergunta ausente, e o rascunho nao guarda chave que nao diz nada.
@@ -1037,6 +1218,20 @@ const estilos = StyleSheet.create({
     borderRadius: raio.medio,
   },
   respostaTexto: { ...texto(tipografia.botaoDenso, { cor: cores.textoFraco }), textAlign: "center" },
+  // Na pergunta sozinha na tela, uma opcao por linha e o texto a esquerda,
+  // como na referencia.
+  respostasEmColuna: { gap: espaco.minimo, marginTop: espaco.entreItens },
+  respostaEmLinha: { flex: 0, alignItems: "flex-start", paddingHorizontal: espaco.interno },
+
+  resumoDasRespostas: { gap: espaco.minimo },
+  linhaDoResumo: {
+    gap: 2,
+    paddingVertical: espaco.entreItens,
+    borderBottomWidth: 1,
+    borderBottomColor: cores.borda,
+  },
+  linhaDoResumoTexto: texto(tipografia.apoio, { cor: cores.texto }),
+  linhaDoResumoResposta: texto(tipografia.nota, { cor: cores.textoFraco }),
 
   // Os modelos em coluna, e nao lado a lado como as respostas: sao nomes, de
   // tamanho imprevisivel, e dois lado a lado quebrariam no meio da palavra.
@@ -1098,6 +1293,11 @@ const estilos = StyleSheet.create({
   },
   preenchimento: { height: "100%", borderRadius: raio.pilula, backgroundColor: cores.primaria },
   contagem: texto(tipografia.nota, { cor: cores.textoFraco }),
+  // Largura fixa na linha e base zero nos botoes: sem isto a linha crescia com
+  // o texto ("Ver resumo" e maior que "Anterior") e empurrava o botao da
+  // direita para fora da tela.
+  navegacao: { flexDirection: "row", gap: espaco.entreItens, width: "100%" },
+  botaoDaNavegacao: { flex: 1, flexBasis: 0 },
   resumo: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
   resumoPronto: { color: cores.primaria },
 

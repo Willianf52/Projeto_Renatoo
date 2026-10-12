@@ -359,7 +359,7 @@ function SemCamera({
   return (
     <View style={estilos.semCamera}>
       <Text style={estilos.semCameraTexto}>
-        Sem acesso à câmera. Permita o uso para ler o QR code, ou digite o código abaixo.
+        Sem acesso à câmera. Permita o uso para ler o QR code, ou toque em Ver sites.
       </Text>
       <Botao
         titulo={podePedir ? "Permitir câmera" : "Abrir configurações"}
