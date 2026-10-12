@@ -63,6 +63,16 @@ type Secao = "motivo" | "perguntas" | "fotos" | "assinatura";
 const DURACAO_DO_DESFAZER = 5000;
 
 /**
+ * O "✕" de remover foto: 28 visiveis + folga de cada lado = 52, a mesma altura
+ * de toque dos botoes de resposta (`alturaDeControle.padrao`). Antes eram
+ * 22 + 11 = 44 -- o minimo, e pouco para quem trabalha de luva (auditoria de
+ * ergonomia de campo, 12/10/2026). Toque acidental nao perde a foto: a
+ * remocao tem "Desfazer" por `DURACAO_DO_DESFAZER`.
+ */
+const LADO_DO_REMOVER = 28;
+const FOLGA_DO_REMOVER = (alturaDeControle.padrao - LADO_DO_REMOVER) / 2;
+
+/**
  * Fechamento de uma visita em campo.
  *
  * A tela e um formulario **progressivo**: nasce mostrando so a escolha do
@@ -423,6 +433,9 @@ export function TelaDeChecklist({
     if (!respostas[perguntaAtual.id]) {
       setErro("Responda esta pergunta para continuar.");
       setDestaque("perguntas");
+      // As opcoes ficam no topo do cartao: quem rolou ate a foto ou a
+      // observacao tocava em "Proximo" e o destaque acontecia fora da vista.
+      rolagem.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     irPara(indice + 1);
@@ -924,7 +937,7 @@ export function TelaDeChecklist({
                         onPress={() => removerFoto(uri, null)}
                         // O circulo tem 22 de desenho; o alvo de toque vai a 44
                         // pelo `hitSlop`, sem crescer por cima da foto.
-                        hitSlop={11}
+                        hitSlop={FOLGA_DO_REMOVER}
                         accessibilityRole="button"
                         accessibilityLabel={`Remover foto ${indice + 1}`}
                         style={estilos.remover}
@@ -1157,7 +1170,7 @@ function FotosDaPergunta({
           </Pressable>
           <Pressable
             onPress={() => aoRemover(uri)}
-            hitSlop={11}
+            hitSlop={FOLGA_DO_REMOVER}
             accessibilityRole="button"
             accessibilityLabel={`Remover foto ${indice + 1} da pergunta`}
             style={estilos.remover}
@@ -1263,10 +1276,13 @@ const estilos = StyleSheet.create({
   modelo: { flex: 0, paddingHorizontal: espaco.interno },
 
   fotosDaPergunta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: espaco.minimo },
-  miniaturaDaPergunta: { width: 56, height: 56, borderRadius: raio.medio, backgroundColor: cores.superficie },
-  // Alvo de toque de 44, o minimo, mas baixo e discreto: e opcional.
+  // 72, e nao 56: com o "✕" de 28 no canto, a miniatura menor ficava quase
+  // toda coberta pelo botao de remover.
+  miniaturaDaPergunta: { width: 72, height: 72, borderRadius: raio.medio, backgroundColor: cores.superficie },
+  // Altura de toque dos botoes de resposta: discreto (tracejado, texto fraco),
+  // porque e opcional, mas facil de acertar de luva.
   tirarFotoDaPergunta: {
-    minHeight: 44,
+    minHeight: alturaDeControle.padrao,
     justifyContent: "center",
     paddingHorizontal: espaco.interno,
     borderWidth: 1,
@@ -1283,8 +1299,8 @@ const estilos = StyleSheet.create({
     position: "absolute",
     top: 4,
     right: 4,
-    width: 22,
-    height: 22,
+    width: LADO_DO_REMOVER,
+    height: LADO_DO_REMOVER,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: raio.pilula,
