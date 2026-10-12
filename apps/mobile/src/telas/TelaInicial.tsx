@@ -16,6 +16,7 @@ import {
   IconeDeSincronizar,
 } from "../componentes/icones";
 import { contarPendentes, ultimaSincronizacao } from "../campo/fila";
+import { atualizarCatalogo } from "../campo/ronda";
 import { sincronizar } from "../campo/sincronizacao";
 import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
 import { supabase } from "../lib/supabase";
@@ -107,7 +108,10 @@ export function TelaInicial() {
       // O id da SESSAO, nunca o gravado na linha da fila: e o mesmo token que
       // assina o insert, e a policy da 0036 exige que os dois batam.
       const resultado = await sincronizar(idDoUsuario);
-      // Aproveita o sinal para renovar a copia do checklist no aparelho.
+      // Aproveita o sinal para renovar o que o aparelho guarda para trabalhar
+      // sem sinal: a lista de QR (que e tambem a lista de sites offline) e o
+      // checklist. Antes, so abrir a Inspecao com internet fazia isso.
+      void atualizarCatalogo().catch(() => undefined);
       void atualizarCopiaDoChecklist().catch(() => undefined);
       const enviadas = resultado.visitasCriadas + resultado.leiturasCriadas;
 
