@@ -133,13 +133,16 @@ export function GrupoSiteForm({
       </div>
 
       <div>
-        <Rotulo>Sites</Rotulo>
+        <Rotulo obrigatorio={id !== undefined}>Sites</Rotulo>
         <SitesMultiSelect sites={sites} selecionados={valores.siteIds.map(Number)} />
-        {/* Opcional desde que o banco vazio travava: Site / Planta exige grupo,
-            e este campo exigia site. Ver `validar` em actions.ts. */}
-        <p className="mt-1.5 text-xs text-brand-muted">
-          Opcional. O grupo pode ser criado vazio e receber sites depois, pelo cadastro de Site / Planta.
-        </p>
+        {/* Opcional so na criacao: Site / Planta exige grupo, entao o grupo de
+            um cliente novo nasce vazio. Na edicao, ao menos um. Ver `validar`
+            em actions.ts. */}
+        {id === undefined && (
+          <p className="mt-1.5 text-xs text-brand-muted">
+            Opcional ao criar. O grupo pode nascer vazio e receber sites depois, pelo cadastro de Site / Planta.
+          </p>
+        )}
       </div>
 
       <div>

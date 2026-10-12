@@ -45,6 +45,30 @@ function NavegacaoDaSidebar({
         );
         const Icon = item.icon;
 
+        // Link para fora do painel (o WhatsApp do Suporte): outra aba, sem
+        // `Link` do Next (nao e rota daqui) e sem realce de rota ativa.
+        if (item.href && item.externo) {
+          return (
+            <div
+              key={item.label}
+              className="animate-fade-in-left"
+              style={{ animationDelay: `${index * 60}ms` }}
+            >
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onCloseMobile}
+                className="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-slate-300 transition-all duration-200 hover:translate-x-1 hover:bg-slate-800 hover:text-white"
+              >
+                <Icon className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                <span className="flex-1">{item.label}</span>
+                <span className="sr-only">(abre em outra aba)</span>
+              </a>
+            </div>
+          );
+        }
+
         // Secao que e um link direto (a "Pagina Principal"): sem submenu.
         if (item.href) {
           const isActive = naRota(pathname, item.href);

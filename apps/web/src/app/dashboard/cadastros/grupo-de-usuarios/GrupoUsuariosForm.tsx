@@ -74,7 +74,9 @@ export function GrupoUsuariosForm({
       </div>
 
       <div>
-        <span className={rotuloClasses}>Usuários</span>
+        <span className={rotuloClasses}>
+          Usuários<span className="text-red-400"> *</span>
+        </span>
 
         <SelecaoMultipla
           name="membros"

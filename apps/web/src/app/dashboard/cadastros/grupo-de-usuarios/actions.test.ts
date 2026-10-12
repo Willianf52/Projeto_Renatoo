@@ -184,21 +184,19 @@ describe("criação", () => {
   });
 
   it("converte descrição vazia em null, e não em string vazia", async () => {
-    await salvarGrupoUsuarios({}, formulario({ nome: "Ronda", descricao: "  " }));
+    await salvarGrupoUsuarios({}, formulario({ nome: "Ronda", descricao: "  " }, [UUID_A]));
 
     expect(primeira("insertGrupo")?.args[0]).toEqual({ nome: "Ronda", descricao: null });
   });
 
-  it("aceita grupo sem membro, sincronizando com lista vazia", async () => {
-    await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }));
+  /** Como o sistema de referencia (auditoria de 12/10/2026): o grupo precisa
+   * de ao menos um usuario. */
+  it("recusa grupo sem membro sem chegar ao banco", async () => {
+    const estado = await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }));
 
-    // A funcao do banco (migration 0026) e quem decide nao inserir nada
-    // quando o array vem vazio -- o cliente so manda a lista.
-    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
-      p_grupo_id: 9,
-      p_membros: [],
-    });
-    expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
+    expect(estado.erro).toBe("Selecione ao menos um usuário.");
+    expect(chamadas).toHaveLength(0);
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   /**
@@ -219,7 +217,7 @@ describe("criação", () => {
   it("traduz nome duplicado", async () => {
     resultados.insertGrupo = { data: null, error: { code: "23505" } };
 
-    const estado = await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }));
+    const estado = await salvarGrupoUsuarios({}, formulario({ nome: "Ronda" }, [UUID_A]));
 
     expect(estado.erro).toBe("Já existe um grupo de usuários com esse nome.");
   });
@@ -246,20 +244,19 @@ describe("edição", () => {
    * responsabilidade de `sincronizar_membros_grupo_usuarios` (migration
    * 0026) -- coberto por pgTAP em
    * `supabase/tests/database/sincroniza_membros_grupo_usuarios_atomico_test.sql`.
-   * Aqui so cabe verificar que o cliente manda a lista marcada (vazia,
-   * quando nada foi marcado) para a funcao decidir.
+   * A lista vazia nao chega mais la: desde 12/10/2026 o grupo precisa de ao
+   * menos um membro (como no sistema de referencia), e a validacao recusa
+   * antes de tocar no banco.
    */
-  it("pede a sincronizacao com lista vazia quando nenhum membro esta marcado", async () => {
-    await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }));
+  it("recusa salvar a edicao com todos os membros desmarcados", async () => {
+    const estado = await salvarGrupoUsuarios({}, formulario({ id: "4", nome: "Ronda" }));
 
-    expect(primeira("sincronizar_membros_grupo_usuarios")?.args[0]).toEqual({
-      p_grupo_id: 4,
-      p_membros: [],
-    });
+    expect(estado.erro).toBe("Selecione ao menos um usuário.");
+    expect(chamadas).toHaveLength(0);
   });
 
   it("recusa id que não é inteiro", async () => {
-    const estado = await salvarGrupoUsuarios({}, formulario({ id: "abc", nome: "Ronda" }));
+    const estado = await salvarGrupoUsuarios({}, formulario({ id: "abc", nome: "Ronda" }, [UUID_A]));
 
     expect(estado.erro).toBe("Registro inválido.");
     expect(chamadas).toHaveLength(0);

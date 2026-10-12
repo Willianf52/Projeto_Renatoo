@@ -49,8 +49,31 @@ export type NavItem = {
   label: string;
   icon: IconComponent;
   href?: string;
+  /** `href` fora do painel (o WhatsApp do Suporte): abre em outra aba e nao
+   * vira atalho da Pagina Principal. */
+  externo?: boolean;
   children: NavChild[];
 };
+
+/**
+ * "Suporte", como no sistema de referencia (auditoria de 12/10/2026): la sao
+ * dois links do fornecedor antigo; aqui, o atendimento por WhatsApp que o
+ * dono definiu.
+ *
+ * O endereco vem de `NEXT_PUBLIC_URL_SUPORTE` (Vercel), e nao do codigo: o
+ * repositorio e publico, e o numero nao precisa ficar no GitHub. Sem a
+ * variavel -- ou com algo que nao seja https --, o item some, em vez de
+ * aparecer como link morto.
+ */
+export function itemDoSuporte(url: string | undefined): NavItem | null {
+  const endereco = url?.trim();
+  if (!endereco || !/^https:\/\/\S+$/.test(endereco)) return null;
+  return { label: "Suporte", icon: UserIcon, href: endereco, externo: true, children: [] };
+}
+
+// Literal `process.env.NEXT_PUBLIC_...`: e assim que o Next troca pelo valor
+// no build do bundle do navegador (a sidebar e client component).
+const SUPORTE = itemDoSuporte(process.env.NEXT_PUBLIC_URL_SUPORTE);
 
 export const isGroup = (child: NavChild): child is NavGroup => "items" in child;
 
@@ -180,9 +203,7 @@ export const NAV_ITEMS: NavItem[] = [
       },
     ],
   },
-  // Modulos ainda sem telas definidas: mantidos visiveis para preservar a
-  // estrutura de navegacao do sistema de referencia.
-  { label: "Suporte", icon: UserIcon, children: [] },
+  ...(SUPORTE ? [SUPORTE] : []),
 ];
 
 /**
@@ -204,7 +225,7 @@ export type TelaDoMenu = NavLink & { secao: string };
  * Todas as telas do menu, achatadas, na ordem do menu. A "Pagina Principal"
  * e a propria secao, como no sistema de referencia.
  */
-export const TELAS_DO_MENU: TelaDoMenu[] = NAV_ITEMS.flatMap((item) => [
+export const TELAS_DO_MENU: TelaDoMenu[] = NAV_ITEMS.filter((item) => !item.externo).flatMap((item) => [
   ...(item.href ? [{ label: item.label, href: item.href, icon: item.icon, secao: item.label }] : []),
   ...item.children.flatMap((child) =>
     isGroup(child)
