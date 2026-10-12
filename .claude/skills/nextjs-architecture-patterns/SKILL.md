@@ -1,21 +1,46 @@
 ---
 name: nextjs-architecture-patterns
-description: Use ao criar ou modificar qualquer página, layout, Server Action ou rota sob src/app/ neste projeto Next.js 16 (App Router) — telas de cadastro (CRUD), formulários com FormData, filtros de listagem, exportação Excel/PDF, ou qualquer componente client-side novo em src/components/. Aciona também ao decidir entre Server Component e Client Component, ao escrever validação de formulário, ou ao adicionar um módulo novo em app/dashboard/cadastros/.
+description: Use ao criar ou modificar qualquer página, layout, Server Action ou rota do painel web (apps/web/src/app/) neste projeto Next.js 16 (App Router, Cache Components ligado) — telas de cadastro (CRUD), formulários com FormData, filtros de listagem, exportação Excel (CSV)/PDF, importação de planilha, ou qualquer componente client-side novo em apps/web/src/components/. Aciona também ao decidir entre Server Component e Client Component, ao ver o aviso de "uncached data" do next dev, ao escrever validação de formulário, ou ao adicionar um módulo novo em app/dashboard/cadastros/.
 ---
 
-# Arquitetura Next.js 16 (App Router) — performance-lab-login
+# Arquitetura Next.js 16 (App Router) — painel web
+
+O painel mora em `apps/web/` (monorepo pnpm; o app de campo é `apps/mobile/`
+e o código comum é `packages/shared/`). Caminhos abaixo são relativos a
+`apps/web/src/`, salvo quando indicado.
+
+Antes de escrever código de Next, leia o guia correspondente em
+`node_modules/next/dist/docs/` — exigência do `AGENTS.md`: esta versão tem
+APIs e convenções diferentes das que você conhece.
 
 Este projeto segue um padrão **muito específico e repetido** para os 5 módulos
-de cadastro (`site-planta`, `grupo-de-sites`, `grupo-de-usuarios`, `qr-code`,
-`usuarios`) e para telas de listagem (`coletas-importadas`). Antes de propor
-uma estrutura nova, verifique se o padrão abaixo já resolve — a consistência
-entre módulos vale mais que uma solução "melhor" isolada.
+de cadastro com CRUD (`site-planta`, `grupo-de-sites`, `grupo-de-usuarios`,
+`qr-code`, `usuarios`; `trocar-senha` é uma página só) e para as telas de
+listagem e relatório em `dashboard/inspecoes/` e `dashboard/eventos/`. Antes
+de propor uma estrutura nova, verifique se o padrão abaixo já resolve — a
+consistência entre módulos vale mais que uma solução "melhor" isolada.
 
-## 1. Regra de ouro: Server Component por padrão
+## 1. Regra de ouro: Server Component por padrão, sem `await` no corpo da página
 
 - **Nunca** adicione `"use client"` a um arquivo que só busca e renderiza
-  dado. `page.tsx` de listagem/cadastro é sempre `async function` sem
-  `"use client"`, buscando dado direto via `queries.ts` no corpo do componente.
+  dado.
+- **`cacheComponents: true` está ligado** (`next.config.ts`). Com ele, um
+  `await` no corpo da `page.tsx` prende o shell inteiro da navegação até a
+  consulta voltar. Por isso a `page.tsx` **não é `async`**: ela recebe
+  `searchParams` como promise e entrega a pedaços dentro de `<Suspense>`, e
+  cada pedaço (`async function`) faz o próprio `await`. Molde:
+  `dashboard/cadastros/grupo-de-sites/page.tsx` (listagem) e
+  `grupo-de-sites/novo/page.tsx` (formulário: corpo vira `Conteudo` dentro de
+  `<Suspense fallback={<PaginaDeFormularioEsqueleto … />}>`). O cabeçalho de
+  `dashboard/inspecoes/coletas-importadas/page.tsx` explica o porquê.
+- **`"use cache"` é proibido em consulta recortada por RLS.** O overlay do
+  `next dev` oferece essa saída primeiro, e aqui ela é regressão de
+  segurança: a consulta roda com o token de quem pediu, e o resultado
+  guardado no servidor seria servido a outro usuário (vaza escopo de cliente
+  entre contas). A saída certa é streaming com `<Suspense>`, como acima.
+- Páginas de impressão (`export/pdf`, `qr-code/export/etiquetas`) declaram
+  `export const instant = false` com comentário — abrem em aba nova só para
+  imprimir, e fatiar em Suspense não ganha nada.
 - `"use client"` só entra quando há: estado (`useState`), efeito
   (`useEffect`), evento (`onClick`, `onChange`) ou hook do Next
   (`useRouter`, `useSearchParams`, `usePathname`).
@@ -44,20 +69,32 @@ entre módulos vale mais que uma solução "melhor" isolada.
 
 ## 2. Estrutura de um módulo de cadastro (CRUD)
 
-Todo módulo sob `src/app/dashboard/cadastros/<nome>/` segue exatamente esta
-forma — copie a forma, não invente uma nova:
+Todo módulo sob `apps/web/src/app/dashboard/cadastros/<nome>/` segue
+exatamente esta forma — copie a forma, não invente uma nova:
 
 ```
 <nome>/
-  page.tsx              # listagem: busca via queries.ts, filtros em <form method="get">
-  novo/page.tsx          # formulário vazio
+  page.tsx              # listagem (não async): pedaços em <Suspense>, filtros em <form method="get">
+  novo/page.tsx          # formulário vazio (Conteudo dentro de <Suspense>)
   [id]/editar/page.tsx   # formulário populado
-  actions.ts             # "use server" — validação + escrita
-  queries.ts             # leitura (listagem, opções de filtro, busca por id)
+  actions.ts             # "use server" — extração + validação + escrita
+  esquema.ts             # regras de campo (zod), quando também servem à importação
+  queries.ts             # leitura (listagem, opções de filtro, busca por id, exportação)
   <Nome>Form.tsx          # "use client" — o formulário em si (campos + envio)
-  export/excel/route.ts   # Route Handler, mesmo filtro da listagem
-  export/pdf/page.tsx     # tela de impressão (window.print), mesmo filtro
+  export/excel/route.ts   # Route Handler: CSV (lib/csv.ts) com o mesmo filtro da listagem
+  export/pdf/page.tsx     # tela de impressão (window.print), mesmo filtro, instant = false
+  importar/               # opcional: page + actions + <X>Form, com pré-visualização antes de gravar
+  importacao.ts           # opcional: planejador puro da importação (testável sem banco)
 ```
+
+Um arquivo `"use server"` só pode exportar funções assíncronas. Esquema zod,
+constantes e funções síncronas que outro caminho precisa (ex.: a importação
+reaproveitando as regras do formulário) vão para `esquema.ts`/`constantes.ts`
+— ver `site-planta/esquema.ts`.
+
+O "Excel" das telas é CSV, no formato das colunas do sistema antigo (o
+`Importar` acha as colunas pelo nome do cabeçalho). Antes de mudar colunas de
+exportação ou importação, confira o arquivo equivalente do antigo.
 
 ## 3. Server Actions: a forma exata
 
@@ -144,9 +181,10 @@ export async function salvarX(_estado: EstadoDoFormulario, formData: FormData): 
 
   // 7) Sempre os dois juntos, nesta ordem: revalida a listagem, depois
   //    redireciona. redirect() lança (não retorna), então não vem código
-  //    depois dele na mesma função.
+  //    depois dele na mesma função. O `?salvo=1` acende o <AvisoDeSalvo>
+  //    da listagem (confirmação de salvo, padrão de todos os cadastros).
   revalidatePath(LISTAGEM);
-  redirect(LISTAGEM);
+  redirect(`${LISTAGEM}?salvo=1`);
 }
 ```
 
@@ -165,9 +203,10 @@ deixa estado parcial. Escreva uma função Postgres (`language plpgsql`,
 
 - **Nunca** use `<input type="date">` ou `<input type="time">` nativo em tela
   nova. O navegador ignora `placeholder` nesses tipos e desenha `--` — use
-  `FilterDatePicker`/`FilterTimePicker` (`src/components/dashboard/`), que
+  `FilterDatePicker`/`FilterTimePicker` (`components/dashboard/`), que
   mostram o rótulo até um valor ser escolhido e têm popover próprio.
-- `FilterInput` é só para texto livre — não tem mais prop `type`.
+- `FilterInput` (de `components/dashboard/FilterField.tsx`, junto com
+  `FilterSelect`) é só para texto livre — não tem mais prop `type`.
 - Todo filtro de listagem é `<form method="get">` (GET nativo, sem JS no
   submit) com `name`/`defaultValue` batendo com o que `extrairFiltros()` de
   `queries.ts` espera. Não introduza `fetch`/`onSubmit` para filtro de
@@ -179,13 +218,27 @@ deixa estado parcial. Escreva uma função Postgres (`language plpgsql`,
 
 ## 5. Botão compartilhado
 
-Use `Button` de `src/components/Button.tsx` para **todo** botão/link de
+Use `Button` de `components/Button.tsx` para **todo** botão/link de
 ação — não escreva a string de classes Tailwind de botão do zero numa tela
 nova. `variant` (`primary`/`secondary`/`danger`) + `size` (`md`/`lg`) +
 `href` (vira `<Link>`) ou sem `href` (vira `<button>`) + `loading` (mostra
 spinner e desabilita).
 
-## 6. Comentários e nomenclatura
+## 6. Texto de tela, menu e escopo
+
+- **Nenhum travessão ("—") nem meia-risca ("–") em texto que o usuário vê**:
+  telas, exportações CSV/PDF, mensagens de erro, títulos, `aria-label`. O
+  dono chama isso de "cifrão" e não quer nenhum. Use dois-pontos, vírgula,
+  ponto ou parênteses. Célula vazia fica **em branco**, sem placeholder.
+  Comentário de código pode ter.
+- O menu espelha o do sistema de referência, na mesma ordem e com os mesmos
+  nomes. A fonte única é `components/dashboard/telas-do-menu.ts`, que
+  alimenta a sidebar e os atalhos da Página Principal.
+- **Não crie tela que não foi pedida.** Feature de backend ou governança
+  (auditoria, trilha de importação, log) entrega só schema e lógica; tabela
+  nova não implica tela nova. Na dúvida, pergunte antes.
+
+## 7. Comentários e nomenclatura
 
 - Identificadores e comentários em **português**, sempre. Não misture inglês
   no meio de um módulo existente.
@@ -197,7 +250,7 @@ spinner e desabilita).
   `for` virou zod, por que uma tabela não usa cascade) fica documentada
   inline, não só no commit.
 
-## 7. Logging
+## 8. Logging
 
 Toda rota de API e toda falha relevante em `lib/` usa `lib/log.ts`:
 
@@ -213,22 +266,31 @@ if (falha) erro(idRequisicao, "Contexto do que falhou:", falha);
 além do `console.error` — sem `SENTRY_DSN` configurado isso é inerte, não
 precisa de guarda condicional no código que chama.
 
-## 8. Comandos
+## 9. Comandos (a partir da raiz do repositório)
 
 ```bash
-pnpm dev            # Turbopack, com origens de rede local liberadas
-pnpm lint           # eslint — rode antes de considerar uma mudança pronta
-pnpm exec tsc --noEmit   # typecheck isolado, mais rápido que build completo
-pnpm test           # vitest run
-pnpm run build      # build de produção real — pega erro que lint/tsc não pegam
-                     # (ex.: useSearchParams sem Suspense só aparece aqui)
+pnpm dev                               # = pnpm --filter web dev (Turbopack, origens da rede local liberadas)
+pnpm lint                              # eslint do monorepo inteiro
+pnpm --filter web exec tsc --noEmit    # typecheck do painel. A RAIZ NÃO TEM tsconfig:
+                                       # `pnpm exec tsc` na raiz não checa nada útil
+pnpm --filter web test:leve            # vitest, 1 worker (máquina de 8 GB); `test` na máquina forte
+pnpm run build                         # build de produção real — pega erro que lint/tsc não pegam
 ```
 
 Antes de considerar qualquer mudança em `app/`/`components/`/`lib/` pronta,
 rode lint + typecheck + test + build nesta ordem. `next build` já pegou bug
-real (Suspense faltando) que lint e typecheck não detectaram.
+real (Suspense faltando) que lint e typecheck não detectaram. Mexeu em
+`packages/shared/`? Rode também o `tsc` do `@projeto-renatoo/shared` e do
+`mobile`, que consomem o mesmo código (ver a skill
+`testing-vitest-pgtap-playwright`).
 
-## 9. Erros já cometidos neste projeto — não repita
+Se `TURBOPACK_ROOT` estiver definido no `apps/web/.env.local`, é porque o
+virtual store do pnpm mora fora do repositório nesta máquina (ver o
+comentário em `next.config.ts`). Não remova. Depois de `pnpm install`,
+reinicie o `pnpm dev`: o servidor aberto segura módulos antigos e passa a
+responder 500.
+
+## 10. Erros já cometidos neste projeto — não repita
 
 - **`useEffect` chamando uma função nomeada que faz `setState`, definida no
   corpo do componente e reutilizada em outro handler**: o
