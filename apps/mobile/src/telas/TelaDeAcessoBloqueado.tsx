@@ -25,10 +25,14 @@ export function TelaDeAcessoBloqueado({
   motivo,
   perfil,
   aoSair,
+  aoTentarDeNovo,
 }: {
   motivo: Motivo;
   perfil: PerfilDoInspetor | null;
   aoSair?: () => void;
+  /** So no `sem-perfil`: a falha pode ser passageira, e "Sair" sem sinal deixa
+   * o inspetor sem como entrar de novo. */
+  aoTentarDeNovo?: () => void;
 }) {
   const { titulo, texto: mensagemDoMotivo } = mensagem(motivo);
 
@@ -44,6 +48,10 @@ export function TelaDeAcessoBloqueado({
         <Text style={estilos.texto}>{mensagemDoMotivo}</Text>
 
         {perfil ? <Text style={estilos.conta}>Conectado como {perfil.email}</Text> : null}
+
+        {aoTentarDeNovo ? (
+          <Botao titulo="Tentar de novo" aoPressionar={aoTentarDeNovo} larguraTotal estilo={estilos.botao} />
+        ) : null}
 
         {/* Secundario, e nao primario: sair daqui e o caminho de saida, nao a
             acao que se quer incentivar -- o verde chamaria para o lugar
@@ -90,7 +98,7 @@ function mensagem(motivo: Motivo) {
 
   return {
     titulo: "Perfil não encontrado",
-    texto: "Não foi possível carregar seu perfil. Verifique a conexão e entre novamente.",
+    texto: "Não foi possível carregar seu perfil. Verifique a conexão e toque em Tentar de novo.",
   };
 }
 

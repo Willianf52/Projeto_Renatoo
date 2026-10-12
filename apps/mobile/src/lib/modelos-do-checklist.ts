@@ -5,6 +5,8 @@ import {
   type TipoDeResposta,
 } from "@projeto-renatoo/shared";
 
+import { lerCopiaDoChecklist, modelosNaCopia, perguntasNaCopia } from "./checklist-guardado";
+import { comPrazo, ESGOTADO, PRAZO_ANTES_DA_COPIA_MS } from "./com-prazo";
 import { supabase } from "./supabase";
 
 /**
@@ -32,6 +34,14 @@ export type ResultadoDosModelos = { ok: true; modelos: ModeloResumido[] } | { ok
 const ERRO_DE_MODELOS = "Não foi possível carregar o checklist deste site.";
 
 /**
+ * Ate quando vale "estamos sem sinal": os modelos acabaram de sair da copia,
+ * entao as perguntas, logo em seguida, vao direto nela -- sem esperar outro
+ * prazo inteiro do servidor. Um minuto: o bastante para a mesma tela.
+ */
+let semSinalAte = 0;
+const JANELA_SEM_SINAL_MS = 60_000;
+
+/**
  * `siteId` quando o checklist veio do "Ver sites" (a visita ainda nao
  * existe); `visitaId` quando veio de uma visita ja gravada, e o site sai dela.
  *
@@ -40,6 +50,27 @@ const ERRO_DE_MODELOS = "Não foi possível carregar o checklist deste site.";
  * e volta a mais pela rede movel so para filtrar no servidor.
  */
 export async function lerModelosDoSite(alvo: {
+  visitaId: number | null;
+  siteId: number | null;
+}): Promise<ResultadoDosModelos> {
+  const leitura = lerModelosDoServidor(alvo);
+  if (alvo.siteId === null) return leitura;
+
+  const doServidor = await comPrazo(leitura, PRAZO_ANTES_DA_COPIA_MS);
+  if (doServidor !== ESGOTADO && doServidor.ok) return doServidor;
+
+  // Sem sinal (falhou ou nao respondeu no prazo): a copia baixada com o
+  // catalogo de QR, ver `checklist-guardado.ts`. Sem copia, espera o servidor.
+  const copia = await lerCopiaDoChecklist();
+  const daCopia = copia ? modelosNaCopia(copia, alvo.siteId) : [];
+  if (daCopia.length > 0) {
+    semSinalAte = Date.now() + JANELA_SEM_SINAL_MS;
+    return { ok: true, modelos: daCopia };
+  }
+  return doServidor === ESGOTADO ? leitura : doServidor;
+}
+
+async function lerModelosDoServidor(alvo: {
   visitaId: number | null;
   siteId: number | null;
 }): Promise<ResultadoDosModelos> {
@@ -93,18 +124,38 @@ async function lerGrupoDoSite(alvo: { visitaId: number | null; siteId: number | 
  * As perguntas ativas de um modelo, na `ordem` -- a sequencia de tela que a
  * 0042 declara, agora dentro do modelo (a 0061 fez a ordem unica por modelo).
  */
-export async function lerPerguntasDoModelo(
-  modeloId: number,
-): Promise<{ perguntas: PerguntaDoModelo[]; erro: string | null }> {
-  const { data, error } = await supabase
-    .from("perguntas_checklist")
-    .select("id, ordem, texto, tipo_resposta")
-    .eq("modelo_id", modeloId)
-    .eq("ativo", true)
-    .order("ordem", { ascending: true });
+type PerguntasLidas = { perguntas: PerguntaDoModelo[]; erro: string | null };
+
+export async function lerPerguntasDoModelo(modeloId: number): Promise<PerguntasLidas> {
+  const leitura = lerPerguntasDoServidor(modeloId);
+  const prazo = Date.now() < semSinalAte ? 0 : PRAZO_ANTES_DA_COPIA_MS;
+  const doServidor = await comPrazo(leitura, prazo);
+  if (doServidor !== ESGOTADO && doServidor.erro === null) return doServidor;
+
+  // Mesma copia do `lerModelosDoSite`: sem sinal, as perguntas guardadas.
+  const copia = await lerCopiaDoChecklist();
+  const daCopia = copia ? perguntasNaCopia(copia, modeloId) : [];
+  if (daCopia.length > 0) return { perguntas: daCopia, erro: null };
+  return doServidor === ESGOTADO ? leitura : doServidor;
+}
+
+async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas> {
+  const erro = "Não foi possível carregar as perguntas do checklist.";
+  let resposta: { data: { id: number; ordem: number; texto: string; tipo_resposta: string }[] | null; error: unknown };
+  try {
+    resposta = await supabase
+      .from("perguntas_checklist")
+      .select("id, ordem, texto, tipo_resposta")
+      .eq("modelo_id", modeloId)
+      .eq("ativo", true)
+      .order("ordem", { ascending: true });
+  } catch {
+    resposta = { data: null, error: true };
+  }
+  const { data, error } = resposta;
 
   if (error) {
-    return { perguntas: [], erro: "Não foi possível carregar as perguntas do checklist." };
+    return { perguntas: [], erro };
   }
 
   return {
