@@ -1,30 +1,45 @@
 ---
 name: testing-vitest-pgtap-playwright
-description: Use ao escrever ou revisar testes neste projeto — testes unitários de Server Action/query com Vitest, testes de componente React (FilterDatePicker/FilterTimePicker e similares), testes de política de RLS com pgTAP em supabase/tests/database/, ou specs Playwright em e2e/. Aciona também ao decidir se uma mudança precisa de teste novo, ao mockar o cliente Supabase, ou ao rodar a suíte antes de considerar uma tarefa concluída.
+description: Use ao escrever ou revisar testes neste monorepo — Vitest no painel (apps/web), no app de campo (apps/mobile) ou em packages/shared, testes de componente React (FilterDatePicker/FilterTimePicker e similares), testes de política de RLS com pgTAP em supabase/tests/database/, ou specs Playwright em apps/web/e2e/. Aciona também ao decidir se uma mudança precisa de teste novo, ao mockar o cliente Supabase, ou ao rodar a suíte antes de considerar uma tarefa concluída.
 ---
 
 # Testes — performance-lab-login (Vitest / pgTAP / Playwright)
 
+Monorepo pnpm: `apps/web` (painel Next), `apps/mobile` (app de campo Expo),
+`packages/shared` (tipos do banco e esquemas Zod de campo, consumidos pelos
+dois). Comandos abaixo rodam da **raiz**.
+
 ## 1. Regra inegociável: toda tarefa termina com a suíte rodando
 
-Antes de considerar qualquer mudança em `src/` pronta:
+Antes de considerar qualquer mudança pronta, rode o que a CI (job `build` em
+`.github/workflows/ci.yml`) roda:
 
 ```bash
-pnpm lint
-pnpm exec tsc --noEmit
-pnpm test           # vitest run
-pnpm run build       # pega erro que lint/tsc não pegam (ex.: Suspense faltando)
+pnpm lint                                              # eslint do monorepo inteiro
+pnpm --filter web exec tsc --noEmit                    # um tsc POR PACOTE: a raiz não tem
+pnpm --filter @projeto-renatoo/shared exec tsc --noEmit  # tsconfig, e o do mobile não
+pnpm --filter mobile exec tsc --noEmit                 # inclui `dom` (um `window` ali falha)
+pnpm test:leve        # vitest dos 3 pacotes, 1 worker (máquina de 8 GB); `pnpm test` na forte
+pnpm run build        # build do painel: pega erro que lint/tsc não pegam (ex.: Suspense faltando)
 ```
 
-Se a mudança tocou `supabase/migrations/` ou policy de RLS, o pgTAP também
-precisa rodar de verdade (seção 3) — escrever o `.sql` sem executar não
-conta como testado.
+- Pode pular o `tsc` de um pacote que a mudança não alcança, **exceto**
+  quando ela toca `packages/shared/`: aí os três, porque web e mobile
+  importam o mesmo código.
+- A CI roda `pnpm run test:cobertura`, e cada pacote tem um **piso** de
+  cobertura no próprio `vitest.config.mts`. O passo falha quando a cobertura
+  cai abaixo do piso. Subiu? Suba o piso no mesmo PR.
+- Se a mudança tocou `supabase/migrations/` ou policy de RLS, o pgTAP também
+  precisa rodar de verdade (seção 3) — escrever o `.sql` sem executar não
+  conta como testado.
+- Diga explicitamente o que **não** rodou (ex.: pgTAP sem Docker) em vez de
+  deixar implícito que passou.
 
-## 2. Vitest — Server Actions e queries
+## 2. Vitest — Server Actions e queries (painel)
 
 ### Ambiente: `node` por padrão, `jsdom` só por arquivo
 
-`vitest.config.mts` usa `environment: "node"` globalmente — rápido, sem DOM,
+`apps/web/vitest.config.mts` usa `environment: "node"` globalmente — rápido, sem DOM,
 serve para quase toda a suíte (lib/, actions, queries). Um arquivo que
 precisa de DOM (teste de componente React) declara isso **sozinho**, no
 topo, e não muda o ambiente global:
@@ -113,6 +128,20 @@ it("...", async () => {
 Nunca esqueça o `afterEach(cleanup)` — é o erro mais fácil de cometer aqui e
 produz falhas confusas ("multiple elements found") em vez de um erro óbvio.
 
+### App de campo (`apps/mobile`) e `packages/shared`
+
+- `apps/mobile/vitest.config.mts` roda em `node` e só pega
+  `src/**/*.test.ts`: testa-se a **lógica pura** (`src/campo/`, `src/auth/`,
+  `src/lib/`), não as telas. O `react-native` é Flow e não carrega no
+  vitest — por isso o Sentry fica isolado em `lib/observabilidade-sentry.ts`
+  e todo o resto passa por `lib/observabilidade.ts`. Não importe o SDK do
+  Sentry (nem nada que arraste `react-native`) num módulo testado, senão o
+  teste dele cai.
+- Regra de campo que o banco espera que o cliente cumpra (esquemas de
+  `registrar_checklist`, regras de checklist) mora em
+  `packages/shared/src/campo/` e é testada **lá**, não duplicada no mobile
+  nem no web. É a fronteira anti-drift entre os dois apps.
+
 ## 3. pgTAP — políticas de RLS
 
 ### Estrutura de todo arquivo em `supabase/tests/database/`
@@ -157,15 +186,32 @@ Regras:
 
 ### Como rodar
 
-Ambiente local sem Docker não roda `supabase test db`. Caminho usado neste
-projeto quando não há Docker nem branch de desenvolvimento disponível
-(plano atual do Supabase não inclui branching):
+**Caminho normal: stack local.** Desde a migration 0038 o schema é
+auto-suficiente e a suíte roda contra um Supabase local construído só das
+migrations:
+
+```bash
+pnpm exec supabase start      # exige Docker Desktop aberto (pode levar ~80 s para `docker info` responder)
+pnpm exec supabase db reset --local   # se o stack já existia: ele guarda o schema da última vez
+pnpm run test:db              # = supabase test db --local supabase/tests/database
+```
+
+Sem o `db reset`, um stack antigo não tem as migrations novas e o pgTAP acusa
+"bug de RLS" que já foi corrigido. O reset é lento e fica um bom tempo sem
+imprimir nada — não é travamento.
+
+**Sem Docker:** o job `banco` da CI roda a suíte inteira em todo PR, e é
+check obrigatório da `main`. Empurre a branch e leia o resultado; diga ao
+usuário que o pgTAP não rodou localmente.
+
+**Contra o banco hospedado, só com autorização explícita do usuário.** Era o
+caminho antes da 0038 e não é mais o padrão: o projeto hospedado é
+produção, sem backup automático. Se o usuário pedir, a técnica é esta:
 
 1. Confirme a extensão: `create extension if not exists pgtap with schema extensions;`
    (uma vez, idempotente).
-2. Rode o arquivo **inteiro** direto contra o projeto real via MCP do
-   Supabase (`execute_sql`), sempre dentro do próprio `begin;...rollback;`
-   do arquivo — nunca contra produção sem o rollback.
+2. Rode o arquivo **inteiro** via MCP do Supabase (`execute_sql`), sempre
+   dentro do próprio `begin;...rollback;` do arquivo — nunca sem o rollback.
 3. **Armadilha:** rodar múltiplos `select algum_assert(...)` como
    statements separados numa chamada só faz o executor devolver **apenas o
    resultado do último statement** — as linhas TAP anteriores (`ok 1`,
@@ -189,12 +235,19 @@ projeto quando não há Docker nem branch de desenvolvimento disponível
    `grant all on tap_output to authenticated;` logo após criar a tabela —
    senão o `insert into tap_output` falha por falta de permissão quando o
    role muda.
-5. Depois de confirmar que passa, atualize o cabeçalho do próprio arquivo
-   `.sql` registrando data e resultado ("Executado (data) direto contra
-   produção, dentro de transação com rollback. N/N asserts passaram") — não
-   deixe o comentário antigo "NÃO EXECUTADO" mentir sobre o estado real.
+Esse ensaio não substitui o job `banco`: ele roda contra o schema que está
+no banco hospedado, não contra o que as migrations constroem.
 
-## 4. Playwright (e2e/)
+## 4. Playwright (`apps/web/e2e/`)
+
+Quatro configurações, cada uma com sua porta:
+
+| Comando (raiz) | Config | Para quê |
+|---|---|---|
+| `pnpm test:e2e` | `playwright.config.ts` (`next dev`, 3100) | Fluxos completos; os que escrevem no banco exigem Supabase local |
+| `pnpm test:e2e:leve` | `playwright.leve.config.ts` (`next start`, 3300) | Máquina de 8 GB: login e responsividade, 1 worker, headless. **Exige `pnpm build` antes** |
+| `pnpm --filter web test:desempenho` | `playwright.desempenho.config.ts` (3200) | Orçamento de bundle, requisições e CLS contra o build de produção |
+| `pnpm --filter web test:carga` | `playwright.carga.config.ts` | Teste de carga (`e2e/carga/`) |
 
 - O job `e2e` da CI é check obrigatório e roda contra um **Supabase local**
   (`supabase start` com storage), nunca contra produção. As credenciais saem
@@ -212,12 +265,21 @@ projeto quando não há Docker nem branch de desenvolvimento disponível
 - Nomes com `sufixoUnico()`: o stack local não é zerado entre execuções.
 - `expect.poll` precisa devolver sempre o mesmo tipo, e a primeira ida a uma
   rota no `next dev` frio inclui compilá-la — dê folga de timeout aí.
+- Rotas de API têm specs próprios em `e2e/api/` (públicas, com sessão e com
+  segredo compartilhado). Os segredos da CI são descartáveis e ficam escritos
+  no `ci.yml`, nunca os de produção.
+- Falha que só aparece com vários workers numa máquina lenta costuma ser
+  disputa de CPU/disco, não bug: rode o teste isolado (`-g "nome"`,
+  `--workers=1`) antes de reportar.
+- Nunca abra uma página `export/pdf` pela automação de navegador: ela chama
+  `window.print()` e trava a extensão do Chrome.
 
 ## 5. Antes de abrir mão de escrever um teste
 
 Se a mudança é em `lib/` puro (sem I/O) e você está tentado a pular o
-teste porque "é óbvio" — não pule. Toda função em `lib/` neste projeto tem
-teste próprio (`password-policy.ts`, `safe-redirect.ts`, `rate-limit.ts`,
-`mfa.ts` quando existir, etc.) mesmo sendo pequena — é o padrão do projeto,
-e uma função pura sem teste é a exceção que quebra a régua para a próxima
-pessoa que copiar o padrão.
+teste porque "é óbvio" — não pule. Toda função em `apps/web/src/lib/` tem
+teste próprio ao lado (`password-policy.ts`, `safe-redirect.ts`,
+`rate-limit.ts`, etc.), e o mesmo vale para `apps/mobile/src/{campo,auth,lib}/`
+e `packages/shared/src/`, mesmo sendo pequena — é o padrão do projeto, e uma
+função pura sem teste é a exceção que quebra a régua para a próxima pessoa
+que copiar o padrão.
