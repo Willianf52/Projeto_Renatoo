@@ -68,6 +68,31 @@ export function TelaDeSites() {
     };
   }, []);
 
+  /**
+   * Aberta sem sinal, a lista ficava presa na copia do aparelho mesmo depois
+   * de o sinal voltar (teste no emulador, 12/10/2026). Enquanto estiver so com
+   * a copia, tenta o servidor de novo a cada 20 s e troca quando ele responder.
+   */
+  useEffect(() => {
+    if (!soDoAparelho) return;
+    let ativo = true;
+
+    const tentar = setInterval(() => {
+      lerSites()
+        .then((resultado) => {
+          if (!ativo || resultado.soDoAparelho) return;
+          setSites(resultado.sites);
+          setSoDoAparelho(false);
+        })
+        .catch(() => undefined);
+    }, 20_000);
+
+    return () => {
+      ativo = false;
+      clearInterval(tentar);
+    };
+  }, [soDoAparelho]);
+
   const filtrados = useMemo(() => {
     if (!sites) return null;
     const termo = normalizar(busca);
@@ -126,8 +151,14 @@ export function TelaDeSites() {
           keyboardDismissMode="on-drag"
           ListEmptyComponent={
             <EstadoVazio
-              titulo={busca ? "Nenhum site encontrado" : "Nenhum site cadastrado"}
-              descricao={busca ? "Tente outro nome." : "Os sites cadastrados no portal aparecem aqui."}
+              titulo={busca ? "Nenhum site encontrado" : soDoAparelho ? "Nenhum site guardado" : "Nenhum site cadastrado"}
+              descricao={
+                busca
+                  ? "Tente outro nome."
+                  : soDoAparelho
+                    ? "Sem conexão. Abra o app com internet e toque em Sincronizar para guardar a lista no aparelho."
+                    : "Os sites cadastrados no portal aparecem aqui."
+              }
             />
           }
           renderItem={({ item }) => (

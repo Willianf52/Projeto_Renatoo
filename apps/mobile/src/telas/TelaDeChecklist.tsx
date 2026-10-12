@@ -207,6 +207,10 @@ export function TelaDeChecklist({
    * bucket. Uma ref e lida no mesmo tique do toque, antes de qualquer render.
    */
   const envioEmVoo = useRef(false);
+  /** A gravacao do rascunho que o respiro ainda nao fez (ver o efeito de desmonte). */
+  const gravacaoPendente = useRef<(() => void) | null>(null);
+  /** Envio aceito pelo banco: o desmonte nao recria o rascunho descartado. */
+  const envioConcluido = useRef(false);
 
   /** O que ja subiu ao Storage -- ver `MidiaJaEnviada` em `envio-de-checklist.ts`. */
   const midiaJaEnviada = useRef<MidiaJaEnviada>(new Map());
@@ -254,7 +258,8 @@ export function TelaDeChecklist({
   useEffect(() => {
     if (!rascunhoLido || !funcionarioId) return;
 
-    const espera = setTimeout(() => {
+    const salvar = () => {
+      gravacaoPendente.current = null;
       salvarRascunho(chave, funcionarioId, {
         motivo,
         respostas,
@@ -265,10 +270,26 @@ export function TelaDeChecklist({
       }).catch((falha) => {
         capturarErro(falha, { onde: "salvarRascunho", visita: String(chave) });
       });
-    }, 500);
+    };
+    gravacaoPendente.current = salvar;
+    const espera = setTimeout(salvar, 500);
 
     return () => clearTimeout(espera);
   }, [rascunhoLido, funcionarioId, chave, motivo, respostas, fotos, modeloEscolhido, fotosDePergunta, observacoes]);
+
+  /**
+   * O respiro de meio segundo acima tinha um buraco: a observacao digitada e
+   * a tela fechada logo em seguida (voltar, trocar de app) perdiam o fim do
+   * texto -- o desmonte cancelava o timer antes de gravar (teste no emulador,
+   * 12/10/2026). No desmonte, grava o que ficou pendente. Nao depois de um
+   * envio bem-sucedido: o rascunho acabou de ser descartado de proposito.
+   */
+  useEffect(
+    () => () => {
+      if (!envioConcluido.current) gravacaoPendente.current?.();
+    },
+    [],
+  );
 
   /**
    * Os modelos so sao buscados na CONSULTORIA, e nao na abertura da tela: numa
@@ -631,6 +652,8 @@ export function TelaDeChecklist({
 
       // O checklist ja esta no banco: o rascunho perdeu o motivo de existir.
       // Falhar aqui nao desfaz o envio, entao so registra e segue.
+      envioConcluido.current = true;
+      gravacaoPendente.current = null;
       await descartarRascunho(chave).catch((falha) => {
         capturarErro(falha, { onde: "descartarRascunho", visita: String(chave) });
       });
