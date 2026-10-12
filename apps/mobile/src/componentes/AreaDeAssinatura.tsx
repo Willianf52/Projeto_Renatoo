@@ -190,7 +190,9 @@ export const AreaDeAssinatura = forwardRef<
             onPress={limpar}
             accessibilityRole="button"
             accessibilityLabel="Limpar assinatura"
-            hitSlop={12}
+            // Texto de 16 + 18 de cada lado = 52, a altura de toque dos
+            // botoes do checklist (ergonomia de campo, luva).
+            hitSlop={18}
           >
             <Text style={estilos.limpar}>Limpar</Text>
           </Pressable>
