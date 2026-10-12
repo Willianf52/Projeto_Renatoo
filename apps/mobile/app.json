@@ -21,7 +21,7 @@
     "android": {
       "package": "br.com.upservicos.inspecao",
       "adaptiveIcon": {
-        "backgroundColor": "#03031a",
+        "backgroundColor": "#2b6cb0",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
