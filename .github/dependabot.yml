@@ -74,6 +74,8 @@ updates:
       #   derruba o check `banco` ate regenerar o arquivo (PR #188).
       # - next e o par de lint dele: travados em ~16.3.8 na #182; a 16.4 e
       #   minor nova e fica para depois da entrega.
+      # - @sentry/nextjs major (11): a #193 quebrava o build; major de
+      #   observabilidade nao entra na semana do piloto.
       - dependency-name: "expo"
       - dependency-name: "expo-*"
       - dependency-name: "@react-navigation/*"
@@ -84,6 +86,8 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "@next/*"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "@sentry/nextjs"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
