@@ -48,6 +48,12 @@ function validar(valores: ValoresDoGrupo): string | null {
   const textoValidado = esquemaDeTexto.safeParse(valores);
   if (!textoValidado.success) return textoValidado.error.issues[0].message;
 
+  // Ao menos um usuario, como no sistema de referencia (auditoria de
+  // 12/10/2026, decisao do dono): grupo de usuarios vazio nao serve a filtro
+  // nem a relatorio nenhum. Diferente do Grupo de Sites, aqui nao ha ovo e
+  // galinha -- o usuario existe sem grupo.
+  if (valores.membros.length === 0) return "Selecione ao menos um usuário.";
+
   if (valores.membros.some((id) => !UUID.test(id))) return "Membro inválido.";
 
   // Dois checkboxes com o mesmo valor violariam a PK (grupo_id, profile_id) e

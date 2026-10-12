@@ -73,15 +73,23 @@ function validar(
   }
 
   /**
-   * Nenhum site marcado e valido. Exigir ao menos um travava o banco vazio:
-   * Site / Planta exige um grupo (`sites.grupo_site_id` e `not null`) e este
-   * formulario exigia um site, entao o primeiro grupo e o primeiro site reais
-   * so nasciam pendurados num cadastro de teste. O grupo e criado sozinho, e
-   * o site entra nele depois, pelo proprio cadastro do site.
+   * Na CRIACAO, nenhum site marcado e valido. Exigir ao menos um travava o
+   * banco vazio: Site / Planta exige um grupo (`sites.grupo_site_id` e `not
+   * null`) e este formulario exigia um site, entao o primeiro grupo e o
+   * primeiro site reais so nasciam pendurados num cadastro de teste. E o
+   * mesmo ovo e galinha de todo cliente novo: o grupo e criado sozinho, e o
+   * site entra nele depois, pelo proprio cadastro do site.
+   *
+   * Na EDICAO, ao menos um site (auditoria de 12/10/2026, decisao do dono):
+   * o sistema de referencia exige site no Grupo de Sites, e aqui o grupo ja
+   * existe -- os sites dele ja podem estar la.
    */
   const siteIds = valores.siteIds.map(Number);
   if (siteIds.some((n) => !Number.isInteger(n))) {
     return { ok: false, erro: "Site selecionado inválido." };
+  }
+  if (idEmEdicao !== null && siteIds.length === 0) {
+    return { ok: false, erro: "Selecione ao menos um site para o grupo." };
   }
 
   return {

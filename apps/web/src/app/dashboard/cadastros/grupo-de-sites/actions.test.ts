@@ -117,6 +117,16 @@ describe("salvarGrupoSite", () => {
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1`);
   });
 
+  /** Auditoria de 12/10/2026: o antigo exige site; aqui so na edicao, porque
+   * o grupo de um cliente novo precisa nascer vazio (ver `validar`). */
+  it("recusa salvar a edicao sem nenhum site, sem chegar ao banco", async () => {
+    const estado = await salvarGrupoSite({}, formulario({ id: "7", nome: "Aversa" }));
+
+    expect(estado.erro).toBe("Selecione ao menos um site para o grupo.");
+    expect(chamadas).toHaveLength(0);
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
   it("recusa grupo pai igual ao proprio registro em edicao", async () => {
     const estado = await salvarGrupoSite(
       {},
