@@ -10,7 +10,9 @@ import Link from "next/link";
  * exatamente a deriva que o `Button.tsx` documenta. Um componente so, e as
  * tres telas andam juntas.
  *
- * 36px (h-9) e a escala 0.97 do `Button`. Sem `href`, ou desabilitado, vira
+ * 36px (h-9) e a escala 0.97 do `Button`; o hover e o do `Button`
+ * secundario (`bg-white/5`), porque o navy nao aparecia com a paginacao
+ * direto no fundo da pagina. Sem `href`, ou desabilitado, vira
  * um `<button disabled>` inerte -- um `<a>` nao tem estado desabilitado.
  */
 export function BotaoDePaginacao({
@@ -26,7 +28,7 @@ export function BotaoDePaginacao({
   rotulo: string;
 }) {
   const className =
-    "flex h-9 w-9 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:bg-brand-navy hover:text-white active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:active:scale-100";
+    "flex h-9 w-9 items-center justify-center rounded-md border border-slate-800 text-brand-muted transition-all duration-200 hover:border-slate-700 hover:bg-white/5 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-transparent disabled:active:scale-100";
 
   if (!href || disabled) {
     return (

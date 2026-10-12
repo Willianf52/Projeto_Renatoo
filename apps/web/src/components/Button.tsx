@@ -112,7 +112,15 @@ export function Button({ variant, size, fullWidth, loading, disabled, className,
   const buttonProps = props as Omit<ButtonAsButton, keyof CommonProps>;
 
   return (
-    <button type="button" disabled={disabled || loading} className={classes} {...buttonProps}>
+    <button
+      type="button"
+      disabled={disabled || loading}
+      // Sem isto o leitor de tela so ouvia "indisponivel", sem saber que e
+      // espera e nao proibicao -- o spinner e `aria-hidden`.
+      aria-busy={loading || undefined}
+      className={classes}
+      {...buttonProps}
+    >
       {loading && <Spinner />}
       {children}
     </button>
