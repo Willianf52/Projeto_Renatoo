@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 5;
+const VERSAO_DO_SCHEMA = 6;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -197,6 +197,17 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
     await banco.execAsync(`
       alter table rascunhos_de_checklist add column modelo_id integer;
       alter table rascunhos_de_checklist add column fotos_de_pergunta text not null default '{}';
+    `);
+  }
+
+  if (versao < 6) {
+    /**
+     * Observacao por pergunta, como no app do sistema de referencia (pedido
+     * do dono, 11/10/2026). Coluna com default: o rascunho que ja estava no
+     * aparelho continua lendo, sem observacao nenhuma.
+     */
+    await banco.execAsync(`
+      alter table rascunhos_de_checklist add column observacoes text not null default '{}';
     `);
   }
 

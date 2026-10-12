@@ -164,14 +164,20 @@ function normalizar(valor: string): string {
 /**
  * Fora do componente e sem `setState`, como `lerVisitas` -- ver a nota em
  * `SessaoProvider`. Sao algumas centenas de sites: uma consulta so, abaixo do
- * `max_rows` (1000) do PostgREST. `ativo` e `recebe_visita` vem junto, mas nao
- * aparecem na tela: servem para recusar a visita no toque.
+ * `max_rows` (1000) do PostgREST.
+ *
+ * SO OS ATIVOS (pedido do dono, 11/10/2026): o site desativado sumia so no
+ * toque, e a lista mostrava dezenas de "X.inativo" vindos da importacao.
+ * `ativo` continua no select porque `motivoParaNaoAbrir` ainda o confere --
+ * o caminho sem rede, pelo catalogo de QR, nao sabe se o site esta ativo.
+ * `recebe_visita` segue recusado no toque, com a mensagem que explica.
  */
 async function lerSites(): Promise<{ sites: SiteParaVisita[]; soDoAparelho: boolean }> {
   try {
     const { data, error } = await supabase
       .from("sites")
       .select("id, nome, ativo, recebe_visita")
+      .eq("ativo", true)
       .order("nome");
 
     if (error) throw error;

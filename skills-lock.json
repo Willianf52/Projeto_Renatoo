@@ -17,25 +17,25 @@
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/eas-app-stores/SKILL.md",
-      "computedHash": "55636a4b9b2cfee1aed1d6ae067d1f1b7958cbaedc67ac25a98a562c346536a3"
+      "computedHash": "5e6e23df7a7d88aa72bc5dee63bc059e174f044ce46e5df4faee5a872f547cee"
     },
     "eas-workflows": {
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/eas-workflows/SKILL.md",
-      "computedHash": "5216333d78b961f17e1d5d45ce3bafe6db1a4e6a8039c43c160a2320d3bd3e8d"
+      "computedHash": "45ae128c7328a149b61b367ca667400543d7f7fc9ba2f3be973fca219c40d490"
     },
     "expo-dev-client": {
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/expo-dev-client/SKILL.md",
-      "computedHash": "7b8b0ec9a98e96674b13b72b798bc1b0b0d122244dc22c54d375613eb525bcae"
+      "computedHash": "c9ae54e5a7e37a3bb02e98ccd63de02167f99c56f0e5131eb832f8d50e6420af"
     },
     "expo-upgrade": {
       "source": "expo/skills",
       "sourceType": "github",
       "skillPath": "plugins/expo/skills/expo-upgrade/SKILL.md",
-      "computedHash": "cf2948a0d0023758a9faad2b47e5e0c6d0aaabf4d1335fc36d9925d75848f4c9"
+      "computedHash": "72c4890a8f18181e0df66fd883d040f51ad0b860b7fef426004e4413e2223248"
     },
     "find-skills": {
       "source": "vercel-labs/skills",

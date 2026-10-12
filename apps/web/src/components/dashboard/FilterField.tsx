@@ -5,7 +5,7 @@ import { ChevronDownIcon } from "./icons";
  * vizinho quando a coluna da grade e mais estreita que a largura de conteudo.
  */
 const fieldBaseClasses =
-  "h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green";
+  "h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-sm text-white shadow-sm outline-none transition-all duration-200 placeholder:text-brand-muted hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-slate-800";
 
 /**
  * So texto livre -- date e time viraram `FilterDatePicker`/`FilterTimePicker`
@@ -69,7 +69,13 @@ export function FilterSelect({
         name={name}
         defaultValue={defaultValue ?? ""}
         aria-label={label}
-        className={`peer ${fieldBaseClasses} appearance-none pr-9 text-brand-muted`}
+        // Valor escolhido em branco, opcao vazia em cinza -- o mesmo contraste
+        // de texto digitado contra placeholder do `FilterInput`. Antes tudo
+        // saia cinza, e um filtro aplicado nao se distinguia de um vazio.
+        // `first-child` e a opcao vazia; sem ela, nao ha o que esmaecer.
+        className={`peer ${fieldBaseClasses} appearance-none pr-9 ${
+          semOpcaoVazia ? "" : "has-[option:first-child:checked]:text-brand-muted"
+        }`}
       >
         {/* Selecionavel de proposito: e a unica forma de o usuario limpar o
             filtro pela propria lista, sem depender de editar a URL. */}

@@ -40,7 +40,7 @@ export function AcaoDesabilitada({
       onClick={(event) => event.preventDefault()}
       title={rotulo}
       aria-label={rotulo}
-      className={`flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-white/60 ${className}`}
+      className={`flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface ${className}`}
     >
       {children}
     </button>
