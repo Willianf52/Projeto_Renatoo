@@ -28,6 +28,7 @@ import {
   toTableRow,
   NIVEIS_ACESSO,
   PAGE_SIZE,
+  SITUACAO_PADRAO,
   SITUACOES,
   TIPOS_USUARIO,
   type UsuarioFiltros,
@@ -70,7 +71,11 @@ function extrairFiltros(params: SearchParams): UsuarioFiltros {
     tipo: primeiro(params.tipo),
     nivelAcesso: primeiro(params.nivel_acesso),
     grupoUsuarios: filtroDeId(primeiro(params.grupo_usuarios)),
-    situacao: primeiro(params.situacao) as "ativos" | "inativos" | undefined,
+    // Valor fora da lista cai no padrao, como em Site / Planta: a URL e
+    // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
+    situacao: SITUACOES.some((s) => s.value === primeiro(params.situacao))
+      ? (primeiro(params.situacao) as UsuarioFiltros["situacao"])
+      : SITUACAO_PADRAO,
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
 }
@@ -292,7 +297,7 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
 
   // Tabela vazia sem filtro e cadastro que ainda nao existe, nao busca que
   // nao achou nada (ver `lib/lista-vazia.ts`).
-  const filtrado = temFiltroAplicado(params);
+  const filtrado = temFiltroAplicado(params, { situacao: SITUACAO_PADRAO });
 
   return (
     <DataTable

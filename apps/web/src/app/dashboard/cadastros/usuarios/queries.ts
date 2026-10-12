@@ -3,14 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike, termoParaOr } from "@/lib/postgrest-escape";
 import { paginar } from "@/lib/supabase/query-helpers";
-import { FUNCOES_CONHECIDAS, NIVEIS_ACESSO, type FilterOption } from "./constantes";
+import { FUNCOES_CONHECIDAS, NIVEIS_ACESSO, type FilterOption, type Situacao } from "./constantes";
 
 export const PAGE_SIZE = 25;
 
 // Reexportadas para as telas que ja consumiam daqui nao terem que saber da
 // divisao. A fonte e `constantes.ts`, que nao importa nada -- ver o cabecalho
 // de la para o motivo.
-export { SITUACOES, TIPOS_USUARIO } from "./constantes";
+export { SITUACAO_PADRAO, SITUACOES, TIPOS_USUARIO } from "./constantes";
 export { NIVEIS_ACESSO, type FilterOption };
 
 export type UsuarioFiltros = {
@@ -19,7 +19,8 @@ export type UsuarioFiltros = {
   tipo?: string;
   nivelAcesso?: string;
   grupoUsuarios?: string;
-  situacao?: "ativos" | "inativos";
+  /** Ausente = "todos" (a tela sempre manda; ver SITUACAO_PADRAO). */
+  situacao?: Situacao;
   pagina: number;
 };
 
@@ -219,7 +220,9 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
   // aqui (o valor vem do select), mas o escape fica de qualquer forma: e o
   // mesmo cuidado do resto do arquivo, e a URL e editavel a mao.
   if (filtros.funcao) query = query.ilike("funcao", escaparLike(filtros.funcao));
-  if (filtros.situacao) query = query.eq("ativo", filtros.situacao === "ativos");
+  // "todos" nao filtra -- e a unica das tres opcoes que nao vira clausula.
+  if (filtros.situacao === "ativos") query = query.eq("ativo", true);
+  if (filtros.situacao === "inativos") query = query.eq("ativo", false);
 
   query = comBusca(query, filtros.busca);
 

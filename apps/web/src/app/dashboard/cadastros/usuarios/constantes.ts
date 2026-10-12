@@ -26,8 +26,18 @@ export const NIVEIS_ACESSO = [
   { value: "INSPETOR", label: "Inspetor" },
 ];
 
+export type Situacao = "ativos" | "inativos" | "todos";
+
+/**
+ * A tela abre em "Ativos", como o cadastro de Usuarios do sistema de
+ * referencia (auditoria ao vivo de 12/10/2026) e como Site / Planta aqui.
+ * "Todos" fica na lista para quem precisa ver a conta desativada.
+ */
+export const SITUACAO_PADRAO: Situacao = "ativos";
+
 export const SITUACOES = [
   { value: "ativos", label: "Ativos" },
+  { value: "todos", label: "Todos" },
   { value: "inativos", label: "Inativos" },
 ];
 

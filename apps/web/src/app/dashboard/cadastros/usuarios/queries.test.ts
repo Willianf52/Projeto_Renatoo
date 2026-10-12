@@ -7,7 +7,7 @@ type Ordem = { coluna: string; ascending?: boolean };
  * entao `await query` resolve o resultado. */
 type Chain = {
   select: () => Chain;
-  eq: () => Chain;
+  eq: (coluna: string, valor: unknown) => Chain;
   ilike: () => Chain;
   or: (filtro: string) => Chain;
   not: () => Chain;
@@ -17,9 +17,10 @@ type Chain = {
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, ordens, ors, rpcResultado } = vi.hoisted(() => {
+const { createClientMock, eqs, ordens, ors, rpcResultado } = vi.hoisted(() => {
   const ordens: Ordem[] = [];
   const ors: string[] = [];
+  const eqs: [string, unknown][] = [];
   const rpcResultado: { data: unknown; error: { message: string } | null } = {
     data: null,
     error: null,
@@ -29,7 +30,10 @@ const { createClientMock, ordens, ors, rpcResultado } = vi.hoisted(() => {
     from() {
       const chain: Chain = {
         select: () => chain,
-        eq: () => chain,
+        eq: (coluna, valor) => {
+          eqs.push([coluna, valor]);
+          return chain;
+        },
         ilike: () => chain,
         or: (filtro) => {
           ors.push(filtro);
@@ -49,7 +53,7 @@ const { createClientMock, ordens, ors, rpcResultado } = vi.hoisted(() => {
     rpc: async () => rpcResultado,
   }));
 
-  return { createClientMock, ordens, ors, rpcResultado };
+  return { createClientMock, eqs, ordens, ors, rpcResultado };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
@@ -61,6 +65,7 @@ const { getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao, toTableRow } =
 beforeEach(() => {
   ordens.length = 0;
   ors.length = 0;
+  eqs.length = 0;
   rpcResultado.data = null;
   rpcResultado.error = null;
 });
@@ -115,6 +120,21 @@ describe("getUsuarios", () => {
     await getUsuarios({ pagina: 1 });
 
     expect(ors).toEqual([]);
+  });
+
+  /** A tela abre em "Ativos", como o antigo (auditoria de 12/10/2026); "Todos"
+   * e a unica opcao que nao vira clausula. */
+  it("situacao: ativos e inativos filtram, todos nao", async () => {
+    await getUsuarios({ pagina: 1, situacao: "ativos" });
+    expect(eqs).toContainEqual(["ativo", true]);
+
+    eqs.length = 0;
+    await getUsuarios({ pagina: 1, situacao: "inativos" });
+    expect(eqs).toContainEqual(["ativo", false]);
+
+    eqs.length = 0;
+    await getUsuarios({ pagina: 1, situacao: "todos" });
+    expect(eqs.some(([coluna]) => coluna === "ativo")).toBe(false);
   });
 });
 
