@@ -116,6 +116,41 @@ export async function lerRascunho(visitaId: number, funcionarioId: string): Prom
   };
 }
 
+/**
+ * O checklist comecado numa RONDA (QR -> "Encerrar ronda" -> "Fazer checklist")
+ * deste site que ainda nao foi enviado, se houver.
+ *
+ * POR QUE EXISTE (teste no tablet, 13/10/2026): o rascunho da ronda e guardado
+ * pela visita, e o do "Ver sites" pelo site. Com o app reaberto, o unico
+ * caminho de volta e o "Ver sites" -- que procurava o rascunho do site, vazio,
+ * e as respostas da ronda ficavam no aparelho sem tela que as alcancasse. O
+ * "Ver sites" pergunta isto antes de comecar um checklist novo.
+ *
+ * So rascunho com conteudo: a tela grava o rascunho vazio logo que abre, e
+ * reabrir uma visita em que nada foi respondido nao ajuda ninguem.
+ */
+export async function rascunhoDeRondaDoSite(
+  siteId: number,
+  funcionarioId: string,
+): Promise<{ visitaId: number; numeroColeta: string } | null> {
+  const banco = await abrirFila();
+  const linha = await banco.getFirstAsync<{ visita_id: number; chave: string }>(
+    `select r.visita_id, v.chave
+       from rascunhos_de_checklist r
+       join visitas_na_fila v on v.visita_id = r.visita_id
+      where r.visita_id > 0
+        and r.funcionario_id = ?
+        and v.site_id = ?
+        and (r.respostas <> '{}' or r.motivo <> '' or r.fotos <> '[]'
+             or ifnull(r.fotos_de_pergunta, '{}') <> '{}' or ifnull(r.observacoes, '{}') <> '{}')
+      order by r.atualizado_em desc
+      limit 1`,
+    funcionarioId,
+    siteId,
+  );
+  return linha ? { visitaId: linha.visita_id, numeroColeta: linha.chave } : null;
+}
+
 /** Apaga o rascunho e as fotos copiadas. Chamado quando o checklist chega ao banco. */
 export async function descartarRascunho(visitaId: number): Promise<void> {
   const banco = await abrirFila();

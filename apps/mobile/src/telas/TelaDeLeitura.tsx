@@ -244,7 +244,15 @@ export function TelaDeLeitura() {
           { text: "Depois", style: "cancel" },
           {
             text: "Fazer checklist",
-            onPress: () => navegacao.navigate("TipoDeVisita", { visitaId, numeroColeta: ronda.chave }),
+            onPress: () =>
+              navegacao.navigate("TipoDeVisita", {
+                visitaId,
+                numeroColeta: ronda.chave,
+                // So o `id` importa la (as perguntas sem sinal saem da copia
+                // por site); a ronda acabou de ler QR deste site, entao ele
+                // esta ativo e recebe visita.
+                site: { id: ronda.siteId, nome: ronda.siteNome ?? "", ativo: true, recebeVisita: true },
+              }),
           },
         ]);
       } catch (falha) {

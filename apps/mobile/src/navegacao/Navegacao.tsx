@@ -33,7 +33,10 @@ import { cores } from "../tema";
  * ainda nao existe e so e criada no envio -- ver `campo/visita-pelo-site.ts`.
  */
 export type AlvoDoChecklist =
-  | { visitaId: number; numeroColeta: string; site?: undefined }
+  // Com `site` junto quando se sabe qual e (ronda pelo QR, rascunho retomado
+  // pelo "Ver sites"): sem sinal, as perguntas saem da copia do aparelho, que
+  // e indexada por site (`checklist-guardado.ts`).
+  | { visitaId: number; numeroColeta: string; site?: SiteParaVisita }
   | { visitaId: null; numeroColeta: string; site: SiteParaVisita };
 
 export type RotasDoApp = {

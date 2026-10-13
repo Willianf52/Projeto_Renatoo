@@ -4,6 +4,8 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { abrirFila } from "../campo/fila";
+import { rascunhoDeRondaDoSite } from "../campo/rascunho";
+import { useSessao } from "../auth/SessaoProvider";
 import { motivoParaNaoAbrir, novoNumeroDeColeta, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { Aviso } from "../componentes/Aviso";
 import { Campo } from "../componentes/Campo";
@@ -100,17 +102,31 @@ export function TelaDeSites() {
     return sites.filter((s) => normalizar(s.nome).includes(termo));
   }, [sites, busca]);
 
+  const { sessao } = useSessao();
+  const idDoUsuario = sessao?.user.id ?? null;
+
   const abrir = useCallback(
-    (site: SiteParaVisita) => {
+    async (site: SiteParaVisita) => {
       const motivo = motivoParaNaoAbrir(site);
       if (motivo) {
         setErro(motivo);
         return;
       }
       setErro(null);
+
+      // Checklist comecado numa ronda deste site e nao enviado: retoma ele
+      // (ver `rascunhoDeRondaDoSite`), em vez de abrir outro em branco.
+      const daRonda = idDoUsuario
+        ? await rascunhoDeRondaDoSite(site.id, idDoUsuario).catch(() => null)
+        : null;
+      if (daRonda) {
+        navegacao.navigate("TipoDeVisita", { ...daRonda, site });
+        return;
+      }
+
       navegacao.navigate("TipoDeVisita", { visitaId: null, site, numeroColeta: novoNumeroDeColeta() });
     },
-    [navegacao],
+    [idDoUsuario, navegacao],
   );
 
   return (
@@ -163,7 +179,7 @@ export function TelaDeSites() {
           }
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => abrir(item)}
+              onPress={() => void abrir(item)}
               accessibilityRole="button"
               accessibilityLabel={`Fazer checklist em ${item.nome}`}
               style={({ pressed }) => [
