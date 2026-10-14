@@ -5,12 +5,14 @@
 --   2) `enviado_por` desse checklist e o GESTOR, nao o dono da visita.
 --   3) O cliente nao escolhe o autor: o INSPETOR que manda `enviado_por` de
 --      outra pessoa tem o valor trocado pelo proprio id (trigger).
---   4) SUPERVISOR nao grava checklist -- so GESTOR entrou (decisao do dono).
+--   4) SUPERVISOR nao grava checklist na visita de outra pessoa. (Ate a 0068
+--      nao gravava checklist nenhum; desde a 0069 grava o da PROPRIA visita,
+--      e so o GESTOR fecha a visita alheia.)
 --   5) GESTOR inativo nao grava checklist.
 --   6) INSPETOR continua sem gravar na visita de outro inspetor (o caminho do
 --      inspetor nao foi afrouxado junto).
 --   7) GESTOR envia midia para a pasta da visita no bucket `checklists`.
---   8) SUPERVISOR nao envia midia.
+--   8) SUPERVISOR nao envia midia para a pasta de visita alheia.
 --   9) INSPETOR nao envia midia para a pasta de visita alheia -- a policy de
 --      storage ainda nao tinha pgTAP nenhum ate aqui.
 --  10) A amarra da 0045 continua valendo para o GESTOR: foto fora da pasta da
@@ -22,7 +24,8 @@
 -- de SELECT esconde a linha e o teste passa pelo motivo errado.
 --
 -- Visitas nascem pelo INSPETOR: desde a 0054 o INSERT em `visitas` e grant por
--- coluna, e so o inspetor passa na policy.
+-- coluna, e a policy exige um cargo que registra visita (o GESTOR entrou na
+-- 0060 e os demais, menos CLIENTE, na 0069).
 -- ============================================================================
 
 begin;
@@ -156,7 +159,7 @@ select throws_ok(
   ),
   '42501',
   null,
-  'SUPERVISOR nao grava checklist -- so GESTOR entrou'
+  'SUPERVISOR nao grava checklist na visita de outra pessoa'
 );
 
 reset role;
@@ -257,7 +260,7 @@ select throws_ok(
   ),
   '42501',
   null,
-  'SUPERVISOR nao envia midia'
+  'SUPERVISOR nao envia midia para a pasta de visita alheia'
 );
 
 reset role;

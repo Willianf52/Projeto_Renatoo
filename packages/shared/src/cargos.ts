@@ -22,28 +22,32 @@ export const CARGOS = [
 export type Cargo = (typeof CARGOS)[number];
 
 /**
- * Unico cargo que grava visitas/leituras pelo token da propria sessao
- * (migration 0036). O portao de verdade e a policy no banco -- `e_inspetor()`
- * decide, e nao o cliente. Esta constante existe para o app nao *oferecer* o
- * que a policy vai recusar, o que e experiencia de uso, nao seguranca.
+ * O cargo criado para o campo (migration 0036). Deixou de ser o unico que grava
+ * visitas e leituras: a 0060 abriu para o GESTOR e a 0069 para SUPERVISOR,
+ * OPERACIONAL e OPERADOR -- ver `CARGOS_QUE_REGISTRAM_VISITA`.
  *
- * Nao confundir com "quem entra no app": entrar, entra qualquer cargo. Este
- * aqui e so quem registra em campo -- e, por isso, de quem a lista de visitas
- * pode ser filtrada por `funcionario_id` sem esconder nada.
+ * Nao confundir com "quem entra no app": entrar, entra qualquer cargo.
  */
 export const CARGO_INSPETOR: Cargo = "INSPETOR";
 
 /**
- * Quem fecha visita pelo app (checklist, fotos, assinatura): o INSPETOR, na
- * propria visita, e o GESTOR, em qualquer visita que enxerga. Decisao do dono
- * em 25/09/2026, com o portao de verdade em
- * `autorizacao.pode_finalizar_visita` (migration 0059).
+ * Quem fecha visita pelo app (checklist, fotos, assinatura): todo cargo que
+ * registra visita, na PROPRIA visita, e o GESTOR, em qualquer visita que
+ * enxerga. Portao de verdade em `autorizacao.pode_finalizar_visita`
+ * (migration 0059, ampliada na 0069 -- CLIENTE segue de fora, decisao do dono
+ * em 14/10/2026).
  *
- * Mesma natureza de `CARGO_INSPETOR`: serve para o app mostrar o botao a quem
- * o banco vai aceitar, e esconder de quem ele vai recusar. Se a policy mudar,
- * esta lista muda junto -- as duas sao a mesma regra.
+ * Serve para o app mostrar o botao a quem o banco vai aceitar, e esconder de
+ * quem ele vai recusar. Se a policy mudar, esta lista muda junto -- as duas
+ * sao a mesma regra.
  */
-export const CARGOS_QUE_FINALIZAM_VISITA: readonly Cargo[] = ["INSPETOR", "GESTOR"];
+export const CARGOS_QUE_FINALIZAM_VISITA: readonly Cargo[] = [
+  "INSPETOR",
+  "GESTOR",
+  "SUPERVISOR",
+  "OPERACIONAL",
+  "OPERADOR",
+];
 
 export function podeFinalizarVisita(cargo: string | null | undefined): boolean {
   return cargo != null && (CARGOS_QUE_FINALIZAM_VISITA as readonly string[]).includes(cargo);
@@ -51,14 +55,33 @@ export function podeFinalizarVisita(cargo: string | null | undefined): boolean {
 
 /**
  * Quem registra visita e leitura de campo em nome proprio: espelha
- * `autorizacao.pode_registrar_visita()` (migration 0060). E quem faz ronda --
- * para os demais cargos, "Inspecao" abre a lista, porque a camera gravaria uma
- * ronda que o banco recusaria na sincronizacao.
+ * `autorizacao.pode_registrar_visita()` (migration 0060, ampliada na 0069). E
+ * quem faz ronda -- para o CLIENTE, "Inspecao" abre a lista, porque a camera
+ * gravaria uma ronda que o banco recusaria na sincronizacao.
  */
-export const CARGOS_QUE_REGISTRAM_VISITA: readonly Cargo[] = ["INSPETOR", "GESTOR"];
+export const CARGOS_QUE_REGISTRAM_VISITA: readonly Cargo[] = [
+  "INSPETOR",
+  "GESTOR",
+  "SUPERVISOR",
+  "OPERACIONAL",
+  "OPERADOR",
+];
 
 export function podeRegistrarVisita(cargo: string | null | undefined): boolean {
   return cargo != null && (CARGOS_QUE_REGISTRAM_VISITA as readonly string[]).includes(cargo);
+}
+
+/**
+ * Quem ve, no app, so as visitas que ele mesmo registrou: todo cargo que
+ * registra, menos o GESTOR, que ve a lista inteira e fecha visita alheia
+ * (0059). Para SUPERVISOR o RLS entrega a operacao toda; sem este recorte, o
+ * app listaria visitas de outras pessoas com um botao "Finalizar" que o banco
+ * recusaria. Para os outros e so o filtro de consulta: o RLS ja devolve o mesmo.
+ *
+ * O CLIENTE nao registra visita e segue vendo o recorte do cliente.
+ */
+export function listaSoAsMinhas(cargo: string | null | undefined): boolean {
+  return podeRegistrarVisita(cargo) && cargo !== "GESTOR";
 }
 
 export function ehCargoConhecido(valor: string): valor is Cargo {

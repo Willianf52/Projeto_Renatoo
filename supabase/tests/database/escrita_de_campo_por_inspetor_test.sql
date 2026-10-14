@@ -9,9 +9,11 @@
 --   3) INSPETOR nao grava leitura numa visita que nao e sua -- nega.
 --   4) INSPETOR inativo nao grava nada -- nega (usuario_ativo() entra na
 --      conjuncao de e_inspetor()).
---   5) Outro cargo (OPERADOR) continua sem conseguir gravar visitas/leituras
---      pela sessao -- confirma que o grant novo (passo 3 da migration) nao
---      abriu mais do que a policy permite.
+--   5) CLIENTE continua sem conseguir gravar visitas/leituras pela sessao --
+--      confirma que o grant novo (passo 3 da migration) nao abriu mais do que
+--      a policy permite. (Ate a 0068 este assert usava OPERADOR; a 0069 abriu
+--      a escrita de campo a todos os cargos menos CLIENTE. Os outros cargos
+--      sao cobertos em `todos_os_cargos_registram_visita_test.sql`.)
 --
 -- Ids de outra pessoa/site sao capturados numa tabela temporaria SEM RLS
 -- antes de trocar de role, e usados como literal na tentativa de escrita.
@@ -36,20 +38,20 @@ select plan(6);
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
 
--- Fixture: dois INSPETOR (A e B), um INSPETOR inativo, um OPERADOR, mais um
+-- Fixture: dois INSPETOR (A e B), um INSPETOR inativo, um CLIENTE, mais um
 -- site minimo para a visita/leitura terem onde pendurar.
 insert into auth.users (id, instance_id, aud, role, email)
 values
   ('f0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inspetor.a@teste.local'),
   ('f0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inspetor.b@teste.local'),
   ('f0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inspetor.inativo@teste.local'),
-  ('f0000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'operador.campo@teste.local');
+  ('f0000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cliente.campo@teste.local');
 
 update public.profiles set ativo = true, cargo = 'INSPETOR'
   where id in ('f0000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000002');
 update public.profiles set ativo = false, cargo = 'INSPETOR'
   where id = 'f0000000-0000-0000-0000-000000000003';
-update public.profiles set ativo = true, cargo = 'OPERADOR'
+update public.profiles set ativo = true, cargo = 'CLIENTE'
   where id = 'f0000000-0000-0000-0000-000000000004';
 
 insert into public.grupos_sites (nome) values ('Grupo Teste Inspetor');
@@ -149,8 +151,9 @@ select throws_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 5) OPERADOR continua sem conseguir gravar (grant novo nao abriu mais que a
--- policy permite -- a policy exige e_inspetor(), que OPERADOR nunca satisfaz).
+-- 5) CLIENTE continua sem conseguir gravar (grant novo nao abriu mais que a
+-- policy permite -- a policy exige pode_registrar_visita(), que CLIENTE nunca
+-- satisfaz).
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000004", "role": "authenticated"}';
@@ -163,7 +166,7 @@ select throws_ok(
   ),
   '42501',
   null,
-  'OPERADOR continua sem gravar visitas pela sessao'
+  'CLIENTE continua sem gravar visitas pela sessao'
 );
 
 select throws_ok(
@@ -173,7 +176,7 @@ select throws_ok(
   ),
   '42501',
   null,
-  'OPERADOR continua sem gravar leituras pela sessao'
+  'CLIENTE continua sem gravar leituras pela sessao'
 );
 
 reset role;

@@ -241,14 +241,15 @@ reset role;
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "d0000000-0000-0000-0000-000000000003", "role": "authenticated"}';
 
--- O OPERADOR falha nas duas metades do `with check` da 0036: nao e INSPETOR e
--- nao esta gravando visita propria. Com o grant presente, quem recusa e a
--- policy -- e a mensagem esperada abaixo e o que prova isso.
+-- O OPERADOR registra visita desde a 0069, mas so em nome proprio. Aqui a
+-- visita nasce sem `funcionario_id` (nao esta em nome dele), entao falha na
+-- metade `funcionario_id = auth.uid()` do `with check`. Com o grant presente,
+-- quem recusa e a policy -- e a mensagem esperada abaixo e o que prova isso.
 select throws_ok(
   $$ insert into public.visitas (numero_coleta, site_id) values ('999001', 1) $$,
   '42501',
   'new row violates row-level security policy for table "visitas"',
-  'OPERADOR ativo nao forja visita -- barrado pela policy de INSPETOR, com o grant da 0036 presente'
+  'OPERADOR ativo nao forja visita sem ser em nome proprio -- barrado pela policy, com o grant da 0036 presente'
 );
 
 select throws_ok(
