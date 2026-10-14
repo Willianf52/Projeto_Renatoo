@@ -8,7 +8,10 @@
 --   5) A amarra da 0054 vale para o GESTOR: QR de outro site e recusado pelo
 --      trigger, nao pelo RLS.
 --   6) GESTOR inativo nao grava visita.
---   7) SUPERVISOR continua sem escrita de campo -- so GESTOR entrou.
+--   7) CLIENTE continua sem escrita de campo. (Ate a 0068 era o SUPERVISOR
+--      que ficava de fora; a 0069 abriu a escrita de campo a todos os cargos
+--      menos CLIENTE, e os outros cargos sao cobertos em
+--      `todos_os_cargos_registram_visita_test.sql`.)
 --   8) INSPETOR continua gravando a propria visita (o caminho dele nao mudou).
 --   9) INSPETOR continua sem gravar leitura na visita do GESTOR.
 --
@@ -29,7 +32,7 @@ values
   ('f0600000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'g60.gestor@teste.local'),
   ('f0600000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'g60.inspetor@teste.local'),
   ('f0600000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'g60.gestor.inativo@teste.local'),
-  ('f0600000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'g60.supervisor@teste.local');
+  ('f0600000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'g60.cliente@teste.local');
 
 update public.profiles set ativo = true, cargo = 'GESTOR'
   where id = 'f0600000-0000-0000-0000-000000000001';
@@ -37,7 +40,7 @@ update public.profiles set ativo = true, cargo = 'INSPETOR'
   where id = 'f0600000-0000-0000-0000-000000000002';
 update public.profiles set ativo = false, cargo = 'GESTOR'
   where id = 'f0600000-0000-0000-0000-000000000003';
-update public.profiles set ativo = true, cargo = 'SUPERVISOR'
+update public.profiles set ativo = true, cargo = 'CLIENTE'
   where id = 'f0600000-0000-0000-0000-000000000004';
 
 insert into public.grupos_sites (nome) values ('Grupo 0060');
@@ -148,7 +151,7 @@ select throws_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 7) SUPERVISOR.
+-- 7) CLIENTE.
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0600000-0000-0000-0000-000000000004", "role": "authenticated"}';
@@ -156,12 +159,12 @@ set local "request.jwt.claims" to '{"sub": "f0600000-0000-0000-0000-000000000004
 select throws_ok(
   format(
     $$ insert into public.visitas (numero_coleta, site_id, funcionario_id)
-       values ('0060-supervisor', %L, 'f0600000-0000-0000-0000-000000000004') $$,
+       values ('0060-cliente', %L, 'f0600000-0000-0000-0000-000000000004') $$,
     (select valor from ids_teste where chave = 'site_a')
   ),
   '42501',
   null,
-  'SUPERVISOR continua sem gravar visita'
+  'CLIENTE continua sem gravar visita'
 );
 
 reset role;

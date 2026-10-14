@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CARGO_INSPETOR, podeFinalizarVisita, type Tables } from "@projeto-renatoo/shared";
+import { listaSoAsMinhas, podeFinalizarVisita, type Tables } from "@projeto-renatoo/shared";
 
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -57,11 +57,12 @@ export function TelaDeInspecoes() {
   const idDoUsuario = sessao?.user.id ?? null;
 
   /**
-   * O inspetor ve as visitas que ele mesmo registrou; os demais cargos veem o
-   * que o RLS entregar para eles. A diferenca esta so no filtro da consulta --
-   * o recorte final e o mesmo com ou sem ele.
+   * Quem registra visita (menos o GESTOR) ve as que ele mesmo registrou; o
+   * GESTOR e o CLIENTE veem o que o RLS entregar para eles. Para quem so ve as
+   * proprias, a diferenca esta no filtro da consulta -- exceto o SUPERVISOR,
+   * para quem o RLS entregaria a operacao inteira.
    */
-  const soAsMinhas = perfil?.cargo === CARGO_INSPETOR;
+  const soAsMinhas = listaSoAsMinhas(perfil?.cargo);
   // Separado de `soAsMinhas` de proposito: o GESTOR ve a lista inteira E fecha
   // visita (0059). Recortar a lista e oferecer o botao sao perguntas diferentes.
   const podeFinalizar = podeFinalizarVisita(perfil?.cargo);

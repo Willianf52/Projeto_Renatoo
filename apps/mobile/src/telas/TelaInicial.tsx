@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CARGO_INSPETOR, podeRegistrarVisita } from "@projeto-renatoo/shared";
+import { listaSoAsMinhas, podeRegistrarVisita } from "@projeto-renatoo/shared";
 
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -54,7 +54,7 @@ export function TelaInicial() {
   const [aviso, setAviso] = useState<{ mensagem: string; tom: "erro" | "sucesso" } | null>(null);
 
   const idDoUsuario = sessao?.user.id ?? null;
-  const soAsMinhas = perfil?.cargo === CARGO_INSPETOR;
+  const soAsMinhas = listaSoAsMinhas(perfil?.cargo);
 
   const atualizarRodape = useCallback(async () => {
     if (!idDoUsuario) return;
