@@ -38,6 +38,9 @@ const {
     inserirEscopo: { error: null as Erro },
     dadosPessoais: { error: null as Erro },
     inserirAuditoria: { error: null as Erro },
+    // Escopo atual do usuario (grupos_sites_clientes), lido antes de editar
+    // para o "antes" da auditoria.
+    lerEscopo: { data: [] as { grupo_site_id: number }[] | null, error: null as Erro },
   };
 
   type Chamada = { tipo: string; args: unknown[] };
@@ -93,7 +96,10 @@ const {
         },
       }),
       select: () => ({
-        eq: () => ({ maybeSingle: async () => resultados.lerPerfil }),
+        eq: () =>
+          tabela === "grupos_sites_clientes"
+            ? Promise.resolve(resultados.lerEscopo)
+            : { maybeSingle: async () => resultados.lerPerfil },
       }),
     }),
   }));
@@ -166,6 +172,7 @@ beforeEach(() => {
   resultados.dadosPessoais = { error: null };
   resultados.inserirEscopo = { error: null };
   resultados.inserirAuditoria = { error: null };
+  resultados.lerEscopo = { data: [], error: null };
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -400,6 +407,37 @@ describe("edição", () => {
       ator_id: "quem-edita",
       dados_antigos: { cargo: "OPERADOR", ativo: true, nome_completo: "Nome Antigo" },
       dados_novos: { cargo: "SUPERVISOR", nome_completo: "Nome Novo" },
+    });
+  });
+
+  /** Revisao de seguranca de 15/10/2026: trocar os sites que um CLIENTE
+   * enxerga e controle de acesso, e nao deixava rastro. */
+  it("registra na auditoria os grupos do cliente antes e depois", async () => {
+    resultados.lerPerfil = { data: { cargo: "CLIENTE", ativo: true } as never, error: null };
+    resultados.lerEscopo = { data: [{ grupo_site_id: 7 }, { grupo_site_id: 2 }], error: null };
+    const dados = formulario({ ...EDITAR, cargo: "CLIENTE" });
+    dados.append("grupos_do_cliente", "9");
+    dados.append("grupos_do_cliente", "2");
+    dados.append("grupos_do_cliente", "2");
+
+    await salvarUsuario({}, dados);
+
+    expect(primeira("inserirAuditoria")?.args[0]).toMatchObject({
+      dados_antigos: { grupos_do_cliente: [2, 7] },
+      dados_novos: { grupos_do_cliente: [2, 9] },
+    });
+  });
+
+  it("deixa os grupos do cliente vazios na auditoria quando o nivel nao e CLIENTE", async () => {
+    resultados.lerEscopo = { data: [{ grupo_site_id: 4 }], error: null };
+    const dados = formulario({ ...EDITAR, cargo: "OPERADOR" });
+    dados.append("grupos_do_cliente", "4");
+
+    await salvarUsuario({}, dados);
+
+    expect(primeira("inserirAuditoria")?.args[0]).toMatchObject({
+      dados_antigos: { grupos_do_cliente: [4] },
+      dados_novos: { grupos_do_cliente: [] },
     });
   });
 
