@@ -11,6 +11,7 @@ import {
   QrCodeIcon,
   SearchIcon,
   SitemapIcon,
+  SlidersIcon,
   UserIcon,
   UsersIcon,
 } from "./icons";
@@ -146,6 +147,24 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Eventos",
     icon: MegaphoneIcon,
     children: [
+      // Ordem do menu do GESTOR na referencia (issue #209). O Painel ja
+      // existia (0063/0064), mas so se chegava a ele pela lupa do Registro de
+      // Eventos.
+      {
+        label: "Painel de Eventos",
+        href: "/dashboard/eventos/painel-de-eventos",
+        icon: ClipboardListIcon,
+      },
+      {
+        label: "Tipos de Análise",
+        href: "/dashboard/eventos/tipos-de-analise",
+        icon: SlidersIcon,
+      },
+      {
+        label: "Tipos de Classificação",
+        href: "/dashboard/eventos/tipos-de-classificacao",
+        icon: SlidersIcon,
+      },
       {
         label: "Relatórios",
         icon: PrinterIcon,
