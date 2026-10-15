@@ -204,6 +204,16 @@ export const NAV_ITEMS: NavItem[] = [
             href: "/dashboard/eventos/relatorios/ranking-nao-conformidades",
             icon: BarChartIcon,
           },
+          {
+            label: "Analítico de Eventos",
+            href: "/dashboard/eventos/relatorios/analitico-de-eventos",
+            icon: ClipboardListIcon,
+          },
+          {
+            label: "Gráficos por Classificação",
+            href: "/dashboard/eventos/relatorios/graficos-por-classificacao",
+            icon: BarChartIcon,
+          },
         ],
       },
     ],
