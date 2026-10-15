@@ -212,6 +212,34 @@ async function sincronizarEscopo(
 }
 
 /**
+ * Os grupos de sites de um CLIENTE como entram na auditoria: ids, sem
+ * repeticao, em ordem -- e lista vazia para qualquer outro nivel, que e o que
+ * `sincronizarEscopo` de fato grava.
+ */
+function gruposDoClienteGravados(valores: ValoresDoUsuario): number[] {
+  if (valores.cargo !== CARGO_CLIENTE) return [];
+  return [...new Set(valores.gruposDoCliente.map(Number))].sort((a, b) => a - b);
+}
+
+/**
+ * Os grupos de sites que o usuario enxerga hoje, para o "antes" da auditoria.
+ * `null` quando a leitura falha: a auditoria registra que nao se soube, em vez
+ * de afirmar "nenhum".
+ */
+async function lerGruposDoCliente(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+): Promise<number[] | null> {
+  const { data, error } = await admin
+    .from("grupos_sites_clientes")
+    .select("grupo_site_id")
+    .eq("profile_id", profileId);
+
+  if (error || !data) return null;
+  return data.map((linha) => linha.grupo_site_id).sort((a, b) => a - b);
+}
+
+/**
  * Grava em `auditoria` (migration 0034) a mudanca que o trigger generico nao
  * alcanca -- ver o comentario do cabecalho. Best-effort: falha ao registrar
  * vira `erro()`, nunca recusa nem desfaz a escrita em `profiles` que ja
@@ -397,7 +425,7 @@ export async function salvarUsuario(
       operacao: "INSERT",
       atorId: idDeQuemEdita,
       dadosAntigos: null,
-      dadosNovos: { ...perfil, email: valores.email },
+      dadosNovos: { ...perfil, email: valores.email, grupos_do_cliente: gruposDoClienteGravados(valores) },
     });
 
     const erroEscopo = await sincronizarEscopo(admin, data.user.id, valores);
@@ -444,6 +472,12 @@ export async function salvarUsuario(
       return recusar("Um usuário não pode ser o próprio superior.", valores);
     }
 
+    // O escopo do CLIENTE (quais sites ele enxerga) e controle de acesso: a
+    // troca precisa ficar na trilha, e `grupos_sites_clientes` e gravada com
+    // `service_role`, sem JWT -- um trigger daria `ator_id` nulo (ver a 0070).
+    // Lido ANTES de sincronizar, para o registro ter o "antes" de verdade.
+    const gruposAntes = await lerGruposDoCliente(admin, idAlvo);
+
     const erroEscopo = await sincronizarEscopo(admin, idAlvo, valores);
     if (erroEscopo) {
       erro(idRequisicao, "Administração de usuários: falha ao gravar escopo.", erroEscopo);
@@ -467,8 +501,8 @@ export async function salvarUsuario(
       registroId: idAlvo,
       operacao: "UPDATE",
       atorId: idDeQuemEdita,
-      dadosAntigos: atual,
-      dadosNovos: perfil,
+      dadosAntigos: { ...atual, grupos_do_cliente: gruposAntes },
+      dadosNovos: { ...perfil, grupos_do_cliente: gruposDoClienteGravados(valores) },
     });
 
     if (trocandoSenha) {
