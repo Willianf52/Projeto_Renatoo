@@ -18,7 +18,7 @@ const BASE_CLASSES =
 
 const VARIANT_CLASSES: Record<Variant, string> = {
   primary:
-    "bg-brand-green text-brand-navy shadow-sm hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus-visible:ring-brand-green disabled:hover:shadow-sm",
+    "bg-brand-green text-tinta shadow-sm hover:bg-brand-green-hover hover:shadow-lg hover:shadow-brand-green/30 focus-visible:ring-brand-green disabled:hover:shadow-sm",
   // `bg-white/5` e nao `bg-brand-navy` no hover: o navy so aparecia com o
   // botao em cima de um cartao (superficie); direto no fundo da pagina, que ja
   // e navy, o hover nao mudava nada. O branco translucido e o mesmo realce de

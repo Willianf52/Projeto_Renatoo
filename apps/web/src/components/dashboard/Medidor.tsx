@@ -27,7 +27,7 @@ export function Medidor({ valor, rotulo, legenda }: { valor: number | null; rotu
         <path
           d={`M ${50 - RAIO} 50 A ${RAIO} ${RAIO} 0 0 1 ${50 + RAIO} 50`}
           fill="none"
-          stroke="#334155"
+          stroke="var(--grafico-eixo)"
           strokeWidth={ESPESSURA}
         />
         {valor !== null && (
@@ -39,7 +39,7 @@ export function Medidor({ valor, rotulo, legenda }: { valor: number | null; rotu
             strokeDasharray={`${COMPRIMENTO * preenchido} ${COMPRIMENTO}`}
           />
         )}
-        <text x="50" y="48" textAnchor="middle" fontSize="15" fontWeight="600" fill="#e2e8f0">
+        <text x="50" y="48" textAnchor="middle" fontSize="15" fontWeight="600" fill="var(--grafico-texto)">
           {valor === null ? "" : `${valor}%`}
         </text>
       </svg>

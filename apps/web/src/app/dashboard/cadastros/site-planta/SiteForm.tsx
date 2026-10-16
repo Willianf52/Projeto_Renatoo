@@ -342,7 +342,7 @@ export function SiteForm({
               type="button"
               onClick={buscarCep}
               disabled={buscandoCep}
-              className="shrink-0 rounded-md bg-brand-blue px-4 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              className="shrink-0 rounded-md bg-brand-blue px-4 text-sm font-medium text-branco transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {buscandoCep ? "Buscando..." : "Procurar CEP"}
             </button>
@@ -371,7 +371,7 @@ export function SiteForm({
                 type="button"
                 onClick={capturarGps}
                 disabled={buscandoGps}
-                className="shrink-0 rounded-md bg-brand-blue px-3 text-sm font-medium text-white transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-md bg-brand-blue px-3 text-sm font-medium text-branco transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {buscandoGps ? "..." : "GPS"}
               </button>

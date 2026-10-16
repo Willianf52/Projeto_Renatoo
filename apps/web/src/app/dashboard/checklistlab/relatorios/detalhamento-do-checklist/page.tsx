@@ -84,7 +84,7 @@ async function Cartoes({ searchParams }: { searchParams: SearchParamsPromise }) 
         >
           <h2
             id={`det-${cartao.siteId}-${cartao.modeloId}`}
-            className="bg-brand-blue px-4 py-3 text-sm font-semibold text-white"
+            className="bg-brand-blue px-4 py-3 text-sm font-semibold text-branco"
           >
             {cartao.site}: {cartao.modelo}
           </h2>

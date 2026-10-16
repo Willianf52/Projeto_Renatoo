@@ -6,6 +6,7 @@ import { useState } from "react";
 import { BrandLogo } from "@/components/HeroPanel";
 import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
+import { AlternarTema } from "./AlternarTema";
 import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 
 export function DashboardNavbar({
@@ -53,7 +54,12 @@ export function DashboardNavbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-800 bg-brand-surface px-4 print:hidden sm:px-6">
+    // `data-tema="escuro"` fixo: a faixa do topo e navy nos dois temas -- a
+    // marca da Up no lugar da faixa azul do sistema antigo (ver globals.css).
+    <header
+      data-tema="escuro"
+      className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-800 bg-brand-surface px-4 print:hidden sm:px-6"
+    >
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -86,6 +92,7 @@ export function DashboardNavbar({
       </div>
 
       <div className="relative ml-auto flex items-center gap-3">
+        <AlternarTema />
         <div className="hidden items-center gap-2 sm:flex">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
             <UserIcon className="h-5 w-5" />

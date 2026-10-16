@@ -232,7 +232,7 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
       key={qrCode.id}
       src={miniaturas[indice]}
       alt={`QR-Code ${qrCode.codigo}`}
-      className="h-12 w-12 rounded-sm bg-white p-0.5"
+      className="h-12 w-12 rounded-sm bg-branco p-0.5"
     />,
     ...toListRow(qrCode),
     podeAdministrar ? (

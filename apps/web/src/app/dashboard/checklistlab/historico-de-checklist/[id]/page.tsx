@@ -149,8 +149,8 @@ async function Detalhe({ params, searchParams }: Props) {
           <div className="p-4">
             {/* O app grava o traco em BRANCO (`cores.texto`, sobre o navy do
                 quadro) num PNG de fundo transparente. Sobre `bg-white` a
-                assinatura ficava invisivel; sobre o mesmo navy do app ela
-                aparece como foi colhida. Na impressao o navegador descarta o
+                assinatura ficava invisivel; sobre o navy fixo (`bg-tinta`, que
+                nao muda com o tema claro) ela aparece como foi colhida. Na impressao o navegador descarta o
                 fundo, entao `print:invert` vira o traco para preto no papel. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- a rota
                 devolve bytes do bucket privado sob a sessao de quem pede
@@ -159,7 +159,7 @@ async function Detalhe({ params, searchParams }: Props) {
             <img
               src={`${LISTAGEM}/${linha.id}/assinatura`}
               alt={`Assinatura do checklist ${linha.id}`}
-              className="max-h-48 rounded-md border border-slate-700 bg-brand-navy p-2 print:border-0 print:bg-transparent print:invert"
+              className="max-h-48 rounded-md border border-slate-700 bg-tinta p-2 print:border-0 print:bg-transparent print:invert"
             />
           </div>
         ) : (

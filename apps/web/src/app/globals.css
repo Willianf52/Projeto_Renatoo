@@ -1,15 +1,18 @@
 @import "tailwindcss";
 
-@theme inline {
-  --font-sans: var(--font-inter);
+/* Identidade Up Servicos.
 
-  /* Identidade Up Servicos.
+   Esta paleta tambem vive em `packages/shared/src/tema.ts`, de onde o app de
+   campo (React Native, sem CSS) a le. A duplicacao e imposicao do Tailwind
+   v4 -- token so entra no build como custom property -- e nao licenca para
+   divergir: `src/lib/tema-da-marca.test.ts` compara os dois lados e quebra o
+   CI se um hex mudar aqui sem mudar la.
 
-     Esta paleta tambem vive em `packages/shared/src/tema.ts`, de onde o app de
-     campo (React Native, sem CSS) a le. A duplicacao e imposicao do Tailwind
-     v4 -- token so entra no build como custom property -- e nao licenca para
-     divergir: `src/lib/tema-da-marca.test.ts` compara os dois lados e quebra o
-     CI se um hex mudar aqui sem mudar la. */
+   SEM `inline`, de proposito (16/10/2026): com `inline` o utilitario recebe o
+   hex direto; sem ele, le `var(--color-brand-navy)`, e o tema claro (mais
+   abaixo, "TEMAS") troca o valor da variavel em vez de reescrever cada tela.
+   Os valores daqui sao os do tema escuro, que continua sendo o do app. */
+@theme {
   --color-brand-navy: #03031a; /* fundo primario */
   --color-brand-surface: #0b0b26; /* superficie elevada sobre o fundo */
   --color-brand-green: #00e676; /* acao primaria e estados ativos */
@@ -18,6 +21,16 @@
      manter 5.4:1 de contraste em cima dele. */
   --color-brand-blue: #2b6cb0;
   --color-brand-muted: #a0aec0; /* texto secundario e placeholders */
+
+  /* As duas que NAO mudam com o tema: texto em cima de cor cheia (faixa azul,
+     selo vermelho, botao verde). `text-white` nao serve mais para isso -- no
+     tema claro o "white" vira a cor do texto escuro. */
+  --color-branco: #ffffff;
+  --color-tinta: #03031a;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter);
 
   /* Easing de saida rapida e chegada suave. */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -127,7 +140,16 @@
 body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   background-color: var(--color-brand-navy);
-  color: #ffffff;
+  /* `white` e o texto principal do tema: branco no escuro, navy no claro. */
+  color: var(--color-white);
+}
+
+/* Titulos em Outfit, como o sistema de referencia passou a usar (16/10/2026);
+   o corpo segue em Inter. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-outfit), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* O tema escuro imprime mal: sem isto, "Exportar para PDF" (window.print())
@@ -141,11 +163,109 @@ body {
   }
 }
 
-/* O tema e escuro por padrao. Sem isto, os seletores nativos e os campos de
-   data/hora renderizam com a paleta clara do sistema operacional, destoando
-   do restante da interface. */
-:root {
+/* ============================================================================
+   TEMAS (16/10/2026). O padrao do portal e o CLARO, com as cores da Up -- nao
+   o azul do PerformanceLab, por decisao do dono. O escuro segue no botao
+   sol/lua do topo (`AlternarTema`), e a escolha fica no navegador.
+
+   Como funciona: as telas foram escritas para o escuro (`text-white`,
+   `border-slate-800`, `bg-white/10`...). Em vez de reescrever ~110 arquivos,
+   o tema claro troca o VALOR das variaveis que esses utilitarios leem: o
+   "white" vira o texto escuro, a escala slate se inverte nos tons usados, e
+   os tons claros de alerta (red-300, amber-200...) escurecem para manter o
+   contraste sobre o branco. Tom novo de slate/red/amber numa tela precisa
+   entrar nas duas listas abaixo.
+
+   `data-tema` vale em qualquer elemento, nao so no <html>: o topo do portal
+   fica escuro nos dois temas (a faixa navy da Up) e as telas de login seguem
+   escuras. `data-paleta="original"` devolve a paleta do Tailwind a quem foi
+   desenhado para papel (impressao, etiquetas), que nao pode inverter.
+
+   Os seletores nativos e os campos de data seguem o `color-scheme` de cada
+   tema; sem isso renderizam com a paleta do sistema operacional.
+   ============================================================================ */
+:root,
+[data-tema="escuro"],
+[data-paleta="original"] {
   color-scheme: dark;
+  --color-brand-navy: var(--escuro-fundo);
+  --color-brand-surface: var(--escuro-superficie);
+  --color-brand-green: var(--escuro-verde);
+  --color-brand-green-hover: var(--escuro-verde-hover);
+  --color-brand-muted: var(--escuro-suave);
+  --escuro-fundo: #03031a;
+  --escuro-superficie: #0b0b26;
+  --escuro-verde: #00e676;
+  --escuro-verde-hover: #00c853;
+  --escuro-suave: #a0aec0;
+  --color-white: #fff;
+  --color-slate-200: oklch(92.9% 0.013 255.508);
+  --color-slate-300: oklch(86.9% 0.022 252.894);
+  --color-slate-600: oklch(44.6% 0.043 257.281);
+  --color-slate-700: oklch(37.2% 0.044 257.287);
+  --color-slate-800: oklch(27.9% 0.041 260.031);
+  --color-red-300: oklch(80.8% 0.114 19.571);
+  --color-red-400: oklch(70.4% 0.191 22.216);
+  --color-amber-200: oklch(92.4% 0.12 95.746);
+  --color-amber-300: oklch(87.9% 0.169 91.605);
+  --color-amber-400: oklch(82.8% 0.189 84.429);
+  --color-emerald-300: oklch(84.5% 0.143 164.978);
+  --color-sky-200: oklch(90.1% 0.058 230.902);
+  /* Graficos em SVG (BarChart, GraficoDePizza, Medidor...): fundo, texto,
+     texto suave, linhas de grade e eixo. */
+  --grafico-fundo: #0b0b26;
+  --grafico-texto: #e2e8f0;
+  --grafico-suave: #a0aec0;
+  --grafico-grade: #1e293b;
+  --grafico-eixo: #334155;
+  /* Barras e rotulos de destaque (o azul-claro dos graficos de Inspecoes). */
+  --grafico-destaque: #7dd3fc;
+}
+
+/* Papel e branco: impressao e etiqueta usam a paleta original sobre fundo
+   claro. */
+[data-paleta="original"] {
+  color-scheme: light;
+}
+
+[data-tema="claro"] {
+  color-scheme: light;
+  /* Os mesmos papeis do escuro, nos tons claros da Up. O verde escurece para
+     #00a152: o #00e676 da marca fica com 1.6:1 sobre o branco, ilegivel como
+     texto -- e o navy da `tinta` segue legivel em cima dele no botao. */
+  --color-brand-navy: var(--claro-fundo);
+  --color-brand-surface: var(--claro-superficie);
+  --color-brand-green: var(--claro-verde);
+  --color-brand-green-hover: var(--claro-verde-hover);
+  --color-brand-muted: var(--claro-suave);
+  --claro-fundo: #f3f5f9;
+  --claro-superficie: #ffffff;
+  --claro-verde: #00a152;
+  --claro-verde-hover: #008a45;
+  --claro-suave: #5a6678;
+  /* Texto principal: o navy da marca, um pouco aberto para leitura longa. */
+  --color-white: #172033;
+  /* Escala slate invertida nos tons que as telas usam: borda escura vira
+     borda clara, texto claro vira texto escuro. */
+  --color-slate-200: oklch(27.9% 0.041 260.031);
+  --color-slate-300: oklch(37.2% 0.044 257.287);
+  --color-slate-600: oklch(70.4% 0.04 256.788);
+  --color-slate-700: oklch(86.9% 0.022 252.894);
+  --color-slate-800: oklch(92.9% 0.013 255.508);
+  /* Alertas: o tom claro (feito para fundo escuro) troca pelo escuro. */
+  --color-red-300: oklch(50.5% 0.213 27.518);
+  --color-red-400: oklch(57.7% 0.245 27.325);
+  --color-amber-200: oklch(47.3% 0.137 46.201);
+  --color-amber-300: oklch(55.5% 0.163 48.998);
+  --color-amber-400: oklch(66.6% 0.179 58.318);
+  --color-emerald-300: oklch(50.8% 0.118 165.612);
+  --color-sky-200: oklch(44.3% 0.11 240.79);
+  --grafico-fundo: #ffffff;
+  --grafico-texto: #1e293b;
+  --grafico-suave: #5a6678;
+  --grafico-grade: #e2e8f0;
+  --grafico-eixo: #cbd5e1;
+  --grafico-destaque: #0284c7;
 }
 
 /* Scrollbar fina e visivel sobre o fundo escuro do menu lateral -- a padrao

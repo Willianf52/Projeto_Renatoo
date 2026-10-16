@@ -95,7 +95,7 @@ async function Cartoes({ searchParams }: { searchParams: SearchParamsPromise }) 
           className="overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"
           aria-labelledby={`checklist-${cartao.modeloId}`}
         >
-          <h2 id={`checklist-${cartao.modeloId}`} className="bg-brand-blue px-4 py-3 text-sm font-semibold text-white">
+          <h2 id={`checklist-${cartao.modeloId}`} className="bg-brand-blue px-4 py-3 text-sm font-semibold text-branco">
             Checklist: {cartao.modelo}
           </h2>
           <div className="space-y-3 p-4">

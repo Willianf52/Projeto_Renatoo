@@ -79,7 +79,7 @@ export function ArvoreDoMapa({ colunas, raiz }: { colunas: string[]; raiz: NoDoM
               {no.porDia.map((quantidade, dia) => (
                 <td key={dia} className="p-px">
                   <span
-                    className={`block min-w-9 rounded-sm px-1 py-1 text-center font-medium text-white ${
+                    className={`block min-w-9 rounded-sm px-1 py-1 text-center font-medium text-branco ${
                       quantidade > 0 ? "bg-red-600" : "bg-emerald-600/80"
                     }`}
                   >

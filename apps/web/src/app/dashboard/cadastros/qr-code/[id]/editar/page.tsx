@@ -64,7 +64,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           <img
             src={qrDataUrl}
             alt={`QR-Code ${qrCode.codigo}`}
-            className="h-16 w-16 rounded bg-white p-1"
+            className="h-16 w-16 rounded bg-branco p-1"
           />
         </div>
 

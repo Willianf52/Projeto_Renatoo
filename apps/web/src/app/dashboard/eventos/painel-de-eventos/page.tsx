@@ -150,7 +150,7 @@ function ResumoPorStatus({ painel }: { painel: Painel }) {
             </div>
             <div
               className="flex h-16 w-16 items-center justify-center rounded-full"
-              style={{ background: `conic-gradient(${anelDoStatus(item.status)} ${percentual * 3.6}deg, rgb(30 41 59) 0deg)` }}
+              style={{ background: `conic-gradient(${anelDoStatus(item.status)} ${percentual * 3.6}deg, var(--color-slate-800) 0deg)` }}
               role="img"
               aria-label={`${percentual}% das ocorrências`}
             >
@@ -282,7 +282,7 @@ function StatusComTempo({ status, criadoEm, agora }: { status: string; criadoEm:
   const { dias, horas, minutos } = tempoEmAberto(criadoEm, agora);
   return (
     <div className="w-36 overflow-hidden rounded-md border border-slate-700 text-center">
-      <p className={`px-2 py-1 text-xs font-semibold text-white ${corDoStatus(status)}`}>{rotuloDoStatus(status)}</p>
+      <p className={`px-2 py-1 text-xs font-semibold text-branco ${corDoStatus(status)}`}>{rotuloDoStatus(status)}</p>
       <div className="grid grid-cols-3 py-1">
         {[
           [dias, "Dias"],

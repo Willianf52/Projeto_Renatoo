@@ -16,12 +16,12 @@ import { calcularEscalaY } from "./BarChart";
 
 export type ItemDoPareto = { rotulo: string; quantidade: number; percentual: number };
 
-const COR_FUNDO = "#0b0b26"; // --color-brand-surface
-const COR_TEXTO = "#e2e8f0";
-const COR_SUAVE = "#a0aec0"; // --color-brand-muted
-const COR_GRADE = "#1e293b";
+const COR_FUNDO = "var(--grafico-fundo)"; // --color-brand-surface
+const COR_TEXTO = "var(--grafico-texto)";
+const COR_SUAVE = "var(--grafico-suave)"; // --color-brand-muted
+const COR_GRADE = "var(--grafico-grade)";
 const COR_COLUNA = "#7cb5ec";
-const COR_LINHA = "#e2e8f0";
+const COR_LINHA = "var(--grafico-texto)";
 const FONTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 const LARGURA_COLUNA = 26;
@@ -153,7 +153,7 @@ export function GraficoDePareto({
             x={centroX(i)}
             y={baseY + 12}
             textAnchor="end"
-            fill="#7dd3fc"
+            fill="var(--grafico-destaque)"
             fontSize={10}
             transform={`rotate(-45 ${centroX(i)} ${baseY + 12})`}
           >
@@ -167,7 +167,7 @@ export function GraficoDePareto({
         <circle key={`p-${i}`} cx={centroX(i)} cy={yDoPercentual(item.percentual)} r={3.5} fill={COR_LINHA} />
       ))}
 
-      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="#334155" strokeWidth={1} />
+      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="var(--grafico-eixo)" strokeWidth={1} />
     </svg>
   );
 }

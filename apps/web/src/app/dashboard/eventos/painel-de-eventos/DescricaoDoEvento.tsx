@@ -52,7 +52,7 @@ export function DescricaoDoEvento({ numeroAno, linhas }: { numeroAno: string; li
           <button
             type="button"
             onClick={() => dialogo.current?.close()}
-            className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-green-hover"
+            className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-tinta transition-colors hover:bg-brand-green-hover"
           >
             Fechar
           </button>
