@@ -156,7 +156,7 @@ export async function getTempoMedio(filtros: Filtros): Promise<ItemDoTempoMedio[
   const { linhas, atingiuTeto } = await buscarEmPaginas<OcorrenciaFinalizada>((de, ate) => {
     let consulta = supabase
       .from("ocorrencias")
-      .select("evento_id, criado_em, finalizada_em, eventos ( nome ), sites!inner ( grupo_site_id )")
+      .select("evento_id, criado_em, finalizada_em, eventos!ocorrencias_evento_id_fkey ( nome ), sites!inner ( grupo_site_id )")
       .not("finalizada_em", "is", null)
       .gte("criado_em", inicio)
       .lt("criado_em", fim);

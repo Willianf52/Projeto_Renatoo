@@ -52,7 +52,7 @@ export async function processarFilaDeEmails(
   const [ocorrencias, andamentos] = await Promise.all([
     admin
       .from("ocorrencias")
-      .select("id, numero, ano, criado_em, pergunta_texto, resposta, observacao, eventos ( nome ), sites ( nome )")
+      .select("id, numero, ano, criado_em, pergunta_texto, resposta, observacao, eventos!ocorrencias_evento_id_fkey ( nome ), sites ( nome )")
       .in("id", ocorrenciaIds),
     andamentoIds.length
       ? admin.from("ocorrencia_andamentos").select("id, texto").in("id", andamentoIds)
