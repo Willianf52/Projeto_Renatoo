@@ -16,6 +16,7 @@ import {
   FilterIcon,
   PencilIcon,
   PlusCircleIcon,
+  UploadIcon,
   UserIcon,
 } from "@/components/dashboard/icons";
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
@@ -116,7 +117,7 @@ export default function UsuariosPage({ searchParams }: { searchParams: SearchPar
             <UserIcon className="h-4 w-4" />
             Usuários
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={1} />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
             <AcaoDeNovoUsuario />
           </Suspense>
         </div>
@@ -153,22 +154,37 @@ async function AvisoDeEscopo() {
 }
 
 async function AcaoDeNovoUsuario() {
+  // Mesma regua do Site / Planta: importar antes de criar um a um.
   return (await podeAdministrarUsuarios()) ? (
-    <Acao
-      titulo="Novo usuário"
-      href="/dashboard/cadastros/usuarios/novo"
-      className="bg-amber-500/80"
-    >
-      <PlusCircleIcon className="h-4 w-4" />
-    </Acao>
+    <div className="flex items-center gap-2">
+      <Acao titulo="Importar usuários" href="/dashboard/cadastros/usuarios/importar" className="bg-sky-600/40">
+        <UploadIcon className="h-4 w-4" />
+      </Acao>
+      <Acao
+        titulo="Novo usuário"
+        href="/dashboard/cadastros/usuarios/novo"
+        className="bg-amber-500/80"
+      >
+        <PlusCircleIcon className="h-4 w-4" />
+      </Acao>
+    </div>
   ) : (
-    <AcaoDesabilitada
-      titulo="Novo usuário"
-      motivo="apenas Gestor administra usuários"
-      className="bg-amber-500/40"
-    >
-      <PlusCircleIcon className="h-4 w-4" />
-    </AcaoDesabilitada>
+    <div className="flex items-center gap-2">
+      <AcaoDesabilitada
+        titulo="Importar usuários"
+        motivo="apenas Gestor administra usuários"
+        className="bg-sky-600/40"
+      >
+        <UploadIcon className="h-4 w-4" />
+      </AcaoDesabilitada>
+      <AcaoDesabilitada
+        titulo="Novo usuário"
+        motivo="apenas Gestor administra usuários"
+        className="bg-amber-500/40"
+      >
+        <PlusCircleIcon className="h-4 w-4" />
+      </AcaoDesabilitada>
+    </div>
   );
 }
 
