@@ -10,12 +10,24 @@ import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { senhaVazada } from "@/lib/senha-vazada";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { Json } from "@projeto-renatoo/shared";
-import { NIVEIS_ACESSO, TIPOS_USUARIO, VALORES_VAZIOS } from "./constantes";
-import { erroDosDadosPessoais, paraGravar } from "./dados-pessoais";
+import { NIVEIS_ACESSO, TIPOS_USUARIO } from "./constantes";
+import {
+  CARGO_CLIENTE,
+  EMAIL_VALIDO,
+  criarConta,
+  gravarDadosPessoais,
+  gruposDoClienteGravados,
+  lerGruposDoCliente,
+  perfilDosValores,
+  registrarAuditoria,
+  sincronizarEscopo,
+  traduzirErro,
+  type ClienteAdmin,
+  type ValoresDoUsuario,
+} from "./criar-conta";
+import { erroDosDadosPessoais } from "./dados-pessoais";
 
-/** Default da coluna `profiles.pais` (migration 0058). */
-const PAIS_PADRAO = VALORES_VAZIOS.pais;
+export type { ValoresDoUsuario } from "./criar-conta";
 
 /**
  * Criacao e edicao de usuarios.
@@ -35,8 +47,11 @@ const PAIS_PADRAO = VALORES_VAZIOS.pais;
  * Pelo mesmo motivo, `profiles` fica de fora do trigger generico de
  * `auditoria` (migration 0034): a conexao de `service_role` nao carrega JWT
  * de pessoa nenhuma, e `auth.uid()` dentro do trigger seria sempre `null`.
- * Esta action grava em `auditoria` explicitamente (`registrarAuditoria`
- * abaixo), no mesmo lugar que ja sabe quem esta editando.
+ * Esta action grava em `auditoria` explicitamente (`registrarAuditoria`), no
+ * mesmo lugar que ja sabe quem esta editando.
+ *
+ * A gravacao em si (criar a conta, escopo, dados pessoais, trilha) mora em
+ * `criar-conta.ts`, compartilhada com o Importar usuarios.
  */
 
 const LISTAGEM = "/dashboard/cadastros/usuarios";
@@ -57,37 +72,6 @@ const esquemaDeTexto = z.object({
 
 const CARGOS_VALIDOS = new Set(NIVEIS_ACESSO.map((nivel) => nivel.value));
 const TIPOS_VALIDOS = new Set(TIPOS_USUARIO.map((tipo) => tipo.value));
-
-export type ValoresDoUsuario = {
-  nomeCompleto: string;
-  email: string;
-  senha: string;
-  login: string;
-  funcao: string;
-  /** Migration 0058. `not null` com default no banco -- o formulario abre
-   * preenchido, e string vazia aqui vira o default na gravacao. */
-  pais: string;
-  cargo: string;
-  /** Migration 0019. Coluna sem grant para `authenticated`, como `cargo`:
-   * so passa por aqui, atras da checagem de permissao. */
-  tipo: string;
-  superiorId: string;
-  ativo: boolean;
-  /** Ids de `grupos_sites` que um CLIENTE enxerga (migration 0014). Ignorado
-   * para os demais niveis, que nao tem escopo restrito. */
-  gruposDoCliente: string[];
-  /** Migration 0068: `dados_pessoais_dos_usuarios`, so pela service_role. */
-  cpf: string;
-  re: string;
-  telefone: string;
-  celular: string;
-  /** "Enviar E-mail para o Superior?" (0068). */
-  emailSuperiorOcorrencia: boolean;
-  emailSuperiorChecklist: boolean;
-  emailSuperiorEvento: boolean;
-};
-
-const CARGO_CLIENTE = "CLIENTE";
 
 export type EstadoDoFormulario = {
   erro?: string;
@@ -156,122 +140,6 @@ function validar(valores: ValoresDoUsuario): string | null {
   return erroDosDadosPessoais(valores);
 }
 
-/**
- * Grava `dados_pessoais_dos_usuarios` (migration 0068): upsert com o que veio,
- * ou apaga a linha quando os quatro campos ficaram em branco -- "sem dados
- * pessoais" e ausencia de linha, nao uma linha de nulos.
- */
-async function gravarDadosPessoais(
-  admin: ReturnType<typeof createAdminClient>,
-  profileId: string,
-  valores: ValoresDoUsuario,
-): Promise<string | null> {
-  const dados = paraGravar(valores);
-
-  if (Object.values(dados).every((valor) => valor === null)) {
-    const { error } = await admin.from("dados_pessoais_dos_usuarios").delete().eq("profile_id", profileId);
-    return error?.message ?? null;
-  }
-
-  const { error } = await admin
-    .from("dados_pessoais_dos_usuarios")
-    .upsert({ profile_id: profileId, ...dados, atualizado_em: new Date().toISOString() });
-  return error?.message ?? null;
-}
-
-/**
- * Sincroniza `grupos_sites_clientes` (migration 0014).
- *
- * Nivel diferente de CLIENTE limpa o vinculo em vez de ignora-lo: rebaixar
- * alguem de CLIENTE para OPERADOR e depois promove-lo de volta reativaria em
- * silencio um escopo que ninguem reviu. Some junto com o nivel que lhe dava
- * sentido.
- */
-async function sincronizarEscopo(
-  admin: ReturnType<typeof createAdminClient>,
-  profileId: string,
-  valores: ValoresDoUsuario,
-): Promise<string | null> {
-  const { error: erroLimpeza } = await admin
-    .from("grupos_sites_clientes")
-    .delete()
-    .eq("profile_id", profileId);
-
-  if (erroLimpeza) return erroLimpeza.message;
-
-  if (valores.cargo !== CARGO_CLIENTE || valores.gruposDoCliente.length === 0) return null;
-
-  const { error } = await admin.from("grupos_sites_clientes").insert(
-    valores.gruposDoCliente.map((grupoId) => ({
-      profile_id: profileId,
-      grupo_site_id: Number(grupoId),
-    })),
-  );
-
-  return error?.message ?? null;
-}
-
-/**
- * Os grupos de sites de um CLIENTE como entram na auditoria: ids, sem
- * repeticao, em ordem -- e lista vazia para qualquer outro nivel, que e o que
- * `sincronizarEscopo` de fato grava.
- */
-function gruposDoClienteGravados(valores: ValoresDoUsuario): number[] {
-  if (valores.cargo !== CARGO_CLIENTE) return [];
-  return [...new Set(valores.gruposDoCliente.map(Number))].sort((a, b) => a - b);
-}
-
-/**
- * Os grupos de sites que o usuario enxerga hoje, para o "antes" da auditoria.
- * `null` quando a leitura falha: a auditoria registra que nao se soube, em vez
- * de afirmar "nenhum".
- */
-async function lerGruposDoCliente(
-  admin: ReturnType<typeof createAdminClient>,
-  profileId: string,
-): Promise<number[] | null> {
-  const { data, error } = await admin
-    .from("grupos_sites_clientes")
-    .select("grupo_site_id")
-    .eq("profile_id", profileId);
-
-  if (error || !data) return null;
-  return data.map((linha) => linha.grupo_site_id).sort((a, b) => a - b);
-}
-
-/**
- * Grava em `auditoria` (migration 0034) a mudanca que o trigger generico nao
- * alcanca -- ver o comentario do cabecalho. Best-effort: falha ao registrar
- * vira `erro()`, nunca recusa nem desfaz a escrita em `profiles` que ja
- * aconteceu -- a auditoria e trilha, nao portao.
- */
-async function registrarAuditoria(
-  admin: ReturnType<typeof createAdminClient>,
-  idRequisicao: string,
-  entrada: {
-    registroId: string;
-    operacao: "INSERT" | "UPDATE";
-    atorId: string;
-    dadosAntigos: Record<string, unknown> | null;
-    dadosNovos: Record<string, unknown>;
-  },
-): Promise<void> {
-  const { error } = await admin.from("auditoria").insert({
-    tabela: "profiles",
-    registro_id: entrada.registroId,
-    operacao: entrada.operacao,
-    ator_id: entrada.atorId || null,
-    dados_antigos: entrada.dadosAntigos as Json | null,
-    dados_novos: entrada.dadosNovos as Json,
-  });
-
-  if (error) {
-    erro(idRequisicao, "Administração de usuários: falha ao registrar em `auditoria`.", error);
-  }
-}
-
-const EMAIL_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 const NAO_AUTORIZADO =
   "Você não tem permissão para administrar usuários. Apenas Gestor pode fazer isso.";
 
@@ -298,19 +166,6 @@ function mudancaEmSiMesmo(
   }
 
   return null;
-}
-
-/** Traducoes dos codigos do Postgres/GoTrue que a pessoa consegue provocar. */
-function traduzirErro(mensagem: string | undefined): string {
-  const texto = (mensagem ?? "").toLowerCase();
-
-  if (texto.includes("already been registered") || texto.includes("already exists")) {
-    return "Já existe um usuário com esse e-mail.";
-  }
-  if (texto.includes("password")) {
-    return "A senha não atende aos requisitos.";
-  }
-  return "Não foi possível salvar o usuário. Tente novamente.";
 }
 
 export async function salvarUsuario(
@@ -358,7 +213,7 @@ export async function salvarUsuario(
     );
   }
 
-  let admin: ReturnType<typeof createAdminClient>;
+  let admin: ClienteAdmin;
   try {
     admin = createAdminClient();
   } catch (falha) {
@@ -369,83 +224,14 @@ export async function salvarUsuario(
     );
   }
 
-  const perfil = {
-    nome_completo: valores.nomeCompleto,
-    login: valores.login || null,
-    funcao: valores.funcao || null,
-    // `|| PAIS_PADRAO` e nao `|| null`: a coluna e `not null`. Campo apagado
-    // na tela volta ao default em vez de recusar a gravacao inteira.
-    pais: valores.pais || PAIS_PADRAO,
-    cargo: valores.cargo,
-    tipo: valores.tipo,
-    ativo: valores.ativo,
-    superior_id: valores.superiorId || null,
-    email_superior_ocorrencia: valores.emailSuperiorOcorrencia,
-    email_superior_checklist: valores.emailSuperiorChecklist,
-    email_superior_evento: valores.emailSuperiorEvento,
-  };
-
   if (criando) {
     if (!EMAIL_VALIDO.test(valores.email)) return recusar("Informe um e-mail válido.", valores);
 
-    // `email_confirm: true` porque quem cria e a gestao, nao a propria pessoa:
-    // nao ha e-mail de confirmacao para ela responder. Sem isso a conta nasce
-    // sem poder logar.
-    const { data, error } = await admin.auth.admin.createUser({
-      email: valores.email,
-      password: valores.senha,
-      email_confirm: true,
-    });
-
-    if (error || !data.user) {
-      erro(idRequisicao, "Administração de usuários: falha ao criar conta.", error);
-      return recusar(traduzirErro(error?.message), valores);
-    }
-
-    /**
-     * O trigger `handle_new_user` (migration 0008) ja criou o perfil, sempre
-     * OPERADOR e inativo -- de proposito, e ele nao le nada de
-     * `raw_user_meta_data`. O nivel e a situacao escolhidos aqui sao aplicados
-     * neste segundo passo, que so acontece depois da checagem de permissao
-     * la em cima.
-     */
-    const { error: erroPerfil } = await admin.from("profiles").update(perfil).eq("id", data.user.id);
-
-    if (erroPerfil) {
-      // A conta de autenticacao ja existe neste ponto. Deixa-la com o perfil
-      // pela metade seria pior que nao ter criado: apaga e devolve o erro,
-      // para a pessoa poder tentar de novo com o mesmo e-mail.
-      await admin.auth.admin.deleteUser(data.user.id);
-      erro(idRequisicao, "Administração de usuários: falha ao gravar perfil; conta desfeita.", erroPerfil);
-      return recusar(traduzirErro(erroPerfil.message), valores);
-    }
-
-    await registrarAuditoria(admin, idRequisicao, {
-      registroId: data.user.id,
-      operacao: "INSERT",
-      atorId: idDeQuemEdita,
-      dadosAntigos: null,
-      dadosNovos: { ...perfil, email: valores.email, grupos_do_cliente: gruposDoClienteGravados(valores) },
-    });
-
-    const erroEscopo = await sincronizarEscopo(admin, data.user.id, valores);
-    if (erroEscopo) {
-      // Mesmo raciocinio do bloco acima: um CLIENTE sem o escopo que era para
-      // ter enxerga zero coletas e parece conta quebrada.
-      await admin.auth.admin.deleteUser(data.user.id);
-      erro(idRequisicao, "Administração de usuários: falha ao gravar escopo; conta desfeita.", erroEscopo);
-      return recusar(traduzirErro(erroEscopo), valores);
-    }
-
-    // Os dados pessoais nao entram na `auditoria` acima: la eles virariam
-    // uma segunda copia de CPF, legivel por outro caminho.
-    const erroDados = await gravarDadosPessoais(admin, data.user.id, valores);
-    if (erroDados) {
-      await admin.auth.admin.deleteUser(data.user.id);
-      erro(idRequisicao, "Administração de usuários: falha ao gravar dados pessoais; conta desfeita.", erroDados);
-      return recusar(traduzirErro(erroDados), valores);
-    }
+    const criada = await criarConta(admin, idRequisicao, idDeQuemEdita, valores);
+    if (!criada.ok) return recusar(criada.erro, valores);
   } else {
+    const perfil = perfilDosValores(valores);
+
     // Colunas por extenso, e nao so `cargo, ativo` como antes: viram
     // `dados_antigos` do registro em `auditoria` mais abaixo, e um diff que so
     // sabe cargo/ativo esconderia troca de nome, login, funcao, tipo ou
