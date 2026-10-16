@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { GridIcon } from "@/components/dashboard/icons";
 import { idNaUrl } from "@/lib/id-na-url";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { GrupoPerguntasForm } from "./GrupoPerguntasForm";
 import { buscarGrupo, proximaOrdem } from "./queries";
 import { COR_PADRAO, LISTAGEM } from "./regras";
@@ -15,7 +15,7 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
     if (id === null) notFound();
   }
   // O RLS recusaria a gravacao, mas so depois de preencher o formulario.
-  if (!(await podeAdministrarCadastros())) redirect(LISTAGEM);
+  if (!(await podeEditarChecklist())) redirect(LISTAGEM);
 
   const grupo = id === null ? null : await buscarGrupo(id);
   if (id !== null && !grupo) notFound();

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UploadIcon } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getModelo } from "../../modelos/queries";
 import { modeloDoFiltro } from "../queries";
 import { ImportarPerguntasForm } from "./ImportarPerguntasForm";
@@ -20,7 +20,7 @@ export default function ImportarPerguntasPage({ searchParams }: { searchParams: 
 }
 
 async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  if (!(await podeAdministrarCadastros())) redirect("/dashboard/checklistlab/perguntas");
+  if (!(await podeEditarChecklist())) redirect("/dashboard/checklistlab/perguntas");
 
   const params = await searchParams;
   const id = modeloDoFiltro(Array.isArray(params.modelo) ? params.modelo[0] : params.modelo);

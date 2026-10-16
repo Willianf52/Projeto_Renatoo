@@ -19,7 +19,7 @@ import {
   PlusCircleIcon,
   UploadIcon,
 } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../modelos/queries";
 import { moverPergunta } from "./actions";
 import { getPerguntas, modeloDoFiltro, toTableRow, PAGE_SIZE, type PerguntaFiltros, type PerguntaRow } from "./queries";
@@ -108,7 +108,7 @@ async function AcaoDeNovaPergunta({ searchParams }: { searchParams: SearchParams
   const modelo = modeloDoFiltro(extrairFiltros(await searchParams).modelo);
   const href = `/dashboard/checklistlab/perguntas/novo${modelo === null ? "" : `?modelo=${modelo}`}`;
 
-  return (await podeAdministrarCadastros()) ? (
+  return (await podeEditarChecklist()) ? (
     <div className="flex items-center gap-2">
       {/* Importar e por checklist: as perguntas do arquivo entram no fim dele. */}
       {modelo !== null && (
@@ -176,7 +176,7 @@ async function TabelaDePerguntas({ searchParams }: { searchParams: SearchParamsP
 
   const [resultado, podeAdministrar] = await Promise.all([
     getPerguntas(filtros),
-    podeAdministrarCadastros(),
+    podeEditarChecklist(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));

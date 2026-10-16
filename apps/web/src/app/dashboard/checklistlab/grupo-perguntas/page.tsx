@@ -12,7 +12,7 @@ import {
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterIcon, GridIcon, PencilIcon, PlusCircleIcon } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { listarGrupos } from "./queries";
 import { LISTAGEM, situacaoDe } from "./regras";
 
@@ -75,7 +75,7 @@ export default function GrupoPerguntasPage({ searchParams }: { searchParams: Sea
 }
 
 async function BotaoNovo() {
-  return (await podeAdministrarCadastros()) ? (
+  return (await podeEditarChecklist()) ? (
     <Acao titulo="Novo grupo de perguntas" href={`${LISTAGEM}/novo`} className="bg-amber-500/80">
       <PlusCircleIcon className="h-4 w-4" />
     </Acao>
@@ -106,7 +106,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
 
 async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = filtrosDe(await searchParams);
-  const [grupos, podeEditar] = await Promise.all([listarGrupos(filtros), podeAdministrarCadastros()]);
+  const [grupos, podeEditar] = await Promise.all([listarGrupos(filtros), podeEditarChecklist()]);
 
   const linhas = grupos.map((g) => [
     String(g.ordem),

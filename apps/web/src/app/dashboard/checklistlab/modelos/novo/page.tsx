@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { ModeloForm } from "../ModeloForm";
 import { getOpcoesDeGrupos } from "../queries";
 
@@ -21,7 +21,7 @@ export default function NovoModeloPage() {
 
 async function Conteudo() {
   // A policy da 0061 ja recusaria o insert, mas depois de preencher tudo.
-  if (!(await podeAdministrarCadastros())) {
+  if (!(await podeEditarChecklist())) {
     redirect("/dashboard/checklistlab/modelos");
   }
 

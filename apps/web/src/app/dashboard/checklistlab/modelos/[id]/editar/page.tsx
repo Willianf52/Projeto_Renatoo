@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { idNaUrl } from "@/lib/id-na-url";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { ModeloForm } from "../../ModeloForm";
 import { getModelo, getOpcoesDeGrupos } from "../../queries";
 
@@ -27,7 +27,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   // `/modelos/abc/editar` casa com a rota; sem isto viraria consulta com NaN.
   if (idNumerico === null) notFound();
 
-  if (!(await podeAdministrarCadastros())) {
+  if (!(await podeEditarChecklist())) {
     redirect("/dashboard/checklistlab/modelos");
   }
 

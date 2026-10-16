@@ -12,9 +12,18 @@
 --   - `grupos_perguntas` (nome unico, cor #RRGGBB, ordem, ativo);
 --   - `perguntas_checklist.grupo_pergunta_id`, opcional: as 743 perguntas de
 --     hoje ficam sem grupo ate alguem escolher.
--- Mesma regua de escrita das perguntas (0043/0061): `pode_administrar_cadastros()`.
 -- Leitura de todo usuario ativo, como as perguntas: o app de campo pode
 -- mostrar o grupo um dia sem migration nova.
+--
+-- SO O GESTOR EDITA CHECKLIST. Na referencia, "Criar Checklist" e "Grupo
+-- Perguntas" so aparecem para o GESTOR (conferido pelo dono em 16/10/2026,
+-- com uma conta GESTOR e outra de supervisor). Ate aqui a escrita de modelos,
+-- perguntas e da ligacao modelo-grupo era `pode_administrar_cadastros()`
+-- (0061: GESTOR, SUPERVISOR e OPERACIONAL), regra de quando nao havia tela.
+-- Passa a ser `pode_administrar_usuarios()` (usuario ativo com cargo GESTOR),
+-- a mesma regua dos Eventos (0071/0072), nas quatro tabelas do editor e em
+-- `mover_pergunta`. Ninguem perde tela: o SUPERVISOR e o OPERACIONAL nunca
+-- tiveram editor no portal, so a porta da API.
 --
 -- PERGUNTAS. Dois grants que faltavam para o editor:
 --   - `evento_id` (0063, o tipo de evento que a resposta abre): entrou por
@@ -68,20 +77,64 @@ create policy "Leitura dos grupos de perguntas para usuarios ativos" on public.g
   using ((select autorizacao.usuario_ativo()));
 
 drop policy if exists "Gestao cadastra grupo de perguntas" on public.grupos_perguntas;
-create policy "Gestao cadastra grupo de perguntas" on public.grupos_perguntas
+drop policy if exists "Gestor cadastra grupo de perguntas" on public.grupos_perguntas;
+create policy "Gestor cadastra grupo de perguntas" on public.grupos_perguntas
   for insert to authenticated
-  with check ((select autorizacao.pode_administrar_cadastros()));
+  with check ((select autorizacao.pode_administrar_usuarios()));
 
 drop policy if exists "Gestao edita grupo de perguntas" on public.grupos_perguntas;
-create policy "Gestao edita grupo de perguntas" on public.grupos_perguntas
+drop policy if exists "Gestor edita grupo de perguntas" on public.grupos_perguntas;
+create policy "Gestor edita grupo de perguntas" on public.grupos_perguntas
   for update to authenticated
-  using ((select autorizacao.pode_administrar_cadastros()))
-  with check ((select autorizacao.pode_administrar_cadastros()));
+  using ((select autorizacao.pode_administrar_usuarios()))
+  with check ((select autorizacao.pode_administrar_usuarios()));
 
 drop trigger if exists auditoria_trigger on public.grupos_perguntas;
 create trigger auditoria_trigger
   after insert or update or delete on public.grupos_perguntas
   for each row execute function public.registrar_auditoria();
+
+-- 1b) Modelos, perguntas e a ligacao modelo-grupo: so o GESTOR escreve ---------------
+-- Mesmas operacoes da 0061 (sem DELETE em modelos e perguntas), so a regua muda.
+-- A leitura (todo usuario ativo) fica como estava.
+
+drop policy if exists "Gestao cadastra modelo de checklist" on public.modelos_checklist;
+drop policy if exists "Gestor cadastra modelo de checklist" on public.modelos_checklist;
+create policy "Gestor cadastra modelo de checklist" on public.modelos_checklist
+  for insert to authenticated
+  with check ((select autorizacao.pode_administrar_usuarios()));
+
+drop policy if exists "Gestao edita modelo de checklist" on public.modelos_checklist;
+drop policy if exists "Gestor edita modelo de checklist" on public.modelos_checklist;
+create policy "Gestor edita modelo de checklist" on public.modelos_checklist
+  for update to authenticated
+  using ((select autorizacao.pode_administrar_usuarios()))
+  with check ((select autorizacao.pode_administrar_usuarios()));
+
+drop policy if exists "Gestao cadastra pergunta do checklist" on public.perguntas_checklist;
+drop policy if exists "Gestor cadastra pergunta do checklist" on public.perguntas_checklist;
+create policy "Gestor cadastra pergunta do checklist" on public.perguntas_checklist
+  for insert to authenticated
+  with check ((select autorizacao.pode_administrar_usuarios()));
+
+drop policy if exists "Gestao edita pergunta do checklist" on public.perguntas_checklist;
+drop policy if exists "Gestor edita pergunta do checklist" on public.perguntas_checklist;
+create policy "Gestor edita pergunta do checklist" on public.perguntas_checklist
+  for update to authenticated
+  using ((select autorizacao.pode_administrar_usuarios()))
+  with check ((select autorizacao.pode_administrar_usuarios()));
+
+drop policy if exists "Gestao liga modelo a grupo" on public.modelos_checklist_grupos;
+drop policy if exists "Gestor liga modelo a grupo" on public.modelos_checklist_grupos;
+create policy "Gestor liga modelo a grupo" on public.modelos_checklist_grupos
+  for insert to authenticated
+  with check ((select autorizacao.pode_administrar_usuarios()));
+
+drop policy if exists "Gestao desliga modelo de grupo" on public.modelos_checklist_grupos;
+drop policy if exists "Gestor desliga modelo de grupo" on public.modelos_checklist_grupos;
+create policy "Gestor desliga modelo de grupo" on public.modelos_checklist_grupos
+  for delete to authenticated
+  using ((select autorizacao.pode_administrar_usuarios()));
 
 -- 2) Pergunta: grupo e os grants do editor -----------------------------------------
 
@@ -107,7 +160,7 @@ declare
 begin
   -- Primeiro a permissao: sem ela o `for update` abaixo nem acha a linha (a
   -- policy de UPDATE tambem filtra), e a recusa sairia como "inexistente".
-  if not autorizacao.pode_administrar_cadastros() then
+  if not autorizacao.pode_administrar_usuarios() then
     raise exception 'Sem permissão para reordenar.' using errcode = '42501';
   end if;
 

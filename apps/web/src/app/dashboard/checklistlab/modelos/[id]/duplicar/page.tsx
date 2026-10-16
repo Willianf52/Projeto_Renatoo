@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { CopyIcon } from "@/components/dashboard/icons";
 import { idNaUrl } from "@/lib/id-na-url";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getModelo } from "../../queries";
 import { DuplicarModeloForm } from "./DuplicarModeloForm";
 
@@ -19,7 +19,7 @@ export default function DuplicarModeloPage({ params }: { params: Promise<{ id: s
 async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const id = idNaUrl((await params).id);
   if (id === null) notFound();
-  if (!(await podeAdministrarCadastros())) redirect("/dashboard/checklistlab/modelos");
+  if (!(await podeEditarChecklist())) redirect("/dashboard/checklistlab/modelos");
 
   const modelo = await getModelo(id);
   if (!modelo) notFound();

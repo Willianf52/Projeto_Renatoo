@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { lerCsv } from "@/lib/csv";
 import { texto } from "@/lib/form-data";
 import { erro as registrarErro, gerarIdDeRequisicao } from "@/lib/log";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
 import { planejarImportacao } from "../importacao";
@@ -31,7 +31,7 @@ const MENSAGENS_DE_ERRO = {
 };
 
 export async function importarPerguntas(_estado: EstadoDaImportacao, formData: FormData): Promise<EstadoDaImportacao> {
-  if (!(await podeAdministrarCadastros())) return { erro: MENSAGENS_DE_ERRO.semPermissao };
+  if (!(await podeEditarChecklist())) return { erro: MENSAGENS_DE_ERRO.semPermissao };
 
   const modeloId = Number(texto(formData, "modelo"));
   if (!Number.isSafeInteger(modeloId) || modeloId <= 0) return { erro: "Checklist inválido." };

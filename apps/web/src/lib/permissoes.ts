@@ -59,6 +59,16 @@ export async function podeConfigurarEventos(): Promise<boolean> {
 }
 
 /**
+ * Editor de checklist (Criar Checklist, perguntas, Grupo Perguntas -- migration
+ * 0073): so o GESTOR, como na referencia, onde esses menus nao aparecem para o
+ * supervisor. As policies da 0073 chamam `pode_administrar_usuarios()`. Nome
+ * proprio pelo mesmo motivo de `podeConfigurarEventos`.
+ */
+export async function podeEditarChecklist(): Promise<boolean> {
+  return podeAdministrarUsuarios();
+}
+
+/**
  * Chama `pode_ver_toda_operacao()`: GESTOR e SUPERVISOR. E a regua de quem
  * analisa e finaliza ocorrencia (migration 0064) -- a tela so decide entre
  * mostrar o formulario e mostrar o botao desabilitado; o RLS e o portao.

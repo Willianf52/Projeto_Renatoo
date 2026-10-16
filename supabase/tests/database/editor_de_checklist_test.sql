@@ -8,11 +8,15 @@
 --   5) INSPETOR nao reordena (42501).
 --   6) duplicar_modelo copia as perguntas, sem os grupos de sites.
 --   7) O cadastro do grupo fica na auditoria.
+--   8) So o GESTOR edita checklist: SUPERVISOR e OPERACIONAL, que antes da
+--      0073 escreviam modelos e perguntas pela API (`pode_administrar_cadastros`),
+--      agora recebem 42501 em grupo, modelo, pergunta, ligacao modelo-grupo,
+--      reordenar e duplicar.
 -- ============================================================================
 
 begin;
 
-select plan(11);
+select plan(17);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -20,10 +24,14 @@ grant select, insert on ids_teste to public;
 insert into auth.users (id, instance_id, aud, role, email)
 values
   ('f0000000-0000-0000-0000-000000000731', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ed.gestor@teste.local'),
-  ('f0000000-0000-0000-0000-000000000732', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ed.inspetor@teste.local');
+  ('f0000000-0000-0000-0000-000000000732', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ed.inspetor@teste.local'),
+  ('f0000000-0000-0000-0000-000000000733', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ed.supervisor@teste.local'),
+  ('f0000000-0000-0000-0000-000000000734', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ed.operacional@teste.local');
 
 update public.profiles set ativo = true, cargo = 'GESTOR' where id = 'f0000000-0000-0000-0000-000000000731';
 update public.profiles set ativo = true, cargo = 'INSPETOR' where id = 'f0000000-0000-0000-0000-000000000732';
+update public.profiles set ativo = true, cargo = 'SUPERVISOR' where id = 'f0000000-0000-0000-0000-000000000733';
+update public.profiles set ativo = true, cargo = 'OPERACIONAL' where id = 'f0000000-0000-0000-0000-000000000734';
 
 insert into public.grupos_sites (nome) values ('Grupo Editor 0073');
 insert into public.modelos_checklist (nome) values ('Modelo Editor 0073');
@@ -109,6 +117,50 @@ select throws_ok(
 select throws_ok(
   $$ select public.mover_pergunta((select valor from ids_teste where chave = 'p2'), true) $$,
   '42501', null, 'INSPETOR nao reordena perguntas'
+);
+
+reset role;
+
+-- SUPERVISOR: so o GESTOR edita checklist (0073) ---------------------------------
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000733", "role": "authenticated"}';
+
+select throws_ok(
+  $$ insert into public.grupos_perguntas (nome) values ('Supervisor 0073') $$,
+  '42501', null, 'SUPERVISOR nao cadastra grupo de perguntas'
+);
+
+select throws_ok(
+  $$ insert into public.modelos_checklist (nome) values ('Modelo Supervisor 0073') $$,
+  '42501', null, 'SUPERVISOR nao cadastra modelo de checklist'
+);
+
+select throws_ok(
+  $$ select public.mover_pergunta((select valor from ids_teste where chave = 'p2'), true) $$,
+  '42501', null, 'SUPERVISOR nao reordena perguntas'
+);
+
+reset role;
+
+-- OPERACIONAL ------------------------------------------------------------------
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000734", "role": "authenticated"}';
+
+select throws_ok(
+  $$ insert into public.perguntas_checklist (modelo_id, ordem, texto, tipo_resposta)
+     values ((select valor from ids_teste where chave = 'modelo'), 50, 'Pergunta operacional 0073', 'CNA') $$,
+  '42501', null, 'OPERACIONAL nao cadastra pergunta'
+);
+
+select throws_ok(
+  $$ insert into public.modelos_checklist_grupos (modelo_id, grupo_site_id)
+     values ((select valor from ids_teste where chave = 'copia'), (select valor from ids_teste where chave = 'grupo_site')) $$,
+  '42501', null, 'OPERACIONAL nao liga modelo a grupo de sites'
+);
+
+select throws_ok(
+  $$ select public.duplicar_modelo((select valor from ids_teste where chave = 'modelo'), 'Copia Operacional 0073') $$,
+  '42501', null, 'OPERACIONAL nao duplica modelo'
 );
 
 reset role;

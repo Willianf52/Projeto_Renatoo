@@ -18,7 +18,7 @@ import {
   PencilIcon,
   PlusCircleIcon,
 } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getModelos, toTableRow, PAGE_SIZE, type ModeloFiltros } from "./queries";
 
 const TABLE_COLUMNS = ["Modelo", "Grupos de Sites", "Perguntas", "Status", "Ações"];
@@ -89,7 +89,7 @@ export default function ModelosDeChecklistPage({ searchParams }: { searchParams:
 }
 
 async function AcaoDeNovoModelo() {
-  return (await podeAdministrarCadastros()) ? (
+  return (await podeEditarChecklist()) ? (
     <Acao titulo="Novo modelo" href={`${LISTAGEM}/novo`} className="bg-amber-500/80">
       <PlusCircleIcon className="h-4 w-4" />
     </Acao>
@@ -122,7 +122,7 @@ async function TabelaDeModelos({ searchParams }: { searchParams: SearchParamsPro
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const [resultado, podeAdministrar] = await Promise.all([getModelos(filtros), podeAdministrarCadastros()]);
+  const [resultado, podeAdministrar] = await Promise.all([getModelos(filtros), podeEditarChecklist()]);
 
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
 

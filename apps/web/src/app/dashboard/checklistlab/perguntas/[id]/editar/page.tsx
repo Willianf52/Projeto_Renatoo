@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../../../modelos/queries";
 import { PerguntaForm } from "../../PerguntaForm";
 import { getOpcoesDaPergunta, getPergunta } from "../../queries";
@@ -30,7 +30,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   // consulta com NaN e um erro do Postgres em vez de um 404.
   if (idNumerico === null) notFound();
 
-  if (!(await podeAdministrarCadastros())) {
+  if (!(await podeEditarChecklist())) {
     redirect("/dashboard/checklistlab/perguntas");
   }
 

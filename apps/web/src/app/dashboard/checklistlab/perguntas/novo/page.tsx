@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { ClipboardListIcon } from "@/components/dashboard/icons";
-import { podeAdministrarCadastros } from "@/lib/permissoes";
+import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../../modelos/queries";
 import { PerguntaForm } from "../PerguntaForm";
 import { getOpcoesDaPergunta, getProximaOrdem, modeloDoFiltro } from "../queries";
@@ -26,7 +26,7 @@ export default function NovaPerguntaPage({ searchParams }: { searchParams: Promi
 async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> }) {
   // O RLS (policy da 0043) ja recusaria o insert, mas seria depois de
   // preencher o formulario inteiro. Quem nao administra nem chega a ver a tela.
-  if (!(await podeAdministrarCadastros())) {
+  if (!(await podeEditarChecklist())) {
     redirect("/dashboard/checklistlab/perguntas");
   }
 
