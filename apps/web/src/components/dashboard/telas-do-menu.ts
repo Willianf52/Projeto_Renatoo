@@ -232,13 +232,29 @@ export const NAV_ITEMS: NavItem[] = [
     label: "ChecklistLab",
     icon: ClipboardListIcon,
     children: [
-      // Sem cadastro de modelos e perguntas no painel (decisao do dono em
-      // 01/10/2026): as tabelas continuam (0042/0061) e o app segue lendo
-      // delas, mas o conteudo entra por importacao, nao por tela.
       {
         label: "Histórico de Checklist",
         href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
+      },
+      // O editor voltou em 16/10/2026 (issue #209, revendo a decisao de 01/10
+      // que tirou as telas na #155), no lugar e com os nomes da referencia.
+      // As perguntas de cada checklist abrem pela linha dele em Criar Checklist.
+      {
+        label: "Administração",
+        icon: SlidersIcon,
+        items: [
+          {
+            label: "Criar Checklist",
+            href: "/dashboard/checklistlab/modelos",
+            icon: ClipboardListIcon,
+          },
+          {
+            label: "Grupo Perguntas",
+            href: "/dashboard/checklistlab/grupo-perguntas",
+            icon: GridIcon,
+          },
+        ],
       },
     ],
   },
