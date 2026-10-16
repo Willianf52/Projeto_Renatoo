@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getPerfilAtual, getUsuarioAtual } from "@/lib/perfil-atual";
+import { InformarCargoDoMenu } from "./CargoDoMenu";
 import { Skeleton } from "./Skeleton";
 
 /**
@@ -59,12 +60,16 @@ export function IdentidadeNavbarSkeleton() {
 }
 
 export async function SaudacaoSidebar() {
-  const { nome } = await identidade();
+  const { nome, cargo } = await identidade();
 
   return (
-    <span className="block truncate font-medium text-slate-200" title={nome}>
-      {nome}
-    </span>
+    <>
+      <span className="block truncate font-medium text-slate-200" title={nome}>
+        {nome}
+      </span>
+      {/* Entrega o cargo ao menu, que esconde os itens de GESTOR dos demais. */}
+      <InformarCargoDoMenu ehGestor={cargo === "GESTOR"} />
+    </>
   );
 }
 

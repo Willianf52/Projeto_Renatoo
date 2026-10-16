@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { PinIcon, SlidersIcon, XIcon } from "@/components/dashboard/icons";
-import { TELAS_DO_MENU } from "@/components/dashboard/telas-do-menu";
+import { telasDoMenu, type TelaDoMenu } from "@/components/dashboard/telas-do-menu";
 import { alternarFixado, type AtalhoFixado } from "@/lib/atalhos";
 import { salvarAtalhosFixados } from "./actions";
 
@@ -22,9 +22,12 @@ function normalizar(valor: string): string {
 export function PersonalizarAtalhos({
   grade,
   fixados: fixadosSalvos,
+  ehGestor,
 }: {
   grade: string[];
   fixados: AtalhoFixado[];
+  /** So o booleano cruza para o navegador: as telas tem icone (funcao). */
+  ehGestor: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [fixados, setFixados] = useState<AtalhoFixado[]>(fixadosSalvos);
@@ -35,13 +38,13 @@ export function PersonalizarAtalhos({
   const naGrade = useMemo(() => new Set(grade), [grade]);
   const secoes = useMemo(() => {
     const termo = normalizar(busca);
-    const porSecao = new Map<string, typeof TELAS_DO_MENU>();
-    for (const tela of TELAS_DO_MENU) {
+    const porSecao = new Map<string, TelaDoMenu[]>();
+    for (const tela of telasDoMenu(ehGestor)) {
       if (termo && !normalizar(tela.label).includes(termo)) continue;
       porSecao.set(tela.secao, [...(porSecao.get(tela.secao) ?? []), tela]);
     }
     return [...porSecao];
-  }, [busca]);
+  }, [busca, ehGestor]);
 
   const cheio = fixados.length >= grade.length;
 

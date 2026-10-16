@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { DefinirCargoDoMenu } from "./CargoDoMenu";
 import { ChevronDownIcon, XIcon } from "./icons";
-import { isGroup, naRota, NAV_ITEMS, type NavChild } from "./telas-do-menu";
+import { isGroup, itensDoMenu, naRota, NAV_ITEMS, type NavChild, type NavItem } from "./telas-do-menu";
 
 
 const childContainsPath = (child: NavChild, pathname: string | null): boolean =>
@@ -13,6 +14,8 @@ const childContainsPath = (child: NavChild, pathname: string | null): boolean =>
     : naRota(pathname, child.href);
 
 type PropsDaNavegacao = {
+  /** O menu de quem esta logado (`itensDoMenu`): sem os itens de GESTOR para os demais. */
+  itens: NavItem[];
   pathname: string | null;
   expanded: string | null;
   setExpanded: React.Dispatch<React.SetStateAction<string | null>>;
@@ -28,6 +31,7 @@ type PropsDaNavegacao = {
  * existe em duas versoes que possam divergir.
  */
 function NavegacaoDaSidebar({
+  itens,
   pathname,
   expanded,
   setExpanded,
@@ -37,7 +41,7 @@ function NavegacaoDaSidebar({
 }: PropsDaNavegacao) {
   return (
     <nav className="sidebar-scrollbar flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-      {NAV_ITEMS.map((item, index) => {
+      {itens.map((item, index) => {
         const isExpanded = expanded === item.label;
         const hasChildren = item.children.length > 0;
         const containsActive = item.children.some((child) =>
@@ -263,10 +267,14 @@ export function DashboardSidebar({
   // so porque a rota atual mora dentro daquela secao. So abre com o clique.
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  // Comeca sem os itens de GESTOR: o cargo chega pela saudacao (`CargoDoMenu.tsx`).
+  const [ehGestor, setEhGestor] = useState(false);
+  const itens = useMemo(() => itensDoMenu(NAV_ITEMS, ehGestor), [ehGestor]);
 
   // O estado de abertura vive aqui, acima do <Suspense>: quando o boundary
   // resolve, o menu aberto continua aberto.
   const propsDaNavegacao = {
+    itens,
     expanded,
     setExpanded,
     expandedGroup,
@@ -307,10 +315,12 @@ export function DashboardSidebar({
           </button>
         </div>
 
-        <p className="px-5 pb-4 text-sm text-brand-muted">
-          Olá,{" "}
-          {saudacao}
-        </p>
+        <DefinirCargoDoMenu.Provider value={setEhGestor}>
+          <p className="px-5 pb-4 text-sm text-brand-muted">
+            Olá,{" "}
+            {saudacao}
+          </p>
+        </DefinirCargoDoMenu.Provider>
 
         <Suspense fallback={<NavegacaoDaSidebar pathname={null} {...propsDaNavegacao} />}>
           <NavegacaoComRota {...propsDaNavegacao} />
