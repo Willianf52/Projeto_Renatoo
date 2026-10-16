@@ -249,8 +249,8 @@ h3 {
 [data-tema="claro"] {
   color-scheme: light;
   /* Os mesmos papeis do escuro, nos tons claros da Up. O verde escurece para
-     #007a3d (5.5:1 sobre o branco): o #00e676 da marca fica com 1.6:1, e um
-     intermediario (#00a152, 3.4:1) reprovou no teste de acessibilidade como
+     #006b35 (7:1 sobre o branco, 5.2:1 sobre o realce verde do menu ativo): o #00e676 da marca fica com 1.6:1, e um
+     intermediario (#00a152, 3.4:1; depois #007a3d, 4.3:1 sobre o realce) reprovou no teste de acessibilidade como
      texto do menu ativo. Em cima dele o texto vira branco (`sobre-verde`). O
      cinza suave tambem escurece com folga: o teste roda durante a animacao de
      entrada, quando a opacidade ainda nao chegou a 1. */
@@ -261,8 +261,8 @@ h3 {
   --color-brand-muted: var(--claro-suave);
   --claro-fundo: #f3f5f9;
   --claro-superficie: #ffffff;
-  --claro-verde: #007a3d;
-  --claro-verde-hover: #00662f;
+  --claro-verde: #006b35;
+  --claro-verde-hover: #00592c;
   --claro-suave: #4a5568;
   --color-sobre-verde: #ffffff;
   /* Texto principal: o navy da marca, um pouco aberto para leitura longa. */
