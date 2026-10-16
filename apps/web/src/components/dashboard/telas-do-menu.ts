@@ -254,6 +254,30 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
       },
+      {
+        label: "Relatórios",
+        icon: PrinterIcon,
+        items: [
+          {
+            label: "Analítico por Checklist",
+            href: "/dashboard/checklistlab/relatorios/analitico-por-checklist",
+            icon: ClipboardListIcon,
+            somenteGestor: true,
+          },
+          {
+            label: "Indicadores por Site",
+            href: "/dashboard/checklistlab/relatorios/indicadores-por-site",
+            icon: PieChartIcon,
+            somenteGestor: true,
+          },
+          {
+            label: "Detalhamento do Checklist",
+            href: "/dashboard/checklistlab/relatorios/detalhamento-do-checklist",
+            icon: BarChartIcon,
+            somenteGestor: true,
+          },
+        ],
+      },
       // O editor voltou em 16/10/2026 (issue #209, revendo a decisao de 01/10
       // que tirou as telas na #155), no lugar e com os nomes da referencia.
       // As perguntas de cada checklist abrem pela linha dele em Criar Checklist.
