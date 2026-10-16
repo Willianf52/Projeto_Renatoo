@@ -357,23 +357,43 @@ export type Database = {
       eventos: {
         Row: {
           ativo: boolean
+          bloqueio_repeticao_minutos: number | null
           criado_em: string
+          descricao: string | null
           id: number
           nome: string
+          superior_id: number | null
+          tempo_atendimento_minutos: number | null
         }
         Insert: {
           ativo?: boolean
+          bloqueio_repeticao_minutos?: number | null
           criado_em?: string
+          descricao?: string | null
           id?: never
           nome: string
+          superior_id?: number | null
+          tempo_atendimento_minutos?: number | null
         }
         Update: {
           ativo?: boolean
+          bloqueio_repeticao_minutos?: number | null
           criado_em?: string
+          descricao?: string | null
           id?: never
           nome?: string
+          superior_id?: number | null
+          tempo_atendimento_minutos?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "eventos_superior_id_fkey"
+            columns: ["superior_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       eventos_de_uso: {
         Row: {
@@ -406,6 +426,59 @@ export type Database = {
             columns: ["perfil_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos_notificacoes: {
+        Row: {
+          emails: string[]
+          evento_id: number
+        }
+        Insert: {
+          emails?: string[]
+          evento_id: number
+        }
+        Update: {
+          emails?: string[]
+          evento_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_notificacoes_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: true
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventos_sites: {
+        Row: {
+          evento_id: number
+          site_id: number
+        }
+        Insert: {
+          evento_id: number
+          site_id: number
+        }
+        Update: {
+          evento_id?: number
+          site_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eventos_sites_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -880,7 +953,7 @@ export type Database = {
       }
       ocorrencia_arquivos: {
         Row: {
-          andamento_id: number
+          andamento_id: number | null
           criado_em: string
           id: number
           nome_original: string
@@ -888,7 +961,7 @@ export type Database = {
           storage_path: string
         }
         Insert: {
-          andamento_id: number
+          andamento_id?: number | null
           criado_em?: string
           id?: never
           nome_original: string
@@ -896,7 +969,7 @@ export type Database = {
           storage_path: string
         }
         Update: {
-          andamento_id?: number
+          andamento_id?: number | null
           criado_em?: string
           id?: never
           nome_original?: string
@@ -984,53 +1057,62 @@ export type Database = {
         Row: {
           aberta_por: string | null
           ano: number
-          checklist_id: number
+          checklist_id: number | null
+          classificacao_id: number | null
           criado_em: string
           evento_id: number
           finalizada_em: string | null
           id: number
           numero: number
           observacao: string | null
-          pergunta_id: number
-          pergunta_texto: string
-          resposta: string
+          origem: string
+          pergunta_id: number | null
+          pergunta_texto: string | null
+          resposta: string | null
           site_id: number
           status: string
-          visita_id: number
+          subevento_id: number | null
+          visita_id: number | null
         }
         Insert: {
           aberta_por?: string | null
           ano: number
-          checklist_id: number
+          checklist_id?: number | null
+          classificacao_id?: number | null
           criado_em?: string
           evento_id: number
           finalizada_em?: string | null
           id?: never
           numero: number
           observacao?: string | null
-          pergunta_id: number
-          pergunta_texto: string
-          resposta: string
+          origem?: string
+          pergunta_id?: number | null
+          pergunta_texto?: string | null
+          resposta?: string | null
           site_id: number
           status?: string
-          visita_id: number
+          subevento_id?: number | null
+          visita_id?: number | null
         }
         Update: {
           aberta_por?: string | null
           ano?: number
-          checklist_id?: number
+          checklist_id?: number | null
+          classificacao_id?: number | null
           criado_em?: string
           evento_id?: number
           finalizada_em?: string | null
           id?: never
           numero?: number
           observacao?: string | null
-          pergunta_id?: number
-          pergunta_texto?: string
-          resposta?: string
+          origem?: string
+          pergunta_id?: number | null
+          pergunta_texto?: string | null
+          resposta?: string | null
           site_id?: number
           status?: string
-          visita_id?: number
+          subevento_id?: number | null
+          visita_id?: number | null
         }
         Relationships: [
           {
@@ -1045,6 +1127,13 @@ export type Database = {
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_classificacao_id_fkey"
+            columns: ["classificacao_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_de_classificacao"
             referencedColumns: ["id"]
           },
           {
@@ -1066,6 +1155,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencias_subevento_id_fkey"
+            columns: ["subevento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
             referencedColumns: ["id"]
           },
           {
@@ -1585,6 +1681,16 @@ export type Database = {
         }
         Returns: number
       }
+      registrar_ocorrencia_manual: {
+        Args: {
+          p_classificacao_id?: number
+          p_evento_id: number
+          p_observacao?: string
+          p_site_id: number
+          p_subevento_id?: number
+        }
+        Returns: number
+      }
       relatorio_horas_por_usuario: {
         Args: { p_filtros?: Json; p_fim: string; p_inicio: string }
         Returns: {
@@ -1695,6 +1801,20 @@ export type Database = {
         }[]
       }
       salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }
+      salvar_evento: {
+        Args: {
+          p_ativo: boolean
+          p_bloqueio_repeticao_minutos: number
+          p_descricao: string
+          p_emails?: string[]
+          p_id: number
+          p_nome: string
+          p_sites?: number[]
+          p_superior_id: number
+          p_tempo_atendimento_minutos: number
+        }
+        Returns: number
+      }
       sincronizar_grupos_do_modelo: {
         Args: { p_grupos: number[]; p_modelo_id: number }
         Returns: undefined

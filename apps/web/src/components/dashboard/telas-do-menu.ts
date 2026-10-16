@@ -156,6 +156,16 @@ export const NAV_ITEMS: NavItem[] = [
         icon: ClipboardListIcon,
       },
       {
+        label: "Cadastro de Eventos",
+        href: "/dashboard/eventos/cadastro-de-eventos",
+        icon: MegaphoneIcon,
+      },
+      {
+        label: "Registrar Evento",
+        href: "/dashboard/eventos/registrar-evento",
+        icon: PlusCircleIcon,
+      },
+      {
         label: "Tipos de Análise",
         href: "/dashboard/eventos/tipos-de-analise",
         icon: SlidersIcon,
