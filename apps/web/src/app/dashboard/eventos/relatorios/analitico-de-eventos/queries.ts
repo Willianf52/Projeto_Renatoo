@@ -205,7 +205,7 @@ export async function getAnalitico(filtros: Filtros, agora: Date): Promise<Linha
   const { linhas, atingiuTeto } = await buscarEmPaginas<OcorrenciaDoBanco>((de, ate) => {
     let q = supabase
       .from("ocorrencias")
-      .select(`id, criado_em, site_id, sites!inner ( nome, grupos_sites ( nome ) ), eventos ( nome ), ${autor}`)
+      .select(`id, criado_em, site_id, sites!inner ( nome, grupos_sites ( nome ) ), eventos!ocorrencias_evento_id_fkey ( nome ), ${autor}`)
       .gte("criado_em", inicio)
       .lt("criado_em", fim);
     if (filtros.sites) q = q.eq("site_id", Number(filtros.sites));

@@ -158,7 +158,7 @@ export type LinhaDoPainel = {
 
 const SELECT_DA_LISTA = `id, numero, ano, criado_em, status, checklist_id, pergunta_texto, resposta, observacao,
   sites!inner ( nome, grupo_site_id, grupos_sites ( nome ) ),
-  eventos ( nome ),
+  eventos!ocorrencias_evento_id_fkey ( nome ),
   autor:profiles!ocorrencias_aberta_por_fkey ( nome_completo )`;
 
 export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
