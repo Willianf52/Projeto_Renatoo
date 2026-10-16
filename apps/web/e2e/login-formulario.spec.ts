@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 /**
  * Cobre a validação e o feedback de erro do formulário de login, sem
  * depender de nenhuma credencial real -- só o caminho de falha (campo
- * vazio, e-mail malformado, credenciais erradas) precisa ser exercitado
+ * vazio, login inexistente, credenciais erradas) precisa ser exercitado
  * aqui. `signInWithPassword` com credenciais erradas ainda é uma chamada de
  * rede real contra o projeto Supabase de `.env.local`: é o comportamento de
  * "não encontrou o usuário" que se quer testar, não um mock dele.
@@ -18,27 +18,30 @@ test.describe("Formulário de login", () => {
     await expect(page.getByText("Campo obrigatório")).toHaveCount(2);
   });
 
-  test("e-mail malformado mostra 'E-mail inválido'", async ({ page }) => {
+  // Sem formato de e-mail e o login do sistema de referencia: passa pela
+  // rota `/api/entrar-com-login`, e o login que nao existe recebe a mesma
+  // resposta da senha errada.
+  test("login inexistente mostra 'Login ou senha incorretos.'", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail", { exact: true }).fill("nao-e-um-email");
+    await page.getByLabel("Login", { exact: true }).fill(`nao-existe.${Date.now()}`);
     await page.getByRole("textbox", { name: "Senha" }).fill("qualquer-coisa");
     await page.getByRole("button", { name: "Entrar" }).click();
 
-    await expect(page.getByText("E-mail inválido")).toBeVisible();
+    await expect(page.locator('p[role="alert"]')).toContainText("Login ou senha incorretos.");
   });
 
-  test("credenciais inexistentes mostram 'E-mail ou senha incorretos.'", async ({ page }) => {
+  test("credenciais inexistentes mostram 'Login ou senha incorretos.'", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByLabel("E-mail", { exact: true }).fill(`inexistente-${Date.now()}@teste.local`);
+    await page.getByLabel("Login", { exact: true }).fill(`inexistente-${Date.now()}@teste.local`);
     await page.getByRole("textbox", { name: "Senha" }).fill("senha-qualquer-123");
     await page.getByRole("button", { name: "Entrar" }).click();
 
     // p[role="alert"] (nao getByRole("alert") direto): o route announcer do
     // Next (#__next-route-announcer__) tambem tem role="alert" no DOM, e
     // resolveria os dois elementos em modo estrito.
-    await expect(page.locator('p[role="alert"]')).toContainText("E-mail ou senha incorretos.");
+    await expect(page.locator('p[role="alert"]')).toContainText("Login ou senha incorretos.");
   });
 
   /**
@@ -50,7 +53,7 @@ test.describe("Formulário de login", () => {
   test("5 tentativas falhas bloqueiam o formulário por 30s", async ({ page }) => {
     await page.goto("/");
 
-    const email = page.getByLabel("E-mail", { exact: true });
+    const email = page.getByLabel("Login", { exact: true });
     const senha = page.getByRole("textbox", { name: "Senha" });
     const entrar = page.getByRole("button", { name: "Entrar" });
 

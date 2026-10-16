@@ -14,6 +14,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
 import { LIMITE_EMAIL, movimento } from "@projeto-renatoo/shared";
 
+import { entrarComLogin, PARECE_EMAIL, type DesfechoDaEntrada } from "../auth/entrar-com-login";
+import { env } from "../lib/env";
+
 import {
   LIMITE_ZERADO,
   registrarFalha,
@@ -32,6 +35,12 @@ import { IconeDeCadeado } from "../componentes/icones";
 import { Marca } from "../componentes/Marca";
 import { supabase } from "../lib/supabase";
 import { cores, espaco, texto, tipografia } from "../tema";
+
+/** O retorno do `signInWithPassword` no mesmo vocabulario da entrada por login. */
+function desfechoDoAuth(error: AuthError | null): DesfechoDaEntrada {
+  if (!error) return "ok";
+  return isAuthRetryableFetchError(error) ? "sem-conexao" : "recusada";
+}
 
 /** Mesma largura util do formulario do painel (`max-w-xs`). */
 const LARGURA_DO_FORMULARIO = 320;
@@ -153,7 +162,10 @@ export function TelaDeLogin({
     setEnviando(true);
     setErro(null);
 
-    let error: AuthError | null;
+    // "Login", como no sistema de referencia: sem formato de e-mail, e o
+    // login de la, e quem acha a conta e o portal (`auth/entrar-com-login.ts`).
+    const digitado = email.trim();
+    let desfecho: DesfechoDaEntrada;
 
     /**
      * O `try` cobre o que o supabase-js NAO devolve em `error`.
@@ -174,18 +186,28 @@ export function TelaDeLogin({
      * Nao conta tentativa: nada disto foi credencial recusada.
      */
     try {
-      ({ error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password: senha,
-      }));
+      desfecho = PARECE_EMAIL.test(digitado)
+        ? desfechoDoAuth(
+            (
+              await supabase.auth.signInWithPassword({
+                email: digitado.toLowerCase(),
+                password: senha,
+              })
+            ).error,
+          )
+        : await entrarComLogin(supabase.auth, env.urlDoPortal, digitado, senha);
     } catch {
+      desfecho = "falhou";
+    }
+
+    if (desfecho === "falhou") {
       setErro("Não foi possível entrar. Tente de novo.");
       setEnviando(false);
       abalo.sacudir();
       return;
     }
 
-    if (error) {
+    if (desfecho !== "ok") {
       /**
        * Rede fora NAO e senha errada.
        *
@@ -200,17 +222,17 @@ export function TelaDeLogin({
        * contra conta que nao existe, que e o que transformaria a tela num
        * verificador de quem tem cadastro.
        */
-      if (isAuthRetryableFetchError(error)) {
+      if (desfecho === "sem-conexao") {
         setErro("Sem conexão. Verifique o sinal e tente de novo.");
         setEnviando(false);
         abalo.sacudir();
         return;
       }
 
-      // Mensagem generica de proposito: distinguir "e-mail nao existe" de
+      // Mensagem generica de proposito: distinguir "login nao existe" de
       // "senha errada" transforma a tela de login num verificador de quem tem
       // conta. O log do Supabase guarda o motivo real para suporte.
-      setErro("E-mail ou senha inválidos.");
+      setErro("Login ou senha inválidos.");
       setEnviando(false);
       abalo.sacudir();
 
@@ -259,24 +281,25 @@ export function TelaDeLogin({
 
           <Animated.View style={entradaDoEmail}>
             <Campo
-              rotulo="E-mail"
+              rotulo="Login"
               valor={email}
               aoMudar={(valor) => {
                 setEmail(valor);
                 if (erro) setErro(null);
               }}
               autoCapitalize="none"
-              autoComplete="email"
+              autoComplete="username"
               // `username` e nao `emailAddress`: e o par que o iOS usa para
-              // casar e-mail e senha no chaveiro e oferecer os dois juntos.
+              // casar login e senha no chaveiro e oferecer os dois juntos.
               textContentType="username"
               autoCorrect={false}
+              // O teclado de e-mail continua: tem o "@" e o "." a mao, e o
+              // login do sistema de referencia so usa letras, numeros, "." e "_".
               keyboardType="email-address"
-              inputMode="email"
               // LIMITE_EMAIL vem do shared (RFC 5321), o mesmo teto que a rota
-              // de importacao do painel web aplica.
+              // `/api/entrar-com-login` do painel aplica ao login.
               maxLength={LIMITE_EMAIL}
-              placeholder="Digite seu e-mail"
+              placeholder="Digite seu login"
               editable={!enviando}
               returnKeyType="next"
               onSubmitEditing={() => campoDeSenha.current?.focus()}
@@ -312,13 +335,15 @@ export function TelaDeLogin({
 
           <Animated.View style={[estilos.linha, entradaDoLink]}>
             <CaixaDeMarcar
-              rotulo="Lembrar meu e-mail"
+              rotulo="Lembrar meu login"
               marcada={lembrarEmail}
               aoMudar={setLembrarEmail}
               desabilitada={enviando}
             />
             <Pressable
-              onPress={() => aoEsquecerSenha(email)}
+              // Leva so o que for e-mail: um login do sistema de referencia na
+              // tela de recuperar senha seria recusado como e-mail invalido.
+              onPress={() => aoEsquecerSenha(PARECE_EMAIL.test(email.trim()) ? email : "")}
               accessibilityRole="button"
               hitSlop={8}
               style={({ pressed }) => [estilos.link, pressed && estilos.linkPressionado]}

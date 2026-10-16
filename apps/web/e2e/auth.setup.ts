@@ -56,7 +56,12 @@ async function garantirConta(conta: Conta) {
   // A linha de `profiles` nasce do trigger `handle_new_user`, inativa (0008).
   const { data: perfil, error } = await admin
     .from("profiles")
-    .update({ cargo: conta.cargo, ativo: conta.ativo, nome_completo: conta.nome })
+    .update({
+      cargo: conta.cargo,
+      ativo: conta.ativo,
+      nome_completo: conta.nome,
+      login: "login" in conta ? conta.login : null,
+    })
     .eq("id", id)
     .select("id")
     .maybeSingle();
@@ -72,7 +77,7 @@ setup("contas do stack local e sessao do gestor", async ({ page }) => {
   }
 
   await page.goto("/");
-  await page.getByLabel("E-mail", { exact: true }).fill(CONTAS.gestor.email);
+  await page.getByLabel("Login", { exact: true }).fill(CONTAS.gestor.email);
   await page.getByRole("textbox", { name: "Senha" }).fill(CONTAS.gestor.senha);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/dashboard/);

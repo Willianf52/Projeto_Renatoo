@@ -60,6 +60,46 @@ function lerBloqueioSalvo(): { tentativas?: number; ate?: number } {
   }
 }
 
+type ClienteDoNavegador = ReturnType<typeof createClient>;
+
+const CREDENCIAL_RECUSADA = "Login ou senha incorretos.";
+const FALHA_GENERICA = "Não foi possível entrar. Tente novamente.";
+
+/** Com formato de e-mail: direto ao Supabase Auth, como sempre. Devolve a mensagem de falha. */
+async function entrarComEmail(supabase: ClienteDoNavegador, email: string, senha: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+  if (!error) return null;
+  return error.message === "Invalid login credentials" ? CREDENCIAL_RECUSADA : FALHA_GENERICA;
+}
+
+/**
+ * Sem formato de e-mail: e o login do sistema de referencia. O servidor acha
+ * a conta e devolve so a sessao (`app/api/entrar-com-login`), que entra aqui
+ * pelo `setSession` -- os cookies ficam iguais aos do caminho por e-mail.
+ */
+async function entrarComLogin(supabase: ClienteDoNavegador, login: string, senha: string) {
+  try {
+    const resposta = await fetch("/api/entrar-com-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ login, senha }),
+    });
+    const corpo = (await resposta.json().catch(() => null)) as
+      | { access_token?: string; refresh_token?: string; erro?: string }
+      | null;
+    if (!resposta.ok || !corpo?.access_token || !corpo.refresh_token) {
+      return corpo?.erro ?? FALHA_GENERICA;
+    }
+    const { error } = await supabase.auth.setSession({
+      access_token: corpo.access_token,
+      refresh_token: corpo.refresh_token,
+    });
+    return error ? FALHA_GENERICA : null;
+  } catch {
+    return FALHA_GENERICA;
+  }
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -149,13 +189,9 @@ export function LoginForm() {
       return;
     }
 
+    // "Login", como no sistema de referencia: aceita o login de la ou o e-mail.
     const trimmedEmail = email.trim();
-    const emailError =
-      trimmedEmail === ""
-        ? "Campo obrigatório"
-        : EMAIL_REGEX.test(trimmedEmail)
-          ? ""
-          : "E-mail inválido";
+    const emailError = trimmedEmail === "" ? "Campo obrigatório" : "";
     const passwordError = password.trim() === "" ? "Campo obrigatório" : "";
 
     if (emailError || passwordError) {
@@ -168,18 +204,13 @@ export function LoginForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: trimmedEmail,
-      password,
-    });
+    const falha = EMAIL_REGEX.test(trimmedEmail)
+      ? await entrarComEmail(supabase, trimmedEmail, password)
+      : await entrarComLogin(supabase, trimmedEmail, password);
 
-    if (error) {
+    if (falha) {
       setLoading(false);
-      setFormError(
-        error.message === "Invalid login credentials"
-          ? "E-mail ou senha incorretos."
-          : "Não foi possível entrar. Tente novamente.",
-      );
+      setFormError(falha);
       setShaking(true);
 
       const proximaContagem = tentativasFalhas + 1;
@@ -218,9 +249,11 @@ export function LoginForm() {
       <div className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <FormField
           id="email"
-          label="E-mail"
-          type="email"
-          autoComplete="email"
+          label="Login"
+          // Texto, e nao `email`: o login do sistema de referencia nem sempre
+          // e e-mail, e o navegador recusaria o envio.
+          type="text"
+          autoComplete="username"
           value={email}
           error={errors.email}
           onChange={(value) => {
@@ -282,7 +315,7 @@ export function LoginForm() {
             onChange={(event) => setLembrarEmail(event.target.checked)}
             className="h-4 w-4 rounded border-slate-700 bg-brand-navy accent-brand-green"
           />
-          Lembrar meu e-mail
+          Lembrar meu login
         </label>
         <Link
           href="/recuperar-senha"

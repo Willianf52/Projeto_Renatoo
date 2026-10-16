@@ -58,6 +58,9 @@ export const CONTAS = {
     nome: "Inspetor E2E",
     cargo: "INSPETOR",
     ativo: true,
+    // Login sem formato de e-mail, como os do sistema de referencia: o
+    // `login-com-usuario.spec.ts` entra com ele.
+    login: "Inspetor_E2E.campo",
   },
   inativo: {
     email: "inativo.e2e@teste.local",
