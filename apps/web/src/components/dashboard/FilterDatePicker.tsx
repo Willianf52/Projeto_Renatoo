@@ -185,7 +185,7 @@ export function FilterDatePicker({
                     onClick={() => escolher(data)}
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
                       ehSelecionado
-                        ? "bg-brand-green font-semibold text-tinta"
+                        ? "bg-brand-green font-semibold text-sobre-verde"
                         : foraDoMes
                           ? "text-brand-muted/50 hover:bg-brand-navy hover:text-white"
                           : "text-white hover:bg-brand-navy"

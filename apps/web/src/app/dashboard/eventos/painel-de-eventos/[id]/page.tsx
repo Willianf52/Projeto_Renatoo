@@ -174,7 +174,7 @@ async function Detalhe({ params, searchParams }: Props) {
         <>
           <AbrirPeloHash ids={ANCORAS} />
           <div className="flex flex-wrap justify-end gap-2">
-            <a href="#analise" className={`${BOTAO} bg-brand-green text-tinta hover:bg-brand-green-hover`}>
+            <a href="#analise" className={`${BOTAO} bg-brand-green text-sobre-verde hover:bg-brand-green-hover`}>
               ADICIONAR ANÁLISE
             </a>
             <a href="#finalizar" className={`${BOTAO} bg-red-600 text-branco hover:bg-red-500`}>

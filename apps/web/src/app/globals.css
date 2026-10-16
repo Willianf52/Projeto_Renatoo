@@ -27,6 +27,9 @@
      tema claro o "white" vira a cor do texto escuro. */
   --color-branco: #ffffff;
   --color-tinta: #03031a;
+  /* Texto em cima do verde da marca: navy no escuro, branco no claro (onde o
+     verde escurece -- ver "TEMAS"). */
+  --color-sobre-verde: #03031a;
 }
 
 @theme inline {
@@ -212,6 +215,7 @@ h3 {
   --escuro-verde: #00e676;
   --escuro-verde-hover: #00c853;
   --escuro-suave: #a0aec0;
+  --color-sobre-verde: #03031a;
   --color-white: #fff;
   --color-slate-200: oklch(92.9% 0.013 255.508);
   --color-slate-300: oklch(86.9% 0.022 252.894);
@@ -245,8 +249,11 @@ h3 {
 [data-tema="claro"] {
   color-scheme: light;
   /* Os mesmos papeis do escuro, nos tons claros da Up. O verde escurece para
-     #00a152: o #00e676 da marca fica com 1.6:1 sobre o branco, ilegivel como
-     texto -- e o navy da `tinta` segue legivel em cima dele no botao. */
+     #007a3d (5.5:1 sobre o branco): o #00e676 da marca fica com 1.6:1, e um
+     intermediario (#00a152, 3.4:1) reprovou no teste de acessibilidade como
+     texto do menu ativo. Em cima dele o texto vira branco (`sobre-verde`). O
+     cinza suave tambem escurece com folga: o teste roda durante a animacao de
+     entrada, quando a opacidade ainda nao chegou a 1. */
   --color-brand-navy: var(--claro-fundo);
   --color-brand-surface: var(--claro-superficie);
   --color-brand-green: var(--claro-verde);
@@ -254,9 +261,10 @@ h3 {
   --color-brand-muted: var(--claro-suave);
   --claro-fundo: #f3f5f9;
   --claro-superficie: #ffffff;
-  --claro-verde: #00a152;
-  --claro-verde-hover: #008a45;
-  --claro-suave: #5a6678;
+  --claro-verde: #007a3d;
+  --claro-verde-hover: #00662f;
+  --claro-suave: #4a5568;
+  --color-sobre-verde: #ffffff;
   /* Texto principal: o navy da marca, um pouco aberto para leitura longa. */
   --color-white: #172033;
   /* Escala slate invertida nos tons que as telas usam: borda escura vira
@@ -276,7 +284,7 @@ h3 {
   --color-sky-200: oklch(44.3% 0.11 240.79);
   --grafico-fundo: #ffffff;
   --grafico-texto: #1e293b;
-  --grafico-suave: #5a6678;
+  --grafico-suave: #4a5568;
   --grafico-grade: #e2e8f0;
   --grafico-eixo: #cbd5e1;
   --grafico-destaque: #0284c7;

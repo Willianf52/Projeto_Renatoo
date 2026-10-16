@@ -139,7 +139,7 @@ export function PersonalizarAtalhos({
                           onClick={() => setFixados((atuais) => alternarFixado(atuais, grade, tela.href))}
                           className={`inline-flex w-24 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                             fixado
-                              ? "bg-brand-green text-tinta hover:bg-brand-green-hover"
+                              ? "bg-brand-green text-sobre-verde hover:bg-brand-green-hover"
                               : "border border-slate-700 text-slate-300 hover:border-brand-green hover:text-brand-green"
                           }`}
                         >
@@ -174,7 +174,7 @@ export function PersonalizarAtalhos({
             type="button"
             onClick={concluir}
             disabled={salvando}
-            className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-tinta transition-colors hover:bg-brand-green-hover disabled:opacity-60"
+            className="rounded-md bg-brand-green px-4 py-2 text-sm font-semibold text-sobre-verde transition-colors hover:bg-brand-green-hover disabled:opacity-60"
           >
             {salvando ? "Salvando..." : "Concluir"}
           </button>

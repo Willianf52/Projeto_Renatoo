@@ -13,7 +13,7 @@ export type Tom = "novo" | "neutro" | "excel" | "pdf" | "importar" | "perigo";
 const CONTORNO = "border border-slate-700 bg-brand-surface";
 
 export const CLASSES_DO_TOM: Record<Tom, string> = {
-  novo: "bg-brand-green text-tinta shadow-sm",
+  novo: "bg-brand-green text-sobre-verde shadow-sm",
   neutro: `${CONTORNO} text-slate-300`,
   excel: `${CONTORNO} text-emerald-300`,
   pdf: `${CONTORNO} text-red-400`,
