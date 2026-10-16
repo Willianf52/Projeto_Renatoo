@@ -37,7 +37,8 @@
 --   - numero/ano na mesma sequencia e no mesmo lock da 0063;
 --   - quem le: a mesma regra da visita (`pode_ver_visita`, 0042) -- a gestao
 --     inteira, o autor, e o cliente no escopo do site;
---   - quem abre: `registrar_ocorrencia_manual`, `security definer` porque
+--   - quem abre: `registrar_ocorrencia_manual`. O corpo e `security definer`
+--     em `escrita` (envelope em `public`, regra da 0050), porque
 --     `authenticated` continua sem INSERT em `ocorrencias` (a 0063 so deixa o
 --     trigger escrever). A funcao confere o GESTOR primeiro;
 --   - arquivos: o navegador envia ao bucket `ocorrencias` (0064) DEPOIS que a
@@ -301,17 +302,19 @@ create policy "Leitura da ocorrencia no escopo da visita"
     end
   );
 
-create or replace function public.registrar_ocorrencia_manual(
+-- O trabalho e `security definer` em `escrita` (fora do PostgREST), e `public`
+-- so tem o envelope `security invoker` -- a regra da 0050, no molde da 0067.
+create or replace function escrita.registrar_ocorrencia_manual(
   p_site_id bigint,
   p_evento_id bigint,
-  p_subevento_id bigint default null,
-  p_classificacao_id bigint default null,
-  p_observacao text default null
+  p_subevento_id bigint,
+  p_classificacao_id bigint,
+  p_observacao text
 )
 returns bigint
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = escrita, public, pg_temp
 as $$
 declare
   v_evento record;
@@ -385,9 +388,29 @@ begin
 end;
 $$;
 
+revoke all on function escrita.registrar_ocorrencia_manual(bigint, bigint, bigint, bigint, text) from public, anon;
+grant execute on function escrita.registrar_ocorrencia_manual(bigint, bigint, bigint, bigint, text) to authenticated;
+
+-- O envelope que o painel chama por RPC: mesmo nome, roda como quem chama.
+create or replace function public.registrar_ocorrencia_manual(
+  p_site_id bigint,
+  p_evento_id bigint,
+  p_subevento_id bigint default null,
+  p_classificacao_id bigint default null,
+  p_observacao text default null
+)
+returns bigint
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select escrita.registrar_ocorrencia_manual(p_site_id, p_evento_id, p_subevento_id, p_classificacao_id, p_observacao);
+$$;
+
 comment on function public.registrar_ocorrencia_manual(bigint, bigint, bigint, bigint, text) is
-  'Registrar Evento: abre uma ocorrencia sem checklist (migration 0072). So o
-   GESTOR. security definer porque authenticated nao tem INSERT em ocorrencias.';
+  'Registrar Evento: abre uma ocorrencia sem checklist. So o GESTOR. Envelope
+   de escrita.registrar_ocorrencia_manual (security definer, porque
+   authenticated nao tem INSERT em ocorrencias) -- migration 0072.';
 
 revoke all on function public.registrar_ocorrencia_manual(bigint, bigint, bigint, bigint, text) from public, anon;
 grant execute on function public.registrar_ocorrencia_manual(bigint, bigint, bigint, bigint, text) to authenticated;
