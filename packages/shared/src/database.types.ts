@@ -483,6 +483,33 @@ export type Database = {
           },
         ]
       }
+      grupos_perguntas: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          criado_em: string
+          id: number
+          nome: string
+          ordem: number
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome: string
+          ordem?: number
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome?: string
+          ordem?: number
+        }
+        Relationships: []
+      }
       grupos_sites: {
         Row: {
           ativo: boolean
@@ -1178,6 +1205,7 @@ export type Database = {
           ativo: boolean
           criado_em: string
           evento_id: number | null
+          grupo_pergunta_id: number | null
           id: number
           modelo_id: number
           ordem: number
@@ -1188,6 +1216,7 @@ export type Database = {
           ativo?: boolean
           criado_em?: string
           evento_id?: number | null
+          grupo_pergunta_id?: number | null
           id?: never
           modelo_id: number
           ordem: number
@@ -1198,6 +1227,7 @@ export type Database = {
           ativo?: boolean
           criado_em?: string
           evento_id?: number | null
+          grupo_pergunta_id?: number | null
           id?: never
           modelo_id?: number
           ordem?: number
@@ -1210,6 +1240,13 @@ export type Database = {
             columns: ["evento_id"]
             isOneToOne: false
             referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perguntas_checklist_grupo_pergunta_id_fkey"
+            columns: ["grupo_pergunta_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_perguntas"
             referencedColumns: ["id"]
           },
           {
@@ -1631,7 +1668,15 @@ export type Database = {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number
       }
+      duplicar_modelo: {
+        Args: { p_modelo_id: number; p_nome: string }
+        Returns: number
+      }
       lista_de_emails_valida: { Args: { p_emails: string[] }; Returns: boolean }
+      mover_pergunta: {
+        Args: { p_para_cima: boolean; p_pergunta_id: number }
+        Returns: undefined
+      }
       ocorrencias_de_evento: {
         Args: {
           p_filtros?: Json

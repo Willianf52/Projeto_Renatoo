@@ -1,0 +1,82 @@
+import { Suspense } from "react";
+import { notFound, redirect } from "next/navigation";
+import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
+import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
+import { ClipboardListIcon } from "@/components/dashboard/icons";
+import { podeEditarChecklist } from "@/lib/permissoes";
+import { getOpcoesDeModelos } from "../../../modelos/queries";
+import { PerguntaForm } from "../../PerguntaForm";
+import { getOpcoesDaPergunta, getPergunta } from "../../queries";
+import { idNaUrl } from "@/lib/id-na-url";
+
+/**
+ * Pagina sem `async`: com Cache Components, o `await` no corpo (permissao e
+ * consultas recortadas por RLS) travava a navegacao ate tudo voltar -- ver
+ * `site-planta/novo/page.tsx`.
+ */
+export default function EditarPerguntaPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={<PaginaDeFormularioEsqueleto largura="max-w-2xl" campos={5} />}>
+      <Conteudo params={params} />
+    </Suspense>
+  );
+}
+
+async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const idNumerico = idNaUrl(id);
+
+  // `/perguntas/abc/editar` casa com a rota; sem esta checagem viraria uma
+  // consulta com NaN e um erro do Postgres em vez de um 404.
+  if (idNumerico === null) notFound();
+
+  if (!(await podeEditarChecklist())) {
+    redirect("/dashboard/checklistlab/perguntas");
+  }
+
+  const [pergunta, modelos] = await Promise.all([getPergunta(idNumerico), getOpcoesDeModelos()]);
+  if (!pergunta) notFound();
+  const opcoes = await getOpcoesDaPergunta({ grupoId: pergunta.grupoId, eventoId: pergunta.eventoId });
+
+  return (
+    <div className="space-y-4">
+      <div className="animate-fade-in">
+        <Breadcrumbs
+          items={[
+            { label: "ChecklistLab" },
+            { label: "Perguntas do Checklist" },
+            { label: `${pergunta.modelo} · Pergunta ${pergunta.ordem}` },
+          ]}
+        />
+      </div>
+
+      <div
+        className="max-w-2xl overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"
+        style={{ animationDelay: "80ms" }}
+      >
+        <div className="border-b border-slate-800 px-4 py-3">
+          <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
+            <ClipboardListIcon className="h-4 w-4" />
+            Editar Pergunta do Checklist
+          </h1>
+        </div>
+
+        <PerguntaForm
+          id={pergunta.id}
+          modelos={modelos}
+          grupos={opcoes.grupos}
+          eventos={opcoes.eventos}
+          valoresIniciais={{
+            texto: pergunta.texto,
+            ordem: String(pergunta.ordem),
+            ativo: pergunta.ativo,
+            modelo: String(pergunta.modeloId),
+            tipoResposta: pergunta.tipoResposta,
+            grupo: pergunta.grupoId ? String(pergunta.grupoId) : "",
+            evento: pergunta.eventoId ? String(pergunta.eventoId) : "",
+          }}
+        />
+      </div>
+    </div>
+  );
+}

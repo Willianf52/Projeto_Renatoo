@@ -19,7 +19,7 @@ const { createClientMock, rpcResultado, chamadasDeRpc } = vi.hoisted(() => {
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const { podeAdministrarCadastros } = await import("./permissoes");
+const { podeAdministrarCadastros, podeEditarChecklist } = await import("./permissoes");
 
 beforeEach(() => {
   rpcResultado.data = null;
@@ -70,5 +70,25 @@ describe("podeAdministrarCadastros", () => {
     rpcResultado.data = null;
 
     expect(await podeAdministrarCadastros()).toBe(false);
+  });
+});
+
+describe("podeEditarChecklist", () => {
+  /**
+   * O editor de checklist e so do GESTOR (0073), e nao da regua de cadastros:
+   * se alguem trocar a funcao chamada, o SUPERVISOR e o OPERACIONAL voltam a
+   * ver os botoes, e so o banco os barraria.
+   */
+  it("consulta a regra do GESTOR, e nao a de cadastros", async () => {
+    rpcResultado.data = true;
+
+    expect(await podeEditarChecklist()).toBe(true);
+    expect(chamadasDeRpc).toEqual(["pode_administrar_usuarios"]);
+  });
+
+  it("nega quando o banco nao autoriza", async () => {
+    rpcResultado.data = false;
+
+    expect(await podeEditarChecklist()).toBe(false);
   });
 });
