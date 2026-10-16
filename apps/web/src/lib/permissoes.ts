@@ -49,6 +49,16 @@ export async function podeAdministrarGruposDeUsuarios(): Promise<boolean> {
 }
 
 /**
+ * Tipos de Analise e de Classificacao (migration 0071): a escrita e so do
+ * GESTOR, a mesma regua de `pode_administrar_usuarios()` -- as policies da 0071
+ * chamam essa funcao. Nome proprio na tela para nao parecer que cadastrar um
+ * tipo de analise tem a ver com administrar usuarios.
+ */
+export async function podeConfigurarEventos(): Promise<boolean> {
+  return podeAdministrarUsuarios();
+}
+
+/**
  * Chama `pode_ver_toda_operacao()`: GESTOR e SUPERVISOR. E a regua de quem
  * analisa e finaliza ocorrencia (migration 0064) -- a tela so decide entre
  * mostrar o formulario e mostrar o botao desabilitado; o RLS e o portao.

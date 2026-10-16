@@ -1384,18 +1384,21 @@ export type Database = {
       tipos_de_analise: {
         Row: {
           ativo: boolean
+          cor: string | null
           criado_em: string
           id: number
           nome: string
         }
         Insert: {
           ativo?: boolean
+          cor?: string | null
           criado_em?: string
           id?: never
           nome: string
         }
         Update: {
           ativo?: boolean
+          cor?: string | null
           criado_em?: string
           id?: never
           nome?: string
@@ -1405,18 +1408,21 @@ export type Database = {
       tipos_de_classificacao: {
         Row: {
           ativo: boolean
+          cor: string | null
           criado_em: string
           id: number
           nome: string
         }
         Insert: {
           ativo?: boolean
+          cor?: string | null
           criado_em?: string
           id?: never
           nome: string
         }
         Update: {
           ativo?: boolean
+          cor?: string | null
           criado_em?: string
           id?: never
           nome?: string
