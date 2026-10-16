@@ -296,7 +296,7 @@ create policy "Leitura da ocorrencia no escopo da visita"
         or (autorizacao.usuario_ativo() and aberta_por = (select auth.uid()))
         or (autorizacao.e_cliente() and exists (
           select 1 from public.sites s
-           where s.id = ocorrencias.site_id and public.pode_ver_grupo_site(s.grupo_site_id)
+           where s.id = ocorrencias.site_id and autorizacao.pode_ver_grupo_site(s.grupo_site_id)
         ))
     end
   );
