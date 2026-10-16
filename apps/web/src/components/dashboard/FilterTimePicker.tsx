@@ -142,7 +142,7 @@ export function FilterTimePicker({
           <button
             type="button"
             onClick={aplicar}
-            className="mt-2 h-9 w-full rounded-md bg-brand-green text-sm font-semibold text-brand-navy transition-colors hover:bg-brand-green-hover"
+            className="mt-2 h-9 w-full rounded-md bg-brand-green text-sm font-semibold text-sobre-verde transition-colors hover:bg-brand-green-hover"
           >
             Aplicar
           </button>

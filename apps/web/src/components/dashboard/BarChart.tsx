@@ -25,7 +25,7 @@ const MARGEM_TOPO = 20;
 
 export function BarChart({
   itens,
-  cor = "#7dd3fc",
+  cor = "var(--grafico-destaque)",
   tituloEixoY,
   rotulo = "Ranking de Inspeções por funcionário",
   formatarValor = String,
@@ -60,7 +60,7 @@ export function BarChart({
           x={12}
           y={MARGEM_TOPO + ALTURA_GRAFICO / 2}
           textAnchor="middle"
-          fill="#8892a6"
+          fill="var(--grafico-suave)"
           fontSize={10}
           transform={`rotate(-90 12 ${MARGEM_TOPO + ALTURA_GRAFICO / 2})`}
         >
@@ -71,8 +71,8 @@ export function BarChart({
         const y = baseY - (marca / max) * ALTURA_GRAFICO;
         return (
           <g key={marca}>
-            <line x1={margemEsquerdaTotal} y1={y} x2={largura} y2={y} stroke="#1e293b" strokeWidth={1} />
-            <text x={margemEsquerdaTotal - 8} y={y} textAnchor="end" dominantBaseline="middle" fill="#8892a6" fontSize={10}>
+            <line x1={margemEsquerdaTotal} y1={y} x2={largura} y2={y} stroke="var(--grafico-grade)" strokeWidth={1} />
+            <text x={margemEsquerdaTotal - 8} y={y} textAnchor="end" dominantBaseline="middle" fill="var(--grafico-suave)" fontSize={10}>
               {marca}
             </text>
           </g>
@@ -88,14 +88,14 @@ export function BarChart({
         return (
           <g key={`${item.nome}-${indice}`} className="animate-fade-in-up" style={{ animationDelay: `${indice * 50}ms` }}>
             <rect x={x} y={y} width={LARGURA_BARRA} height={alturaBarra} rx={3} fill={cor} />
-            <text x={centroX} y={y - 6} textAnchor="middle" fill="#ffffff" fontSize={11} fontWeight={600}>
+            <text x={centroX} y={y - 6} textAnchor="middle" fill="var(--grafico-texto)" fontSize={11} fontWeight={600}>
               {formatarValor(item.valor)}
             </text>
             <text
               x={centroX}
               y={baseY + 14}
               textAnchor="end"
-              fill="#8892a6"
+              fill="var(--grafico-suave)"
               fontSize={10}
               transform={`rotate(-40 ${centroX} ${baseY + 14})`}
             >
@@ -105,7 +105,7 @@ export function BarChart({
         );
       })}
 
-      <line x1={margemEsquerdaTotal} y1={baseY} x2={largura} y2={baseY} stroke="#334155" strokeWidth={1} />
+      <line x1={margemEsquerdaTotal} y1={baseY} x2={largura} y2={baseY} stroke="var(--grafico-eixo)" strokeWidth={1} />
     </svg>
   );
 }

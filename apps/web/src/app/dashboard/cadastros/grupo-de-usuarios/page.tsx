@@ -127,16 +127,14 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
     <div className="flex items-center gap-2">
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/cadastros/grupo-de-usuarios/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/cadastros/grupo-de-usuarios/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/cadastros/grupo-de-usuarios/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/cadastros/grupo-de-usuarios/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
@@ -144,16 +142,14 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       {podeAdministrar ? (
         <Acao
           titulo="Novo grupo"
-          href="/dashboard/cadastros/grupo-de-usuarios/novo"
-          className="bg-amber-500/80"
+          href="/dashboard/cadastros/grupo-de-usuarios/novo" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </Acao>
       ) : (
         <AcaoDesabilitada
           titulo="Novo grupo"
-          motivo="você não tem permissão"
-          className="bg-amber-500/40"
+          motivo="você não tem permissão" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </AcaoDesabilitada>
@@ -203,8 +199,7 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
       <div key={grupo.id} className="flex items-center gap-2">
         <Acao
           titulo={`Editar ${grupo.nome}`}
-          href={`/dashboard/cadastros/grupo-de-usuarios/${grupo.id}/editar`}
-          className="bg-white/10"
+          href={`/dashboard/cadastros/grupo-de-usuarios/${grupo.id}/editar`} tom="neutro"
         >
           <PencilIcon className="h-4 w-4" />
         </Acao>
@@ -216,15 +211,13 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
       <div key={grupo.id} className="flex items-center gap-2">
         <AcaoDesabilitada
           titulo="Editar grupo"
-          motivo="você não tem permissão"
-          className="bg-white/10"
+          motivo="você não tem permissão" tom="neutro"
         >
           <PencilIcon className="h-4 w-4" />
         </AcaoDesabilitada>
         <AcaoDesabilitada
           titulo="Excluir grupo"
-          motivo="você não tem permissão"
-          className="bg-red-600/20"
+          motivo="você não tem permissão" tom="perigo"
         >
           <TrashIcon className="h-4 w-4" />
         </AcaoDesabilitada>

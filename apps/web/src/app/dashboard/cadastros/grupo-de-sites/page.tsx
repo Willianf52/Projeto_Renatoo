@@ -111,32 +111,28 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       {podeAdministrar ? (
         <Acao
           titulo="Importar grupos"
-          href="/dashboard/cadastros/grupo-de-sites/importar"
-          className="bg-sky-600/40"
+          href="/dashboard/cadastros/grupo-de-sites/importar" tom="importar"
         >
           <UploadIcon className="h-4 w-4" />
         </Acao>
       ) : (
         <AcaoDesabilitada
           titulo="Importar grupos"
-          motivo="você não tem permissão"
-          className="bg-sky-600/40"
+          motivo="você não tem permissão" tom="importar"
         >
           <UploadIcon className="h-4 w-4" />
         </AcaoDesabilitada>
       )}
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/cadastros/grupo-de-sites/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/cadastros/grupo-de-sites/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/cadastros/grupo-de-sites/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/cadastros/grupo-de-sites/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
@@ -144,16 +140,14 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       {podeAdministrar ? (
         <Acao
           titulo="Novo grupo"
-          href="/dashboard/cadastros/grupo-de-sites/novo"
-          className="bg-amber-500/80"
+          href="/dashboard/cadastros/grupo-de-sites/novo" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </Acao>
       ) : (
         <AcaoDesabilitada
           titulo="Novo grupo"
-          motivo="você não tem permissão"
-          className="bg-amber-500/40"
+          motivo="você não tem permissão" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </AcaoDesabilitada>
@@ -203,8 +197,7 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
       <Acao
         key={grupo.id}
         titulo={`Editar ${grupo.nome}`}
-        href={`/dashboard/cadastros/grupo-de-sites/${grupo.id}/editar`}
-        className="bg-white/10"
+        href={`/dashboard/cadastros/grupo-de-sites/${grupo.id}/editar`} tom="neutro"
       >
         <PencilIcon className="h-4 w-4" />
       </Acao>
@@ -212,8 +205,7 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
       <AcaoDesabilitada
         key={grupo.id}
         titulo="Editar grupo"
-        motivo="você não tem permissão"
-        className="bg-white/10"
+        motivo="você não tem permissão" tom="neutro"
       >
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>

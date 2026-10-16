@@ -22,7 +22,7 @@ export function DashboardChrome({
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-brand-navy print:bg-white">
+      <div data-densidade="compacta" className="min-h-screen bg-brand-navy print:bg-branco">
         {/* print:hidden direto no <header>, nao num <div> em volta: um wrapper
             sem altura propria fica do tamanho exato do header (h-16) -- e um
             elemento sticky so tem folga pra "grudar" dentro dos limites do

@@ -24,7 +24,7 @@ export function FolhaDeEtiquetas({
   limite: number;
 }) {
   return (
-    <div className="bg-white p-6 text-black">
+    <div data-paleta="original" className="bg-white p-6 text-black">
       <ImprimirAoAbrir />
 
       <h1 className="mb-1 text-lg font-semibold">Etiquetas de QR-Code</h1>

@@ -13,9 +13,9 @@
 
 export type FatiaDaPizza = { rotulo: string; valor: number; cor: string };
 
-const COR_FUNDO = "#0b0b26"; // --color-brand-surface
-const COR_TEXTO = "#e2e8f0";
-const COR_SUAVE = "#a0aec0"; // --color-brand-muted
+const COR_FUNDO = "var(--grafico-fundo)"; // --color-brand-surface
+const COR_TEXTO = "var(--grafico-texto)";
+const COR_SUAVE = "var(--grafico-suave)"; // --color-brand-muted
 const FONTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 const LARGURA = 760;
@@ -120,7 +120,7 @@ export function GraficoDePizza({
     return (
       <svg {...moldura} aria-label={`${titulo}. Sem dados no período.`}>
         {cabecalho}
-        <circle cx={cx} cy={cy} r={RAIO} fill="none" stroke="#1e293b" strokeWidth={1} />
+        <circle cx={cx} cy={cy} r={RAIO} fill="none" stroke="var(--grafico-grade)" strokeWidth={1} />
       </svg>
     );
   }

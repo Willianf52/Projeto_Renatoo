@@ -83,10 +83,10 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
 
   return (
     <div className="flex items-center gap-2">
-      <Acao titulo="Exportar para Excel" href={`${ROTA}/export/excel${queryExportacao}`} className="bg-emerald-600/40" target="_blank">
+      <Acao titulo="Exportar para Excel" href={`${ROTA}/export/excel${queryExportacao}`} tom="excel" target="_blank">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
-      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${queryExportacao}`} className="bg-red-600/40" target="_blank">
+      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${queryExportacao}`} tom="pdf" target="_blank">
         <PdfIcon className="h-4 w-4" />
       </Acao>
     </div>

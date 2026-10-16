@@ -19,7 +19,7 @@ const MARGEM_ESQUERDA = 40;
 const MARGEM_DIREITA = 12;
 const MARGEM_TOPO = 20;
 const MARGEM_BAIXO = 28;
-const COR = "#7dd3fc";
+const COR = "var(--grafico-destaque)";
 
 export function GraficoPorDia({
   valores,
@@ -50,8 +50,8 @@ export function GraficoPorDia({
         const y = baseY - alturaDe(marca);
         return (
           <g key={marca}>
-            <line x1={MARGEM_ESQUERDA} y1={y} x2={largura - MARGEM_DIREITA} y2={y} stroke="#1e293b" strokeWidth={1} />
-            <text x={MARGEM_ESQUERDA - 8} y={y} textAnchor="end" dominantBaseline="middle" fill="#8892a6" fontSize={10}>
+            <line x1={MARGEM_ESQUERDA} y1={y} x2={largura - MARGEM_DIREITA} y2={y} stroke="var(--grafico-grade)" strokeWidth={1} />
+            <text x={MARGEM_ESQUERDA - 8} y={y} textAnchor="end" dominantBaseline="middle" fill="var(--grafico-suave)" fontSize={10}>
               {marca}
             </text>
           </g>
@@ -84,12 +84,12 @@ export function GraficoPorDia({
         )}
 
       {valores.map((_, indice) => (
-        <text key={indice} x={centroX(indice)} y={baseY + 16} textAnchor="middle" fill="#8892a6" fontSize={10}>
+        <text key={indice} x={centroX(indice)} y={baseY + 16} textAnchor="middle" fill="var(--grafico-suave)" fontSize={10}>
           {indice + 1}
         </text>
       ))}
 
-      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="#334155" strokeWidth={1} />
+      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="var(--grafico-eixo)" strokeWidth={1} />
     </svg>
   );
 }

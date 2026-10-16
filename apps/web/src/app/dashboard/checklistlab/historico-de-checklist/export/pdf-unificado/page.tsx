@@ -38,7 +38,7 @@ export default async function ExportarPdfUnificadoPage({
   const cortado = historico.truncado || historico.linhas.length > TETO_DO_PDF_UNIFICADO;
 
   return (
-    <div className="bg-white p-6 text-black">
+    <div data-paleta="original" className="bg-white p-6 text-black">
       <ImprimirAoAbrir esperarImagens />
 
       <h1 className="mb-1 text-lg font-semibold">Histórico de Checklist (PDF unificado)</h1>

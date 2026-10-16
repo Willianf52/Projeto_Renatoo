@@ -94,7 +94,7 @@ async function Detalhe({ params, searchParams }: Props) {
             Registro de Evento On-Line
           </h1>
           <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
+            <AcaoDesabilitada titulo="Exportar para PDF" tom="pdf">
               <PdfIcon className="h-4 w-4" />
             </AcaoDesabilitada>
             <Button href={PAINEL} variant="secondary" className="group">
@@ -174,10 +174,10 @@ async function Detalhe({ params, searchParams }: Props) {
         <>
           <AbrirPeloHash ids={ANCORAS} />
           <div className="flex flex-wrap justify-end gap-2">
-            <a href="#analise" className={`${BOTAO} bg-brand-green text-brand-navy hover:bg-brand-green-hover`}>
+            <a href="#analise" className={`${BOTAO} bg-brand-green text-sobre-verde hover:bg-brand-green-hover`}>
               ADICIONAR ANÁLISE
             </a>
-            <a href="#finalizar" className={`${BOTAO} bg-red-600 text-white hover:bg-red-500`}>
+            <a href="#finalizar" className={`${BOTAO} bg-red-600 text-branco hover:bg-red-500`}>
               FINALIZAR
             </a>
           </div>

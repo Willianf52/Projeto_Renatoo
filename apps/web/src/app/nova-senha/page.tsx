@@ -65,7 +65,8 @@ export default function NovaSenhaPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
+    <div data-tema="escuro" className="flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+      {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css). */}
       <HeroPanel />
 
       <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
@@ -122,7 +123,7 @@ export default function NovaSenhaPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-brand-navy shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+                className="w-full rounded-lg bg-brand-green py-3.5 text-sm font-bold uppercase tracking-wider text-sobre-verde shadow-lg shadow-brand-green/20 transition-all duration-200 hover:bg-brand-green-hover hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
               >
                 {loading ? "Salvando..." : "Salvar nova senha"}
               </button>

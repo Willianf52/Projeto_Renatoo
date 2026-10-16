@@ -23,6 +23,7 @@ import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../modelos/queries";
 import { moverPergunta } from "./actions";
 import { getPerguntas, modeloDoFiltro, toTableRow, PAGE_SIZE, type PerguntaFiltros, type PerguntaRow } from "./queries";
+import { CLASSES_DO_TOM, HOVER_DO_TOM } from "@/components/dashboard/tons-de-acao";
 
 const TABLE_COLUMNS = ["Checklist", "Ordem", "Pergunta", "Grupo", "Respostas", "Tipo de Evento", "Status", "Ações"];
 const MIN_WIDTH = "min-w-[1100px]";
@@ -114,21 +115,19 @@ async function AcaoDeNovaPergunta({ searchParams }: { searchParams: SearchParams
       {modelo !== null && (
         <Acao
           titulo="Importar perguntas"
-          href={`/dashboard/checklistlab/perguntas/importar?modelo=${modelo}`}
-          className="bg-sky-600/60"
+          href={`/dashboard/checklistlab/perguntas/importar?modelo=${modelo}`} tom="importar"
         >
           <UploadIcon className="h-4 w-4" />
         </Acao>
       )}
-      <Acao titulo="Nova pergunta" href={href} className="bg-amber-500/80">
+      <Acao titulo="Nova pergunta" href={href} tom="novo">
         <PlusCircleIcon className="h-4 w-4" />
       </Acao>
     </div>
   ) : (
     <AcaoDesabilitada
       titulo="Nova pergunta"
-      motivo="você não tem permissão"
-      className="bg-amber-500/40"
+      motivo="você não tem permissão" tom="novo"
     >
       <PlusCircleIcon className="h-4 w-4" />
     </AcaoDesabilitada>
@@ -196,8 +195,7 @@ async function TabelaDePerguntas({ searchParams }: { searchParams: SearchParamsP
       <div key={pergunta.id} className="flex items-center gap-2">
         <Acao
           titulo={`Editar pergunta ${pergunta.ordem} de ${pergunta.modelo}`}
-          href={`/dashboard/checklistlab/perguntas/${pergunta.id}/editar`}
-          className="bg-white/10"
+          href={`/dashboard/checklistlab/perguntas/${pergunta.id}/editar`} tom="neutro"
         >
           <PencilIcon className="h-4 w-4" />
         </Acao>
@@ -212,8 +210,7 @@ async function TabelaDePerguntas({ searchParams }: { searchParams: SearchParamsP
       <AcaoDesabilitada
         key={pergunta.id}
         titulo="Editar pergunta"
-        motivo="você não tem permissão"
-        className="bg-white/10"
+        motivo="você não tem permissão" tom="neutro"
       >
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>
@@ -274,7 +271,7 @@ function BotaoDeMover({ pergunta, direcao }: { pergunta: PerguntaRow; direcao: "
         type="submit"
         title={titulo}
         aria-label={titulo}
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-white/10 text-white transition-all duration-200 hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97]"
+        className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 ${CLASSES_DO_TOM.neutro} ${HOVER_DO_TOM.neutro} focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97]`}
       >
         <ChevronDownIcon className={`h-4 w-4 ${direcao === "cima" ? "rotate-180" : ""}`} />
       </button>

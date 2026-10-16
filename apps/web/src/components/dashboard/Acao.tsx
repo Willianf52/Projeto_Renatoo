@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CLASSES_DO_TOM, HOVER_DO_TOM, type Tom } from "./tons-de-acao";
 
 /**
  * Botao-link quadrado das barras de acao das telas de cadastro/inspecao.
@@ -9,16 +10,21 @@ import Link from "next/link";
 export function Acao({
   titulo,
   href,
-  className,
+  tom,
+  className = "",
   target,
   children,
 }: {
   titulo: string;
   href: string;
-  className: string;
+  /** O padrao das barras de acao (`tons-de-acao.ts`). Sem ele, o botao fica
+   * so com o `className` -- o caso dos icones dentro de tabela. */
+  tom?: Tom;
+  className?: string;
   target?: "_blank";
   children: React.ReactNode;
 }) {
+  const cores = tom ? `${CLASSES_DO_TOM[tom]} ${HOVER_DO_TOM[tom]}` : "text-white hover:brightness-125";
   return (
     <Link
       href={href}
@@ -35,7 +41,7 @@ export function Acao({
       // escreve uma vez aqui, no unico ponto por onde todo `target="_blank"`
       // do painel passa, para o dia em que um `href` receber valor de fora.
       rel={target === "_blank" ? "noopener noreferrer" : undefined}
-      className={`flex h-8 w-8 items-center justify-center rounded-md text-white transition-all duration-200 hover:brightness-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97] ${className}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97] ${cores} ${className}`}
     >
       {children}
     </Link>

@@ -32,7 +32,7 @@ export function MenuDoGrafico({
 
   function svgComoTexto(): string | null {
     const svg = document.getElementById(idDoGrafico);
-    return svg ? new XMLSerializer().serializeToString(svg) : null;
+    return svg ? new XMLSerializer().serializeToString(comCoresResolvidas(svg)) : null;
   }
 
   function baixar(blob: Blob, extensao: string) {
@@ -118,4 +118,26 @@ export function MenuDoGrafico({
       )}
     </div>
   );
+}
+
+/**
+ * Os graficos pintam com as variaveis do tema (`fill="var(--grafico-texto)"`,
+ * ver globals.css). Fora da pagina -- o .svg baixado, ou a imagem que vira o
+ * .png -- nao ha CSS para resolver a variavel, e o grafico sairia preto. A
+ * copia leva a cor ja calculada pelo navegador, no tema que a pessoa esta
+ * vendo.
+ */
+function comCoresResolvidas(original: Element): Element {
+  const copia = original.cloneNode(true) as Element;
+  const daTela = [original, ...original.querySelectorAll("*")];
+  const daCopia = [copia, ...copia.querySelectorAll("*")];
+  daTela.forEach((elemento, i) => {
+    const estilo = getComputedStyle(elemento);
+    for (const atributo of ["fill", "stroke"] as const) {
+      if (elemento.getAttribute(atributo)?.includes("var(")) {
+        daCopia[i].setAttribute(atributo, estilo.getPropertyValue(atributo));
+      }
+    }
+  });
+  return copia;
 }

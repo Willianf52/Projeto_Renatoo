@@ -64,10 +64,10 @@ async function Exportar({ searchParams }: { searchParams: SearchParamsPromise })
   const sufixo = query.toString() ? `?${query.toString()}` : "";
   return (
     <div className="flex items-center gap-2">
-      <Acao titulo="Exportar para Excel" href={`${ROTA}/export/excel${sufixo}`} className="bg-emerald-600/40" target="_blank">
+      <Acao titulo="Exportar para Excel" href={`${ROTA}/export/excel${sufixo}`} tom="excel" target="_blank">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
-      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${sufixo}`} className="bg-red-600/40" target="_blank">
+      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${sufixo}`} tom="pdf" target="_blank">
         <PdfIcon className="h-4 w-4" />
       </Acao>
     </div>
@@ -95,7 +95,7 @@ async function Cartoes({ searchParams }: { searchParams: SearchParamsPromise }) 
           className="overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"
           aria-labelledby={`checklist-${cartao.modeloId}`}
         >
-          <h2 id={`checklist-${cartao.modeloId}`} className="bg-brand-blue px-4 py-3 text-sm font-semibold text-white">
+          <h2 id={`checklist-${cartao.modeloId}`} className="bg-brand-blue px-4 py-3 text-sm font-semibold text-branco">
             Checklist: {cartao.modelo}
           </h2>
           <div className="space-y-3 p-4">

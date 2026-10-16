@@ -75,16 +75,14 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
     <div className="flex items-center gap-2">
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/eventos/relatorios/mapa-de-eventos-por-site/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />

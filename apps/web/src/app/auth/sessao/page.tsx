@@ -39,7 +39,7 @@ function AbrirSessao() {
 
 export default function SessaoDoLinkPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-brand-navy text-sm text-brand-muted">
+    <main data-tema="escuro" className="flex min-h-screen items-center justify-center bg-brand-navy text-sm text-brand-muted">
       <p role="status">Abrindo o link...</p>
       <Suspense>
         <AbrirSessao />

@@ -7,7 +7,8 @@ import { LoginForm } from "@/components/LoginForm";
 // no navegador -- por isso e a unica peca com "use client".
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
+    <div data-tema="escuro" className="flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+      {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css). */}
       <HeroPanel />
 
       {/* Sidebar de login: superficie levemente elevada sobre o fundo. */}

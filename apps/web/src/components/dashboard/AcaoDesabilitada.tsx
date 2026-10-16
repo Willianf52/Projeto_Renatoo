@@ -1,5 +1,7 @@
 "use client";
 
+import { CLASSES_DO_TOM, type Tom } from "./tons-de-acao";
+
 /**
  * Botao desabilitado em vez de clicavel sem efeito. O motivo entra no rotulo
  * porque "sem destino ainda" e "voce nao tem permissao" sao situacoes
@@ -24,14 +26,18 @@
 export function AcaoDesabilitada({
   titulo,
   motivo = "em breve",
-  className,
+  tom,
+  className = "",
   children,
 }: {
   titulo: string;
   motivo?: string;
-  className: string;
+  /** O mesmo tipo do botao ativo, esmaecido (`tons-de-acao.ts`). */
+  tom?: Tom;
+  className?: string;
   children: React.ReactNode;
 }) {
+  const cores = tom ? `${CLASSES_DO_TOM[tom]} opacity-40` : "text-white/60";
   const rotulo = `${titulo}: ${motivo}`;
   return (
     <button
@@ -40,7 +46,7 @@ export function AcaoDesabilitada({
       onClick={(event) => event.preventDefault()}
       title={rotulo}
       aria-label={rotulo}
-      className={`flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md text-white/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface ${className}`}
+      className={`flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-600 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface ${cores} ${className}`}
     >
       {children}
     </button>

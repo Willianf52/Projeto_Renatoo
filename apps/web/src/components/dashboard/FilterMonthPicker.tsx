@@ -102,7 +102,7 @@ export function FilterMonthPicker({
                   onClick={() => escolher(indice)}
                   className={`rounded-md py-1.5 text-sm transition-colors ${
                     ehSelecionado
-                      ? "bg-brand-green font-semibold text-brand-navy"
+                      ? "bg-brand-green font-semibold text-sobre-verde"
                       : "text-white hover:bg-brand-navy"
                   }`}
                 >

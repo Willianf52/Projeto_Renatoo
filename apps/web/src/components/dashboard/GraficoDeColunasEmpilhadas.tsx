@@ -14,10 +14,10 @@ import { calcularEscalaY } from "./BarChart";
 export type SerieEmpilhada = { nome: string; cor: string; valores: number[] };
 export type Categoria = { rotulo: string; /** Texto completo no tooltip. */ dica: string };
 
-const COR_FUNDO = "#0b0b26"; // --color-brand-surface
-const COR_TEXTO = "#e2e8f0";
-const COR_SUAVE = "#a0aec0"; // --color-brand-muted
-const COR_GRADE = "#1e293b";
+const COR_FUNDO = "var(--grafico-fundo)"; // --color-brand-surface
+const COR_TEXTO = "var(--grafico-texto)";
+const COR_SUAVE = "var(--grafico-suave)"; // --color-brand-muted
+const COR_GRADE = "var(--grafico-grade)";
 const FONTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
 const LARGURA_COLUNA = 24;
@@ -169,7 +169,7 @@ export function GraficoDeColunasEmpilhadas({
               x={centroX(i)}
               y={baseY + 12}
               textAnchor="end"
-              fill="#7dd3fc"
+              fill="var(--grafico-destaque)"
               fontSize={10}
               transform={`rotate(-45 ${centroX(i)} ${baseY + 12})`}
             >
@@ -179,7 +179,7 @@ export function GraficoDeColunasEmpilhadas({
         );
       })}
 
-      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="#334155" strokeWidth={1} />
+      <line x1={MARGEM_ESQUERDA} y1={baseY} x2={largura - MARGEM_DIREITA} y2={baseY} stroke="var(--grafico-eixo)" strokeWidth={1} />
     </svg>
   );
 }
