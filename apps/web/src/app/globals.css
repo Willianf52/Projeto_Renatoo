@@ -152,6 +152,20 @@ h3 {
   font-family: var(--font-outfit), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Densidade do portal (16/10/2026), medida no sistema de referencia: texto
+   base 12px, cabecalho de tabela e trilha 11px, titulo do cartao em Outfit
+   15px. Redefinir a escala do Tailwind DENTRO do portal (`DashboardChrome`)
+   vale para todas as telas de uma vez -- `text-sm` le `var(--text-sm)` -- e
+   deixa o login com os tamanhos dele. */
+[data-densidade="compacta"] {
+  --text-xs: 0.6875rem;
+  --text-sm: 0.75rem;
+}
+
+[data-densidade="compacta"] :is(h1, h2).text-sm {
+  font-size: 0.9375rem;
+}
+
 /* O tema escuro imprime mal: sem isto, "Exportar para PDF" (window.print())
    sairia com fundo navy cobrindo a folha inteira. Vale para qualquer tela, nao
    so as de exportar -- imprimir a aplicacao, de onde for, deve sair legivel
