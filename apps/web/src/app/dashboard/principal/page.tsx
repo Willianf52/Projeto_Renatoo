@@ -35,7 +35,7 @@ export default function PaginaPrincipal() {
 }
 
 async function Atalhos() {
-  const { grade, fixados, falhou } = await lerAtalhos();
+  const { grade, fixados, falhou, ehGestor } = await lerAtalhos();
   const fixadas = new Set(fixados.map((a) => a.rota));
 
   return (
@@ -44,7 +44,7 @@ async function Atalhos() {
       style={{ animationDelay: "80ms" }}
     >
       <Cabecalho>
-        <PersonalizarAtalhos grade={grade} fixados={fixados} />
+        <PersonalizarAtalhos grade={grade} fixados={fixados} ehGestor={ehGestor} />
       </Cabecalho>
 
       <div className="space-y-4 p-4">

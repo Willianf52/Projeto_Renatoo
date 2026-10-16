@@ -30,6 +30,13 @@ export type NavLink = {
   label: string;
   href: string;
   icon: IconComponent;
+  /**
+   * So aparece para o GESTOR, no menu e nos atalhos da Pagina Principal: as
+   * telas que, no sistema de referencia, so existem no menu do GESTOR (issue
+   * #209). Esconder aqui e so a vitrine: o portao de verdade e o `layout.tsx`
+   * de cada pasta (`SomenteGestor`) e as policies do banco.
+   */
+  somenteGestor?: boolean;
 };
 
 /** Sub-secao dentro de um item do menu, como "Relatorios" dentro de
@@ -154,26 +161,34 @@ export const NAV_ITEMS: NavItem[] = [
         label: "Painel de Eventos",
         href: "/dashboard/eventos/painel-de-eventos",
         icon: ClipboardListIcon,
+        // So o item do menu: a tela segue aberta ao SUPERVISOR pela lupa do
+        // Registro de Eventos, como no sistema de referencia, porque ele
+        // analisa e finaliza ocorrencias (0064).
+        somenteGestor: true,
       },
       {
         label: "Cadastro de Eventos",
         href: "/dashboard/eventos/cadastro-de-eventos",
         icon: MegaphoneIcon,
+        somenteGestor: true,
       },
       {
         label: "Registrar Evento",
         href: "/dashboard/eventos/registrar-evento",
         icon: PlusCircleIcon,
+        somenteGestor: true,
       },
       {
         label: "Tipos de Análise",
         href: "/dashboard/eventos/tipos-de-analise",
         icon: SlidersIcon,
+        somenteGestor: true,
       },
       {
         label: "Tipos de Classificação",
         href: "/dashboard/eventos/tipos-de-classificacao",
         icon: SlidersIcon,
+        somenteGestor: true,
       },
       {
         label: "Relatórios",
@@ -218,11 +233,13 @@ export const NAV_ITEMS: NavItem[] = [
             label: "Analítico de Eventos",
             href: "/dashboard/eventos/relatorios/analitico-de-eventos",
             icon: ClipboardListIcon,
+            somenteGestor: true,
           },
           {
             label: "Gráficos por Classificação",
             href: "/dashboard/eventos/relatorios/graficos-por-classificacao",
             icon: BarChartIcon,
+            somenteGestor: true,
           },
         ],
       },
@@ -248,11 +265,13 @@ export const NAV_ITEMS: NavItem[] = [
             label: "Criar Checklist",
             href: "/dashboard/checklistlab/modelos",
             icon: ClipboardListIcon,
+            somenteGestor: true,
           },
           {
             label: "Grupo Perguntas",
             href: "/dashboard/checklistlab/grupo-perguntas",
             icon: GridIcon,
+            somenteGestor: true,
           },
         ],
       },
@@ -288,3 +307,28 @@ export const TELAS_DO_MENU: TelaDoMenu[] = NAV_ITEMS.filter((item) => !item.exte
       : [{ ...child, secao: item.label }],
   ),
 ]);
+
+const visivel = (link: NavLink, ehGestor: boolean) => ehGestor || !link.somenteGestor;
+
+/**
+ * O menu de quem esta logado: sem os itens `somenteGestor` para quem nao e
+ * GESTOR, e sem o subgrupo que ficar vazio (a "Administracao" do ChecklistLab).
+ * Uma secao de primeiro nivel nunca some: as que tem item de GESTOR tambem tem
+ * itens de todos.
+ */
+export function itensDoMenu(itens: NavItem[], ehGestor: boolean): NavItem[] {
+  if (ehGestor) return itens;
+  return itens.map((item) => ({
+    ...item,
+    children: item.children.flatMap((child): NavChild[] => {
+      if (!isGroup(child)) return visivel(child, ehGestor) ? [child] : [];
+      const items = child.items.filter((link) => visivel(link, ehGestor));
+      return items.length > 0 ? [{ ...child, items }] : [];
+    }),
+  }));
+}
+
+/** As telas que podem virar atalho na Pagina Principal de quem esta logado. */
+export function telasDoMenu(ehGestor: boolean): TelaDoMenu[] {
+  return TELAS_DO_MENU.filter((tela) => visivel(tela, ehGestor));
+}
