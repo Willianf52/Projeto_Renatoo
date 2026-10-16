@@ -61,6 +61,13 @@ describe("descricaoAutomatica", () => {
     expect(descricaoAutomatica({ checklistId: 1, pergunta: "P", resposta: "NAO", observacao: null })).toHaveLength(3);
     expect(rotuloDaResposta("NAO")).toBe("Não conforme");
   });
+
+  it("ocorrencia registrada a mao (0072): sem checklist, so a observacao", () => {
+    expect(descricaoAutomatica({ checklistId: null, pergunta: null, resposta: null, observacao: "Portão aberto" })).toEqual([
+      "Evento registrado manualmente no portal",
+      "Observações: Portão aberto",
+    ]);
+  });
 });
 
 describe("montarResumo", () => {

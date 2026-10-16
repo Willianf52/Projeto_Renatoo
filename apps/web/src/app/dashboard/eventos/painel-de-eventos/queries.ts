@@ -113,11 +113,15 @@ export function rotuloDaResposta(resposta: string): string {
  * delas.
  */
 export function descricaoAutomatica(o: {
-  checklistId: number;
-  pergunta: string;
-  resposta: string;
+  checklistId: number | null;
+  pergunta: string | null;
+  resposta: string | null;
   observacao: string | null;
 }): string[] {
+  // Registrar Evento (0072): sem checklist, sem pergunta e sem resposta.
+  if (o.checklistId === null || o.pergunta === null || o.resposta === null) {
+    return ["Evento registrado manualmente no portal", ...(o.observacao ? [`Observações: ${o.observacao}`] : [])];
+  }
   return [
     `Evento gerado automaticamente pelo Checklist nº ${o.checklistId}`,
     `Pergunta: ${o.pergunta}`,
@@ -136,12 +140,14 @@ type LinhaDoBanco = {
   ano: number;
   criado_em: string;
   status: string;
-  checklist_id: number;
-  pergunta_texto: string;
-  resposta: string;
+  checklist_id: number | null;
+  pergunta_texto: string | null;
+  resposta: string | null;
   observacao: string | null;
   sites: SiteDoBanco | null;
   eventos: { nome: string } | null;
+  subevento: { nome: string } | null;
+  tipos_de_classificacao: { nome: string } | null;
   autor: { nome_completo: string | null } | null;
 };
 
@@ -159,6 +165,8 @@ export type LinhaDoPainel = {
 const SELECT_DA_LISTA = `id, numero, ano, criado_em, status, checklist_id, pergunta_texto, resposta, observacao,
   sites!inner ( nome, grupo_site_id, grupos_sites ( nome ) ),
   eventos!ocorrencias_evento_id_fkey ( nome ),
+  subevento:eventos!ocorrencias_subevento_id_fkey ( nome ),
+  tipos_de_classificacao ( nome ),
   autor:profiles!ocorrencias_aberta_por_fkey ( nome_completo )`;
 
 export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
@@ -303,9 +311,15 @@ export type EmailDaOcorrencia = {
 };
 
 export type OcorrenciaDetalhe = LinhaDoPainel & {
-  checklistId: number;
+  /** Nulo na ocorrencia registrada a mao (0072). */
+  checklistId: number | null;
   site: string;
+  subtipo: string;
+  /** A do registro manual; senao, a da analise mais recente que classificou. */
+  classificacao: string;
   fotos: number[];
+  /** Arquivos enviados no Registrar Evento, fora de qualquer andamento. */
+  arquivosDaAbertura: AnexoDoAndamento[];
   andamentos: AndamentoDaOcorrencia[];
   emails: EmailDaOcorrencia[];
 };
@@ -356,8 +370,10 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
   const linha = paraLinha(data as unknown as LinhaDoBanco);
   const bruto = data as unknown as LinhaDoBanco;
 
-  const [{ data: fotos }, { data: andamentos }, { data: emails }] = await Promise.all([
-    supabase.from("checklist_fotos").select("id").eq("checklist_id", bruto.checklist_id).order("id"),
+  const [{ data: fotos }, { data: andamentos }, { data: emails }, { data: daAbertura }] = await Promise.all([
+    bruto.checklist_id === null
+      ? Promise.resolve({ data: [] as { id: number }[] })
+      : supabase.from("checklist_fotos").select("id").eq("checklist_id", bruto.checklist_id).order("id"),
     supabase
       .from("ocorrencia_andamentos")
       .select(
@@ -372,6 +388,12 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
       .from("ocorrencia_emails")
       .select("id, destinatario, motivo, status, criado_em, enviado_em")
       .eq("ocorrencia_id", id)
+      .order("id", { ascending: true }),
+    supabase
+      .from("ocorrencia_arquivos")
+      .select("id, nome_original")
+      .eq("ocorrencia_id", id)
+      .is("andamento_id", null)
       .order("id", { ascending: true }),
   ]);
 
@@ -389,11 +411,17 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
   }
   const nomeDe = (uuid: string | null) => (uuid ? (nomes.get(uuid) ?? "") : "");
 
+  const classificadas = doBanco.filter((a) => a.tipos_de_classificacao !== null);
+
   return {
     ...linha,
     checklistId: bruto.checklist_id,
     site: bruto.sites?.nome ?? "",
+    subtipo: bruto.subevento?.nome ?? "",
+    classificacao:
+      classificadas.at(-1)?.tipos_de_classificacao?.nome ?? bruto.tipos_de_classificacao?.nome ?? "",
     fotos: (fotos ?? []).map((f) => f.id),
+    arquivosDaAbertura: (daAbertura ?? []).map((a) => ({ id: a.id, nome: a.nome_original })),
     andamentos: doBanco.map((a) => ({
       id: a.id,
       tipo: a.tipo === "FINALIZACAO" ? "FINALIZACAO" : "ANALISE",

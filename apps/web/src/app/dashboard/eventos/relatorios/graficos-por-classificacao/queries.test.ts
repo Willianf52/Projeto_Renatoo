@@ -57,6 +57,24 @@ describe("agrupar", () => {
   });
 });
 
+describe("classificacao do Registrar Evento (0072)", () => {
+  it("vale quando nenhuma analise classificou; a analise, quando houver, manda", () => {
+    const r = agrupar([
+      { autor: { nome_completo: "Ana" }, classificacao_id: 2, tipos_de_classificacao: leve, ocorrencia_andamentos: [] },
+      {
+        autor: { nome_completo: "Ana" },
+        classificacao_id: 2,
+        tipos_de_classificacao: leve,
+        ocorrencia_andamentos: [{ id: 9, classificacao_id: 1, tipos_de_classificacao: grave }],
+      },
+    ]);
+    expect(r.classificacoes.map((c) => [c.nome, c.quantidade])).toEqual([
+      ["Grave", 1],
+      ["Leve", 1],
+    ]);
+  });
+});
+
 describe("extrairFiltros", () => {
   it("aceita so status conhecido", () => {
     expect(extrairFiltros({ status: "EM_ANALISE" }).status).toBe("EM_ANALISE");

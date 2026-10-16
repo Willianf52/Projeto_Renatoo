@@ -14,8 +14,9 @@ import { CORES_DOS_EVENTOS } from "../graficos-de-eventos/queries";
  * ocorrencia --, entao o desenho dos dados segue o da tela, e nao um exemplo.
  *
  * A classificacao de uma ocorrencia e a do andamento mais recente que tem uma
- * (0064): a analise pode reclassificar. Ocorrencia nunca classificada nao
- * entra, como na referencia.
+ * (0064): a analise pode reclassificar. Sem nenhuma, vale a escolhida no
+ * Registrar Evento (0072). Ocorrencia nunca classificada nao entra, como na
+ * referencia.
  */
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -67,12 +68,17 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   };
 }
 
+type TipoDoBanco = { nome: string; cor: string | null } | null;
+
 export type OcorrenciaDoBanco = {
   autor: { nome_completo: string | null } | null;
+  /** A do Registrar Evento (0072); nula nas que vem do checklist. */
+  classificacao_id?: number | null;
+  tipos_de_classificacao?: TipoDoBanco;
   ocorrencia_andamentos: {
     id: number;
     classificacao_id: number | null;
-    tipos_de_classificacao: { nome: string; cor: string | null } | null;
+    tipos_de_classificacao: TipoDoBanco;
   }[];
 };
 
@@ -95,12 +101,17 @@ export function agrupar(ocorrencias: OcorrenciaDoBanco[]): GraficosPorClassifica
   let total = 0;
 
   for (const o of ocorrencias) {
-    const atual = o.ocorrencia_andamentos
+    const daAnalise = o.ocorrencia_andamentos
       .filter((a) => a.classificacao_id !== null)
       .reduce<OcorrenciaDoBanco["ocorrencia_andamentos"][number] | null>(
         (maisRecente, a) => (maisRecente === null || a.id > maisRecente.id ? a : maisRecente),
         null,
       );
+    const atual =
+      daAnalise ??
+      (o.classificacao_id != null
+        ? { classificacao_id: o.classificacao_id, tipos_de_classificacao: o.tipos_de_classificacao ?? null }
+        : null);
     if (!atual || atual.classificacao_id === null) continue;
 
     const id = atual.classificacao_id;
@@ -165,7 +176,8 @@ export async function getGraficosPorClassificacao(filtros: Filtros): Promise<Gra
     let q = supabase
       .from("ocorrencias")
       .select(
-        `id, autor:profiles!ocorrencias_aberta_por_fkey ( nome_completo ),
+        `id, classificacao_id, tipos_de_classificacao ( nome, cor ),
+         autor:profiles!ocorrencias_aberta_por_fkey ( nome_completo ),
          ocorrencia_andamentos ( id, classificacao_id, tipos_de_classificacao ( nome, cor ) )`,
       )
       .gte("criado_em", inicio)

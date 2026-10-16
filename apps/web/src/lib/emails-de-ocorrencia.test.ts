@@ -48,6 +48,13 @@ describe("montarEmailDeOcorrencia", () => {
     expect(montarEmailDeOcorrencia({ ...base, resposta: "SIM" }).texto).toContain("Resposta: Sim");
   });
 
+  it("ocorrência registrada a mão (0072): sem pergunta nem resposta, diz que foi manual", () => {
+    const { texto } = montarEmailDeOcorrencia({ ...base, pergunta: null, resposta: null, observacao: "Portão aberto" });
+    expect(texto).not.toContain("Pergunta:");
+    expect(texto).toContain("Registrado manualmente no portal.");
+    expect(texto).toContain("Observação: Portão aberto");
+  });
+
   it("quebra de linha no nome não chega ao assunto", () => {
     const { assunto } = montarEmailDeOcorrencia({ ...base, site: "Posto\r\nBcc: alguem@fora" });
     expect(assunto).not.toMatch(/[\r\n]/);

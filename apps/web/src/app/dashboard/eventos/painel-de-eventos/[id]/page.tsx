@@ -117,7 +117,23 @@ async function Detalhe({ params, searchParams }: Props) {
         </p>
       </Secao>
 
-      <Secao titulo={`Arquivos (${ocorrencia.fotos.length})`}>
+      <Secao titulo={`Arquivos (${ocorrencia.fotos.length + ocorrencia.arquivosDaAbertura.length})`}>
+        {ocorrencia.arquivosDaAbertura.length > 0 && (
+          <ul className="flex flex-wrap gap-2 px-4 pt-4">
+            {ocorrencia.arquivosDaAbertura.map((anexo) => (
+              <li key={anexo.id}>
+                <a
+                  href={`${PAINEL}/anexos/${anexo.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex items-center rounded-md border border-slate-700 px-3 py-1.5 text-xs text-white transition-colors hover:border-brand-green hover:text-brand-green"
+                >
+                  {anexo.nome}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
         {ocorrencia.fotos.length > 0 ? (
           <div className="flex flex-wrap gap-3 p-4">
             {ocorrencia.fotos.map((fotoId) => {
@@ -135,9 +151,11 @@ async function Detalhe({ params, searchParams }: Props) {
               );
             })}
           </div>
-        ) : (
-          <p className="px-4 py-4 text-sm text-brand-muted">Nenhuma foto neste checklist.</p>
-        )}
+        ) : ocorrencia.arquivosDaAbertura.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-brand-muted">
+            {ocorrencia.checklistId === null ? "Nenhum arquivo enviado no registro." : "Nenhuma foto neste checklist."}
+          </p>
+        ) : null}
       </Secao>
 
       <Secao titulo={`Análises e finalização (${ocorrencia.andamentos.length})`}>
@@ -200,10 +218,10 @@ function Campos({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
     { rotulo: "Número / Ano", valor: ocorrencia.numeroAno },
     { rotulo: "Data / Hora", valor: quando },
     { rotulo: "Status", valor: rotuloDoStatus(ocorrencia.status) },
-    { rotulo: "Classificação", valor: "" },
+    { rotulo: "Classificação", valor: ocorrencia.classificacao },
     { rotulo: "Site", valor: ocorrencia.site },
     { rotulo: "Evento", valor: ocorrencia.evento },
-    { rotulo: "SubTipo", valor: "" },
+    { rotulo: "SubTipo", valor: ocorrencia.subtipo },
     { rotulo: "Descrição", valor: "" },
     { rotulo: "Registrado por", valor: ocorrencia.usuarioAbertura ? `${ocorrencia.usuarioAbertura} em ${quando}` : quando },
     { rotulo: "Integrado em", valor: quando },
@@ -212,12 +230,16 @@ function Campos({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
       largo: true,
       valor: (
         <>
-          <span>
-            {primeiraLinha.replace(/\d+$/, "")}
-            <Link href={`${HISTORICO}/${ocorrencia.checklistId}`} className="text-brand-green hover:underline">
-              {ocorrencia.checklistId}
-            </Link>
-          </span>
+          {ocorrencia.checklistId === null ? (
+            <span>{primeiraLinha}</span>
+          ) : (
+            <span>
+              {primeiraLinha.replace(/\d+$/, "")}
+              <Link href={`${HISTORICO}/${ocorrencia.checklistId}`} className="text-brand-green hover:underline">
+                {ocorrencia.checklistId}
+              </Link>
+            </span>
+          )}
           {resto.map((linha, indice) => (
             <span key={indice} className="block whitespace-pre-line">
               {linha}

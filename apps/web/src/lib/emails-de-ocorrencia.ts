@@ -17,9 +17,10 @@ export type DadosDaMensagem = {
   site: string;
   /** ISO, como vem do banco. */
   abertaEm: string;
-  pergunta: string;
+  /** Nulas na ocorrencia registrada a mao (Registrar Evento, 0072). */
+  pergunta: string | null;
   /** "NAO" / "SIM", como gravado pela 0063. */
-  resposta: string;
+  resposta: string | null;
   observacao: string | null;
   /** Texto da analise ou das acoes realizadas; nulo na abertura. */
   textoDoAndamento: string | null;
@@ -67,8 +68,9 @@ export function montarEmailDeOcorrencia(d: DadosDaMensagem): { assunto: string; 
     `Evento: ${d.evento}`,
     `Site: ${d.site}`,
     `Aberto em: ${DATA_HORA.format(new Date(d.abertaEm))}`,
-    `Pergunta: ${d.pergunta}`,
-    `Resposta: ${rotuloDaResposta(d.resposta)}`,
+    ...(d.pergunta !== null && d.resposta !== null
+      ? [`Pergunta: ${d.pergunta}`, `Resposta: ${rotuloDaResposta(d.resposta)}`]
+      : ["Registrado manualmente no portal."]),
   ];
   if (d.observacao?.trim()) linhas.push(`Observação: ${d.observacao.trim()}`);
 
@@ -79,10 +81,11 @@ export function montarEmailDeOcorrencia(d: DadosDaMensagem): { assunto: string; 
     "",
     `Ver no portal: ${d.link}`,
     "",
-    // Generico de proposito: desde a 0068 o mesmo aviso vai aos contatos do
-    // site E ao superior de quem abriu, e cada um deixa de receber por um
-    // caminho diferente (o cadastro do site, ou a caixa "Evento" no cadastro
-    // do usuario) -- o gestor do contrato sabe qual.
+    // Generico de proposito: o mesmo aviso vai aos contatos do site, aos
+    // e-mails do evento (0072) e ao superior de quem abriu (0068), e cada um
+    // deixa de receber por um caminho diferente (o cadastro do site, o do
+    // evento, ou a caixa "Evento" no cadastro do usuario) -- o gestor do
+    // contrato sabe qual.
     "Mensagem automática do Portal Operacional Up Serviços. Para deixar de receber, fale com o gestor do contrato.",
   );
 
