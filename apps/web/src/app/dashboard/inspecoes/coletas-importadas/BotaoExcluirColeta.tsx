@@ -4,6 +4,7 @@ import { useActionState, useRef } from "react";
 import { Button } from "@/components/Button";
 import { TrashIcon, XIcon } from "@/components/dashboard/icons";
 import { excluirColeta, type EstadoDaColeta } from "./actions";
+import { CLASSES_DO_TOM, HOVER_DO_TOM } from "@/components/dashboard/tons-de-acao";
 
 /**
  * Lixeira de uma linha de Coletas Importadas (migration 0067), com
@@ -31,7 +32,7 @@ export function BotaoExcluirColeta({
         onClick={() => dialogo.current?.showModal()}
         title={`Excluir coleta ${coleta}`}
         aria-label={`Excluir coleta ${coleta}`}
-        className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600/40 text-white transition-all duration-200 hover:brightness-125 active:scale-[0.97]"
+        className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 active:scale-[0.97] ${CLASSES_DO_TOM.perigo} ${HOVER_DO_TOM.perigo}`}
       >
         <TrashIcon className="h-4 w-4" />
       </button>

@@ -100,10 +100,10 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
             Painel de Eventos
           </h1>
           <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar Eventos para PDF Unificado" className="bg-red-600/40">
+            <AcaoDesabilitada titulo="Exportar Eventos para PDF Unificado" tom="pdf">
               <PdfIcon className="h-4 w-4" />
             </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para CSV" className="bg-emerald-600/40">
+            <AcaoDesabilitada titulo="Exportar para CSV" tom="excel">
               <ExcelIcon className="h-4 w-4" />
             </AcaoDesabilitada>
           </div>

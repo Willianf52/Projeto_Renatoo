@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { CheckIcon, TrashIcon, XIcon } from "@/components/dashboard/icons";
 import { excluirGrupoUsuarios, type EstadoDaExclusao } from "./actions";
+import { CLASSES_DO_TOM, HOVER_DO_TOM } from "@/components/dashboard/tons-de-acao";
 
 /**
  * Botao de excluir da coluna "Ações" (migration 0020).
@@ -47,7 +48,7 @@ export function ExcluirGrupo({ id, nome }: { id: number; nome: string }) {
             disabled={excluindo}
             title="Cancelar"
             aria-label="Cancelar exclusão"
-            className={`${BOTAO} bg-white/10`}
+            className={`${BOTAO} ${CLASSES_DO_TOM.neutro} ${HOVER_DO_TOM.neutro}`}
           >
             <XIcon className="h-4 w-4" />
           </button>
@@ -58,7 +59,7 @@ export function ExcluirGrupo({ id, nome }: { id: number; nome: string }) {
           onClick={() => setConfirmando(true)}
           title={`Excluir ${nome}`}
           aria-label={`Excluir ${nome}`}
-          className={`${BOTAO} bg-red-600/40`}
+          className={`${BOTAO} ${CLASSES_DO_TOM.perigo} ${HOVER_DO_TOM.perigo}`}
         >
           <TrashIcon className="h-4 w-4" />
         </button>

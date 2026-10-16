@@ -90,11 +90,11 @@ export default function ModelosDeChecklistPage({ searchParams }: { searchParams:
 
 async function AcaoDeNovoModelo() {
   return (await podeEditarChecklist()) ? (
-    <Acao titulo="Novo modelo" href={`${LISTAGEM}/novo`} className="bg-amber-500/80">
+    <Acao titulo="Novo modelo" href={`${LISTAGEM}/novo`} tom="novo">
       <PlusCircleIcon className="h-4 w-4" />
     </Acao>
   ) : (
-    <AcaoDesabilitada titulo="Novo modelo" motivo="você não tem permissão" className="bg-amber-500/40">
+    <AcaoDesabilitada titulo="Novo modelo" motivo="você não tem permissão" tom="novo">
       <PlusCircleIcon className="h-4 w-4" />
     </AcaoDesabilitada>
   );
@@ -134,22 +134,21 @@ async function TabelaDeModelos({ searchParams }: { searchParams: SearchParamsPro
     <div key={modelo.id} className="flex items-center gap-1.5">
       <Acao
         titulo={`Perguntas de ${modelo.nome}`}
-        href={`/dashboard/checklistlab/perguntas?modelo=${modelo.id}`}
-        className="bg-white/10"
+        href={`/dashboard/checklistlab/perguntas?modelo=${modelo.id}`} tom="neutro"
       >
         <ClipboardListIcon className="h-4 w-4" />
       </Acao>
       {podeAdministrar ? (
         <>
-          <Acao titulo={`Editar ${modelo.nome}`} href={`${LISTAGEM}/${modelo.id}/editar`} className="bg-white/10">
+          <Acao titulo={`Editar ${modelo.nome}`} href={`${LISTAGEM}/${modelo.id}/editar`} tom="neutro">
             <PencilIcon className="h-4 w-4" />
           </Acao>
-          <Acao titulo={`Duplicar ${modelo.nome}`} href={`${LISTAGEM}/${modelo.id}/duplicar`} className="bg-white/10">
+          <Acao titulo={`Duplicar ${modelo.nome}`} href={`${LISTAGEM}/${modelo.id}/duplicar`} tom="neutro">
             <CopyIcon className="h-4 w-4" />
           </Acao>
         </>
       ) : (
-        <AcaoDesabilitada titulo="Editar modelo" motivo="você não tem permissão" className="bg-white/10">
+        <AcaoDesabilitada titulo="Editar modelo" motivo="você não tem permissão" tom="neutro">
           <PencilIcon className="h-4 w-4" />
         </AcaoDesabilitada>
       )}

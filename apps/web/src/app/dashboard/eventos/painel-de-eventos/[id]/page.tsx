@@ -94,7 +94,7 @@ async function Detalhe({ params, searchParams }: Props) {
             Registro de Evento On-Line
           </h1>
           <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar para PDF" className="bg-red-600/40">
+            <AcaoDesabilitada titulo="Exportar para PDF" tom="pdf">
               <PdfIcon className="h-4 w-4" />
             </AcaoDesabilitada>
             <Button href={PAINEL} variant="secondary" className="group">

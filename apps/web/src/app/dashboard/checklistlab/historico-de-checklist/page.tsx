@@ -116,8 +116,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
     <div className="flex items-center gap-2">
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/checklistlab/historico-de-checklist/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
@@ -126,24 +125,21 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
           Amarelo e azul, como os dois botoes de mesmo nome no sistema antigo. */}
       <Acao
         titulo="Exportar Respostas para Excel"
-        href={`/dashboard/checklistlab/historico-de-checklist/export/respostas${queryExportacao}`}
-        className="bg-amber-500/40"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/respostas${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/checklistlab/historico-de-checklist/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar PDF Unificado"
-        href={`/dashboard/checklistlab/historico-de-checklist/export/pdf-unificado${queryExportacao}`}
-        className="bg-sky-600/40"
+        href={`/dashboard/checklistlab/historico-de-checklist/export/pdf-unificado${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
@@ -277,8 +273,7 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
       titulo={`Ver checklist ${linha.id}`}
       href={`/dashboard/checklistlab/historico-de-checklist/${linha.id}${
         querystringAtual ? `?${querystringAtual}` : ""
-      }`}
-      className="bg-white/10"
+      }`} tom="neutro"
     >
       <EyeIcon className="h-4 w-4" />
     </Acao>,

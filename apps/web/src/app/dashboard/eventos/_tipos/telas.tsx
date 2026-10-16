@@ -83,14 +83,14 @@ async function BotaoNovo({ tipo }: { tipo: TipoDeCadastro }) {
 
   if (await podeConfigurarEventos()) {
     return (
-      <Acao titulo={`Novo ${cadastro.singular.toLowerCase()}`} href={`${cadastro.rota}/novo`} className="bg-amber-500/80">
+      <Acao titulo={`Novo ${cadastro.singular.toLowerCase()}`} href={`${cadastro.rota}/novo`} tom="novo">
         <PlusCircleIcon className="h-4 w-4" />
       </Acao>
     );
   }
 
   return (
-    <AcaoDesabilitada titulo={`Novo ${cadastro.singular.toLowerCase()}`} motivo="você não tem permissão" className="bg-amber-500/40">
+    <AcaoDesabilitada titulo={`Novo ${cadastro.singular.toLowerCase()}`} motivo="você não tem permissão" tom="novo">
       <PlusCircleIcon className="h-4 w-4" />
     </AcaoDesabilitada>
   );
@@ -115,11 +115,11 @@ async function TabelaDeTipos({ tipo }: { tipo: TipoDeCadastro }) {
     <AmostraDeCor key="cor" cor={linha.cor} />,
     linha.ativo ? "Ativo" : "Inativo",
     podeEditar ? (
-      <Acao key="acoes" titulo={`Editar ${linha.nome}`} href={`${cadastro.rota}/${linha.id}/editar`} className="bg-white/10">
+      <Acao key="acoes" titulo={`Editar ${linha.nome}`} href={`${cadastro.rota}/${linha.id}/editar`} tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </Acao>
     ) : (
-      <AcaoDesabilitada key="acoes" titulo={`Editar ${linha.nome}`} motivo="você não tem permissão" className="bg-white/10">
+      <AcaoDesabilitada key="acoes" titulo={`Editar ${linha.nome}`} motivo="você não tem permissão" tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>
     ),

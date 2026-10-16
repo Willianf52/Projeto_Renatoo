@@ -76,11 +76,11 @@ export default function GrupoPerguntasPage({ searchParams }: { searchParams: Sea
 
 async function BotaoNovo() {
   return (await podeEditarChecklist()) ? (
-    <Acao titulo="Novo grupo de perguntas" href={`${LISTAGEM}/novo`} className="bg-amber-500/80">
+    <Acao titulo="Novo grupo de perguntas" href={`${LISTAGEM}/novo`} tom="novo">
       <PlusCircleIcon className="h-4 w-4" />
     </Acao>
   ) : (
-    <AcaoDesabilitada titulo="Novo grupo de perguntas" motivo="você não tem permissão" className="bg-amber-500/40">
+    <AcaoDesabilitada titulo="Novo grupo de perguntas" motivo="você não tem permissão" tom="novo">
       <PlusCircleIcon className="h-4 w-4" />
     </AcaoDesabilitada>
   );
@@ -122,11 +122,11 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
     String(g.perguntas),
     g.ativo ? "Ativo" : "Inativo",
     podeEditar ? (
-      <Acao key="acoes" titulo={`Editar ${g.nome}`} href={`${LISTAGEM}/${g.id}/editar`} className="bg-white/10">
+      <Acao key="acoes" titulo={`Editar ${g.nome}`} href={`${LISTAGEM}/${g.id}/editar`} tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </Acao>
     ) : (
-      <AcaoDesabilitada key="acoes" titulo={`Editar ${g.nome}`} motivo="você não tem permissão" className="bg-white/10">
+      <AcaoDesabilitada key="acoes" titulo={`Editar ${g.nome}`} motivo="você não tem permissão" tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>
     ),

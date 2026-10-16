@@ -157,13 +157,12 @@ async function AcaoDeNovoUsuario() {
   // Mesma regua do Site / Planta: importar antes de criar um a um.
   return (await podeAdministrarUsuarios()) ? (
     <div className="flex items-center gap-2">
-      <Acao titulo="Importar usuários" href="/dashboard/cadastros/usuarios/importar" className="bg-sky-600/40">
+      <Acao titulo="Importar usuários" href="/dashboard/cadastros/usuarios/importar" tom="importar">
         <UploadIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Novo usuário"
-        href="/dashboard/cadastros/usuarios/novo"
-        className="bg-amber-500/80"
+        href="/dashboard/cadastros/usuarios/novo" tom="novo"
       >
         <PlusCircleIcon className="h-4 w-4" />
       </Acao>
@@ -172,15 +171,13 @@ async function AcaoDeNovoUsuario() {
     <div className="flex items-center gap-2">
       <AcaoDesabilitada
         titulo="Importar usuários"
-        motivo="apenas Gestor administra usuários"
-        className="bg-sky-600/40"
+        motivo="apenas Gestor administra usuários" tom="importar"
       >
         <UploadIcon className="h-4 w-4" />
       </AcaoDesabilitada>
       <AcaoDesabilitada
         titulo="Novo usuário"
-        motivo="apenas Gestor administra usuários"
-        className="bg-amber-500/40"
+        motivo="apenas Gestor administra usuários" tom="novo"
       >
         <PlusCircleIcon className="h-4 w-4" />
       </AcaoDesabilitada>
@@ -267,15 +264,13 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
         <>
           <Acao
             titulo={`Editar ${usuario.nome_completo || usuario.email}`}
-            href={`/dashboard/cadastros/usuarios/${usuario.id}/editar`}
-            className="bg-white/10"
+            href={`/dashboard/cadastros/usuarios/${usuario.id}/editar`} tom="neutro"
           >
             <PencilIcon className="h-4 w-4" />
           </Acao>
           <Acao
             titulo={`Duplicar o acesso de ${usuario.nome_completo || usuario.email}`}
-            href={`/dashboard/cadastros/usuarios/novo?duplicar=${usuario.id}`}
-            className="bg-white/10"
+            href={`/dashboard/cadastros/usuarios/novo?duplicar=${usuario.id}`} tom="neutro"
           >
             <CopyIcon className="h-4 w-4" />
           </Acao>
@@ -284,15 +279,13 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
         <>
           <AcaoDesabilitada
             titulo="Editar usuário"
-            motivo="apenas Gestor administra usuários"
-            className="bg-white/10"
+            motivo="apenas Gestor administra usuários" tom="neutro"
           >
             <PencilIcon className="h-4 w-4" />
           </AcaoDesabilitada>
           <AcaoDesabilitada
             titulo="Duplicar usuário"
-            motivo="apenas Gestor administra usuários"
-            className="bg-white/10"
+            motivo="apenas Gestor administra usuários" tom="neutro"
           >
             <CopyIcon className="h-4 w-4" />
           </AcaoDesabilitada>

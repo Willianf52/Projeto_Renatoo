@@ -120,24 +120,21 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
     <div className="flex items-center gap-2">
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/cadastros/qr-code/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/cadastros/qr-code/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/cadastros/qr-code/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/cadastros/qr-code/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Imprimir Etiquetas"
-        href={`/dashboard/cadastros/qr-code/export/etiquetas${queryExportacao}`}
-        className="bg-sky-600/40"
+        href={`/dashboard/cadastros/qr-code/export/etiquetas${queryExportacao}`} tom="neutro"
         target="_blank"
       >
         <QrCodeIcon className="h-4 w-4" />
@@ -145,16 +142,14 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       {podeAdministrar ? (
         <Acao
           titulo="Novo QR-Code"
-          href="/dashboard/cadastros/qr-code/novo"
-          className="bg-amber-500/80"
+          href="/dashboard/cadastros/qr-code/novo" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </Acao>
       ) : (
         <AcaoDesabilitada
           titulo="Novo QR-Code"
-          motivo="você não tem permissão"
-          className="bg-amber-500/40"
+          motivo="você não tem permissão" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </AcaoDesabilitada>
@@ -239,8 +234,7 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
       <Acao
         key={qrCode.id}
         titulo={`Editar ${qrCode.codigo}`}
-        href={`/dashboard/cadastros/qr-code/${qrCode.id}/editar`}
-        className="bg-white/10"
+        href={`/dashboard/cadastros/qr-code/${qrCode.id}/editar`} tom="neutro"
       >
         <PencilIcon className="h-4 w-4" />
       </Acao>
@@ -248,8 +242,7 @@ async function TabelaDeQrCodes({ searchParams }: { searchParams: SearchParamsPro
       <AcaoDesabilitada
         key={qrCode.id}
         titulo="Editar QR-Code"
-        motivo="você não tem permissão"
-        className="bg-white/10"
+        motivo="você não tem permissão" tom="neutro"
       >
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>

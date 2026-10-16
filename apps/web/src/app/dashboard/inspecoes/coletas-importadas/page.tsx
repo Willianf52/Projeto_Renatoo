@@ -156,16 +156,14 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       {podeCadastrar && <BotaoCadastroManual />}
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/inspecoes/coletas-importadas/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/inspecoes/coletas-importadas/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/inspecoes/coletas-importadas/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/inspecoes/coletas-importadas/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
@@ -323,8 +321,7 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
         <AcaoDesabilitada
           key={leitura.id}
           titulo={`Excluir coleta ${linha[0]}`}
-          motivo="visita com checklist enviado; exclua o checklist no Histórico"
-          className="bg-red-600/20"
+          motivo="visita com checklist enviado; exclua o checklist no Histórico" tom="perigo"
         >
           <TrashIcon className="h-4 w-4" />
         </AcaoDesabilitada>

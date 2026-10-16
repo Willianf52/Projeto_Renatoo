@@ -190,26 +190,24 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
     <div className="flex items-center gap-2">
       {/* Mesma regua do Grupo de Sites: importar antes de exportar. */}
       {podeAdministrar ? (
-        <Acao titulo="Importar sites" href="/dashboard/cadastros/site-planta/importar" className="bg-sky-600/40">
+        <Acao titulo="Importar sites" href="/dashboard/cadastros/site-planta/importar" tom="importar">
           <UploadIcon className="h-4 w-4" />
         </Acao>
       ) : (
-        <AcaoDesabilitada titulo="Importar sites" motivo="você não tem permissão" className="bg-sky-600/40">
+        <AcaoDesabilitada titulo="Importar sites" motivo="você não tem permissão" tom="importar">
           <UploadIcon className="h-4 w-4" />
         </AcaoDesabilitada>
       )}
       <Acao
         titulo="Exportar para Excel"
-        href={`/dashboard/cadastros/site-planta/export/excel${queryExportacao}`}
-        className="bg-emerald-600/40"
+        href={`/dashboard/cadastros/site-planta/export/excel${queryExportacao}`} tom="excel"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo="Exportar para PDF"
-        href={`/dashboard/cadastros/site-planta/export/pdf${queryExportacao}`}
-        className="bg-red-600/40"
+        href={`/dashboard/cadastros/site-planta/export/pdf${queryExportacao}`} tom="pdf"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
@@ -217,16 +215,14 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       {podeAdministrar ? (
         <Acao
           titulo="Novo site"
-          href="/dashboard/cadastros/site-planta/novo"
-          className="bg-amber-500/80"
+          href="/dashboard/cadastros/site-planta/novo" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </Acao>
       ) : (
         <AcaoDesabilitada
           titulo="Novo site"
-          motivo="você não tem permissão"
-          className="bg-amber-500/40"
+          motivo="você não tem permissão" tom="novo"
         >
           <PlusCircleIcon className="h-4 w-4" />
         </AcaoDesabilitada>
@@ -316,15 +312,13 @@ async function TabelaDeSites({ searchParams }: { searchParams: SearchParamsPromi
       <div key={site.id} className="flex items-center gap-2">
         <Acao
           titulo={`Editar ${site.nome}`}
-          href={`/dashboard/cadastros/site-planta/${site.id}/editar`}
-          className="bg-white/10"
+          href={`/dashboard/cadastros/site-planta/${site.id}/editar`} tom="neutro"
         >
           <PencilIcon className="h-4 w-4" />
         </Acao>
         <Acao
           titulo={`Duplicar o cadastro de ${site.nome}`}
-          href={`/dashboard/cadastros/site-planta/novo?duplicar=${site.id}`}
-          className="bg-white/10"
+          href={`/dashboard/cadastros/site-planta/novo?duplicar=${site.id}`} tom="neutro"
         >
           <CopyIcon className="h-4 w-4" />
         </Acao>
@@ -333,15 +327,13 @@ async function TabelaDeSites({ searchParams }: { searchParams: SearchParamsPromi
       <div key={site.id} className="flex items-center gap-2">
         <AcaoDesabilitada
           titulo="Editar site"
-          motivo="você não tem permissão"
-          className="bg-white/10"
+          motivo="você não tem permissão" tom="neutro"
         >
           <PencilIcon className="h-4 w-4" />
         </AcaoDesabilitada>
         <AcaoDesabilitada
           titulo="Duplicar site"
-          motivo="você não tem permissão"
-          className="bg-white/10"
+          motivo="você não tem permissão" tom="neutro"
         >
           <CopyIcon className="h-4 w-4" />
         </AcaoDesabilitada>

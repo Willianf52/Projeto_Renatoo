@@ -99,27 +99,27 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   return (
     <div className="flex items-center gap-2">
-      <Acao titulo="Exportar para Excel" href={`${LISTAGEM}/export/excel${query}`} className="bg-emerald-600/40" target="_blank">
+      <Acao titulo="Exportar para Excel" href={`${LISTAGEM}/export/excel${query}`} tom="excel" target="_blank">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
-      <Acao titulo="Exportar para PDF" href={`${LISTAGEM}/export/pdf${query}`} className="bg-red-600/40" target="_blank">
+      <Acao titulo="Exportar para PDF" href={`${LISTAGEM}/export/pdf${query}`} tom="pdf" target="_blank">
         <PdfIcon className="h-4 w-4" />
       </Acao>
       {podeEditar ? (
         <>
-          <Acao titulo="Importar Eventos" href={`${LISTAGEM}/importar`} className="bg-sky-600/60">
+          <Acao titulo="Importar Eventos" href={`${LISTAGEM}/importar`} tom="importar">
             <UploadIcon className="h-4 w-4" />
           </Acao>
-          <Acao titulo="Novo evento" href={`${LISTAGEM}/novo`} className="bg-amber-500/80">
+          <Acao titulo="Novo evento" href={`${LISTAGEM}/novo`} tom="novo">
             <PlusCircleIcon className="h-4 w-4" />
           </Acao>
         </>
       ) : (
         <>
-          <AcaoDesabilitada titulo="Importar Eventos" motivo="você não tem permissão" className="bg-sky-600/30">
+          <AcaoDesabilitada titulo="Importar Eventos" motivo="você não tem permissão" tom="importar">
             <UploadIcon className="h-4 w-4" />
           </AcaoDesabilitada>
-          <AcaoDesabilitada titulo="Novo evento" motivo="você não tem permissão" className="bg-amber-500/40">
+          <AcaoDesabilitada titulo="Novo evento" motivo="você não tem permissão" tom="novo">
             <PlusCircleIcon className="h-4 w-4" />
           </AcaoDesabilitada>
         </>
@@ -171,11 +171,11 @@ async function TabelaDeEventos({ searchParams }: { searchParams: SearchParamsPro
     formatarMinutos(e.bloqueioRepeticaoMinutos),
     e.ativo ? "ATIVO" : "INATIVO",
     podeEditar ? (
-      <Acao key="acoes" titulo={`Editar ${e.nome}`} href={`${LISTAGEM}/${e.id}/editar`} className="bg-white/10">
+      <Acao key="acoes" titulo={`Editar ${e.nome}`} href={`${LISTAGEM}/${e.id}/editar`} tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </Acao>
     ) : (
-      <AcaoDesabilitada key="acoes" titulo={`Editar ${e.nome}`} motivo="você não tem permissão" className="bg-white/10">
+      <AcaoDesabilitada key="acoes" titulo={`Editar ${e.nome}`} motivo="você não tem permissão" tom="neutro">
         <PencilIcon className="h-4 w-4" />
       </AcaoDesabilitada>
     ),
