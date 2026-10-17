@@ -21,12 +21,16 @@ function getResendClient(): Resend {
 }
 
 /**
- * Sem dominio proprio verificado no Resend, "onboarding@resend.dev" so entrega
- * para o e-mail dono da conta Resend -- suficiente para validar o fluxo agora.
- * Trocar por um remetente do dominio da empresa quando o dominio for
- * verificado em Resend > Domains.
+ * Remetente de teste da Resend: so entrega para o e-mail dono da conta. Vale
+ * enquanto `EMAIL_REMETENTE` (endereco do dominio verificado em Resend >
+ * Domains) nao estiver configurada -- ver `configuracaoDoRemetente`.
  */
-const REMETENTE = "Up Serviços <onboarding@resend.dev>";
+const REMETENTE_DE_TESTE = "Up Serviços <onboarding@resend.dev>";
+
+/** Todos os e-mails do portal saem daqui: um remetente so, o do dominio quando houver. */
+function remetente(): string {
+  return process.env.EMAIL_REMETENTE?.trim() || REMETENTE_DE_TESTE;
+}
 
 /**
  * Remetente dos e-mails das ocorrencias, que vao para gente de fora (contatos
@@ -36,10 +40,9 @@ const REMETENTE = "Up Serviços <onboarding@resend.dev>";
  * (`ALERTA_OPERACAO_EMAIL`) recebe -- o resto espera na fila (migration 0065).
  */
 export function configuracaoDoRemetente(): { remetente: string; somente: string[] | null } {
-  const remetente = process.env.EMAIL_REMETENTE?.trim();
-  if (remetente) return { remetente, somente: null };
+  if (process.env.EMAIL_REMETENTE?.trim()) return { remetente: remetente(), somente: null };
   const dono = process.env.ALERTA_OPERACAO_EMAIL?.trim().toLowerCase();
-  return { remetente: REMETENTE, somente: dono ? [dono] : [] };
+  return { remetente: REMETENTE_DE_TESTE, somente: dono ? [dono] : [] };
 }
 
 /**
@@ -67,7 +70,7 @@ export async function enviarAvisoSenhaAlterada(destinatario: string) {
   const resend = getResendClient();
 
   const { error } = await resend.emails.send({
-    from: REMETENTE,
+    from: remetente(),
     to: destinatario,
     subject: "Sua senha foi alterada",
     text:
@@ -86,17 +89,16 @@ export async function enviarAvisoSenhaAlterada(destinatario: string) {
  * Alerta operacional (falha de lote de importação, silêncio prolongado) --
  * ver `api/importar/coletas/route.ts` e `api/cron/verificar-importacoes/route.ts`.
  *
- * Vai para `ALERTA_OPERACAO_EMAIL`, não para quem quer que seja: sem domínio
- * verificado no Resend (ver o comentário de `REMETENTE` acima), a entrega só
- * funciona se esse endereço for o mesmo da conta Resend. Trocar por um
- * endereço de equipe (e destinatário livre) quando o domínio for verificado.
+ * Vai para `ALERTA_OPERACAO_EMAIL`, não para quem quer que seja. Sem
+ * `EMAIL_REMETENTE` (ver `REMETENTE_DE_TESTE` acima), a entrega só funciona se
+ * esse endereço for o mesmo da conta Resend.
  */
 export async function enviarAlertaOperacional(assunto: string, corpo: string) {
   const resend = getResendClient();
   const destinatario = requireServerEnv("ALERTA_OPERACAO_EMAIL");
 
   const { error } = await resend.emails.send({
-    from: REMETENTE,
+    from: remetente(),
     to: destinatario,
     subject: assunto,
     text: corpo,
