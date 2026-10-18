@@ -184,7 +184,7 @@ export function FormularioDeAndamento({
         <div>
           <span className={rotulo}>Avisar sobre a Finalização</span>
           <p className="mb-2 text-xs text-brand-muted">
-            Os avisos por e-mail serão enviados quando o domínio próprio estiver configurado. A escolha já fica registrada.
+            Cada usuário escolhido recebe um e-mail avisando da finalização.
           </p>
           <SelecaoMultipla
             name="avisar"
@@ -228,7 +228,7 @@ export function FormularioDeAndamento({
           className={getInputClasses(false)}
         />
         <p id={`${tipo}-emails-ajuda`} className="mt-1.5 text-xs text-brand-muted">
-          Separe por vírgula. O envio acontece quando o domínio próprio estiver configurado.
+          Separe por vírgula. Cada endereço recebe este andamento por e-mail.
         </p>
       </div>
 
