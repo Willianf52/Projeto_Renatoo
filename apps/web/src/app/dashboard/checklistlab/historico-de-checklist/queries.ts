@@ -5,7 +5,7 @@ import {
   type RespostaDoChecklist as ValorDaResposta,
   type TipoDeResposta,
 } from "@projeto-renatoo/shared";
-import { dataValida, fimExclusivoDoFiltro, formatarDataHora, inicioDoFiltro } from "@/lib/data-hora";
+import { dataValida, fimExclusivoDoFiltro, formatarDataHora, FUSO_DO_PROJETO, inicioDoFiltro } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
@@ -44,34 +44,94 @@ export function idValido(valor: string): number | null {
   return idNaUrl(valor);
 }
 
-/** Coluna a que o periodo (Data Inicial/Final) se aplica. */
-export type CampoDeData = "envio" | "visita";
+/** Todos os valores de um parametro repetido (`site=1&site=2`), sem vazios. */
+export function todos(valor: string | string[] | undefined): string[] {
+  return (Array.isArray(valor) ? valor : valor ? [valor] : []).filter((v) => v.length > 0);
+}
+
+/**
+ * Querystring com todos os valores de cada parametro, menos os de `sem`. Os
+ * filtros de selecao multipla repetem o nome (`site=1&site=2`), e `primeiro`
+ * jogaria fora tudo depois do primeiro -- nos links de pagina, de exportacao e
+ * do detalhe, isso mudaria o filtro sem ninguem perceber.
+ */
+export function querystringDe(params: SearchParams, sem: readonly string[] = []): string {
+  const query = new URLSearchParams();
+  for (const [chave, valor] of Object.entries(params)) {
+    if (sem.includes(chave)) continue;
+    for (const v of todos(valor)) query.append(chave, v);
+  }
+  return query.toString();
+}
+
+/** Os parametros de uma URL no formato de `searchParams` do App Router, com
+ * os repetidos em lista. As rotas de exportar leem por aqui: o
+ * `Object.fromEntries` guardaria so o ultimo valor de cada filtro multiplo. */
+export function paramsDaUrl(url: URLSearchParams): SearchParams {
+  const params: SearchParams = {};
+  for (const chave of new Set(url.keys())) {
+    const valores = url.getAll(chave);
+    params[chave] = valores.length > 1 ? valores : valores[0];
+  }
+  return params;
+}
+
+/** Hoje no fuso do projeto, em AAAA-MM-DD. */
+export function hojeNoFuso(agora: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: FUSO_DO_PROJETO }).format(agora);
+}
+
+/**
+ * Como o sistema de referencia, a tela abre com o periodo de hoje a hoje ja
+ * preenchido. So na primeira abertura (nenhum filtro na URL): quem limpou as
+ * datas e filtrou de proposito continua vendo o periodo inteiro. `pagina` e
+ * `salvo` nao contam como filtro.
+ */
+export function comPadroesDaTela(params: SearchParams, hoje: string = hojeNoFuso()): SearchParams {
+  const temFiltro = Object.keys(params).some((chave) => chave !== "pagina" && chave !== "salvo");
+  return temFiltro ? params : { ...params, data_inicial: hoje, data_final: hoje };
+}
+
+/**
+ * Que data o periodo recorta -- as quatro do sistema de referencia. O sistema
+ * novo nao tem agenda: a "Planejada" e o "Inicio" sao a abertura da visita, e o
+ * "Termino" e a "Finalizacao" sao o envio do checklist, do mesmo jeito que a
+ * coluna Datas mostra.
+ */
+export type CampoDeData = "planejada" | "inicio" | "termino" | "finalizacao";
 
 export type Filtros = {
   campoData: CampoDeData;
   dataInicial?: string;
   dataFinal?: string;
   numeroAno?: string;
-  /** `tipo` da tabela: CORRETIVA ou CONSULTORIA. */
-  checklist?: string;
-  /** Id do modelo respondido (0061), em texto. */
-  modelo?: string;
+  /** Ids dos modelos marcados no filtro "Checklists" (0061). */
+  modelos: string[];
+  /** "agenda" | "avulso". */
+  origem?: string;
   ordem: "recentes" | "antigos";
-  site?: string;
-  grupoSite?: string;
-  grupoUsuario?: string;
-  responsavel?: string;
-  /** "conforme" | "nao_conforme" -- derivado das respostas, ver `montarLinha`. */
+  sites: string[];
+  gruposSites: string[];
+  gruposUsuarios: string[];
+  responsaveis: string[];
+  /** "no_prazo" | "atrasado" | "antecipado" -- ver `aplicarFiltrosDerivados`. */
   situacao?: string;
-  /** "concluido" | "incompleto" -- idem. */
+  /** Um dos valores de `CONCLUSAO_OPCOES`. */
   conclusao?: string;
+  atividade?: string;
+  notaMinima?: number;
+  notaMaxima?: number;
+  /** "ativos" | "inativos". */
+  status?: string;
   busca?: string;
   buscaRespostas?: string;
 };
 
 export const CAMPO_DE_DATA_OPCOES = [
-  { value: "envio", label: "Data de Envio" },
-  { value: "visita", label: "Data de Registro da Visita" },
+  { value: "planejada", label: "Data Planejada" },
+  { value: "inicio", label: "Data Início" },
+  { value: "termino", label: "Data Término" },
+  { value: "finalizacao", label: "Data Finalização" },
 ];
 
 /**
@@ -86,25 +146,59 @@ export const CAMPO_DE_DATA_OPCOES = [
 export const TIPO_CORRETIVA = "CORRETIVA";
 export const TIPO_CONSULTORIA = "CONSULTORIA";
 
-export const CHECKLIST_OPCOES = [
-  { value: TIPO_CONSULTORIA, label: "Consultoria" },
-  { value: TIPO_CORRETIVA, label: "Corretiva" },
+export const ORIGEM_OPCOES = [
+  { value: "agenda", label: "Agenda" },
+  { value: "avulso", label: "Avulso" },
 ];
 
-export const ORDEM_OPCOES = [
-  { value: "recentes", label: "Mais recentes primeiro" },
-  { value: "antigos", label: "Mais antigos primeiro" },
-];
-
+/** Prazo em relacao a agenda, como no sistema de referencia. Sem agenda no
+ * sistema novo, todo checklist e "No prazo" -- e o que a referencia mostra no
+ * checklist avulso. */
 export const SITUACAO_OPCOES = [
-  { value: "nao_conforme", label: "Com não conformidade" },
-  { value: "conforme", label: "Conforme" },
+  { value: "no_prazo", label: "No prazo" },
+  { value: "atrasado", label: "Atrasado" },
+  { value: "antecipado", label: "Antecipado" },
 ];
 
+export const SITUACAO_DA_LISTA = "No prazo";
+
+/** As oito do sistema de referencia. So "Incompleto" e "Finalizado" existem no
+ * sistema novo (nao ha agenda, autorizacao nem aprovacao); as demais ficam na
+ * lista para a tela ser a mesma, e nao acham nada. */
 export const CONCLUSAO_OPCOES = [
-  { value: "concluido", label: "Concluído" },
+  { value: "agendado", label: "Agendado" },
   { value: "incompleto", label: "Incompleto" },
+  { value: "aguardando_autorizacao", label: "Aguardando Autorização" },
+  { value: "finalizado", label: "Finalizado" },
+  { value: "aprovado", label: "Aprovado" },
+  { value: "reprovado", label: "Reprovado" },
+  { value: "nao_realizado", label: "Não Realizado" },
+  { value: "cancelado", label: "Cancelado" },
 ];
+
+export const STATUS_OPCOES = [
+  { value: "ativos", label: "Ativos" },
+  { value: "inativos", label: "Inativos" },
+];
+
+/** O select "Atividade" da referencia nao tem opcao nenhuma para esta empresa:
+ * ele aparece, vazio, do mesmo jeito. */
+export const ATIVIDADE_OPCOES: { value: string; label: string }[] = [];
+
+function campoDeData(valor: string | undefined): CampoDeData {
+  // "envio" e "visita" sao os valores de antes de 18/10/2026: link salvo
+  // continua abrindo no mesmo recorte.
+  if (valor === "inicio" || valor === "termino" || valor === "finalizacao" || valor === "planejada") return valor;
+  if (valor === "envio") return "finalizacao";
+  if (valor === "visita") return "inicio";
+  return "planejada";
+}
+
+function nota(valor: string | undefined): number | undefined {
+  if (valor === undefined || valor.trim() === "") return undefined;
+  const numero = Number(valor.replace(",", "."));
+  return Number.isFinite(numero) ? numero : undefined;
+}
 
 /**
  * Le os filtros da querystring. Exportada (e nao so usada por `page.tsx`)
@@ -112,32 +206,32 @@ export const CONCLUSAO_OPCOES = [
  * sem duplicar o mapeamento campo a campo -- mesmo arranjo de
  * `coletas-importadas/queries.ts`.
  *
- * `campoData` e `ordem` caem no padrao em vez de virarem `undefined`: os dois
- * mandam na consulta (que coluna filtrar, em que sentido ordenar) e um valor
- * ausente ali nao significa "nao filtrar", significa "nao sei o que fazer".
+ * Os de selecao multipla sao peneirados valor a valor: vao para um `.in()` em
+ * coluna bigint ou uuid, e um valor fora do tipo (link editado, colado com
+ * erro) faria o Postgres recusar a consulta e a tela inteira cair.
  */
 export function extrairFiltros(params: SearchParams): Filtros {
-  const campoData = primeiro(params.campo_data);
   const ordem = primeiro(params.ordem);
+  const ids = (chave: string) => todos(params[chave]).flatMap((v) => filtroDeId(v) ?? []);
 
   return {
-    campoData: campoData === "visita" ? "visita" : "envio",
+    campoData: campoDeData(primeiro(params.campo_data)),
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
     numeroAno: primeiro(params.numero_ano),
-    checklist: primeiro(params.checklist),
+    modelos: ids("modelo"),
+    origem: primeiro(params.origem),
     ordem: ordem === "antigos" ? "antigos" : "recentes",
-    // Peneirados: estes quatro vao direto para um `.eq()` em coluna bigint
-    // ou uuid, e um valor fora do tipo (link editado, colado com erro) fazia
-    // o Postgres recusar a consulta e a tela inteira cair. Invalido agora e
-    // ignorado, como se o filtro nao tivesse vindo.
-    site: filtroDeId(primeiro(params.site)),
-    modelo: filtroDeId(primeiro(params.modelo)),
-    grupoSite: filtroDeId(primeiro(params.grupo_site)),
-    grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
-    responsavel: filtroDeUuid(primeiro(params.responsavel)),
+    sites: ids("site"),
+    gruposSites: ids("grupo_site"),
+    gruposUsuarios: ids("grupo_usuario"),
+    responsaveis: todos(params.responsavel).flatMap((v) => filtroDeUuid(v) ?? []),
     situacao: primeiro(params.situacao),
     conclusao: primeiro(params.conclusao),
+    atividade: primeiro(params.atividade),
+    notaMinima: nota(primeiro(params.nota_minima)),
+    notaMaxima: nota(primeiro(params.nota_maxima)),
+    status: primeiro(params.status),
     busca: primeiro(params.busca),
     buscaRespostas: primeiro(params.busca_respostas),
   };
@@ -207,9 +301,12 @@ export type ChecklistBruto = {
   modelos_checklist: { nome: string } | null;
   visitas: {
     criado_em: string;
+    /** So na listagem: o link "Visualizar Inspecao" filtra as coletas dele. */
+    funcionario_id?: string | null;
     motivos_visita: { nome: string } | null;
     profiles: { nome_completo: string | null } | null;
-    sites: { nome: string } | null;
+    /** `id` e `site_superior_id` so na listagem, para o caminho do site. */
+    sites: { nome: string; id?: number; site_superior_id?: number | null } | null;
   } | null;
   checklist_respostas: {
     resposta: string;
@@ -230,8 +327,15 @@ export type HistoricoLinha = {
   /** Nome do modelo respondido; vazio na corretiva. */
   modelo: string;
   enviadoEm: string;
+  /** `visitas.criado_em`: a abertura da visita (Planejada e Inicio na coluna Datas). */
+  inicioEm: string;
   responsavel: string;
+  responsavelId: string | null;
   site: string;
+  siteId: number | null;
+  /** "UP Serviços → Site", pelos sites superiores (`site_superior_id`). Sem
+   * superior, so o nome. Preenchido em `getHistorico`. */
+  caminhoDoSite: string;
   /** Na CORRETIVA e o motivo digitado pelo inspetor; na CONSULTORIA nao ha
    * motivo (constraint `checklists_visita_motivo_por_tipo`, 0042) e cai no
    * motivo da visita, quando a visita tem um. */
@@ -269,6 +373,11 @@ export type HistoricoLinha = {
  * ("Duvidas com o RH?") nao reprova o posto (0061). A nota segue a mesma regra,
  * em `notaDoChecklist`, a funcao que o app tambem usa.
  */
+/** "00018/2026": cinco digitos com zeros a esquerda, como no sistema de referencia. */
+export function formatarNumeroAno(numero: number, ano: number): string {
+  return `${String(numero).padStart(5, "0")}/${ano}`;
+}
+
 export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): HistoricoLinha {
   const respostas = bruto.checklist_respostas ?? [];
   const comTipo = respostas
@@ -281,12 +390,16 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
   return {
     id: bruto.id,
     tipo: bruto.tipo,
-    numeroAno: `${bruto.numero}/${bruto.ano}`,
+    numeroAno: formatarNumeroAno(bruto.numero, bruto.ano),
     checklist: bruto.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
     modelo: bruto.modelos_checklist?.nome ?? "",
     enviadoEm: bruto.criado_em,
+    inicioEm: bruto.visitas?.criado_em ?? bruto.criado_em,
     responsavel: bruto.visitas?.profiles?.nome_completo ?? "",
+    responsavelId: bruto.visitas?.funcionario_id ?? null,
     site: bruto.visitas?.sites?.nome ?? "",
+    siteId: bruto.visitas?.sites?.id ?? null,
+    caminhoDoSite: bruto.visitas?.sites?.nome ?? "",
     motivo: bruto.motivo ?? motivoDaVisita,
     // `bruto.motivo`, e nao `motivo` acima: na consultoria aquele campo cai no
     // motivo da VISITA, que ninguem digitou respondendo o checklist e por isso
@@ -333,24 +446,31 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
 }
 
 /**
- * O `respondidas > 0` no ramo "conforme" nao e detalhe: sem ele, a
- * consultoria enviada sem resposta nenhuma cai em "Conforme" -- ela tem zero
- * nao conformidades, afinal -- enquanto a tabela ao lado a rotula
- * "Sem respostas" (ver `textoDaSituacao`). Filtro e rotulo discordando na
- * mesma tela e pior do que qualquer um dos dois sozinho, e "conforme" aqui
- * significa "foi respondido e nada foi reprovado", nao "nada foi reprovado".
+ * "No prazo" e o unico valor de Situacao no sistema novo (nao ha agenda para
+ * estar atrasado ou antecipado), entao filtrar pelos outros dois nao acha nada
+ * -- igual a referencia filtrando checklists avulsos.
  */
-function combinaSituacao(linha: HistoricoLinha, situacao: string | undefined): boolean {
-  if (!situacao) return true;
-  if (linha.tipo === TIPO_CORRETIVA) return false;
-  return situacao === "nao_conforme"
-    ? linha.naoConformidades > 0
-    : linha.naoConformidades === 0 && linha.respondidas > 0;
+function combinaSituacao(situacao: string | undefined): boolean {
+  return !situacao || situacao === "no_prazo";
 }
 
+/** "Finalizado" e "Incompleto" sao os dois que existem aqui; as outras seis
+ * conclusoes da referencia dependem de agenda ou aprovacao, e nao acham nada. */
 function combinaConclusao(linha: HistoricoLinha, conclusao: string | undefined): boolean {
   if (!conclusao) return true;
-  return conclusao === "concluido" ? estaConcluido(linha) : !estaConcluido(linha);
+  if (conclusao === "finalizado") return estaConcluido(linha);
+  if (conclusao === "incompleto") return !estaConcluido(linha);
+  return false;
+}
+
+/** Checklist sem nota (corretiva, ou sem pergunta de conformidade) nao entra
+ * quando ha limite de nota: nao da para dizer que ele passa do limite. */
+function combinaNota(linha: HistoricoLinha, minima: number | undefined, maxima: number | undefined): boolean {
+  if (minima === undefined && maxima === undefined) return true;
+  if (linha.nota === null) return false;
+  if (minima !== undefined && linha.nota < minima) return false;
+  if (maxima !== undefined && linha.nota > maxima) return false;
+  return true;
 }
 
 function contem(texto: string | null | undefined, termo: string): boolean {
@@ -377,13 +497,14 @@ export function aplicarFiltrosDerivados(
   const buscaRespostas = filtros.buscaRespostas?.trim().toLocaleLowerCase("pt-BR");
 
   return linhas.filter((linha) => {
-    if (!combinaSituacao(linha, filtros.situacao)) return false;
+    if (!combinaSituacao(filtros.situacao)) return false;
     if (!combinaConclusao(linha, filtros.conclusao)) return false;
+    if (!combinaNota(linha, filtros.notaMinima, filtros.notaMaxima)) return false;
 
     if (busca) {
       const casa =
         contem(linha.numeroAno, busca) ||
-        contem(linha.site, busca) ||
+        contem(linha.caminhoDoSite, busca) ||
         contem(linha.responsavel, busca) ||
         contem(linha.motivo, busca) ||
         contem(linha.checklist, busca) ||
@@ -427,12 +548,13 @@ export function montarSelect(precisaProfile: boolean): string {
     modelos_checklist ( nome ),
     visitas!inner (
       criado_em,
+      funcionario_id,
       motivos_visita ( nome ),
       ${precisaProfile ? "profiles!inner" : "profiles"} (
         nome_completo
         ${precisaProfile ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
       ),
-      sites!inner ( id, nome, grupo_site_id )
+      sites!inner ( id, nome, grupo_site_id, site_superior_id )
     ),
     checklist_respostas ( resposta, observacao, perguntas_checklist ( tipo_resposta ) )
   `;
@@ -446,13 +568,19 @@ export function montarSelect(precisaProfile: boolean): string {
 function aplicarFiltros(query: any, filtros: Filtros) {
   let q = query;
 
-  if (filtros.checklist) q = q.eq("tipo", filtros.checklist);
-  if (filtros.modelo) q = q.eq("modelo_id", filtros.modelo);
-  if (filtros.site) q = q.eq("visitas.sites.id", filtros.site);
-  if (filtros.grupoSite) q = q.eq("visitas.sites.grupo_site_id", filtros.grupoSite);
-  if (filtros.responsavel) q = q.eq("visitas.funcionario_id", filtros.responsavel);
-  if (filtros.grupoUsuario) {
-    q = q.eq("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.grupoUsuario);
+  if (filtros.modelos.length) q = q.in("modelo_id", filtros.modelos);
+  if (filtros.sites.length) q = q.in("visitas.sites.id", filtros.sites);
+  if (filtros.gruposSites.length) q = q.in("visitas.sites.grupo_site_id", filtros.gruposSites);
+  if (filtros.responsaveis.length) q = q.in("visitas.funcionario_id", filtros.responsaveis);
+  if (filtros.gruposUsuarios.length) {
+    q = q.in("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.gruposUsuarios);
+  }
+  // Sem agenda, sem atividade e sem checklist inativado no sistema novo: estes
+  // tres filtros da referencia so tem resultado na opcao que vale para todos
+  // (Avulso, Ativos). Nas outras, a lista volta vazia de proposito -- ignorar
+  // o filtro mostraria tudo como se tivesse achado.
+  if (filtros.origem === "agenda" || filtros.atividade || filtros.status === "inativos") {
+    q = q.eq("id", -1);
   }
   if (filtros.numeroAno) {
     const procurado = interpretarNumeroAno(filtros.numeroAno);
@@ -467,7 +595,8 @@ function aplicarFiltros(query: any, filtros: Filtros) {
 
   // Qual coluna o periodo recorta depende do que a pessoa escolheu no primeiro
   // select da tela, exatamente como na referencia.
-  const coluna = filtros.campoData === "visita" ? "visitas.criado_em" : "criado_em";
+  const coluna =
+    filtros.campoData === "planejada" || filtros.campoData === "inicio" ? "visitas.criado_em" : "criado_em";
   // `criado_em` tem fracao de segundo: limite superior exclusivo, ver
   // `fimExclusivoDoFiltro`.
   if (filtros.dataInicial) q = q.gte(coluna, inicioDoFiltro(filtros.dataInicial));
@@ -511,6 +640,36 @@ async function contarPerguntasAtivasPorModelo(
   return porModelo;
 }
 
+type SiteDoCaminho = { nome: string; superior: number | null };
+
+/** Todos os sites que quem pede enxerga (RLS), para montar os caminhos. */
+async function carregarSites(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Map<number, SiteDoCaminho>> {
+  const { linhas } = await buscarEmPaginas<{ id: number; nome: string; site_superior_id: number | null }>(
+    (de, ate) => supabase.from("sites").select("id, nome, site_superior_id").order("id").range(de, ate),
+    TETO_DO_HISTORICO,
+  );
+  return new Map(linhas.map((site) => [site.id, { nome: site.nome, superior: site.site_superior_id }]));
+}
+
+/**
+ * "UP Serviços → Coopertativa → RAFARD": do site mais alto ate o proprio,
+ * como a coluna Site da referencia. O teto de 10 niveis protege de um ciclo
+ * no cadastro (A superior de B, B superior de A), que travaria a tela.
+ */
+export function caminhoDoSite(siteId: number | null, sites: ReadonlyMap<number, SiteDoCaminho>): string {
+  const nomes: string[] = [];
+  let atual = siteId;
+  for (let nivel = 0; atual !== null && nivel < 10; nivel++) {
+    const site = sites.get(atual);
+    if (!site) break;
+    nomes.unshift(site.nome);
+    atual = site.superior;
+  }
+  return nomes.join(" → ");
+}
+
 /** O total que `montarLinha` recebe: o do modelo respondido, zero na corretiva. */
 export function totalDoModelo(porModelo: Map<number, number>, modeloId: number | null): number {
   return modeloId === null ? 0 : (porModelo.get(modeloId) ?? 0);
@@ -531,11 +690,12 @@ export function totalDoModelo(porModelo: Map<number, number>, modeloId: number |
  */
 export async function getHistorico(filtros: Filtros): Promise<Historico> {
   const supabase = await createClient();
-  const precisaProfile = Boolean(filtros.grupoUsuario);
+  const precisaProfile = filtros.gruposUsuarios.length > 0;
   const ascendente = filtros.ordem === "antigos";
 
-  const [perguntasPorModelo, resultado] = await Promise.all([
+  const [perguntasPorModelo, sitesPorId, resultado] = await Promise.all([
     contarPerguntasAtivasPorModelo(supabase),
+    carregarSites(supabase),
     buscarEmPaginas<ChecklistBruto>(
       (de, ate) =>
         aplicarFiltros(
@@ -563,9 +723,10 @@ export async function getHistorico(filtros: Filtros): Promise<Historico> {
   }
 
   const brutos = resultado.linhas;
-  const linhas = brutos.map((bruto) =>
-    montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id)),
-  );
+  const linhas = brutos.map((bruto) => {
+    const linha = montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id));
+    return { ...linha, caminhoDoSite: caminhoDoSite(linha.siteId, sitesPorId) || linha.site };
+  });
 
   return {
     linhas: aplicarFiltrosDerivados(linhas, filtros),
@@ -577,15 +738,60 @@ export const TABLE_COLUMNS = [
   "ID",
   "Número/Ano",
   "Checklist",
-  "Modelo",
-  "Enviado em",
+  "Datas",
   "Responsável",
   "Site",
-  "Motivo",
+  "Agenda",
   "Situação",
   "Conclusão",
   "Nota",
+  "Status",
 ];
+
+/** O nome do modelo, como a coluna Checklist da referencia; a corretiva nao
+ * tem modelo (0061) e fica com o tipo. */
+export function nomeDoChecklist(linha: HistoricoLinha): string {
+  return linha.modelo || linha.checklist;
+}
+
+/**
+ * As cinco datas da coluna Datas, na ordem da referencia. Sem agenda, a
+ * Planejada e a abertura da visita (como a referencia mostra no avulso); sem
+ * hora separada de termino e de integracao, as tres ultimas sao o envio do
+ * checklist.
+ */
+export function datasDaLinha(linha: HistoricoLinha): { rotulo: string; valor: string }[] {
+  const inicio = formatarDataHoraComSegundos(linha.inicioEm);
+  const envio = formatarDataHoraComSegundos(linha.enviadoEm);
+  return [
+    { rotulo: "Planejada", valor: inicio },
+    { rotulo: "Início", valor: inicio },
+    { rotulo: "Término", valor: envio },
+    { rotulo: "Finalização", valor: envio },
+    { rotulo: "Integração", valor: envio },
+  ];
+}
+
+const FORMATO_COM_SEGUNDOS = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: FUSO_DO_PROJETO,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+/** "17/10/2026 07:53:38" -- a referencia mostra os segundos na coluna Datas. */
+export function formatarDataHoraComSegundos(valor: string): string {
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? "" : FORMATO_COM_SEGUNDOS.format(data).replace(",", "");
+}
+
+/** "Finalizado" ou "Incompleto", o selo da coluna Conclusao. */
+export function conclusaoDaLista(linha: HistoricoLinha): string {
+  return estaConcluido(linha) ? "Finalizado" : "Incompleto";
+}
 
 /**
  * Colunas de texto de uma linha, na mesma ordem de `TABLE_COLUMNS`.
@@ -596,15 +802,17 @@ export function toTableRow(linha: HistoricoLinha): string[] {
   return [
     String(linha.id),
     linha.numeroAno,
-    linha.checklist,
-    linha.modelo,
-    formatarDataHora(linha.enviadoEm),
+    nomeDoChecklist(linha),
+    datasDaLinha(linha)
+      .map((data) => `${data.rotulo}: ${data.valor}`)
+      .join("\n"),
     linha.responsavel,
-    linha.site,
-    linha.motivo,
-    textoDaSituacao(linha),
-    textoDaConclusao(linha),
-    linha.nota === null ? "" : `${linha.nota}%`,
+    linha.caminhoDoSite,
+    "-",
+    SITUACAO_DA_LISTA,
+    conclusaoDaLista(linha),
+    linha.nota === null ? "" : String(linha.nota),
+    "Ativo",
   ];
 }
 

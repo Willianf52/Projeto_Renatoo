@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   aplicarFiltrosDerivados,
+  caminhoDoSite,
   camposDoResumo,
+  comPadroesDaTela,
+  conclusaoDaLista,
   estaConcluido,
   extrairFiltros,
+  formatarDataHoraComSegundos,
+  hojeNoFuso,
   idValido,
   interpretarNumeroAno,
   linhasDeRespostas,
   montarLinha,
   montarSelect,
   ordenarRespostas,
+  paramsDaUrl,
+  querystringDe,
   rotuloDaResposta,
   textoDaConclusao,
   textoDaSituacao,
@@ -21,7 +28,15 @@ import {
   type RespostaParaExportar,
 } from "./queries";
 
-const SEM_FILTROS: Filtros = { campoData: "envio", ordem: "recentes" };
+const SEM_FILTROS: Filtros = {
+  campoData: "planejada",
+  ordem: "recentes",
+  modelos: [],
+  sites: [],
+  gruposSites: [],
+  gruposUsuarios: [],
+  responsaveis: [],
+};
 
 function bruto(
   id: number,
@@ -59,80 +74,119 @@ function linha(b: ChecklistBruto, totalPerguntas = 3) {
 }
 
 describe("extrairFiltros", () => {
-  it("le todos os campos da querystring", () => {
+  it("le todos os campos da querystring, com os de selecao multipla em lista", () => {
     expect(
       extrairFiltros({
-        campo_data: "visita",
+        campo_data: "termino",
         data_inicial: "2026-09-01",
         data_final: "2026-09-30",
         numero_ano: "12/2026",
-        checklist: "CORRETIVA",
-        modelo: "9",
+        modelo: ["9", "10"],
+        origem: "avulso",
         ordem: "antigos",
-        site: "3",
+        site: ["3", "8"],
         grupo_site: "4",
         grupo_usuario: "5",
         responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
-        situacao: "nao_conforme",
+        situacao: "no_prazo",
         conclusao: "incompleto",
+        atividade: "",
+        nota_minima: "70",
+        nota_maxima: "99,5",
+        status: "ativos",
         busca: "ace",
         busca_respostas: "extintor",
       }),
     ).toEqual({
-      campoData: "visita",
+      campoData: "termino",
       dataInicial: "2026-09-01",
       dataFinal: "2026-09-30",
       numeroAno: "12/2026",
-      checklist: "CORRETIVA",
-      modelo: "9",
+      modelos: ["9", "10"],
+      origem: "avulso",
       ordem: "antigos",
-      site: "3",
-      grupoSite: "4",
-      grupoUsuario: "5",
-      responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
-      situacao: "nao_conforme",
+      sites: ["3", "8"],
+      gruposSites: ["4"],
+      gruposUsuarios: ["5"],
+      responsaveis: ["e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"],
+      situacao: "no_prazo",
       conclusao: "incompleto",
+      atividade: undefined,
+      notaMinima: 70,
+      notaMaxima: 99.5,
+      status: "ativos",
       busca: "ace",
       buscaRespostas: "extintor",
     });
   });
 
-  it("cai no padrao de campo de data e ordem quando o valor falta ou e desconhecido", () => {
-    expect(extrairFiltros({}).campoData).toBe("envio");
+  it("cai na Data Planejada e na ordem recente quando o valor falta ou e desconhecido", () => {
+    expect(extrairFiltros({}).campoData).toBe("planejada");
     expect(extrairFiltros({}).ordem).toBe("recentes");
     expect(extrairFiltros({ campo_data: "qualquer", ordem: "qualquer" })).toMatchObject({
-      campoData: "envio",
+      campoData: "planejada",
       ordem: "recentes",
     });
   });
 
-  it("ignora `status`, que a tela ja mostrou mas o schema nao tem", () => {
-    expect(Object.keys(extrairFiltros({ status: "1" }))).not.toContain("status");
+  it("link salvo antes de 18/10 (envio/visita) abre no mesmo recorte", () => {
+    expect(extrairFiltros({ campo_data: "envio" }).campoData).toBe("finalizacao");
+    expect(extrairFiltros({ campo_data: "visita" }).campoData).toBe("inicio");
   });
 
-  it("descarta filtro de id ou uuid fora do tipo, em vez de derrubar a consulta", () => {
+  it("descarta, valor a valor, id ou uuid fora do tipo em vez de derrubar a consulta", () => {
     // Achado ao vivo em 25/09: `?site=abc` e `?responsavel=nao-uuid` faziam o
-    // Postgres recusar o `.eq()` e a tela inteira cair em "Nao foi possivel
-    // carregar esta pagina".
-    expect(
-      extrairFiltros({ site: "abc", grupo_site: "1e3", grupo_usuario: "99999999999999999999", responsavel: "nao-uuid" }),
-    ).toMatchObject({ site: undefined, grupoSite: undefined, grupoUsuario: undefined, responsavel: undefined });
-  });
-
-  it("mantem os filtros de id e uuid validos", () => {
+    // Postgres recusar a consulta e a tela inteira cair.
     expect(
       extrairFiltros({
-        site: "12",
-        grupo_site: "3",
-        grupo_usuario: "4",
-        responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
+        site: ["abc", "12"],
+        grupo_site: "1e3",
+        grupo_usuario: "99999999999999999999",
+        responsavel: ["nao-uuid", "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"],
       }),
     ).toMatchObject({
-      site: "12",
-      grupoSite: "3",
-      grupoUsuario: "4",
-      responsavel: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
+      sites: ["12"],
+      gruposSites: [],
+      gruposUsuarios: [],
+      responsaveis: ["e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"],
     });
+  });
+
+  it("nota que nao e numero e ignorada", () => {
+    expect(extrairFiltros({ nota_minima: "abc", nota_maxima: " " })).toMatchObject({
+      notaMinima: undefined,
+      notaMaxima: undefined,
+    });
+  });
+});
+
+describe("parametros da URL", () => {
+  it("querystringDe guarda todos os valores dos filtros multiplos e pula os pedidos", () => {
+    expect(querystringDe({ site: ["1", "2"], pagina: "3", busca: "ace", vazio: "" }, ["pagina"])).toBe(
+      "site=1&site=2&busca=ace",
+    );
+  });
+
+  it("paramsDaUrl devolve lista so para o parametro repetido", () => {
+    expect(paramsDaUrl(new URLSearchParams("site=1&site=2&busca=ace"))).toEqual({
+      site: ["1", "2"],
+      busca: "ace",
+    });
+  });
+
+  it("a primeira abertura vem com o periodo de hoje, como no sistema antigo", () => {
+    expect(comPadroesDaTela({}, "2026-10-18")).toEqual({ data_inicial: "2026-10-18", data_final: "2026-10-18" });
+    expect(comPadroesDaTela({ pagina: "2" }, "2026-10-18")).toMatchObject({ data_inicial: "2026-10-18" });
+  });
+
+  it("com qualquer filtro na URL, inclusive datas limpas de proposito, nada e preenchido", () => {
+    expect(comPadroesDaTela({ data_inicial: "" }, "2026-10-18")).toEqual({ data_inicial: "" });
+    expect(comPadroesDaTela({ site: "3" }, "2026-10-18")).toEqual({ site: "3" });
+  });
+
+  it("hojeNoFuso usa Sao Paulo, nao UTC", () => {
+    // 01h30 UTC de 19/10 ainda e 18/10 em Sao Paulo.
+    expect(hojeNoFuso(new Date("2026-10-19T01:30:00Z"))).toBe("2026-10-18");
   });
 });
 
@@ -171,6 +225,10 @@ describe("montarLinha", () => {
     expect(l.naoConformidades).toBe(0);
     expect(l.nota).toBe(100);
     expect(textoDaSituacao(l)).toBe("Conforme");
+  });
+
+  it("numero com cinco digitos, como no sistema antigo", () => {
+    expect(linha(bruto(18, "CONSULTORIA", [])).numeroAno).toBe("00018/2026");
   });
 
   it("traz o nome do modelo, vazio na corretiva", () => {
@@ -235,14 +293,22 @@ describe("aplicarFiltrosDerivados", () => {
     expect(ids(SEM_FILTROS)).toEqual([1, 2, 3]);
   });
 
-  it("filtra por situacao e deixa a corretiva de fora das duas opcoes", () => {
-    expect(ids({ ...SEM_FILTROS, situacao: "nao_conforme" })).toEqual([1]);
-    expect(ids({ ...SEM_FILTROS, situacao: "conforme" })).toEqual([2]);
+  it("Situacao: tudo esta No prazo (nao ha agenda); Atrasado e Antecipado nao acham nada", () => {
+    expect(ids({ ...SEM_FILTROS, situacao: "no_prazo" })).toEqual([1, 2, 3]);
+    expect(ids({ ...SEM_FILTROS, situacao: "atrasado" })).toEqual([]);
+    expect(ids({ ...SEM_FILTROS, situacao: "antecipado" })).toEqual([]);
   });
 
-  it("filtra por conclusao contando a corretiva como concluida", () => {
+  it("Conclusao: Finalizado conta a corretiva; as que dependem de agenda nao acham nada", () => {
     expect(ids({ ...SEM_FILTROS, conclusao: "incompleto" })).toEqual([1]);
-    expect(ids({ ...SEM_FILTROS, conclusao: "concluido" })).toEqual([2, 3]);
+    expect(ids({ ...SEM_FILTROS, conclusao: "finalizado" })).toEqual([2, 3]);
+    expect(ids({ ...SEM_FILTROS, conclusao: "aprovado" })).toEqual([]);
+  });
+
+  it("Nota minima e maxima, deixando de fora quem nao tem nota", () => {
+    expect(ids({ ...SEM_FILTROS, notaMinima: 60 })).toEqual([2]);
+    expect(ids({ ...SEM_FILTROS, notaMaxima: 60 })).toEqual([1]);
+    expect(ids({ ...SEM_FILTROS, notaMinima: 0, notaMaxima: 100 })).toEqual([1, 2]);
   });
 
   it("busca livre acha pelo nome do modelo", () => {
@@ -252,7 +318,7 @@ describe("aplicarFiltrosDerivados", () => {
   it("busca livre varre numero, site, responsavel, motivo e tipo, sem diferenciar caixa", () => {
     expect(ids({ ...SEM_FILTROS, busca: "ACE" })).toEqual([1, 2, 3]);
     expect(ids({ ...SEM_FILTROS, busca: "portão" })).toEqual([3]);
-    expect(ids({ ...SEM_FILTROS, busca: "3/2026" })).toEqual([3]);
+    expect(ids({ ...SEM_FILTROS, busca: "00003/2026" })).toEqual([3]);
     expect(ids({ ...SEM_FILTROS, busca: "nao existe" })).toEqual([]);
   });
 
@@ -262,23 +328,71 @@ describe("aplicarFiltrosDerivados", () => {
   });
 
   it("combina os filtros derivados entre si", () => {
-    expect(ids({ ...SEM_FILTROS, situacao: "nao_conforme", conclusao: "concluido" })).toEqual([]);
+    expect(ids({ ...SEM_FILTROS, conclusao: "finalizado", notaMaxima: 60 })).toEqual([]);
   });
 });
 
 describe("toTableRow", () => {
-  it("devolve uma coluna por cabecalho, com a nota em percentual", () => {
+  it("as colunas do sistema antigo, na mesma ordem", () => {
     const colunas = toTableRow(linha(bruto(7, "CONSULTORIA", [{ resposta: "SIM" }, { resposta: "NAO" }])));
     expect(colunas).toHaveLength(11);
     expect(colunas[0]).toBe("7");
-    expect(colunas[1]).toBe("7/2026");
-    expect(colunas[2]).toBe("Consultoria");
-    expect(colunas[3]).toBe("Portaria");
-    expect(colunas[10]).toBe("50%");
+    expect(colunas[1]).toBe("00007/2026");
+    expect(colunas[2]).toBe("Portaria");
+    expect(colunas[3].split("\n")).toEqual([
+      "Planejada: 08/09/2026 09:00:00",
+      "Início: 08/09/2026 09:00:00",
+      "Término: 08/09/2026 14:30:00",
+      "Finalização: 08/09/2026 14:30:00",
+      "Integração: 08/09/2026 14:30:00",
+    ]);
+    expect(colunas[4]).toBe("Ana Souza");
+    expect(colunas[5]).toBe("ACE Limpeza");
+    expect(colunas[6]).toBe("-");
+    expect(colunas[7]).toBe("No prazo");
+    expect(colunas[8]).toBe("Incompleto");
+    expect(colunas[9]).toBe("50");
+    expect(colunas[10]).toBe("Ativo");
   });
 
-  it("deixa a nota vazia quando nao ha como calcular -- a tabela ja vira travessao", () => {
-    expect(toTableRow(linha(bruto(8, "CORRETIVA", [])))[10]).toBe("");
+  it("corretiva: tipo no lugar do modelo, nota vazia, Finalizado", () => {
+    const colunas = toTableRow(linha(bruto(8, "CORRETIVA", [])));
+    expect(colunas[2]).toBe("Corretiva");
+    expect(colunas[8]).toBe("Finalizado");
+    expect(colunas[9]).toBe("");
+  });
+});
+
+describe("caminhoDoSite", () => {
+  const sites = new Map([
+    [1, { nome: "UP Serviços", superior: null }],
+    [2, { nome: "Cooperativa", superior: 1 }],
+    [3, { nome: "RAFARD", superior: 2 }],
+    [8, { nome: "Ciclo A", superior: 9 }],
+    [9, { nome: "Ciclo B", superior: 8 }],
+  ]);
+
+  it("do site mais alto ate o proprio", () => {
+    expect(caminhoDoSite(3, sites)).toBe("UP Serviços → Cooperativa → RAFARD");
+    expect(caminhoDoSite(1, sites)).toBe("UP Serviços");
+  });
+
+  it("site desconhecido ou nulo da vazio, e ciclo no cadastro nao trava", () => {
+    expect(caminhoDoSite(null, sites)).toBe("");
+    expect(caminhoDoSite(77, sites)).toBe("");
+    expect(caminhoDoSite(8, sites).split(" → ")).toHaveLength(10);
+  });
+});
+
+describe("formatarDataHoraComSegundos / conclusaoDaLista", () => {
+  it("dia, hora e segundos em Sao Paulo", () => {
+    expect(formatarDataHoraComSegundos("2026-10-17T10:53:38Z")).toBe("17/10/2026 07:53:38");
+    expect(formatarDataHoraComSegundos("nao e data")).toBe("");
+  });
+
+  it("Finalizado ou Incompleto", () => {
+    expect(conclusaoDaLista(linha(bruto(1, "CONSULTORIA", [{ resposta: "SIM" }]), 1))).toBe("Finalizado");
+    expect(conclusaoDaLista(linha(bruto(2, "CONSULTORIA", [{ resposta: "SIM" }]), 3))).toBe("Incompleto");
   });
 });
 
@@ -383,9 +497,7 @@ describe("regressoes encontradas na revisao", () => {
     const linhas = [linha(semRespostas)];
 
     expect(textoDaSituacao(linhas[0])).toBe("Sem respostas");
-    expect(
-      aplicarFiltrosDerivados(linhas, { ...SEM_FILTROS, situacao: "conforme" }),
-    ).toEqual([]);
+    expect(conclusaoDaLista(linhas[0])).toBe("Incompleto");
   });
 
   it("descarta data fora do formato yyyy-mm-dd em vez de repassar ao Postgres", () => {
@@ -410,7 +522,7 @@ describe("decisao pelo tipo cru, nao pelo rotulo de tela", () => {
     expect(estaConcluido(renomeada)).toBe(true);
     expect(textoDaSituacao(renomeada)).toBe("Corretiva");
     expect(textoDaConclusao(renomeada)).toBe("Concluído");
-    expect(aplicarFiltrosDerivados([renomeada], { ...SEM_FILTROS, situacao: "conforme" })).toEqual([]);
+    expect(aplicarFiltrosDerivados([renomeada], { ...SEM_FILTROS, conclusao: "finalizado" })).toEqual([renomeada]);
   });
 });
 
@@ -456,7 +568,7 @@ describe("linhasDeRespostas", () => {
     );
 
     expect(linhas).toHaveLength(2);
-    expect(linhas[0].slice(0, 4)).toEqual(["7", "7/2026", "Consultoria", "Portaria"]);
+    expect(linhas[0].slice(0, 4)).toEqual(["7", "00007/2026", "Consultoria", "Portaria"]);
     expect(linhas[0].slice(5, 7)).toEqual(["Ana Souza", "ACE Limpeza"]);
     expect(linhas[0].slice(7)).toEqual(["1", "Pergunta 1", "Conforme", ""]);
     expect(linhas[1].slice(7)).toEqual(["2", "Pergunta 2", "Não conforme", "Extintor vencido"]);
@@ -511,7 +623,7 @@ describe("camposDoResumo", () => {
 
     expect(campos).toMatchObject({
       ID: "1",
-      "Número/Ano": "1/2026",
+      "Número/Ano": "00001/2026",
       Modelo: "Portaria",
       "Enviado por": "",
       Situação: "Conforme",

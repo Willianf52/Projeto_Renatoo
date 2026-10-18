@@ -3,6 +3,7 @@ import {
   TABLE_COLUMNS,
   TETO_DO_HISTORICO,
   extrairFiltros,
+  paramsDaUrl,
   getHistorico,
   toTableRow,
 } from "../../queries";
@@ -15,7 +16,7 @@ import {
  */
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
-  const filtros = extrairFiltros(Object.fromEntries(searchParams));
+  const filtros = extrairFiltros(paramsDaUrl(searchParams));
 
   const historico = await getHistorico(filtros);
   const linhas = historico.linhas.map(toTableRow);

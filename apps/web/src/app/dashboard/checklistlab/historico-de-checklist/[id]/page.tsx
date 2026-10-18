@@ -11,7 +11,7 @@ import {
   camposDoResumo,
   getChecklist,
   idValido,
-  primeiro,
+  querystringDe,
   TIPO_CONSULTORIA,
   type ChecklistDetalhe,
   type SearchParams,
@@ -118,13 +118,16 @@ async function Detalhe({ params, searchParams }: Props) {
         </Cartao>
       )}
 
+      {/* `id` do "Visualizar Respostas" (tablet) da listagem, que cai direto aqui. */}
       {linha.tipo === TIPO_CONSULTORIA && (
-        <Cartao
-          titulo={`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`}
-          atraso="160ms"
-        >
-          <TabelaDeRespostas checklistId={linha.id} respostas={detalhe.respostas} />
-        </Cartao>
+        <div id="respostas" className="scroll-mt-20">
+          <Cartao
+            titulo={`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`}
+            atraso="160ms"
+          >
+            <TabelaDeRespostas checklistId={linha.id} respostas={detalhe.respostas} />
+          </Cartao>
+        </div>
       )}
 
       {/* Na consultoria, "gerais": as fotos de cada pergunta (0061) ja
@@ -184,12 +187,8 @@ async function AcoesDoDetalhe({
 }) {
   const [params, podeExcluir] = await Promise.all([searchParams, podeAdministrarUsuarios()]);
 
-  const query = new URLSearchParams();
-  for (const [chave, valor] of Object.entries(params)) {
-    const v = primeiro(valor);
-    if (v) query.set(chave, v);
-  }
-  const texto = query.toString();
+  // Todos os valores: os filtros de selecao multipla repetem o nome na URL.
+  const texto = querystringDe(params);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
