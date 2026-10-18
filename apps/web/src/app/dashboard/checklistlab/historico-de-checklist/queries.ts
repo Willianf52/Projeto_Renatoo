@@ -7,7 +7,6 @@ import {
 } from "@projeto-renatoo/shared";
 import { dataValida, fimExclusivoDoFiltro, formatarDataHora, inicioDoFiltro } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
-import { escaparLike } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas, TETO_DE_AGREGACAO } from "@/lib/supabase/query-helpers";
 import { filtroDeId, filtroDeUuid, idNaUrl } from "@/lib/id-na-url";
@@ -197,6 +196,9 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
 /** Linha crua do PostgREST, antes de derivar situacao/conclusao/nota. */
 export type ChecklistBruto = {
   id: number;
+  /** Numero/Ano do checklist (0074): dado pelo banco, recomeca a cada ano. */
+  numero: number;
+  ano: number;
   tipo: string;
   motivo: string | null;
   criado_em: string;
@@ -204,7 +206,6 @@ export type ChecklistBruto = {
   modelo_id: number | null;
   modelos_checklist: { nome: string } | null;
   visitas: {
-    numero_coleta: string;
     criado_em: string;
     motivos_visita: { nome: string } | null;
     profiles: { nome_completo: string | null } | null;
@@ -280,7 +281,7 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
   return {
     id: bruto.id,
     tipo: bruto.tipo,
-    numeroAno: bruto.visitas?.numero_coleta ?? "",
+    numeroAno: `${bruto.numero}/${bruto.ano}`,
     checklist: bruto.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
     modelo: bruto.modelos_checklist?.nome ?? "",
     enviadoEm: bruto.criado_em,
@@ -409,12 +410,22 @@ export function aplicarFiltrosDerivados(
  * filtro de Grupo de Usuarios precisa dele, senao esconderia checklist de
  * visita importada sem funcionario.
  */
+/**
+ * O filtro "Numero/Ano" aceita "35/2026" (aquele checklist) ou so "35" (o 35
+ * de qualquer ano). Espacos em volta da barra sao tolerados; qualquer outra
+ * coisa devolve `null`.
+ */
+export function interpretarNumeroAno(texto: string): { numero: number; ano: number | null } | null {
+  const achado = /^(\d{1,9})\s*(?:\/\s*(\d{4}))?$/.exec(texto.trim());
+  if (!achado) return null;
+  return { numero: Number(achado[1]), ano: achado[2] ? Number(achado[2]) : null };
+}
+
 export function montarSelect(precisaProfile: boolean): string {
   return `
-    id, tipo, motivo, criado_em, modelo_id,
+    id, numero, ano, tipo, motivo, criado_em, modelo_id,
     modelos_checklist ( nome ),
     visitas!inner (
-      numero_coleta,
       criado_em,
       motivos_visita ( nome ),
       ${precisaProfile ? "profiles!inner" : "profiles"} (
@@ -444,10 +455,14 @@ function aplicarFiltros(query: any, filtros: Filtros) {
     q = q.eq("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.grupoUsuario);
   }
   if (filtros.numeroAno) {
-    // `escaparLike` sozinho, sem `escaparPostgrest`: e filtro de coluna unica,
-    // entao o valor viaja como parametro proprio e nao dentro de um `or(...)`
-    // -- ver o cabecalho de lib/postgrest-escape.ts.
-    q = q.ilike("visitas.numero_coleta", `%${escaparLike(filtros.numeroAno)}%`);
+    const procurado = interpretarNumeroAno(filtros.numeroAno);
+    // Texto que nao e numero nao acha checklist nenhum: melhor a lista vazia
+    // do que ignorar o filtro e mostrar tudo como se tivesse achado.
+    if (!procurado) q = q.eq("numero", -1);
+    else {
+      q = q.eq("numero", procurado.numero);
+      if (procurado.ano !== null) q = q.eq("ano", procurado.ano);
+    }
   }
 
   // Qual coluna o periodo recorta depende do que a pessoa escolheu no primeiro
@@ -672,10 +687,9 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
  * existia justamente para viabilizar aqueles filtros.
  */
 const SELECT_DO_DETALHE = `
-  id, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
+  id, numero, ano, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
   modelos_checklist ( nome ),
   visitas (
-    numero_coleta,
     criado_em,
     motivos_visita ( nome ),
     profiles ( nome_completo ),
