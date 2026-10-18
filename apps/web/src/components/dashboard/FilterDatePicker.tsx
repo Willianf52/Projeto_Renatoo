@@ -133,7 +133,9 @@ export function FilterDatePicker({
             limpar();
           }}
           aria-label={`Limpar ${label}`}
-          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-navy hover:text-white"
+          // 24px de alvo (WCAG 2.2, 2.5.8): com 20px, o axe acusou o botao no
+          // Historico de Checklist, que abre com as datas ja preenchidas.
+          className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-brand-muted transition-colors hover:bg-brand-navy hover:text-white"
         >
           <XIcon className="h-3.5 w-3.5" />
         </button>

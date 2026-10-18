@@ -47,11 +47,15 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
       `/dashboard/checklistlab/historico-de-checklist?busca=${encodeURIComponent(motivo)}`,
     );
 
-    const linha = page.getByRole("row").filter({ hasText: motivo });
+    // Pelo ID, e nao pelo motivo: desde 18/10 a lista segue as colunas do
+    // sistema antigo, sem a coluna Motivo (a busca livre ainda o acha).
+    const linha = page
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: String(checklistId), exact: true }) });
     await expect(linha).toHaveCount(1);
     await expect(linha).toContainText("Agência Centro");
 
-    await linha.getByRole("link", { name: `Ver checklist ${checklistId}` }).click();
+    await linha.getByRole("link", { name: /^Visualizar checklist / }).click();
     await expect(page).toHaveURL(
       new RegExp(`/dashboard/checklistlab/historico-de-checklist/${checklistId}\\?`),
     );
