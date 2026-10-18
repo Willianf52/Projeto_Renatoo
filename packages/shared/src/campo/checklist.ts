@@ -201,10 +201,14 @@ export type ChecklistDeVisita = z.output<typeof esquemaDeChecklistDeVisita>;
  * `motivo` sai `null` na consultoria de forma explicita, e nao omitido: o
  * check do banco compara com `null`, e uma coluna omitida num caminho e um
  * `null` explicito no outro e o tipo de assimetria que so aparece em producao.
+ *
+ * `numero` e `ano` ficam de fora: sao NOT NULL sem default (o gerador os poe
+ * como obrigatorios), mas quem preenche e o gatilho `numerar_checklist` da
+ * 0074, que sobrescreve qualquer valor vindo do app.
  */
 export function linhaDeChecklist(
   checklist: ChecklistDeVisita,
-): TablesInsert<"checklists_visita"> {
+): Omit<TablesInsert<"checklists_visita">, "numero" | "ano"> {
   return {
     visita_id: checklist.visitaId,
     tipo: checklist.tipo,

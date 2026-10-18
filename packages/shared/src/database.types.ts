@@ -257,14 +257,14 @@ export type Database = {
           visita_id: number
         }
         Insert: {
-          ano?: number
+          ano: number
           assinatura_path: string
           criado_em?: string
           enviado_por?: string | null
           id?: never
           modelo_id?: number | null
           motivo?: string | null
-          numero?: number
+          numero: number
           tipo: string
           visita_id: number
         }
