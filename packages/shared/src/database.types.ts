@@ -245,32 +245,38 @@ export type Database = {
       }
       checklists_visita: {
         Row: {
+          ano: number
           assinatura_path: string
           criado_em: string
           enviado_por: string | null
           id: number
           modelo_id: number | null
           motivo: string | null
+          numero: number
           tipo: string
           visita_id: number
         }
         Insert: {
+          ano?: number
           assinatura_path: string
           criado_em?: string
           enviado_por?: string | null
           id?: never
           modelo_id?: number | null
           motivo?: string | null
+          numero?: number
           tipo: string
           visita_id: number
         }
         Update: {
+          ano?: number
           assinatura_path?: string
           criado_em?: string
           enviado_por?: string | null
           id?: never
           modelo_id?: number | null
           motivo?: string | null
+          numero?: number
           tipo?: string
           visita_id?: number
         }

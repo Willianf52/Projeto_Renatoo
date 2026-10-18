@@ -5,6 +5,7 @@ import {
   estaConcluido,
   extrairFiltros,
   idValido,
+  interpretarNumeroAno,
   linhasDeRespostas,
   montarLinha,
   montarSelect,
@@ -30,13 +31,14 @@ function bruto(
 ): ChecklistBruto {
   return {
     id,
+    numero: id,
+    ano: 2026,
     tipo,
     motivo: tipo === "CORRETIVA" ? "Portão danificado" : null,
     criado_em: "2026-09-08T14:30:00-03:00",
     modelo_id: tipo === "CONSULTORIA" ? 5 : null,
     modelos_checklist: tipo === "CONSULTORIA" ? { nome: "Portaria" } : null,
     visitas: {
-      numero_coleta: `${id}/2026`,
       criado_em: "2026-09-08T09:00:00-03:00",
       motivos_visita: { nome: "Visita programada" },
       profiles: { nome_completo: "Ana Souza" },
@@ -516,5 +518,23 @@ describe("camposDoResumo", () => {
       Conclusão: "Concluído (1/1)",
       Nota: "100%",
     });
+  });
+});
+
+describe("interpretarNumeroAno", () => {
+  it("le numero e ano, com ou sem espacos em volta da barra", () => {
+    expect(interpretarNumeroAno("35/2026")).toEqual({ numero: 35, ano: 2026 });
+    expect(interpretarNumeroAno(" 35 / 2026 ")).toEqual({ numero: 35, ano: 2026 });
+  });
+
+  it("so o numero procura em qualquer ano", () => {
+    expect(interpretarNumeroAno("35")).toEqual({ numero: 35, ano: null });
+  });
+
+  it("recusa o que nao e Numero/Ano", () => {
+    expect(interpretarNumeroAno("abc")).toBeNull();
+    expect(interpretarNumeroAno("35/26")).toBeNull();
+    expect(interpretarNumeroAno("/2026")).toBeNull();
+    expect(interpretarNumeroAno("db38f3f0-69e0")).toBeNull();
   });
 });
