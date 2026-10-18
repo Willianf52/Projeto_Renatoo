@@ -12,6 +12,7 @@ import {
   idValido,
   interpretarNumeroAno,
   linhasDeRespostas,
+  montarArvore,
   montarLinha,
   montarSelect,
   ordenarRespostas,
@@ -648,5 +649,27 @@ describe("interpretarNumeroAno", () => {
     expect(interpretarNumeroAno("35/26")).toBeNull();
     expect(interpretarNumeroAno("/2026")).toBeNull();
     expect(interpretarNumeroAno("db38f3f0-69e0")).toBeNull();
+  });
+});
+
+describe("montarArvore", () => {
+  it("raizes e filhos em ordem alfabetica; superior que a pessoa nao enxerga vira raiz", () => {
+    const sites = new Map([
+      [1, { nome: "UP Serviços", superior: null }],
+      [2, { nome: "Zeta", superior: 1 }],
+      [3, { nome: "Alfa", superior: 1 }],
+      [4, { nome: "Orfao", superior: 99 }],
+    ]);
+    const arvore = montarArvore(sites);
+    expect(arvore.map((no) => no.nome)).toEqual(["Orfao", "UP Serviços"]);
+    expect(arvore[1].filhos.map((no) => no.nome)).toEqual(["Alfa", "Zeta"]);
+  });
+
+  it("ciclo no cadastro nao entra em laco", () => {
+    const sites = new Map([
+      [8, { nome: "A", superior: 9 }],
+      [9, { nome: "B", superior: 8 }],
+    ]);
+    expect(montarArvore(sites)).toEqual([]);
   });
 });

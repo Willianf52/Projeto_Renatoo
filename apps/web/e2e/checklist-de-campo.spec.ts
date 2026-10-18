@@ -55,7 +55,9 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     await expect(linha).toHaveCount(1);
     await expect(linha).toContainText("Agência Centro");
 
-    await linha.getByRole("link", { name: /^Visualizar checklist / }).click();
+    // O tablet ("Visualizar Respostas") abre o detalhe; o olho abre a ficha
+    // so leitura, igual a do sistema antigo.
+    await linha.getByRole("link", { name: /^Visualizar respostas do checklist / }).click();
     await expect(page).toHaveURL(
       new RegExp(`/dashboard/checklistlab/historico-de-checklist/${checklistId}\\?`),
     );

@@ -385,12 +385,12 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
     linha.nota === null ? "" : String(linha.nota),
     <ChaveDeStatus key="status" />,
     <div key="acao" className="flex items-center gap-1.5">
-      <Acao titulo={`Visualizar checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}${sufixo}`} tom="neutro">
+      <Acao titulo={`Visualizar checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/visualizar`} tom="neutro">
         <EyeIcon className="h-4 w-4" />
       </Acao>
       <Acao
         titulo={`Visualizar respostas do checklist ${linha.numeroAno}`}
-        href={`${LISTAGEM}/${linha.id}${sufixo}#respostas`}
+        href={`${LISTAGEM}/${linha.id}${sufixo}`}
         tom="excel"
       >
         <TabletIcon className="h-4 w-4" />
