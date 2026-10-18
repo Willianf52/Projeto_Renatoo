@@ -172,6 +172,17 @@ export function EyeIcon({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+/** "Visualizar Respostas" do Historico de Checklist: o tablet verde que o
+ * sistema de referencia usa para as respostas do app, ao lado do olho. */
+export function TabletIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2" />
+      <path d="M11 18h2" />
+    </svg>
+  );
+}
+
 export function MegaphoneIcon({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

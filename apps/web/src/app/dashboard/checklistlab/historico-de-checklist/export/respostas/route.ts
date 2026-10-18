@@ -1,5 +1,5 @@
 import { paraCsv } from "@/lib/csv";
-import { RESPOSTAS_COLUMNS, extrairFiltros, getRespostasDoHistorico } from "../../queries";
+import { RESPOSTAS_COLUMNS, extrairFiltros, getRespostasDoHistorico, paramsDaUrl } from "../../queries";
 
 /**
  * "Exportar Respostas para Excel": uma linha por resposta de cada checklist
@@ -9,7 +9,7 @@ import { RESPOSTAS_COLUMNS, extrairFiltros, getRespostasDoHistorico } from "../.
  */
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
-  const filtros = extrairFiltros(Object.fromEntries(searchParams));
+  const filtros = extrairFiltros(paramsDaUrl(searchParams));
 
   const { linhas, truncado } = await getRespostasDoHistorico(filtros);
 
