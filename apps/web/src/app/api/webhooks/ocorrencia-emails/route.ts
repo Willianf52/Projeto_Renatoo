@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { processarFilaDeEmailsDeChecklist } from "@/lib/fila-de-emails-de-checklist";
 import { processarFilaDeEmails } from "@/lib/fila-de-emails-de-ocorrencia";
 import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { origemDoPortal } from "@/lib/origem-do-portal";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { segredoConfere } from "@/lib/webhook-user-updated";
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "server misconfigured" }, { status: 500 });
   }
 
-  const origem = new URL(request.url).origin;
+  // O dominio do portal, e nao o de quem chamou: ver `lib/origem-do-portal.ts`.
+  const origem = origemDoPortal(request.url);
   // As duas filas: o aviso do banco e o mesmo para os e-mails das ocorrencias
   // (0065) e para o do checklist ao superior (0068). Uma nao segura a outra.
   after(async () => {
