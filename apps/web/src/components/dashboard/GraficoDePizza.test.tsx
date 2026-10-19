@@ -32,8 +32,8 @@ describe("GraficoDePizza", () => {
     ]);
 
     // 24/59, 11/59 -- os mesmos numeros do print da referencia.
-    expect(html).toContain("40.7%");
-    expect(html).toContain("18.6%");
+    expect(html).toContain("40,7%");
+    expect(html).toContain("18,6%");
   });
 
   it("uma fatia sozinha vira circulo cheio, e nao um arco de 360 graus que some", () => {

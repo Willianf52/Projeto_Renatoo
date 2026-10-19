@@ -218,7 +218,7 @@ export function paraPlanilha(
       evento.eventoNome,
       ...series.map((serie) => String(serie.valores[i])),
       String(evento.quantidade),
-      `${total > 0 ? ((evento.quantidade / total) * 100).toFixed(1) : "0.0"}%`,
+      `${(total > 0 ? ((evento.quantidade / total) * 100).toFixed(1) : "0.0").replace(".", ",")}%`,
     ]),
   };
 }
