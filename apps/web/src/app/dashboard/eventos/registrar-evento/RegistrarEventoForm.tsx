@@ -106,6 +106,10 @@ export function RegistrarEventoForm({
     e.preventDefault();
     if (ocupado) return;
     setErro(null);
+    // Antes de qualquer `await`: depois dele o React ja soltou o evento e
+    // `e.currentTarget` vale null -- com arquivo anexado, o `new FormData`
+    // abaixo quebrava e o botao ficava em "Registrando..." (ensaio de 19/10).
+    const elemento = e.currentTarget;
 
     const arquivos = Array.from(campoDeArquivos.current?.files ?? []);
     if (arquivos.length > MAXIMO_DE_ARQUIVOS) {
@@ -128,44 +132,60 @@ export function RegistrarEventoForm({
     }
 
     setOcupado(true);
-    const formulario = new FormData(e.currentTarget);
+    const formulario = new FormData(elemento);
     formulario.delete("arquivos");
-    const registro = await registrarEvento(formulario);
+    let registro: Awaited<ReturnType<typeof registrarEvento>>;
+    try {
+      registro = await registrarEvento(formulario);
+    } catch {
+      // Rede caiu ou o servidor nao respondeu: nada foi registrado, entao da
+      // para tentar de novo sem duplicar.
+      setOcupado(false);
+      setErro("Não foi possível registrar. Verifique a conexão e tente de novo.");
+      return;
+    }
     if (!registro.ok) {
       setOcupado(false);
       setErro(registro.erro);
       return;
     }
 
+    const { id, numeroAno } = registro;
+
     if (arquivos.length > 0) {
-      const storage = createClient().storage.from("ocorrencias");
-      const enviados: AnexoEnviado[] = [];
-      for (const arquivo of arquivos) {
-        const caminho = caminhoDoAnexo(registro.id, crypto.randomUUID(), arquivo.name);
-        const { error } = await storage.upload(caminho, arquivo, {
-          contentType: tipoPorExtensao(arquivo.name) ?? undefined,
-          upsert: false,
-        });
-        if (error) {
-          setOcupado(false);
-          setParcial({
-            id: registro.id,
-            numeroAno: registro.numeroAno,
-            mensagem: `O arquivo "${arquivo.name}" não subiu. Anexe pelo botão Adicionar Análise no Painel.`,
+      // A ocorrencia ja existe daqui em diante: qualquer falha vira o aviso
+      // "registrada, anexe pelo Painel", nunca o botao girando para sempre.
+      const avisar = (mensagem: string) => {
+        setOcupado(false);
+        setParcial({ id, numeroAno, mensagem });
+      };
+      try {
+        const storage = createClient().storage.from("ocorrencias");
+        const enviados: AnexoEnviado[] = [];
+        for (const arquivo of arquivos) {
+          const caminho = caminhoDoAnexo(id, crypto.randomUUID(), arquivo.name);
+          const { error } = await storage.upload(caminho, arquivo, {
+            contentType: tipoPorExtensao(arquivo.name) ?? undefined,
+            upsert: false,
           });
+          if (error) {
+            avisar(`O arquivo "${arquivo.name}" não subiu. Anexe pelo botão Adicionar Análise no Painel.`);
+            return;
+          }
+          enviados.push({ storage_path: caminho, nome: arquivo.name });
+        }
+        const anexados = await anexarArquivosDaAbertura(id, JSON.stringify(enviados));
+        if (anexados.erro) {
+          avisar(anexados.erro);
           return;
         }
-        enviados.push({ storage_path: caminho, nome: arquivo.name });
-      }
-      const anexados = await anexarArquivosDaAbertura(registro.id, JSON.stringify(enviados));
-      if (anexados.erro) {
-        setOcupado(false);
-        setParcial({ id: registro.id, numeroAno: registro.numeroAno, mensagem: anexados.erro });
+      } catch {
+        avisar("Os arquivos não subiram. Anexe pelo botão Adicionar Análise no Painel.");
         return;
       }
     }
 
-    router.push(`${PAINEL}/${registro.id}`);
+    router.push(`${PAINEL}/${id}`);
   }
 
   if (parcial) {
