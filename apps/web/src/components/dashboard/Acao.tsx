@@ -31,10 +31,13 @@ export function Acao({
       title={titulo}
       aria-label={titulo}
       target={target}
-      // Destino em aba nova e rota de exportacao: o prefetch baixaria a
-      // pagina de impressao (com a consulta inteira por tras) so por o botao
-      // aparecer na tela, e a aba nova nao aproveita nada dele.
-      prefetch={target === "_blank" ? false : undefined}
+      // Sem prefetch em nenhum botao de acao. Aba nova e rota de exportacao:
+      // baixaria a pagina de impressao (com a consulta inteira por tras) so
+      // por o botao aparecer na tela. Editar por linha: com a coluna Acoes
+      // fixa na direita (19/10) os 25 botoes da pagina ficam a vista, e o
+      // Next pre-carregava um destino por linha -- site-planta passou de 28
+      // para 38 requisicoes e estourou o orcamento de desempenho.
+      prefetch={false}
       // `noreferrer` junto do `noopener` (achado B-5 da auditoria de 28/08).
       // Hoje todo destino e da propria origem -- rota de exportacao -- entao
       // nenhum dos dois muda nada na pratica; e o valor completo que se

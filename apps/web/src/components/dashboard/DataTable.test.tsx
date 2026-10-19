@@ -37,6 +37,18 @@ describe("DataTable", () => {
     expect(within(tabela).getByRole("cell", { name: "12" })).not.toHaveClass("sticky");
   });
 
+  // Achado em 19/10: com muitas colunas a tabela rola de lado, e Editar e
+  // Excluir ficavam fora da tela. A coluna "Acoes" fica fixa na direita.
+  it("fixa a coluna Acoes na direita, e so ela", () => {
+    render(<DataTable columns={COLUNAS} rows={LINHAS} />);
+    const tabela = screen.getByRole("table");
+
+    expect(within(tabela).getByRole("columnheader", { name: "Ações" })).toHaveClass("sticky", "right-0");
+    expect(within(tabela).getByRole("cell", { name: "Editar Ipiranga" })).toHaveClass("sticky", "right-0");
+    expect(within(tabela).getByRole("columnheader", { name: "Visitas" })).not.toHaveClass("right-0");
+    expect(within(tabela).getByRole("cell", { name: "12" })).not.toHaveClass("right-0");
+  });
+
   // Pedido do dono (30/09/2026): celula vazia fica vazia -- o travessao que
   // a tabela desenhava era lido como um simbolo a mais, e nao como "nada".
   it("celula vazia fica em branco, na tabela e no cartao", () => {

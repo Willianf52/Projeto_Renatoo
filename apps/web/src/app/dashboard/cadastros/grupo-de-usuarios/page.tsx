@@ -38,6 +38,9 @@ import {
 const TABLE_COLUMNS = [...COLUNAS_DA_LISTAGEM, "Ações"];
 const MIN_WIDTH = "min-w-[820px]";
 
+/** Indice da coluna "Usuarios" em `TABLE_COLUMNS`. */
+const COLUNA_DOS_USUARIOS = 2;
+
 type SearchParamsPromise = Promise<SearchParams>;
 
 /**
@@ -194,7 +197,19 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
   // Quem nao administra continua vendo o botao, desabilitado: escondê-lo faria
   // a coluna "Ações" aparecer vazia, sem explicar por que.
   const rows = resultado.rows.map((grupo) => [
-    ...toListRow(grupo),
+    ...toListRow(grupo).map((celula, indice) =>
+      indice === COLUNA_DOS_USUARIOS ? (
+        // Os nomes quebram de linha em vez de esticar a tabela: o grupo com
+        // todos os usuarios passava de 1800px, e os botoes de Editar e
+        // Excluir ficavam fora da tela (19/10). A celula herda `nowrap` do
+        // DataTable; aqui volta ao normal, com teto de largura.
+        <div key={grupo.id} className="min-w-[280px] max-w-[560px] whitespace-normal leading-relaxed">
+          {celula}
+        </div>
+      ) : (
+        celula
+      ),
+    ),
     podeAdministrar ? (
       <div key={grupo.id} className="flex items-center gap-2">
         <Acao
