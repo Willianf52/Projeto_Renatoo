@@ -145,7 +145,8 @@ export function GraficoDePizza({
       path: anguloDaFatia >= 360 ? null : pathDaFatia(cx, cy, RAIO, anguloInicial, anguloInicial + anguloDaFatia),
       rotulo: {
         rotulo: cortar(fatia.rotulo),
-        percentual: `${((fatia.valor / total) * 100).toFixed(1)}%`,
+        // Virgula decimal, como no resto do portal (ensaio de 19/10: saia "100.0%").
+        percentual: `${((fatia.valor / total) * 100).toFixed(1).replace(".", ",")}%`,
         cor: fatia.cor,
         ancora,
         cotovelo,

@@ -155,13 +155,13 @@ describe("paraPlanilha", () => {
     expect(colunas[0]).toBe("Evento");
     expect(colunas.at(-1)).toBe("Percentual");
     // Os mesmos 40,7% e 3,4% do print da referencia.
-    expect(linhas[0].at(-1)).toBe("40.7%");
-    expect(linhas[1].at(-1)).toBe("3.4%");
+    expect(linhas[0].at(-1)).toBe("40,7%");
+    expect(linhas[1].at(-1)).toBe("3,4%");
   });
 
   it("nao divide por zero quando o total e zero", () => {
     const { linhas } = paraPlanilha([{ eventoId: 1, eventoNome: "RH", quantidade: 0 }], 0);
-    expect(linhas[0].at(-1)).toBe("0.0%");
+    expect(linhas[0].at(-1)).toBe("0,0%");
   });
 });
 
