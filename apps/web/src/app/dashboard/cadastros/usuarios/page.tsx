@@ -15,6 +15,7 @@ import {
   CopyIcon,
   FilterIcon,
   PencilIcon,
+  SitemapIcon,
   PlusCircleIcon,
   UploadIcon,
   UserIcon,
@@ -269,6 +270,12 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
             <PencilIcon className="h-4 w-4" />
           </Acao>
           <Acao
+            titulo={`Vincular ${usuario.nome_completo || usuario.email} a grupos de sites`}
+            href={`/dashboard/cadastros/usuarios/${usuario.id}/vincular`} tom="neutro"
+          >
+            <SitemapIcon className="h-4 w-4" />
+          </Acao>
+          <Acao
             titulo={`Duplicar o acesso de ${usuario.nome_completo || usuario.email}`}
             href={`/dashboard/cadastros/usuarios/novo?duplicar=${usuario.id}`} tom="neutro"
           >
@@ -282,6 +289,12 @@ async function TabelaDeUsuarios({ searchParams }: { searchParams: SearchParamsPr
             motivo="apenas Gestor administra usuários" tom="neutro"
           >
             <PencilIcon className="h-4 w-4" />
+          </AcaoDesabilitada>
+          <AcaoDesabilitada
+            titulo="Vincular usuário"
+            motivo="apenas Gestor administra usuários" tom="neutro"
+          >
+            <SitemapIcon className="h-4 w-4" />
           </AcaoDesabilitada>
           <AcaoDesabilitada
             titulo="Duplicar usuário"
