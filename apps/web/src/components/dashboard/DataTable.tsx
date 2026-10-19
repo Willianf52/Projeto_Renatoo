@@ -18,6 +18,11 @@ const DIVISORIA_A_DIREITA = "shadow-[inset_-1px_0_0_var(--color-slate-800)]";
 /** Canto do cabecalho: uma sombra so, deslocada nos dois eixos -- duas
  * classes `shadow-*` na mesma celula disputariam a mesma propriedade. */
 const DIVISORIA_DO_CANTO = "shadow-[inset_-1px_-1px_0_var(--color-slate-800)]";
+/** A coluna "Acoes" fica fixa na DIREITA, como a primeira na esquerda: com
+ * muitas colunas a tabela rola de lado, e Editar e Excluir ficavam fora da
+ * tela (19/10). Divisoria do lado que encosta no conteudo que rola. */
+const DIVISORIA_A_ESQUERDA = "shadow-[inset_1px_0_0_var(--color-slate-800)]";
+const DIVISORIA_DO_CANTO_DIREITO = "shadow-[inset_1px_-1px_0_var(--color-slate-800)]";
 
 /**
  * O realce de linha (`hover:bg-white/5`) e translucido; na celula fixa, que
@@ -124,7 +129,11 @@ export function DataTable({
                       key={column}
                       scope="col"
                       className={`sticky top-0 whitespace-nowrap px-4 py-3 ${FUNDO_FIXO} ${
-                        indice === 0 ? `left-0 z-20 ${DIVISORIA_DO_CANTO}` : `z-10 ${DIVISORIA_EMBAIXO}`
+                        indice === 0
+                          ? `left-0 z-20 ${DIVISORIA_DO_CANTO}`
+                          : column === COLUNA_DE_ACOES
+                            ? `right-0 z-20 ${DIVISORIA_DO_CANTO_DIREITO}`
+                            : `z-10 ${DIVISORIA_EMBAIXO}`
                       } ${alinhamento(indice)}`}
                     >
                       {column}
@@ -149,7 +158,9 @@ export function DataTable({
                           className={`whitespace-nowrap px-4 py-3 text-white ${
                             cellIndex === 0
                               ? `sticky left-0 z-[5] ${FUNDO_FIXO} ${DIVISORIA_A_DIREITA} ${REALCE_DA_CELULA_FIXA}`
-                              : ""
+                              : columns[cellIndex] === COLUNA_DE_ACOES
+                                ? `sticky right-0 z-[5] ${FUNDO_FIXO} ${DIVISORIA_A_ESQUERDA} ${REALCE_DA_CELULA_FIXA}`
+                                : ""
                           } ${alinhamento(cellIndex)}`}
                         >
                           {cell}
