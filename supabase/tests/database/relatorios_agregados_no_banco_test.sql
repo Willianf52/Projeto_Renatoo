@@ -290,8 +290,8 @@ set local "request.jwt.claims" to '{"sub": "e0490000-0000-0000-0000-00000000000b
 select is(
   (select sum(quantidade)::int from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03')
     where funcionario_id::text like 'e0490000%'),
-  2,
-  'INSPETOR B so enxerga as proprias visitas (V4 e V5), nao as de A'
+  6,
+  'INSPETOR B enxerga as visitas de todos (V1, V2, V3 e V6 de A, V4 e V5 dele) -- 0075'
 );
 
 reset role;
