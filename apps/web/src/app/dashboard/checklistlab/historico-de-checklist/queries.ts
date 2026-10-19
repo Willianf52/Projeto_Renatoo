@@ -640,7 +640,7 @@ async function contarPerguntasAtivasPorModelo(
   return porModelo;
 }
 
-type SiteDoCaminho = { nome: string; superior: number | null };
+export type SiteDoCaminho = { nome: string; superior: number | null };
 
 /** Todos os sites que quem pede enxerga (RLS), para montar os caminhos. */
 async function carregarSites(
@@ -651,6 +651,35 @@ async function carregarSites(
     TETO_DO_HISTORICO,
   );
   return new Map(linhas.map((site) => [site.id, { nome: site.nome, superior: site.site_superior_id }]));
+}
+
+/** A arvore do "Visualizar": raizes (sem superior, ou com superior fora do que a pessoa enxerga) e seus
+ * filhos, em ordem alfabetica. O `visitados` protege de ciclo no cadastro. */
+export type NoDaArvore = { id: number; nome: string; filhos: NoDaArvore[] };
+
+export function montarArvore(sites: ReadonlyMap<number, SiteDoCaminho>): NoDaArvore[] {
+  const filhosDe = new Map<number | null, number[]>();
+  for (const [id, site] of sites) {
+    const pai = site.superior !== null && sites.has(site.superior) ? site.superior : null;
+    filhosDe.set(pai, [...(filhosDe.get(pai) ?? []), id]);
+  }
+
+  const visitados = new Set<number>();
+  const montar = (ids: number[]): NoDaArvore[] =>
+    ids
+      .filter((id) => !visitados.has(id))
+      .map((id) => {
+        visitados.add(id);
+        return { id, nome: sites.get(id)!.nome, filhos: montar(filhosDe.get(id) ?? []) };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  return montar(filhosDe.get(null) ?? []);
+}
+
+/** Os mesmos sites, para a arvore do "Visualizar" (cartao Site da referencia). */
+export async function getSitesDaArvore(): Promise<Map<number, SiteDoCaminho>> {
+  return carregarSites(await createClient());
 }
 
 /**
@@ -901,7 +930,7 @@ const SELECT_DO_DETALHE = `
     criado_em,
     motivos_visita ( nome ),
     profiles ( nome_completo ),
-    sites ( nome )
+    sites ( id, nome )
   ),
   checklist_respostas (
     resposta, observacao, pergunta_id,
