@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { processarFilaDeEmailsDeChecklist } from "@/lib/fila-de-emails-de-checklist";
 import { processarFilaDeEmails } from "@/lib/fila-de-emails-de-ocorrencia";
 import { limitarTaxa } from "@/lib/limite-compartilhado";
+import { origemDoPortal } from "@/lib/origem-do-portal";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { segredoConfere } from "@/lib/webhook-user-updated";
@@ -47,7 +48,8 @@ export async function GET(request: NextRequest) {
   }
 
   // As duas filas (0065 e 0068), em sequencia: a Resend tem um limite so.
-  const origem = new URL(request.url).origin;
+  // O dominio do portal, e nao o de quem chamou: ver `lib/origem-do-portal.ts`.
+  const origem = origemDoPortal(request.url);
   const ocorrencias = await processarFilaDeEmails(admin, origem, idRequisicao);
   const checklists = await processarFilaDeEmailsDeChecklist(admin, origem, idRequisicao);
   return NextResponse.json({
