@@ -107,6 +107,20 @@ export async function sincronizarEscopo(
   profileId: string,
   valores: ValoresDoUsuario,
 ): Promise<string | null> {
+  const grupos = valores.cargo === CARGO_CLIENTE ? valores.gruposDoCliente.map(Number) : [];
+  return trocarGruposDoCliente(admin, profileId, grupos);
+}
+
+/**
+ * Troca, de uma vez, os grupos de sites de um CLIENTE: apaga os que tinha e
+ * grava os novos. Usada pelo formulario (`sincronizarEscopo`) e pela tela
+ * Vincular (`vincular/actions.ts`), para as duas escreverem do mesmo jeito.
+ */
+export async function trocarGruposDoCliente(
+  admin: ClienteAdmin,
+  profileId: string,
+  grupoIds: number[],
+): Promise<string | null> {
   const { error: erroLimpeza } = await admin
     .from("grupos_sites_clientes")
     .delete()
@@ -114,13 +128,10 @@ export async function sincronizarEscopo(
 
   if (erroLimpeza) return erroLimpeza.message;
 
-  if (valores.cargo !== CARGO_CLIENTE || valores.gruposDoCliente.length === 0) return null;
+  if (grupoIds.length === 0) return null;
 
   const { error } = await admin.from("grupos_sites_clientes").insert(
-    valores.gruposDoCliente.map((grupoId) => ({
-      profile_id: profileId,
-      grupo_site_id: Number(grupoId),
-    })),
+    grupoIds.map((grupoId) => ({ profile_id: profileId, grupo_site_id: grupoId })),
   );
 
   return error?.message ?? null;
