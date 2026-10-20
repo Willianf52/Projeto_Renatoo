@@ -1683,6 +1683,10 @@ export type Database = {
         Args: { p_para_cima: boolean; p_pergunta_id: number }
         Returns: undefined
       }
+      nome_do_funcionario: {
+        Args: { v: Database["public"]["Tables"]["visitas"]["Row"] }
+        Returns: string
+      }
       ocorrencias_de_evento: {
         Args: {
           p_filtros?: Json
@@ -1879,6 +1883,15 @@ export type Database = {
         Returns: {
           rota: string
           vezes: number
+        }[]
+      }
+      usuarios_visiveis: {
+        Args: never
+        Returns: {
+          ativo: boolean
+          cargo: string
+          id: string
+          nome_completo: string
         }[]
       }
       visitas_do_periodo: {

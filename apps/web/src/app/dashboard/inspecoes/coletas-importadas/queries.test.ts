@@ -30,8 +30,9 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
     const ranges: Range[] = [];
     const limites: Limite[] = [];
 
-    const createClientMock = vi.fn(async () => ({
-      from(tabela: string) {
+    // `rpc("usuarios_visiveis")` (0076) entra na mesma cadeia, registrada
+    // pelo nome da funcao, como se fosse uma tabela.
+    const cadeia = (tabela: string) => {
         tabelasConsultadas.push(tabela);
         const chain: Chain = {
           select: (_colunas, opcoes) => {
@@ -68,8 +69,8 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
             resolve({ data: respostas.get(tabela) ?? [], error: null, count: 0 }),
         };
         return chain;
-      },
-    }));
+    };
+    const createClientMock = vi.fn(async () => ({ from: cadeia, rpc: cadeia }));
 
     return { createClientMock, respostas, tabelasConsultadas, ordens, contagens, ranges, limites };
   },
@@ -107,13 +108,13 @@ beforeEach(() => {
 
 describe("getFilterOptions", () => {
   /**
-   * A policy de `profiles` (migration 0006) devolve a operacao inteira para
-   * gestao e so a propria linha para os demais. Se essa lista entrar no cache
+   * `usuarios_visiveis` (0076) devolve todos os nomes para quem ve as
+   * coletas e so a propria linha para o cliente. Se essa lista entrar no cache
    * compartilhado, o operador seguinte recebe o quadro inteiro -- RLS
    * contornado sem nenhum erro aparecer.
    */
   it("nao reaproveita a lista de funcionarios entre usuarios diferentes", async () => {
-    respostas.set("profiles", [
+    respostas.set("usuarios_visiveis", [
       { id: "u1", nome_completo: "Gestor" },
       { id: "u2", nome_completo: "Operador" },
     ]);
@@ -121,11 +122,11 @@ describe("getFilterOptions", () => {
     expect(comoGestor.funcionarios).toHaveLength(2);
 
     // Mesmo processo, dentro do TTL, mas outro usuario: o RLS devolve menos.
-    respostas.set("profiles", [{ id: "u2", nome_completo: "Operador" }]);
+    respostas.set("usuarios_visiveis", [{ id: "u2", nome_completo: "Operador" }]);
     const comoOperador = await getFilterOptions();
 
     expect(comoOperador.funcionarios).toEqual([{ value: "u2", label: "Operador" }]);
-    expect(contar("profiles")).toBe(2);
+    expect(contar("usuarios_visiveis")).toBe(2);
   });
 
   it("mantem em cache as tabelas de referencia globais", async () => {
@@ -382,7 +383,7 @@ describe("toTableRow", () => {
       qr_codes: null,
       visitas: {
         numero_coleta: "42",
-        profiles: { nome_completo: "Ana" },
+        nome_do_funcionario: "Ana",
         coletores_dados: { nome: "Dispositivo Móvel" },
         sites: { nome: "Cooplivre" },
       },
@@ -409,7 +410,7 @@ describe("toTableRow", () => {
     qr_codes: null,
     visitas: {
       numero_coleta: "9ac5577a-83a9-4922-8372-f009ef1ac27e",
-      profiles: null,
+      nome_do_funcionario: null,
       coletores_dados: null,
       sites: null,
     },
@@ -560,7 +561,7 @@ describe("extrairFiltros: id fora do tipo na querystring", () => {
 
 describe("temChecklist", () => {
   const leitura = (checklists_visita: unknown) =>
-    ({ visitas: { numero_coleta: "1", profiles: null, coletores_dados: null, sites: null, checklists_visita } }) as never;
+    ({ visitas: { numero_coleta: "1", nome_do_funcionario: null, coletores_dados: null, sites: null, checklists_visita } }) as never;
 
   it("aceita o objeto do um-para-um e a lista, vazia ou nao", () => {
     expect(temChecklist(leitura({ id: 3 }))).toBe(true);

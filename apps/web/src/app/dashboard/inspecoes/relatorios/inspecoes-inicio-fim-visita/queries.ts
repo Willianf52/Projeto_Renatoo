@@ -71,7 +71,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
     supabase.from("eventos").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("acoes").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("motivos_visita").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("sites").select("id, nome, grupos_sites ( nome )").eq("ativo", true).order("nome"),
   ]);

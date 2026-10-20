@@ -112,7 +112,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   ] = await Promise.all([
     supabase.from("coletores_dados").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("areas").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("eventos").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qualificadores").select("id, nome").eq("ativo", true).order("nome"),

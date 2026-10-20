@@ -66,7 +66,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
 
   const [coletoresDados, funcionarios, checkpoints, gruposUsuarios, sitesComGrupo, locais] = await Promise.all([
     supabase.from("coletores_dados").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
     supabase.from("grupos_usuarios").select("id, nome").order("nome"),
     supabase.from("sites").select("id, nome, grupos_sites ( nome )").eq("ativo", true).order("nome"),
@@ -131,7 +131,7 @@ export async function getHorasPorUsuario(filtros: Filtros): Promise<LinhaHoras[]
   const supabase = await createClient();
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
 
-  let perfisFiltrados = supabase.from("profiles").select("id, nome_completo").eq("ativo", true);
+  let perfisFiltrados = supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true);
   if (filtros.funcionario) perfisFiltrados = perfisFiltrados.eq("id", filtros.funcionario);
   const perfis = perfisFiltrados.order("nome_completo");
 
