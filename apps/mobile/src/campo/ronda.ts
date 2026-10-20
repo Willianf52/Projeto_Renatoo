@@ -336,7 +336,13 @@ async function lidoHaPouco(chave: string, qrCodeId: number, agora: Date): Promis
   return (linha?.n ?? 0) > 0;
 }
 
-export async function encerrarRonda(chave: string): Promise<void> {
+/**
+ * Fecha a ronda e grava a leitura "Termino" (0077), que sobe pela fila como
+ * as outras: com uma leitura so (um QR por site), era ela que faltava para
+ * Coletas Importadas e os relatorios de horas mostrarem o fim da inspecao.
+ */
+export async function encerrarRonda(chave: string, agora: Date = new Date()): Promise<void> {
   const banco = await abrirFila();
   await banco.runAsync("update visitas_na_fila set encerrada = 1 where chave = ?", chave);
+  await registrarLeitura({ chaveDaVisita: chave, dataHora: agora.toISOString(), termino: true });
 }

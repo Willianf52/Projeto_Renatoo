@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 6;
+const VERSAO_DO_SCHEMA = 7;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -46,6 +46,9 @@ export type LeituraNaFila = {
   observacao: string | null;
   temLocalizacao: boolean;
   enviada: boolean;
+  /** A leitura "Termino" do "Encerrar ronda" (0077): sem QR, e a area
+   * "Termino" so e resolvida na sincronizacao, que conhece o id dela. */
+  termino: boolean;
 };
 
 /**
@@ -211,6 +214,19 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
     `);
   }
 
+  if (versao < 7) {
+    /**
+     * Termino da inspecao (migration 0077 do banco, pedido do dono em
+     * 20/10/2026): "Encerrar ronda" grava uma leitura "Termino", como no app
+     * do sistema de referencia. A marca fica aqui, e nao o id da area, porque
+     * o aparelho esta sem rede por premissa e o id so e conhecido no banco.
+     * Default 0: as leituras que ja estavam na fila sao todas de QR.
+     */
+    await banco.execAsync(`
+      alter table leituras_na_fila add column termino integer not null default 0;
+    `);
+  }
+
   if (versao < VERSAO_DO_SCHEMA) {
     await banco.execAsync(`pragma user_version = ${VERSAO_DO_SCHEMA}`);
   }
@@ -263,19 +279,21 @@ export async function registrarLeitura(entrada: {
   qrCodeId?: number | null;
   observacao?: string | null;
   temLocalizacao?: boolean;
+  termino?: boolean;
 }): Promise<boolean> {
   const banco = await abrirFila();
 
   const resultado = await banco.runAsync(
     `insert or ignore into leituras_na_fila
-       (chave_da_visita, data_hora, area_id, qr_code_id, observacao, tem_localizacao)
-     values (?, ?, ?, ?, ?, ?)`,
+       (chave_da_visita, data_hora, area_id, qr_code_id, observacao, tem_localizacao, termino)
+     values (?, ?, ?, ?, ?, ?, ?)`,
     entrada.chaveDaVisita,
     entrada.dataHora,
     entrada.areaId ?? null,
     entrada.qrCodeId ?? null,
     entrada.observacao ?? null,
     entrada.temLocalizacao ? 1 : 0,
+    entrada.termino ? 1 : 0,
   );
 
   return resultado.changes > 0;
@@ -342,9 +360,10 @@ export async function leiturasPendentes(chaveDaVisita: string): Promise<LeituraN
     observacao: string | null;
     tem_localizacao: number;
     enviada: number;
+    termino: number;
   }>(
     `select id, chave_da_visita, data_hora, area_id, qr_code_id, observacao,
-            tem_localizacao, enviada
+            tem_localizacao, enviada, termino
        from leituras_na_fila
       where chave_da_visita = ? and enviada = 0
       order by data_hora`,
@@ -360,6 +379,7 @@ export async function leiturasPendentes(chaveDaVisita: string): Promise<LeituraN
     observacao: l.observacao,
     temLocalizacao: l.tem_localizacao === 1,
     enviada: l.enviada === 1,
+    termino: l.termino === 1,
   }));
 }
 
