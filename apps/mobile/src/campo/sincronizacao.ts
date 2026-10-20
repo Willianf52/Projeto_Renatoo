@@ -90,6 +90,10 @@ async function drenar(funcionarioId: string): Promise<ResultadoDaSincronizacao> 
     falhas: [],
   };
 
+  // Id da area "Termino" (0077), buscado so quando alguma visita tem a
+  // leitura do "Encerrar ronda" para mandar.
+  let areaDoTermino: number | null | undefined;
+
   for (const visita of await visitasPendentes(funcionarioId)) {
     const leituras = await leiturasPendentes(visita.chave);
 
@@ -113,13 +117,24 @@ async function drenar(funcionarioId: string): Promise<ResultadoDaSincronizacao> 
      */
     if (leituras.length === 0) continue;
 
+    if (leituras.some((l) => l.termino) && areaDoTermino === undefined) {
+      const { data, error } = await supabase.from("areas").select("id").eq("nome", "Término").maybeSingle();
+      areaDoTermino = error ? undefined : (data?.id ?? null);
+      if (error) {
+        await falhar(resultado, "leituras", visita.chave, error);
+        continue;
+      }
+    }
+
     const conferida = esquemaDeVisitaDeCampo.safeParse({
       numeroColeta: visita.chave,
       siteId: visita.siteId,
       funcionarioId: visita.funcionarioId,
       leituras: leituras.map((l) => ({
         dataHora: l.dataHora,
-        areaId: l.areaId,
+        // Sem a area no cadastro (nao deveria acontecer: a 0077 depende
+        // dela), o Termino sobe como leitura comum, e nao some.
+        areaId: l.termino ? (areaDoTermino ?? null) : l.areaId,
         qrCodeId: l.qrCodeId,
         observacao: l.observacao,
       })),

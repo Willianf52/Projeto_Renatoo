@@ -10,7 +10,7 @@ const estado = vi.hoisted(() => ({
   servidor: null as null | { data: unknown; error: unknown },
   servidorLanca: false,
   visitasIniciadas: [] as { siteId: number; funcionarioId: string }[],
-  leituras: [] as { chaveDaVisita: string; qrCodeId?: number | null }[],
+  leituras: [] as { chaveDaVisita: string; qrCodeId?: number | null; dataHora?: string; termino?: boolean }[],
   leituraRepetida: false,
   /** Quantas leituras do QR a fila tem na janela recente da ronda. */
   leiturasRecentes: 0,
@@ -34,7 +34,7 @@ vi.mock("./fila", () => ({
     estado.visitasIniciadas.push(entrada);
     return `chave-nova-${entrada.siteId}`;
   },
-  registrarLeitura: async (entrada: { chaveDaVisita: string; qrCodeId?: number | null }) => {
+  registrarLeitura: async (entrada: { chaveDaVisita: string; qrCodeId?: number | null; dataHora?: string; termino?: boolean }) => {
     estado.leituras.push(entrada);
     return !estado.leituraRepetida;
   },
@@ -61,6 +61,7 @@ const {
   aceitarDaCamera,
   acharQr,
   decidirLeitura,
+  encerrarRonda,
   novaMemoriaDaCamera,
   normalizarCodigo,
   registrarLeituraDeQr,
@@ -206,5 +207,18 @@ describe("aceitarDaCamera", () => {
     const memoria = novaMemoriaDaCamera();
     expect(aceitarDaCamera(memoria, "PL-1", 0)).toBe(true);
     expect(aceitarDaCamera(memoria, " PL-1 ", 5000)).toBe(false);
+  });
+});
+
+describe("encerrarRonda", () => {
+  it("grava a leitura Termino da ronda, sem QR, na hora em que encerrou (0077)", async () => {
+    estado.leituras = [];
+    const agora = new Date("2026-10-20T13:45:00Z");
+
+    await encerrarRonda("chave-aberta", agora);
+
+    expect(estado.leituras).toEqual([
+      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-20T13:45:00.000Z", termino: true },
+    ]);
   });
 });

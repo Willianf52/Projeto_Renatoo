@@ -25,7 +25,14 @@ const estado = vi.hoisted(() => ({
   }[],
   leituras: new Map<
     string,
-    { id: number; dataHora: string; areaId: number | null; qrCodeId: number | null; observacao: string | null }[]
+    {
+      id: number;
+      dataHora: string;
+      areaId: number | null;
+      qrCodeId: number | null;
+      observacao: string | null;
+      termino?: boolean;
+    }[]
   >(),
   /** O que a sincronizacao ESCREVEU de volta na fila -- o que os testes conferem. */
   gravado: {
@@ -44,7 +51,13 @@ vi.mock("./fila", () => ({
   visitasPendentes: async (funcionarioId: string) =>
     estado.visitas.filter((v) => v.funcionarioId === funcionarioId),
   leiturasPendentes: async (chave: string) =>
-    (estado.leituras.get(chave) ?? []).map((l) => ({ ...l, chaveDaVisita: chave, temLocalizacao: false, enviada: false })),
+    (estado.leituras.get(chave) ?? []).map((l) => ({
+      ...l,
+      chaveDaVisita: chave,
+      temLocalizacao: false,
+      enviada: false,
+      termino: l.termino ?? false,
+    })),
   marcarVisitaEnviada: async (chave: string, visitaId: number) => {
     estado.gravado.visitasEnviadas.push({ chave, visitaId });
   },
@@ -66,6 +79,7 @@ const servidor = {
   upsertVisita: (): Resposta => ({ data: { id: 500 }, error: null }),
   buscarVisita: (): Resposta => ({ data: null, error: null }),
   upsertLeituras: (linhas: unknown[]): Resposta => ({ data: linhas.map((_, i) => ({ id: i + 1 })), error: null }),
+  areaDoTermino: (): Resposta => ({ data: { id: 2 }, error: null }),
 };
 
 /**
@@ -93,6 +107,7 @@ vi.mock("../lib/supabase", () => ({
           select: () => encadeavel(() => servidor.buscarVisita()),
         };
       }
+      if (tabela === "areas") return encadeavel(() => servidor.areaDoTermino());
       return { upsert: (linhas: unknown[]) => encadeavel(() => servidor.upsertLeituras(linhas)) };
     },
   },
@@ -129,6 +144,7 @@ beforeEach(() => {
   servidor.upsertVisita = () => ({ data: { id: 500 }, error: null });
   servidor.buscarVisita = () => ({ data: null, error: null });
   servidor.upsertLeituras = (linhas) => ({ data: linhas.map((_, i) => ({ id: i + 1 })), error: null });
+  servidor.areaDoTermino = () => ({ data: { id: 2 }, error: null });
 });
 
 describe("ronda aberta, ainda sem leitura", () => {
@@ -335,5 +351,43 @@ describe("mensagem de falha para o inspetor", () => {
 
   it("o resto segue cru", () => {
     expect(paraOInspetor({ message: "rede caiu", code: "XX000" })).toBe("rede caiu");
+  });
+});
+
+describe("Termino do \"Encerrar ronda\" (0077)", () => {
+  function enfileirarComTermino() {
+    enfileirarRonda({ visitaId: null });
+    estado.leituras.set(CHAVE, [
+      { id: 31, dataHora: INSTANTE, areaId: null, qrCodeId: 9, observacao: null },
+      { id: 32, dataHora: "2026-09-08T08:20:00-03:00", areaId: null, qrCodeId: null, observacao: null, termino: true },
+    ]);
+  }
+
+  it("sobe a leitura Termino com a area Termino do banco", async () => {
+    enfileirarComTermino();
+    let enviadas: { area_id: number | null; qr_code_id: number | null }[] = [];
+    servidor.upsertLeituras = (linhas) => {
+      enviadas = linhas as typeof enviadas;
+      return { data: linhas.map((_, i) => ({ id: i + 1 })), error: null };
+    };
+
+    const resultado = await sincronizar(FUNCIONARIO);
+
+    expect(resultado.falhas).toEqual([]);
+    expect(enviadas.map((l) => [l.area_id, l.qr_code_id])).toEqual([
+      [null, 9],
+      [2, null],
+    ]);
+    expect(estado.gravado.leiturasEnviadas).toEqual([31, 32]);
+  });
+
+  it("sem conseguir ler a area, a ronda fica para a proxima sincronizacao", async () => {
+    enfileirarComTermino();
+    servidor.areaDoTermino = () => ({ data: null, error: { message: "rede caiu" } });
+
+    const resultado = await sincronizar(FUNCIONARIO);
+
+    expect(resultado.falhas).toHaveLength(1);
+    expect(estado.gravado.leiturasEnviadas).toEqual([]);
   });
 });
