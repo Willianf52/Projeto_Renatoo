@@ -97,7 +97,9 @@ export type ColetaRow = {
   qr_codes: { codigo: string } | null;
   visitas: {
     numero_coleta: string;
-    profiles: { nome_completo: string } | null;
+    /** Campo computado da 0076: o nome de quem fez a visita, para todo cargo
+     * que ve as coletas -- `profiles` em si continua fechada ao INSPETOR. */
+    nome_do_funcionario: string | null;
     coletores_dados: { nome: string } | null;
     sites: { nome: string } | null;
     /** Um-para-um (`checklists_visita_visita_unica`, 0042): o PostgREST
@@ -142,9 +144,8 @@ type ReferenciasCompartilhadas = Pick<
  * recortadas por usuario, e cachear resultado recortado entre usuarios
  * contorna o RLS sem erro nenhum aparecendo.
  *
- *   - `funcionarios` vem de `profiles`, cuja policy e
- *     `auth.uid() = id or pode_ver_toda_operacao()` (0006): um gestor le a
- *     operacao inteira, um operador le so a propria linha.
+ *   - `funcionarios` vem de `usuarios_visiveis` (0076): todo usuario ativo
+ *     que nao e cliente le o nome de todos; o cliente, so a propria linha.
  *   - `locais`, `gruposSites` e `checkpoints` vem de `sites`, `grupos_sites` e
  *     `qr_codes`, que ate a migration 0013 eram `usuario_ativo()` puro -- e
  *     eram, por isso, cacheadas aqui. **A 0014 mudou isso**: passaram a
@@ -213,7 +214,7 @@ export async function getFilterOptions(): Promise<FilterOptions> {
   // comentario do cache acima.
   const [referencias, funcionarios, locais, gruposSites, checkpoints] = await Promise.all([
     getReferenciasCompartilhadas(supabase),
-    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
@@ -282,7 +283,7 @@ export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boole
       qr_codes ( codigo ),
       ${precisaVisita ? "visitas!inner" : "visitas"} (
         numero_coleta,
-        profiles ( nome_completo ),
+        nome_do_funcionario,
         coletores_dados ( nome ),
         ${precisaSite ? "sites!inner" : "sites"} ( nome ),
         checklists_visita ( id )
@@ -551,7 +552,7 @@ export function toTableRow(leitura: ColetaRow): string[] {
     // campo, que nao gravam coletor nem observacao: toda coleta hoje vem do
     // celular, e toda leitura do app e parte de uma inspecao.
     leitura.visitas?.coletores_dados?.nome || "Dispositivo Móvel",
-    leitura.visitas?.profiles?.nome_completo ?? "",
+    leitura.visitas?.nome_do_funcionario ?? "",
     leitura.visitas?.sites?.nome ?? "",
     leitura.areas?.nome ?? leitura.papel ?? "",
     leitura.eventos?.nome ?? "",

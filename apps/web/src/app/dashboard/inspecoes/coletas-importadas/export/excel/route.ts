@@ -17,12 +17,9 @@ const TABLE_COLUMNS = [
 
 /**
  * "Exportar para Excel" desta tela: CSV com os mesmos filtros aplicados na
- * listagem (sem paginacao). Leitura de `leituras`/`profiles` continua sob o
- * mesmo RLS da listagem -- inclusive o recorte de `profiles` por
- * `pode_ver_toda_operacao()` embutido no join com `visitas.profiles`
- * (migration 0006): quem so enxerga o proprio perfil exporta coletas com o
- * campo Funcionario vazio nas linhas que nao sao suas, nao o nome de outra
- * pessoa.
+ * listagem (sem paginacao). Leitura de `leituras` continua sob o mesmo RLS
+ * da listagem, e o nome vem de `visitas.nome_do_funcionario` (0076): todo
+ * cargo que ve as coletas recebe o nome; o cliente, so o proprio.
  */
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;

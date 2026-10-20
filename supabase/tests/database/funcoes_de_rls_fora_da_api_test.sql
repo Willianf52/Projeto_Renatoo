@@ -52,8 +52,8 @@ select is(
      from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'autorizacao' and p.prosecdef),
-  13,
-  'as dez auxiliares da 0050, pode_finalizar_visita (0059), pode_registrar_visita (0060) e pode_excluir_checklist (0066) estao em autorizacao como security definer'
+  15,
+  'as dez auxiliares da 0050, pode_finalizar_visita (0059), pode_registrar_visita (0060), pode_excluir_checklist (0066), nome_do_perfil e usuarios_visiveis (0076) estao em autorizacao como security definer'
 );
 
 -- Nenhum corpo de funcao ficou chamando `public.x()` para uma das seis que

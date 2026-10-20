@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { rpcMock, perfisMock } = vi.hoisted(() => ({ rpcMock: vi.fn(), perfisMock: vi.fn() }));
 
-/** `from("profiles").select().eq()...order()` resolve na propria cadeia. */
+/** `rpc("usuarios_visiveis").select().eq()...order()` (0076) resolve na propria cadeia. */
 function cadeiaDePerfis() {
   const cadeia = {
     select: () => cadeia,
@@ -24,7 +24,9 @@ function cadeiaDePerfis() {
 }
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ from: () => cadeiaDePerfis(), rpc: rpcMock }),
+  createClient: async () => ({
+    rpc: (nome: string, args?: unknown) => (nome === "usuarios_visiveis" ? cadeiaDePerfis() : rpcMock(nome, args)),
+  }),
 }));
 
 const { extrairFiltros, formatarDuracao, formatarMedia, getHorasPorUsuario, juntarHorasAosPerfis } = await import(
