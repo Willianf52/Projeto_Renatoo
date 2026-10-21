@@ -254,6 +254,7 @@ export function LoginForm() {
           // e e-mail, e o navegador recusaria o envio.
           type="text"
           autoComplete="username"
+          placeholder="Digite seu login"
           value={email}
           error={errors.email}
           onChange={(value) => {
@@ -274,6 +275,7 @@ export function LoginForm() {
           label="Senha"
           type="password"
           autoComplete="current-password"
+          placeholder="Digite sua senha"
           value={password}
           error={errors.password}
           onChange={(value) => {
