@@ -15,6 +15,8 @@ const estado = vi.hoisted(() => ({
   /** Quantas leituras do QR a fila tem na janela recente da ronda. */
   leiturasRecentes: 0,
   consultasRecentes: [] as unknown[][],
+  /** O que a fila recebeu em `runAsync` de atualizacao (fechar a ronda). */
+  atualizacoes: [] as { sql: string; chave: unknown }[],
 }));
 
 vi.mock("./fila", () => ({
@@ -27,6 +29,10 @@ vi.mock("./fila", () => ({
       return estado.catalogo.get(args[0] as string) ?? null;
     },
     runAsync: async (_sql: string, codigo: string, id: number, siteId: number, siteNome: string, finalidade: string | null, ativo: number) => {
+      if (_sql.startsWith("update")) {
+        estado.atualizacoes.push({ sql: _sql, chave: codigo });
+        return;
+      }
       estado.catalogo.set(codigo, { codigo, id, site_id: siteId, site_nome: siteNome, finalidade, ativo });
     },
   }),
@@ -62,6 +68,7 @@ const {
   acharQr,
   decidirLeitura,
   encerrarRonda,
+  fecharRondaSemTermino,
   novaMemoriaDaCamera,
   normalizarCodigo,
   registrarLeituraDeQr,
@@ -79,6 +86,7 @@ beforeEach(() => {
   estado.leituraRepetida = false;
   estado.leiturasRecentes = 0;
   estado.consultasRecentes = [];
+  estado.atualizacoes = [];
 });
 
 describe("decidirLeitura", () => {
@@ -219,6 +227,29 @@ describe("encerrarRonda", () => {
 
     expect(estado.leituras).toEqual([
       { chaveDaVisita: "chave-aberta", dataHora: "2026-10-20T13:45:00.000Z", termino: true },
+    ]);
+  });
+});
+
+describe("fecharRondaSemTermino", () => {
+  // Pedido do dono (21/10/2026): o QR abre e fecha a ronda e segue para o
+  // checklist. O Termino vem do envio do checklist; gravar um aqui o poria no
+  // mesmo minuto do Inicio.
+  it("so fecha a ronda: nenhuma leitura Termino entra na fila", async () => {
+    await fecharRondaSemTermino("chave-aberta");
+
+    expect(estado.atualizacoes).toHaveLength(1);
+    expect(estado.atualizacoes[0].sql).toContain("encerrada = 1");
+    expect(estado.atualizacoes[0].chave).toBe("chave-aberta");
+    expect(estado.leituras).toEqual([]);
+  });
+
+  it("encerrarRonda continua fechando e gravando o Termino", async () => {
+    await encerrarRonda("chave-aberta", new Date("2026-10-21T13:00:00Z"));
+
+    expect(estado.atualizacoes).toHaveLength(1);
+    expect(estado.leituras).toEqual([
+      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-21T13:00:00.000Z", termino: true },
     ]);
   });
 });

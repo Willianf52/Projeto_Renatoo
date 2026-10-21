@@ -13,6 +13,13 @@ import { abrirFila, iniciarVisita, registrarLeitura } from "./fila";
  *     encerrar a atual e comecar outra;
  *   - ao encerrar, com sinal, sincroniza e oferece o checklist.
  *
+ * MUDOU EM 21/10/2026 (pedido do dono): ler o QR ja caminha para a proxima
+ * etapa. A leitura abre e fecha a ronda na hora (`fecharRondaSemTermino`),
+ * sincroniza e abre o checklist; o botao "Encerrar ronda" so aparece para uma
+ * ronda que ficou aberta de uma versao anterior. Consequencia: um QR = uma
+ * inspecao; ronda com varios pontos somando numa visita so existe nas rondas
+ * antigas.
+ *
  * O QUE ESTE MODULO NAO DECIDE: se a leitura e valida para o banco. O trigger
  * `manutencao.validar_leitura_de_campo` (0054) recusa QR de outro site e hora
  * fora da janela -- a regra de `decidirLeitura` so evita oferecer ao inspetor o
@@ -337,12 +344,24 @@ async function lidoHaPouco(chave: string, qrCodeId: number, agora: Date): Promis
 }
 
 /**
+ * Fecha a ronda SEM gravar o Termino. E o que a leitura do QR faz desde
+ * 21/10/2026 (pedido do dono): o QR abre e fecha a ronda na hora e o app segue
+ * para o checklist, entao o fim da inspecao ainda nao aconteceu -- o Termino
+ * vem do envio do checklist (migration 0077, fonte 2), na hora dele. Gravar um
+ * Termino aqui o poria no mesmo minuto do Inicio.
+ */
+export async function fecharRondaSemTermino(chave: string): Promise<void> {
+  const banco = await abrirFila();
+  await banco.runAsync("update visitas_na_fila set encerrada = 1 where chave = ?", chave);
+}
+
+/**
  * Fecha a ronda e grava a leitura "Termino" (0077), que sobe pela fila como
  * as outras: com uma leitura so (um QR por site), era ela que faltava para
  * Coletas Importadas e os relatorios de horas mostrarem o fim da inspecao.
+ * Hoje so serve a ronda que ficou aberta de uma versao anterior do app.
  */
 export async function encerrarRonda(chave: string, agora: Date = new Date()): Promise<void> {
-  const banco = await abrirFila();
-  await banco.runAsync("update visitas_na_fila set encerrada = 1 where chave = ?", chave);
+  await fecharRondaSemTermino(chave);
   await registrarLeitura({ chaveDaVisita: chave, dataHora: agora.toISOString(), termino: true });
 }
