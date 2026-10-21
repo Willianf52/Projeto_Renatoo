@@ -107,16 +107,17 @@ export const LIMITE_MOTIVO = 1000;
 /**
  * Fotos por checklist. O minimo e 1 porque uma visita sem foto nenhuma nao
  * comprova nada -- e o mesmo raciocinio do "visita sem leitura nao e
- * inspecao" em `esquemas.ts`. O maximo e o que um aparelho em rede movel
- * consegue enviar antes de o inspetor desistir e fechar o app.
+ * inspecao" em `esquemas.ts`. O maximo era 10; o dono subiu para 20 em
+ * 20/10/2026, junto com o das fotos de pergunta.
  */
 export const MINIMO_DE_FOTOS = 1;
-export const MAXIMO_DE_FOTOS = 10;
+export const MAXIMO_DE_FOTOS = 20;
 
 /**
  * Fotos de UMA pergunta (0061). O minimo continua sendo do checklist inteiro:
- * uma foto de pergunta ja comprova a visita. O teto e baixo porque multiplica
- * pelo numero de perguntas -- tres por item ja e mais do que o sistema de
- * referencia aceitava (uma), e e o que cabe mandar por rede movel.
+ * uma foto de pergunta ja comprova a visita. Era 3; o dono subiu para 20 em
+ * 20/10/2026 porque tres nao bastava para registrar um item em campo. O teto
+ * multiplica pelo numero de perguntas, e cada foto sobe pela rede movel: um
+ * checklist cheio demora mais para enviar.
  */
-export const MAXIMO_DE_FOTOS_POR_PERGUNTA = 3;
+export const MAXIMO_DE_FOTOS_POR_PERGUNTA = 20;
