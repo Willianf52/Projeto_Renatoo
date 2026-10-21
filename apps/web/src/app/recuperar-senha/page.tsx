@@ -81,6 +81,7 @@ export default function RecuperarSenhaPage() {
                     label="Seu e-mail"
                     type="email"
                     autoComplete="email"
+                    placeholder="Digite seu e-mail"
                     value={email}
                     error={error}
                     onChange={(value) => {
