@@ -915,7 +915,9 @@ export function TelaDeChecklist({
               <View style={estilos.cabecalhoDaSecao}>
                 <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
                   {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
-                  {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"} ({fotos.length}/{MAXIMO_DE_FOTOS})
+                  {/* So a quantidade tirada, sem o teto: o limite existe (regras.ts) mas a pessoa
+                      nao precisa ve-lo (pedido do dono, 21/10/2026). */}
+                  {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"}{fotos.length > 0 ? ` (${fotos.length})` : ""}
                 </Text>
               </View>
 
@@ -1188,7 +1190,7 @@ function FotosDaPergunta({
           style={({ pressed }) => [estilos.tirarFotoDaPergunta, pressed && estilos.opcaoPressionada]}
         >
           <Text style={estilos.tirarFotoDaPerguntaTexto}>
-            {fotos.length === 0 ? "+ Foto" : `+ Foto (${fotos.length}/${MAXIMO_DE_FOTOS_POR_PERGUNTA})`}
+            {fotos.length === 0 ? "+ Foto" : `+ Foto (${fotos.length})`}
           </Text>
         </Pressable>
       )}

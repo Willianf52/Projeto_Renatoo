@@ -14,6 +14,7 @@ import {
   atualizarCatalogo,
   decidirLeitura,
   encerrarRonda,
+  fecharRondaSemTermino,
   memoriaDaCameraDoApp,
   registrarLeituraDeQr,
   rondaAberta,
@@ -118,6 +119,43 @@ export function TelaDeLeitura() {
     };
   }, [focada, idDoUsuario]);
 
+  /**
+   * Depois do QR, a proxima etapa: sobe a leitura e abre o checklist da visita
+   * (o mesmo caminho do convite de "Encerrar ronda", sem o convite). Sem sinal
+   * a leitura fica guardada na fila e o checklist, que precisa de internet
+   * para fotos e assinatura, fica para depois do proximo "Sincronizar".
+   */
+  const seguirParaOChecklist = useCallback(
+    async (chave: string, qr: QrDoCatalogo) => {
+      if (!idDoUsuario) return;
+
+      // `sincronizar` nao lanca por falha de rede: devolve em `falhas`.
+      const resultado = await sincronizar(idDoUsuario);
+      const visitaId = await idDaVisitaNoServidor(chave);
+
+      if (resultado.falhas.length > 0 || visitaId === null) {
+        setAviso({
+          mensagem:
+            "Leitura guardada no aparelho. Sem sinal para abrir o checklist agora: ela será enviada no próximo Sincronizar.",
+          tom: "sucesso",
+        });
+        return;
+      }
+
+      // A mensagem "Leitura registrada" ja cumpriu o papel durante o envio: a
+      // tela de leitura continua montada por baixo do checklist, e sem limpar
+      // a mensagem ela reaparecia ao voltar (pedido do dono, 21/10/2026).
+      setAviso(null);
+
+      navegacao.navigate("TipoDeVisita", {
+        visitaId,
+        numeroColeta: chave,
+        site: { id: qr.siteId, nome: qr.siteNome, ativo: true, recebeVisita: true },
+      });
+    },
+    [idDoUsuario, navegacao],
+  );
+
   const gravar = useCallback(
     async (qr: QrDoCatalogo, rondaAtual: RondaAberta | null) => {
       if (!idDoUsuario) return;
@@ -130,13 +168,16 @@ export function TelaDeLeitura() {
 
       Vibration.vibrate(80);
       const ponto = qr.finalidade ? `${qr.codigo} · ${qr.finalidade}` : qr.codigo;
-      setAviso({
-        mensagem: resultado.nova ? `Ronda iniciada em ${qr.siteNome}. Leitura: ${ponto}` : `Leitura registrada: ${ponto}`,
-        tom: "sucesso",
-      });
-      setAberta(await rondaAberta(idDoUsuario));
+      setAviso({ mensagem: `Leitura registrada em ${qr.siteNome}: ${ponto}`, tom: "sucesso" });
+
+      // O QR abre e fecha a ronda: nao fica "Encerrar ronda" a espera (pedido do
+      // dono, 21/10/2026). O Termino vem do envio do checklist, nao daqui.
+      await fecharRondaSemTermino(resultado.chave);
+      setAberta(null);
+
+      await seguirParaOChecklist(resultado.chave, qr);
     },
-    [idDoUsuario],
+    [idDoUsuario, seguirParaOChecklist],
   );
 
   const tratar = useCallback(
@@ -314,6 +355,8 @@ export function TelaDeLeitura() {
         )}
       </View>
 
+      {/* So aparece para uma ronda que ficou aberta de uma versao anterior do
+          app: a leitura de agora abre e fecha a ronda sozinha. */}
       {aberta ? (
         <View style={estilos.ronda}>
           <Text style={estilos.rondaRotulo}>Ronda em andamento</Text>
@@ -330,7 +373,7 @@ export function TelaDeLeitura() {
           />
         </View>
       ) : (
-        <Text style={estilos.dica}>Aponte a câmera para o QR code do ponto de ronda.</Text>
+        <Text style={estilos.dica}>Aponte a câmera para o QR code. Ao ler, o checklist abre.</Text>
       )}
 
       {semCatalogo ? (
