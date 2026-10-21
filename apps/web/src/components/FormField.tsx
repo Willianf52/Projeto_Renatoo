@@ -38,6 +38,7 @@ export function FormField({
   label,
   type,
   autoComplete,
+  placeholder,
   value,
   error,
   onChange,
@@ -46,6 +47,8 @@ export function FormField({
   label: string;
   type: string;
   autoComplete: string;
+  /** Texto de ajuda dentro do campo vazio, como no app de campo ("Digite seu login"). */
+  placeholder?: string;
   value: string;
   error: string;
   onChange: (value: string) => void;
@@ -70,6 +73,7 @@ export function FormField({
           name={id}
           type={isPassword ? (visible ? "text" : "password") : type}
           autoComplete={autoComplete}
+          placeholder={placeholder}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className={`${getInputClasses(Boolean(error))} ${isPassword ? "pr-11" : ""}`}
