@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { HeroPanel } from "@/components/HeroPanel";
 import { EMAIL_REGEX, FormField } from "@/components/FormField";
 import { createClient } from "@/lib/supabase/client";
@@ -10,11 +10,37 @@ import { createClient } from "@/lib/supabase/client";
 // ela nao usa (+39 kB no orcamento de desempenho do login).
 import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared/recuperacao-de-senha";
 
+/**
+ * Segundos ate o "Reenviar e-mail" liberar: o mesmo intervalo minimo que o
+ * Supabase impoe entre dois pedidos do mesmo e-mail. Antes disso o pedido e
+ * recusado, e a tela diria "reenviado" sem nada sair (pedido do dono,
+ * 23/10/2026, com um e-mail que demorava a chegar no Hotmail).
+ */
+const INTERVALO_DE_REENVIO = 60;
+
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  /** O e-mail do ultimo envio: o campo e limpo, e o reenvio usa este. */
+  const [enviadoPara, setEnviadoPara] = useState("");
+  const [espera, setEspera] = useState(0);
+  const [reenviado, setReenviado] = useState(false);
+
+  useEffect(() => {
+    if (espera <= 0) return;
+    const relogio = setTimeout(() => setEspera((segundos) => segundos - 1), 1000);
+    return () => clearTimeout(relogio);
+  }, [espera]);
+
+  const pedirRecuperacao = async (destino: string) => {
+    const supabase = createClient();
+    const { error: erroDoEnvio } = await supabase.auth.resetPasswordForEmail(destino, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/nova-senha`,
+    });
+    return erroDoEnvio;
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -35,10 +61,7 @@ export default function RecuperarSenhaPage() {
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: erroDoEnvio } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/nova-senha`,
-    });
+    const erroDoEnvio = await pedirRecuperacao(trimmedEmail);
 
     setLoading(false);
 
@@ -50,8 +73,29 @@ export default function RecuperarSenhaPage() {
       return;
     }
 
+    setEnviadoPara(trimmedEmail);
     setEmail("");
     setSubmitted(true);
+    setEspera(INTERVALO_DE_REENVIO);
+  };
+
+  // Mesma regra do primeiro envio: a resposta nao muda com ou sem conta, so
+  // o limite do projeto vira aviso (ver o shared).
+  const reenviar = async () => {
+    if (espera > 0 || loading) return;
+    setError("");
+    setReenviado(false);
+    setLoading(true);
+
+    const erroDoEnvio = await pedirRecuperacao(enviadoPara);
+
+    setLoading(false);
+    setEspera(INTERVALO_DE_REENVIO);
+    if (eLimiteDeEnvioDoProjeto(erroDoEnvio)) {
+      setError(AVISO_DE_LIMITE_DE_EMAIL);
+      return;
+    }
+    setReenviado(true);
   };
 
   return (
@@ -65,10 +109,35 @@ export default function RecuperarSenhaPage() {
             <h1 className="text-2xl font-bold text-white">Esqueceu sua senha?</h1>
 
             {submitted ? (
-              <p className="mt-2 text-sm text-brand-muted">
-                Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para
-                redefinir sua senha.
-              </p>
+              <>
+                <p className="mt-2 text-sm text-brand-muted">
+                  Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para
+                  redefinir sua senha.
+                </p>
+                <p className="mt-4 text-sm text-brand-muted">
+                  Não chegou? Confira a caixa de spam ou lixo eletrônico, ou peça de novo.
+                </p>
+
+                {reenviado ? (
+                  <p role="status" className="mt-3 text-xs text-brand-green">
+                    E-mail reenviado.
+                  </p>
+                ) : null}
+                {error ? (
+                  <p role="alert" className="mt-3 text-xs text-red-400">
+                    {error}
+                  </p>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={reenviar}
+                  disabled={espera > 0 || loading}
+                  className="mt-4 w-full rounded-lg border border-slate-800 py-3 text-sm font-semibold text-white tabular-nums transition-colors hover:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "Reenviando..." : espera > 0 ? `Reenviar em ${espera} s` : "Reenviar e-mail"}
+                </button>
+              </>
             ) : (
               <>
                 <p className="mt-2 text-sm text-brand-muted">
