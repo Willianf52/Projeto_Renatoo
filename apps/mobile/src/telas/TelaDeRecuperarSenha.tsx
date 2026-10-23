@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LIMITE_EMAIL } from "@projeto-renatoo/shared";
+import { INTERVALO_DE_REENVIO_EM_SEGUNDOS, LIMITE_EMAIL, rotuloDoReenvio } from "@projeto-renatoo/shared";
 
 import { pedirNovaSenha } from "../auth/recuperar-senha";
 import { Aviso } from "../componentes/Aviso";
@@ -44,6 +44,15 @@ export function TelaDeRecuperarSenha({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
+  /** Segundos ate o "Reenviar e-mail" liberar (ver o shared). */
+  const [espera, setEspera] = useState(0);
+  const [reenviado, setReenviado] = useState(false);
+
+  useEffect(() => {
+    if (espera <= 0) return;
+    const relogio = setTimeout(() => setEspera((segundos) => segundos - 1), 1000);
+    return () => clearTimeout(relogio);
+  }, [espera]);
 
   useEffect(() => {
     const assinatura = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -66,6 +75,26 @@ export function TelaDeRecuperarSenha({
       return;
     }
     setEnviado(true);
+    setEspera(INTERVALO_DE_REENVIO_EM_SEGUNDOS);
+  }
+
+  // O mesmo e-mail do primeiro envio (o campo some, mas o valor fica), com a
+  // mesma regra: a resposta nao muda com ou sem conta.
+  async function reenviar() {
+    if (enviando || espera > 0) return;
+    setEnviando(true);
+    setErro(null);
+    setReenviado(false);
+
+    const resultado = await pedirNovaSenha(email, env.urlDoPortal);
+
+    setEnviando(false);
+    setEspera(INTERVALO_DE_REENVIO_EM_SEGUNDOS);
+    if (!resultado.ok) {
+      setErro(resultado.erro);
+      return;
+    }
+    setReenviado(true);
   }
 
   return (
@@ -86,11 +115,33 @@ export function TelaDeRecuperarSenha({
           <Text style={estilos.titulo}>Recuperar senha</Text>
 
           {enviado ? (
-            <Aviso
-              tom="sucesso"
-              estilo={estilos.bloco}
-              mensagem="Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para criar uma nova senha. Confira também a caixa de spam."
-            />
+            <>
+              <Aviso
+                tom="sucesso"
+                estilo={estilos.bloco}
+                mensagem="Se o e-mail informado estiver cadastrado, você receberá em breve as instruções para criar uma nova senha. Confira também a caixa de spam."
+              />
+
+              {reenviado ? (
+                <Text style={estilos.reenviado} accessibilityLiveRegion="polite">
+                  E-mail reenviado.
+                </Text>
+              ) : null}
+              {erro ? <Aviso mensagem={erro} estilo={estilos.bloco} /> : null}
+
+              <View style={estilos.bloco}>
+                <Botao
+                  titulo={rotuloDoReenvio(espera, enviando)}
+                  aoPressionar={() => {
+                    void reenviar();
+                  }}
+                  variante="secundaria"
+                  carregando={enviando}
+                  desabilitado={enviando || espera > 0}
+                  larguraTotal
+                />
+              </View>
+            </>
           ) : (
             <>
               <Text style={estilos.explicacao}>
@@ -162,6 +213,7 @@ const estilos = StyleSheet.create({
   marca: { alignItems: "center", marginBottom: espaco.secao },
   titulo: texto(tipografia.titulo, { cor: cores.texto }),
   explicacao: { ...texto(tipografia.nota, { cor: cores.textoFraco }), marginTop: espaco.minimo },
+  reenviado: { ...texto(tipografia.nota, { cor: cores.primaria }), marginTop: espaco.entreCampos },
   bloco: { marginTop: espaco.confortavel },
   voltar: { marginTop: espaco.entreCampos, alignSelf: "center" },
   pressionado: { opacity: 0.6 },

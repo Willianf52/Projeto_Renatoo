@@ -8,15 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 // Pelo subcaminho, e nao pelo indice do shared: o login pre-carrega esta
 // pagina pelo link "Perdeu sua Senha?", e o indice puxava junto codigo que
 // ela nao usa (+39 kB no orcamento de desempenho do login).
-import { AVISO_DE_LIMITE_DE_EMAIL, eLimiteDeEnvioDoProjeto } from "@projeto-renatoo/shared/recuperacao-de-senha";
-
-/**
- * Segundos ate o "Reenviar e-mail" liberar: o mesmo intervalo minimo que o
- * Supabase impoe entre dois pedidos do mesmo e-mail. Antes disso o pedido e
- * recusado, e a tela diria "reenviado" sem nada sair (pedido do dono,
- * 23/10/2026, com um e-mail que demorava a chegar no Hotmail).
- */
-const INTERVALO_DE_REENVIO = 60;
+// O intervalo do "Reenviar e-mail" e o texto do botao tambem moram la: o app
+// tem a mesma tela, nativa, e os dois nao podem se desencontrar.
+import {
+  AVISO_DE_LIMITE_DE_EMAIL,
+  eLimiteDeEnvioDoProjeto,
+  INTERVALO_DE_REENVIO_EM_SEGUNDOS,
+  rotuloDoReenvio,
+} from "@projeto-renatoo/shared/recuperacao-de-senha";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
@@ -76,7 +75,7 @@ export default function RecuperarSenhaPage() {
     setEnviadoPara(trimmedEmail);
     setEmail("");
     setSubmitted(true);
-    setEspera(INTERVALO_DE_REENVIO);
+    setEspera(INTERVALO_DE_REENVIO_EM_SEGUNDOS);
   };
 
   // Mesma regra do primeiro envio: a resposta nao muda com ou sem conta, so
@@ -90,7 +89,7 @@ export default function RecuperarSenhaPage() {
     const erroDoEnvio = await pedirRecuperacao(enviadoPara);
 
     setLoading(false);
-    setEspera(INTERVALO_DE_REENVIO);
+    setEspera(INTERVALO_DE_REENVIO_EM_SEGUNDOS);
     if (eLimiteDeEnvioDoProjeto(erroDoEnvio)) {
       setError(AVISO_DE_LIMITE_DE_EMAIL);
       return;
@@ -135,7 +134,7 @@ export default function RecuperarSenhaPage() {
                   disabled={espera > 0 || loading}
                   className="mt-4 w-full rounded-lg border border-slate-800 py-3 text-sm font-semibold text-white tabular-nums transition-colors hover:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-green focus:ring-offset-2 focus:ring-offset-brand-surface disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? "Reenviando..." : espera > 0 ? `Reenviar em ${espera} s` : "Reenviar e-mail"}
+                  {rotuloDoReenvio(espera, loading)}
                 </button>
               </>
             ) : (

@@ -19,3 +19,17 @@ export const AVISO_DE_LIMITE_DE_EMAIL =
 export function eLimiteDeEnvioDoProjeto(erro: { code?: string } | null | undefined): boolean {
   return erro?.code === "over_email_send_rate_limit";
 }
+
+/**
+ * Segundos ate o "Reenviar e-mail" liberar, no web e no app (pedido do dono,
+ * 23/10/2026, com um e-mail que demorava a chegar no Hotmail): o intervalo
+ * minimo do Supabase entre dois pedidos do mesmo e-mail. Antes disso o pedido
+ * e recusado, e a tela diria "reenviado" sem nada sair.
+ */
+export const INTERVALO_DE_REENVIO_EM_SEGUNDOS = 60;
+
+/** O texto do botao de reenvio: travado com a contagem, ou livre. */
+export function rotuloDoReenvio(segundosRestantes: number, enviando: boolean): string {
+  if (enviando) return "Reenviando...";
+  return segundosRestantes > 0 ? `Reenviar em ${segundosRestantes} s` : "Reenviar e-mail";
+}
