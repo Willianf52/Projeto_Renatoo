@@ -22,6 +22,7 @@ import {
   type QrDoCatalogo,
   type RondaAberta,
 } from "../campo/ronda";
+import { inicioDoDia, rascunhoDeRondaDoSite } from "../campo/rascunho";
 import { sincronizar } from "../campo/sincronizacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
@@ -202,6 +203,26 @@ export function TelaDeLeitura() {
           return;
         }
 
+        // Checklist comecado neste site e nao enviado: o QR reabre ele, em vez
+        // de criar outra visita com o checklist em branco. Quem reabre o app
+        // le o QR de novo, e o rascunho so era achado pelo "Ver sites"
+        // (achado do ensaio, 23/10/2026). Nao grava leitura nova: a visita
+        // retomada ja tem o Inicio da primeira. So o comecado hoje (decisao
+        // do dono): o de outro dia fica para o "Ver sites".
+        if (!aberta) {
+          const daRonda = await rascunhoDeRondaDoSite(qr.siteId, idDoUsuario, inicioDoDia()).catch(() => null);
+          if (daRonda) {
+            Vibration.vibrate(80);
+            setAviso(null);
+            navegacao.navigate("TipoDeVisita", {
+              ...daRonda,
+              site: { id: qr.siteId, nome: qr.siteNome, ativo: true, recebeVisita: true },
+              retomado: true,
+            });
+            return;
+          }
+        }
+
         const decisao = decidirLeitura(aberta, qr);
 
         if (decisao.tipo === "recusar") {
@@ -248,7 +269,7 @@ export function TelaDeLeitura() {
         emVoo.current = false;
       }
     },
-    [aberta, gravar, idDoUsuario, semCatalogo],
+    [aberta, gravar, idDoUsuario, navegacao, semCatalogo],
   );
 
   const aoLer = useCallback(
