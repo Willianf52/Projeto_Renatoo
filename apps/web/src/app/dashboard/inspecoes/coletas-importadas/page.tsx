@@ -356,6 +356,12 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
       // getColetas conta com count=estimated; ver o comentario la.
       totalAproximado
       buildPageHref={buildPageHref}
+      // No celular, 11 colunas empilhadas ocupavam uma tela por coleta
+      // (23/10/2026): fica a coleta, a hora, o local, quem e o evento.
+      cartaoCompacto={{
+        titulo: ["Coleta", "Data / Hora"],
+        principais: ["Local", "Funcionário", "Área", "Evento"],
+      }}
     />
   );
 }
