@@ -20,10 +20,9 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("@/components/HeroPanel", () => ({ HeroPanel: () => null }));
 
 const { default: RecuperarSenhaPage } = await import("./page");
-
-// O mesmo valor da pagina; la ele nao pode ser exportado (o Next recusa
-// exportacao extra em page.tsx).
-const INTERVALO_DE_REENVIO = 60;
+const { INTERVALO_DE_REENVIO_EM_SEGUNDOS: INTERVALO_DE_REENVIO } = await import(
+  "@projeto-renatoo/shared/recuperacao-de-senha"
+);
 
 beforeEach(() => {
   vi.useFakeTimers();
