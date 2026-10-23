@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { eLimiteDeEnvioDoProjeto } from "./recuperacao-de-senha";
+import { eLimiteDeEnvioDoProjeto, INTERVALO_DE_REENVIO_EM_SEGUNDOS, rotuloDoReenvio } from "./recuperacao-de-senha";
 
 describe("eLimiteDeEnvioDoProjeto", () => {
   it("so o limite de envio do projeto conta", () => {
@@ -16,5 +16,19 @@ describe("eLimiteDeEnvioDoProjeto", () => {
     expect(eLimiteDeEnvioDoProjeto(undefined)).toBe(false);
     expect(eLimiteDeEnvioDoProjeto({})).toBe(false);
     expect(eLimiteDeEnvioDoProjeto({ code: "unexpected_failure" })).toBe(false);
+  });
+});
+
+// Pedido do dono (23/10/2026): "Reenviar e-mail" com 60 s de intervalo.
+describe("rotuloDoReenvio", () => {
+  it("travado, mostra a contagem; aos 0 s, libera", () => {
+    expect(INTERVALO_DE_REENVIO_EM_SEGUNDOS).toBe(60);
+    expect(rotuloDoReenvio(INTERVALO_DE_REENVIO_EM_SEGUNDOS, false)).toBe("Reenviar em 60 s");
+    expect(rotuloDoReenvio(1, false)).toBe("Reenviar em 1 s");
+    expect(rotuloDoReenvio(0, false)).toBe("Reenviar e-mail");
+  });
+
+  it("enviando, avisa o envio em vez da contagem", () => {
+    expect(rotuloDoReenvio(0, true)).toBe("Reenviando...");
   });
 });
