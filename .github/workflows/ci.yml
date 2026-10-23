@@ -203,7 +203,12 @@ jobs:
     # Teto de seguranca: o `webServer` do Playwright sobe um `next dev`, e um
     # servidor que nunca responde deixaria o job pendurado ate o limite padrao
     # do GitHub (6 horas) em vez de falhar.
-    timeout-minutes: 15
+    #
+    # 25 e nao 15 (23/10/2026): o `supabase start` passou a esbarrar em
+    # `toomanyrequests: Rate exceeded` ao baixar as imagens, e a demora levou o
+    # job aos 15 minutos em 2 de 3 PRs do dia -- numa delas com os 57 testes ja
+    # passados, cancelado por tempo. Numa rodada normal ele leva de 3 a 4.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
