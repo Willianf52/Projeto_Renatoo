@@ -1,6 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ROTULO_DO_TIPO, TIPOS_DE_VISITA, type TipoDeVisita } from "@projeto-renatoo/shared";
 
+import { Aviso } from "../componentes/Aviso";
+import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { IconeDeFerramenta, IconeDePessoa, IconeDeSeta } from "../componentes/icones";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
@@ -30,16 +32,25 @@ const ICONE: Record<TipoDeVisita, (props: { cor: string }) => React.ReactElement
 };
 
 export function TelaDeTipoDeVisita({
-  numeroColeta,
+  visitaId,
+  retomado = false,
   aoEscolher,
 }: {
-  numeroColeta: string;
+  visitaId: number | null;
+  retomado?: boolean;
   aoEscolher: (tipo: TipoDeVisita) => void;
 }) {
   return (
     <ScrollView style={estilos.raiz} contentContainerStyle={estilos.conteudo}>
-      <Text style={estilos.titulo}>Coleta {numeroColeta}</Text>
+      <Text style={estilos.titulo}>{tituloDaColeta(visitaId)}</Text>
       <Text style={estilos.subtitulo}>Selecione o tipo de visita</Text>
+
+      {retomado ? (
+        <Aviso
+          tom="sucesso"
+          mensagem="Este site tem um checklist começado e não enviado. Escolha o mesmo tipo para continuar de onde parou."
+        />
+      ) : null}
 
       {TIPOS_DE_VISITA.map((tipo, indice) => {
         const Icone = ICONE[tipo];

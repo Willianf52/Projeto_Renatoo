@@ -128,10 +128,17 @@ export async function lerRascunho(visitaId: number, funcionarioId: string): Prom
  *
  * So rascunho com conteudo: a tela grava o rascunho vazio logo que abre, e
  * reabrir uma visita em que nada foi respondido nao ajuda ninguem.
+ *
+ * `comecadoDesde` (ISO): so visita cujo QR foi lido a partir dali. O QR passa
+ * so o de hoje (decisao do dono, 23/10/2026): retomar um checklist esquecido
+ * dias atras faria a visita durar dias no relatorio de Inicio e Fim. O "Ver
+ * sites" nao passa nada, e continua achando qualquer data -- e o caminho de
+ * volta para o que ficou para tras.
  */
 export async function rascunhoDeRondaDoSite(
   siteId: number,
   funcionarioId: string,
+  comecadoDesde?: string,
 ): Promise<{ visitaId: number; numeroColeta: string } | null> {
   const banco = await abrirFila();
   const linha = await banco.getFirstAsync<{ visita_id: number; chave: string }>(
@@ -142,13 +149,26 @@ export async function rascunhoDeRondaDoSite(
         and r.funcionario_id = ?
         and v.site_id = ?
         and (r.respostas <> '{}' or r.motivo <> '' or r.fotos <> '[]'
-             or ifnull(r.fotos_de_pergunta, '{}') <> '{}' or ifnull(r.observacoes, '{}') <> '{}')
+             or ifnull(r.fotos_de_pergunta, '{}') <> '{}' or ifnull(r.observacoes, '{}') <> '{}')${
+          comecadoDesde ? "\n        and v.capturado_em >= ?" : ""
+        }
       order by r.atualizado_em desc
       limit 1`,
     funcionarioId,
     siteId,
+    ...(comecadoDesde ? [comecadoDesde] : []),
   );
   return linha ? { visitaId: linha.visita_id, numeroColeta: linha.chave } : null;
+}
+
+/**
+ * Meia-noite de hoje no relogio do aparelho, em ISO -- o mesmo formato do
+ * `capturado_em` da fila (`toISOString`), entao a comparacao de texto vale.
+ */
+export function inicioDoDia(agora: Date = new Date()): string {
+  const meiaNoite = new Date(agora);
+  meiaNoite.setHours(0, 0, 0, 0);
+  return meiaNoite.toISOString();
 }
 
 /** Apaga o rascunho e as fotos copiadas. Chamado quando o checklist chega ao banco. */

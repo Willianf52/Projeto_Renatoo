@@ -23,6 +23,7 @@ import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
 import { colunasParaLargura, larguraDoItemNaGrade } from "../lib/grade";
 import { supabase } from "../lib/supabase";
+import { numeroDaColeta } from "../lib/titulo-da-coleta";
 import { colunaDeLeitura, cores, espaco, texto, tipografia } from "../tema";
 
 /** Colunas que a lista mostra -- recorte de `visitas` do schema real. */
@@ -181,7 +182,7 @@ export function TelaDeInspecoes() {
              sem traduzir nome de campo na cabeca. */
           renderItem={({ item }) => (
             <Cartao estilo={larguraDoItem !== undefined ? { width: larguraDoItem } : undefined}>
-              <Text style={estilos.cartaoTitulo}>Coleta {item.numero_coleta}</Text>
+              <Text style={estilos.cartaoTitulo}>Coleta {numeroDaColeta(item.numero_coleta, item.id)}</Text>
               <LinhaDoCartao rotulo="Site" valor={String(item.site_id)} />
               <LinhaDoCartao rotulo="Registrada em" valor={formatarData(item.criado_em)} />
 
