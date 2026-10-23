@@ -75,6 +75,50 @@ describe("DataTable", () => {
     expect(acao.closest("dl")).toBeNull();
   });
 
+  // Achado do dono em 23/10/2026, no celular: Coletas Importadas (11 colunas)
+  // ocupava uma tela por coleta, com os rotulos vazios incluidos.
+  describe("cartao compacto", () => {
+    const COLUNAS_DE_COLETA = ["Coleta", "Data / Hora", "Local", "Funcionário", "Evento", "Observação", "Qualificador", "Ações"];
+    const COLETAS = [
+      ["100", "21/10/2026, 09:54", "[TESTE] Posto Central", "willian.lucas", "", "Inspeção", "", <button key="e">Excluir 100</button>],
+      ["99", "21/10/2026, 09:53", "[TESTE] Posto Central", "", "", "", "", ""],
+    ];
+    const compacto = { titulo: ["Coleta", "Data / Hora"], principais: ["Local", "Funcionário", "Evento"] };
+
+    it("titulo com Coleta e Data/Hora; pares so dos principais que tem valor", () => {
+      render(<DataTable columns={COLUNAS_DE_COLETA} rows={COLETAS} rotulo="Coletas" cartaoCompacto={compacto} />);
+
+      const [primeira, segunda] = within(screen.getByRole("list", { name: "Coletas" })).getAllByRole("listitem");
+      expect(primeira.querySelectorAll("p")[0]).toHaveTextContent("100");
+      expect(primeira.querySelectorAll("p")[1]).toHaveTextContent("21/10/2026, 09:54");
+      // "Evento" e vazio na coleta 100: o rotulo nem aparece.
+      expect(Array.from(primeira.querySelectorAll("dl")[0].querySelectorAll("dt")).map((dt) => dt.textContent)).toEqual([
+        "Local",
+        "Funcionário",
+      ]);
+      expect(Array.from(segunda.querySelectorAll("dl")[0].querySelectorAll("dt")).map((dt) => dt.textContent)).toEqual([
+        "Local",
+      ]);
+    });
+
+    it("o resto, so o que tem valor, fica em Mais detalhes; sem nada para mostrar, o bloco some", () => {
+      render(<DataTable columns={COLUNAS_DE_COLETA} rows={COLETAS} rotulo="Coletas" cartaoCompacto={compacto} />);
+
+      const [primeira, segunda] = within(screen.getByRole("list", { name: "Coletas" })).getAllByRole("listitem");
+      const detalhes = primeira.querySelector("details")!;
+      expect(detalhes.querySelector("summary")).toHaveTextContent("Mais detalhes");
+      expect(Array.from(detalhes.querySelectorAll("dt")).map((dt) => dt.textContent)).toEqual(["Observação"]);
+      expect(segunda.querySelector("details")).toBeNull();
+    });
+
+    it("as acoes ficam no pe, fora dos pares", () => {
+      render(<DataTable columns={COLUNAS_DE_COLETA} rows={COLETAS} rotulo="Coletas" cartaoCompacto={compacto} />);
+
+      const [primeira] = within(screen.getByRole("list", { name: "Coletas" })).getAllByRole("listitem");
+      expect(within(primeira).getByRole("button", { name: "Excluir 100" }).closest("dl")).toBeNull();
+    });
+  });
+
   it("rodape vira um cartao de total, so com as colunas preenchidas", () => {
     render(<DataTable columns={COLUNAS} rows={LINHAS} rodape={["TOTAL:", "1.246", "", ""]} />);
 

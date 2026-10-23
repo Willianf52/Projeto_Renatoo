@@ -46,6 +46,7 @@ export function DataTable({
   minWidth = "min-w-[1280px]",
   rotulo = "Resultados",
   rodape,
+  cartaoCompacto,
 }: {
   columns: string[];
   /** ReactNode e nao string: a coluna "Acoes" das telas de cadastro leva
@@ -77,6 +78,13 @@ export function DataTable({
    * Some junto com a tabela quando nao ha resultado.
    */
   rodape?: React.ReactNode[];
+  /**
+   * Cartao baixo no celular, para telas com muitas colunas (Coletas
+   * Importadas tem 11: no cartao padrao, cada coleta ocupava uma tela
+   * inteira, com os rotulos vazios incluidos). Achado do dono em 23/10/2026.
+   * Nao vale para o rodape: so use em tela sem linha de total.
+   */
+  cartaoCompacto?: CartaoCompacto;
 }) {
   const podeVoltar = page > 1;
   const podeAvancar = totalPages > 0 && page < totalPages;
@@ -190,7 +198,14 @@ export function DataTable({
           </div>
 
           {loading ? null : (
-            <Cartoes columns={columns} rows={rows} rodape={rodape} rotulo={rotulo} numericas={numericas} />
+            <Cartoes
+              columns={columns}
+              rows={rows}
+              rodape={rodape}
+              rotulo={rotulo}
+              numericas={numericas}
+              compacto={cartaoCompacto}
+            />
           )}
         </>
       )}
@@ -240,6 +255,19 @@ export function DataTable({
 }
 
 /**
+ * Quais colunas ficam a vista no cartao compacto. `titulo`: a primeira vira o
+ * titulo e as demais ficam ao lado dele, em letra menor. `principais`: pares
+ * rotulo/valor em duas colunas, so os que tem valor. O resto, tambem so o que
+ * tem valor, abre em "Mais detalhes".
+ */
+export type CartaoCompacto = {
+  titulo: string[];
+  principais: string[];
+};
+
+const temValor = (valor: React.ReactNode) => valor !== "" && valor !== null && valor !== undefined && valor !== false;
+
+/**
  * A mesma linha, empilhada: a primeira coluna vira titulo do cartao, as
  * outras viram pares rotulo/valor (o rotulo com o desenho do `<th>`), e a
  * coluna "Acoes" vai para o pe, onde o polegar alcanca. E a traducao que o
@@ -251,14 +279,26 @@ function Cartoes({
   rodape,
   rotulo,
   numericas,
+  compacto,
 }: {
   columns: string[];
   rows: React.ReactNode[][];
   rodape?: React.ReactNode[];
   rotulo: string;
   numericas: Set<number>;
+  compacto?: CartaoCompacto;
 }) {
   const indiceDeAcoes = columns.indexOf(COLUNA_DE_ACOES);
+
+  if (compacto) {
+    return (
+      <ul aria-label={rotulo} className="animate-fade-in lg:hidden">
+        {rows.map((row, rowIndex) => (
+          <LinhaCompacta key={rowIndex} columns={columns} row={row} compacto={compacto} indiceDeAcoes={indiceDeAcoes} />
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <ul aria-label={rotulo} className="animate-fade-in lg:hidden">
@@ -295,6 +335,68 @@ function Cartoes({
         </li>
       ) : null}
     </ul>
+  );
+}
+
+function LinhaCompacta({
+  columns,
+  row,
+  compacto,
+  indiceDeAcoes,
+}: {
+  columns: string[];
+  row: React.ReactNode[];
+  compacto: CartaoCompacto;
+  indiceDeAcoes: number;
+}) {
+  const valorDe = (coluna: string) => row[columns.indexOf(coluna)];
+  const [primeira, ...aoLado] = compacto.titulo;
+  const principais = compacto.principais.filter((coluna) => temValor(valorDe(coluna)));
+  const demais = columns.filter(
+    (coluna, indice) =>
+      indice !== indiceDeAcoes &&
+      !compacto.titulo.includes(coluna) &&
+      !compacto.principais.includes(coluna) &&
+      temValor(row[indice]),
+  );
+
+  return (
+    <li className="border-b border-slate-800/60 px-4 py-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <p className="text-sm font-semibold text-white">{valorDe(primeira)}</p>
+        {aoLado.map((coluna) => (
+          <p key={coluna} className="text-xs tabular-nums text-brand-muted">
+            {valorDe(coluna)}
+          </p>
+        ))}
+      </div>
+      {principais.length > 0 ? (
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+          {principais.map((coluna) => (
+            <ParDoCartao key={coluna} rotulo={coluna} numerico={false}>
+              {valorDe(coluna)}
+            </ParDoCartao>
+          ))}
+        </dl>
+      ) : null}
+      {demais.length > 0 ? (
+        <details className="mt-1">
+          <summary className="inline-flex min-h-8 cursor-pointer items-center text-xs font-semibold text-brand-muted underline underline-offset-2 hover:text-white">
+            Mais detalhes
+          </summary>
+          <dl className="mt-1 grid grid-cols-1 gap-y-2 pb-1">
+            {demais.map((coluna) => (
+              <ParDoCartao key={coluna} rotulo={coluna} numerico={false}>
+                {valorDe(coluna)}
+              </ParDoCartao>
+            ))}
+          </dl>
+        </details>
+      ) : null}
+      {indiceDeAcoes >= 0 && row[indiceDeAcoes] ? (
+        <div className="mt-2 flex flex-wrap gap-2">{row[indiceDeAcoes]}</div>
+      ) : null}
+    </li>
   );
 }
 
