@@ -36,6 +36,7 @@ import {
   type Pendencia,
 } from "../campo/pendencias-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
+import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
 import { Aviso } from "../componentes/Aviso";
@@ -716,7 +717,7 @@ export function TelaDeChecklist({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <Text style={estilos.titulo}>Coleta {numeroColeta}</Text>
+        <Text style={estilos.titulo}>{tituloDaColeta(visitaId)}</Text>
         <Text style={estilos.subtitulo}>{ROTULO_DO_TIPO[tipo]}</Text>
 
         {tipo === "CORRETIVA" ? (

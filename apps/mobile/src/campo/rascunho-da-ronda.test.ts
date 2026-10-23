@@ -23,7 +23,7 @@ vi.mock("./fila", () => ({
 }));
 vi.mock("expo-file-system", () => ({ Directory: class {}, File: class {}, Paths: {} }));
 
-const { rascunhoDeRondaDoSite } = await import("./rascunho");
+const { inicioDoDia, rascunhoDeRondaDoSite } = await import("./rascunho");
 
 beforeEach(() => {
   banco.sql = "";
@@ -47,6 +47,26 @@ describe("rascunhoDeRondaDoSite", () => {
     expect(banco.args).toEqual(["inspetor-1", 30]);
     expect(banco.sql).toContain("r.funcionario_id = ?");
     expect(banco.sql).toContain("v.site_id = ?");
+  });
+
+  // Decisao do dono (23/10/2026): pelo QR, so o checklist comecado hoje.
+  it("com comecadoDesde, so visita cujo QR foi lido a partir dali", async () => {
+    await rascunhoDeRondaDoSite(30, "inspetor-1", "2026-10-23T03:00:00.000Z");
+
+    expect(banco.sql).toContain("v.capturado_em >= ?");
+    expect(banco.args).toEqual(["inspetor-1", 30, "2026-10-23T03:00:00.000Z"]);
+  });
+
+  it("sem comecadoDesde (Ver sites), qualquer data", async () => {
+    await rascunhoDeRondaDoSite(30, "inspetor-1");
+
+    expect(banco.sql).not.toContain("capturado_em");
+  });
+
+  it("inicioDoDia: meia-noite local, no formato do capturado_em", () => {
+    const agora = new Date(2026, 9, 23, 10, 15, 0);
+
+    expect(inicioDoDia(agora)).toBe(new Date(2026, 9, 23, 0, 0, 0).toISOString());
   });
 
   it("so considera rascunho de visita (chave positiva) e com algo preenchido", async () => {

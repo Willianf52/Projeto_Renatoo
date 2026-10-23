@@ -32,12 +32,16 @@ import { cores } from "../tema";
  * `visitaId: null` com `site` e o checklist aberto pelo "Ver sites": a visita
  * ainda nao existe e so e criada no envio -- ver `campo/visita-pelo-site.ts`.
  */
-export type AlvoDoChecklist =
+export type AlvoDoChecklist = (
   // Com `site` junto quando se sabe qual e (ronda pelo QR, rascunho retomado
   // pelo "Ver sites"): sem sinal, as perguntas saem da copia do aparelho, que
   // e indexada por site (`checklist-guardado.ts`).
   | { visitaId: number; numeroColeta: string; site?: SiteParaVisita }
-  | { visitaId: null; numeroColeta: string; site: SiteParaVisita };
+  | { visitaId: null; numeroColeta: string; site: SiteParaVisita }
+) & {
+  /** O QR reabriu um checklist comecado e nao enviado: a tela do tipo avisa. */
+  retomado?: boolean;
+};
 
 export type RotasDoApp = {
   Inicio: undefined;
@@ -191,7 +195,8 @@ export function Navegacao() {
         <Pilha.Screen name="TipoDeVisita" options={{ title: "Checklist de visitas" }}>
           {({ route, navigation }) => (
             <TelaDeTipoDeVisita
-              numeroColeta={route.params.numeroColeta}
+              visitaId={route.params.visitaId}
+              retomado={route.params.retomado === true}
               aoEscolher={(tipo) =>
                 navigation.navigate("Checklist", { ...route.params, tipo })
               }
