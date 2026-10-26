@@ -160,9 +160,9 @@ export function TelaDeInspecoes() {
               progressBackgroundColor={cores.superficie}
             />
           }
-          ListHeaderComponent={erro ? <Aviso mensagem={erro} estilo={estilos.aviso} /> : null}
+          ListHeaderComponent={erro ? <Aviso mensagem={erro} estilo={estilos.aviso} /> : undefined}
           ListEmptyComponent={
-            erro ? null : (
+            erro ? undefined : (
               <View style={estilos.centro}>
                 <EstadoVazio
                   titulo="Nenhuma visita registrada"

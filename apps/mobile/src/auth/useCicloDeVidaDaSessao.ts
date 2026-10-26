@@ -99,7 +99,10 @@ export function useCicloDeVidaDaSessao({ temSessao, revalidarPerfil }: Parametro
      * como "esteve fora", que e o conservador: leva a uma revalidacao a mais,
      * nunca a uma a menos.
      */
-    let estadoAnterior: AppStateStatus = AppState.currentState;
+    // O React Native 0.88 (SDK 58) tipa `currentState` como `string | null |
+    // undefined`; sem valor, vale o mesmo `'unknown'` conservador acima.
+    const estadoAtual = () => (AppState.currentState ?? "unknown") as AppStateStatus;
+    let estadoAnterior: AppStateStatus = estadoAtual();
 
     const aplicar = (proximo: AppStateStatus) => {
       const acao = decidirAcao({
@@ -144,7 +147,7 @@ export function useCicloDeVidaDaSessao({ temSessao, revalidarPerfil }: Parametro
      * perfil: `anterior === proximo === "active"`, e o proprio
      * `SessaoProvider` ja carrega o perfil na montagem.
      */
-    aplicar(AppState.currentState);
+    aplicar(estadoAtual());
 
     const assinatura = AppState.addEventListener("change", aplicar);
 

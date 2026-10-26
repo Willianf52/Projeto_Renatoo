@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import type { TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
 import { LIMITE_EMAIL, movimento } from "@projeto-renatoo/shared";
@@ -73,7 +74,7 @@ export function TelaDeLogin({
   const [senha, setSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const campoDeSenha = useRef<TextInput>(null);
+  const campoDeSenha = useRef<TextInputInstance>(null);
   const insets = useSafeAreaInsets();
   const [limite, setLimite] = useState<EstadoDoLimite>(LIMITE_ZERADO);
   const [segundos, setSegundos] = useState(0);

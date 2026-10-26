@@ -12,6 +12,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
+import type { ScrollViewInstance, TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SeletorDeImagem from "expo-image-picker";
 import {
@@ -178,8 +179,8 @@ export function TelaDeChecklist({
    * rolavel, entao o `y` ja e o do conteudo). Pergunta mede relativo a secao
    * de perguntas, dai a soma em `rolarAte`.
    */
-  const rolagem = useRef<ScrollView>(null);
-  const campoDoMotivo = useRef<TextInput>(null);
+  const rolagem = useRef<ScrollViewInstance>(null);
+  const campoDoMotivo = useRef<TextInputInstance>(null);
   const posicaoDaSecao = useRef<Partial<Record<Secao, number>>>({});
 
   /**

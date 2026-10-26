@@ -291,7 +291,10 @@ async function bytesDoBase64(base64: string): Promise<ArrayBuffer> {
   const arquivo = new File(Paths.cache, `assinatura-${sufixo()}.png`);
 
   arquivo.create({ overwrite: true });
-  arquivo.write(base64, { encoding: "base64" });
+  // No SDK 58 o `write` passou a ser assincrono (o sincrono e `writeSync`): sem
+  // o `await`, o `arrayBuffer` abaixo podia ler o arquivo antes de gravado, e a
+  // assinatura subia vazia ou cortada.
+  await arquivo.write(base64, { encoding: "base64" });
 
   try {
     return await arquivo.arrayBuffer();
