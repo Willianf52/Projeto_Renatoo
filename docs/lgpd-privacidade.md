@@ -62,7 +62,10 @@ documentado para um usuário pedir os próprios dados ou solicitar exclusão.
 Para um sistema deste porte (times internos, sem cadastro público de usuário
 final), isso costuma ser aceitável desde que exista um procedimento mínimo:
 
-1. Canal definido para receber o pedido (e-mail, formulário) — hoje não existe.
+1. Canal definido para receber o pedido: **o "Suporte" do portal** (link de WhatsApp em
+   `NEXT_PUBLIC_URL_SUPORTE`), decidido em 26/10/2026 e publicado na política
+   pública `/privacidade`. Controlador: Up Serviços Especializados (CNPJ ainda
+   a incluir na página).
 2. Prazo de resposta (LGPD: até 15 dias, prorrogável).
 3. Quem no time tem acesso ao Supabase para executar o pedido (consulta/
    exclusão via SQL Editor ou painel de Authentication).
@@ -102,7 +105,10 @@ ação em `usuarios/actions.ts` (que já roda com `service_role`, fora do RLS).
 - [x] Prazo de retenção de `eventos_de_uso` definido (12 meses) e implementado
       (migration 0052, `pg_cron` às 06:30 UTC)
 - [ ] Prazo de retenção de `leituras`/`visitas` definido e implementado
-- [ ] Canal de atendimento a pedido de titular definido e documentado
+- [x] Canal de atendimento a pedido de titular definido (Suporte do portal,
+      26/10/2026) e publicado em `/privacidade`; falta o passo a passo interno
+- [x] Política de privacidade pública (`apps/web/src/app/privacidade`), exigida
+      pelas lojas de app
 - [ ] DPA confirmado com Supabase, Resend e (quando ativado) Sentry
 - [ ] Audit trail de acesso a dado de outro usuário desenhado e priorizado
 - [ ] Este documento revisado a cada tabela nova que armazene dado pessoal

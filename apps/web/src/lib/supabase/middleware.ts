@@ -5,8 +5,11 @@ import { env } from "@/lib/env";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
-/** Rotas publicas: acessiveis sem sessao ativa. */
-const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth"];
+/**
+ * Rotas publicas: acessiveis sem sessao ativa. `/privacidade` porque a Play
+ * Store e a App Store conferem a politica sem conta nenhuma (26/10/2026).
+ */
+const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth", "/privacidade"];
 
 const isPublicRoute = (pathname: string) =>
   PUBLIC_ROUTES.some(
