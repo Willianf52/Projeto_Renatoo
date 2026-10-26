@@ -16,7 +16,14 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#03031a",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.upservicos.inspecao",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "pt-BR"
+      }
     },
     "android": {
       "package": "br.com.upservicos.inspecao",

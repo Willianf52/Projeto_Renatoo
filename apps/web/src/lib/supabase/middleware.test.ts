@@ -81,6 +81,15 @@ describe("updateSession", () => {
     expect(redirectLocation(response)).toBeNull();
   });
 
+  // As lojas de app conferem a politica de privacidade sem conta (26/10/2026).
+  it("sem sessao, politica de privacidade: abre sem redirecionar", async () => {
+    getUserMock.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(buildRequest("/privacidade"));
+
+    expect(redirectLocation(response)).toBeNull();
+  });
+
   it("sem sessao, rota protegida: redireciona para / preservando o destino em redirectTo", async () => {
     getUserMock.mockResolvedValue({ data: { user: null } });
 
