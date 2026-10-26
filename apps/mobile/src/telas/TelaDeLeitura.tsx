@@ -24,6 +24,7 @@ import {
 } from "../campo/ronda";
 import { inicioDoDia, rascunhoDeRondaDoSite } from "../campo/rascunho";
 import { sincronizar } from "../campo/sincronizacao";
+import { visitaDoDiaSemChecklist } from "../campo/visita-do-dia";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
@@ -218,6 +219,22 @@ export function TelaDeLeitura() {
               ...daRonda,
               site: { id: qr.siteId, nome: qr.siteNome, ativo: true, recebeVisita: true },
               retomado: true,
+            });
+            return;
+          }
+
+          // Visita de hoje sem checklist (a lida sem sinal): o QR reabre ela, em
+          // vez de criar outra e deixar a primeira so com o Inicio (26/10/2026).
+          // Sem como confirmar, segue o caminho de sempre.
+          const semChecklist = await visitaDoDiaSemChecklist(qr.siteId, idDoUsuario, inicioDoDia()).catch(
+            () => null,
+          );
+          if (semChecklist) {
+            Vibration.vibrate(80);
+            setAviso(null);
+            navegacao.navigate("TipoDeVisita", {
+              ...semChecklist,
+              site: { id: qr.siteId, nome: qr.siteNome, ativo: true, recebeVisita: true },
             });
             return;
           }
