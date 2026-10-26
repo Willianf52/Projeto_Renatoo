@@ -24,6 +24,15 @@ overrides:
   # apps/mobile > expo > @expo/metro-config > postcss (ferramenta de build do
   # app). A 1.2.2 saiu em 30/09/2026 e e compativel (correcao de patch).
   source-map-js: ^1.2.2
+  # GHSA-mrhx-c7xc-m3w5 (high, 01/10/2026): zod < 4.6.6 pode esgotar a memoria
+  # validando colecao grande com limite. O portal e o shared validam formulario
+  # com zod (sobem para ^4.6.7 no package.json); aqui pegam as copias 4.x
+  # indiretas (eslint-plugin-react-hooks). A 3.x do @expo/cli fica: forcar 4.x
+  # nela quebraria a CLI do Expo, que e ferramenta de build, nao producao.
+  'zod@>=4.0.0 <4.6.6': ^4.6.7
+  # GHSA-xjj6-f33q-929c (high, 23/10/2026): undici 8.0 a 8.12.1 cai com
+  # content-encoding demais. Entra so pelo jsdom dos testes (vitest).
+  'undici@>=8.0.0 <8.12.2': ^8.12.3
   # GHSA-pqg4-j6r4-53mv (critical, 06/10/2026): shell-quote >= 1.8.4 < 1.11.0
   # deixa injetar comando pelo `quote()` com quebra de linha. Entra por
   # apps/mobile > @react-navigation/native > ferramentas do React Native, so em
@@ -178,6 +187,16 @@ overrides:
 # metro-file-map, vitest), que recebe padrao da configuracao do proprio
 # projeto, nunca de usuario. Revisitar quando a 3.0.4 sair: trocar por
 # override `braces@<3.0.4: '>=3.0.4'`.
+#
+# GHSA-mrhx-c7xc-m3w5 (high, 01/10/2026): zod < 4.6.6 pode esgotar a memoria
+# validando colecao grande com limite. O que roda em producao ja esta
+# corrigido em 26/10/2026: o portal e o shared sobem para zod ^4.6.7, e o
+# override `zod@>=4.0.0 <4.6.6` pega as copias 4.x indiretas. O que sobra e a
+# 3.25.76 de apps/mobile > expo > @expo/cli: a linha 3 nao tem correcao, e
+# todas as @expo/cli 57.0.x pedem `zod ^3.25.76` -- forcar a 4 quebraria a CLI.
+# E ferramenta de build e de `expo start`, que valida configuracao do proprio
+# projeto, nunca entrada de usuario. Revisitar quando o Expo subir a @expo/cli
+# para zod 4 (`pnpm why zod` mostra), e entao tirar esta dispensa.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
@@ -185,6 +204,7 @@ auditConfig:
     - GHSA-vcc3-ghjq-m6fr
     - GHSA-86w9-cpqp-85rv
     - GHSA-vfj7-8cjw-p6xm
+    - GHSA-mrhx-c7xc-m3w5
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
