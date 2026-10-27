@@ -78,3 +78,6 @@ apps/*/CLAUDE.md
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Grafo do graphify (local): leva trechos dos docs internos e o repo e publico
+graphify-out/
