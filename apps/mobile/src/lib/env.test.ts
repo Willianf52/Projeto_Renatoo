@@ -65,6 +65,38 @@ describe("variaveis obrigatorias", () => {
   });
 });
 
+describe("https obrigatorio", () => {
+  it("recusa o Supabase em http fora da rede local", async () => {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = "http://projeto.supabase.co";
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "chave";
+
+    await expect(carregarEnv()).rejects.toThrow(/https:\/\//);
+  });
+
+  it("nao se engana com host que so comeca como rede local", async () => {
+    // `10.0.0.1.exemplo.com` e um dominio da internet, nao o 10.0.0.1.
+    process.env.EXPO_PUBLIC_SUPABASE_URL = "http://10.0.0.1.exemplo.com";
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "chave";
+
+    await expect(carregarEnv()).rejects.toThrow(/https:\/\//);
+  });
+
+  it.each([
+    "http://10.0.2.2:54321",
+    "http://192.168.0.15:54321",
+    "http://127.0.0.1:54321",
+    "http://localhost:54321",
+    "http://172.20.1.4:54321",
+  ])("aceita %s, o stack local de desenvolvimento", async (url) => {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = url;
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "chave";
+
+    const { env } = await carregarEnv();
+
+    expect(env.supabaseUrl).toBe(url);
+  });
+});
+
 describe("url do portal", () => {
   it("abre o app mesmo sem ela", async () => {
     // Recuperar senha e fluxo do painel; sem a URL o link simplesmente nao
