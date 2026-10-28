@@ -13,7 +13,8 @@
     "test:cobertura": "vitest run --coverage",
     "atualizar:preview": "npx -y eas-cli@latest update --channel preview --environment preview --platform android",
     "atualizar:producao": "npx -y eas-cli@latest update --channel production --environment production --platform android",
-    "atualizar:source-maps": "node scripts/enviar-source-maps.mjs dist"
+    "atualizar:source-maps": "node scripts/enviar-source-maps.mjs dist",
+    "apresentar": "node scripts/apresentar.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
