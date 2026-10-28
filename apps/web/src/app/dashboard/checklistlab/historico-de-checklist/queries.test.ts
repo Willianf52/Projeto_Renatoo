@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  aplicarFiltrosDerivados,
-  caminhoDoSite,
   camposDoResumo,
   comPadroesDaTela,
   conclusaoDaLista,
   estaConcluido,
   extrairFiltros,
+  filtrosParaOBanco,
+  filtrosSemResultado,
   formatarDataHoraComSegundos,
   hojeNoFuso,
   idValido,
@@ -14,8 +14,8 @@ import {
   linhasDeRespostas,
   montarArvore,
   montarLinha,
-  montarSelect,
   ordenarRespostas,
+  paraLinhaDoHistorico,
   paramsDaUrl,
   querystringDe,
   rotuloDaResposta,
@@ -26,6 +26,7 @@ import {
   type ChecklistBruto,
   type ChecklistDetalhe,
   type Filtros,
+  type LinhaDoBanco,
   type RespostaParaExportar,
 } from "./queries";
 
@@ -191,21 +192,6 @@ describe("parametros da URL", () => {
   });
 });
 
-describe("montarSelect", () => {
-  it("mantem visitas e sites como inner -- as duas FKs sao NOT NULL", () => {
-    expect(montarSelect(false)).toContain("visitas!inner");
-    expect(montarSelect(false)).toContain("sites!inner");
-  });
-
-  it("so amarra profiles quando o filtro de grupo de usuarios precisa", () => {
-    expect(montarSelect(false)).not.toContain("profiles!inner");
-    expect(montarSelect(false)).not.toContain("grupos_usuarios_membros");
-
-    expect(montarSelect(true)).toContain("profiles!inner");
-    expect(montarSelect(true)).toContain("grupos_usuarios_membros!inner");
-  });
-});
-
 describe("montarLinha", () => {
   it("calcula a nota como percentual de SIM entre SIM e NAO, ignorando NA", () => {
     const l = linha(bruto(1, "CONSULTORIA", [{ resposta: "SIM" }, { resposta: "NAO" }, { resposta: "NA" }]));
@@ -279,57 +265,129 @@ describe("textoDaSituacao", () => {
   });
 });
 
-describe("aplicarFiltrosDerivados", () => {
-  const brutos = [
-    bruto(1, "CONSULTORIA", [{ resposta: "NAO", observacao: "Extintor vencido" }, { resposta: "SIM" }]),
-    bruto(2, "CONSULTORIA", [{ resposta: "SIM" }, { resposta: "SIM" }, { resposta: "SIM" }]),
-    bruto(3, "CORRETIVA", []),
-  ];
-  const linhas = brutos.map((b) => linha(b));
-
-  const ids = (filtros: Filtros) =>
-    aplicarFiltrosDerivados(linhas, filtros).map((l) => l.id);
-
-  it("devolve tudo sem filtro derivado nenhum", () => {
-    expect(ids(SEM_FILTROS)).toEqual([1, 2, 3]);
+describe("filtrosSemResultado", () => {
+  // Os filtros da referencia que nao acham nada no sistema novo: a tela nem
+  // chama o banco.
+  it("Situacao diferente de No prazo, Conclusao que depende de agenda, Origem Agenda, Atividade e Inativos", () => {
+    expect(filtrosSemResultado(SEM_FILTROS)).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "no_prazo" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "atrasado" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "finalizado" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "incompleto" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "aprovado" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, origem: "agenda" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, atividade: "1" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, status: "inativos" })).toBe(true);
   });
 
-  it("Situacao: tudo esta No prazo (nao ha agenda); Atrasado e Antecipado nao acham nada", () => {
-    expect(ids({ ...SEM_FILTROS, situacao: "no_prazo" })).toEqual([1, 2, 3]);
-    expect(ids({ ...SEM_FILTROS, situacao: "atrasado" })).toEqual([]);
-    expect(ids({ ...SEM_FILTROS, situacao: "antecipado" })).toEqual([]);
+  it("Numero/Ano que nao e numero nao acha nada", () => {
+    expect(filtrosSemResultado({ ...SEM_FILTROS, numeroAno: "35/2026" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, numeroAno: "abc" })).toBe(true);
+  });
+});
+
+describe("filtrosParaOBanco", () => {
+  it("Planejada e Inicio recortam a visita; Termino e Finalizacao, o envio do checklist", () => {
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, campoData: "planejada" }).campo_data).toBe("visita");
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, campoData: "inicio" }).campo_data).toBe("visita");
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, campoData: "termino" }).campo_data).toBe("checklist");
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, campoData: "finalizacao" }).campo_data).toBe("checklist");
   });
 
-  it("Conclusao: Finalizado conta a corretiva; as que dependem de agenda nao acham nada", () => {
-    expect(ids({ ...SEM_FILTROS, conclusao: "incompleto" })).toEqual([1]);
-    expect(ids({ ...SEM_FILTROS, conclusao: "finalizado" })).toEqual([2, 3]);
-    expect(ids({ ...SEM_FILTROS, conclusao: "aprovado" })).toEqual([]);
+  it("datas viram instantes no fuso do projeto, com o fim exclusivo", () => {
+    const filtros = filtrosParaOBanco({ ...SEM_FILTROS, dataInicial: "2026-10-01", dataFinal: "2026-10-28" });
+    expect(filtros.inicio).toBe("2026-10-01T00:00:00-03:00");
+    expect(new Date(String(filtros.fim)).toISOString()).toBe("2026-10-29T03:00:00.000Z");
   });
 
-  it("Nota minima e maxima, deixando de fora quem nao tem nota", () => {
-    expect(ids({ ...SEM_FILTROS, notaMinima: 60 })).toEqual([2]);
-    expect(ids({ ...SEM_FILTROS, notaMaxima: 60 })).toEqual([1]);
-    expect(ids({ ...SEM_FILTROS, notaMinima: 0, notaMaxima: 100 })).toEqual([1, 2]);
+  it("Numero/Ano separado em numero e ano; so o numero procura em qualquer ano", () => {
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, numeroAno: "35/2026" })).toMatchObject({ numero: 35, ano: 2026 });
+    expect(filtrosParaOBanco({ ...SEM_FILTROS, numeroAno: "35" })).toMatchObject({ numero: 35, ano: null });
   });
 
-  it("busca livre acha pelo nome do modelo", () => {
-    expect(ids({ ...SEM_FILTROS, busca: "portaria" })).toEqual([1, 2]);
+  it("leva os filtros de lista, Conclusao, Nota, buscas e ordem com os nomes do banco", () => {
+    expect(
+      filtrosParaOBanco({
+        ...SEM_FILTROS,
+        modelos: ["5"],
+        sites: ["7"],
+        gruposSites: ["2"],
+        gruposUsuarios: ["3"],
+        responsaveis: ["e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"],
+        conclusao: "incompleto",
+        notaMinima: 50,
+        notaMaxima: 90,
+        busca: "extintor",
+        buscaRespostas: "vencido",
+        ordem: "antigos",
+      }),
+    ).toMatchObject({
+      modelos: ["5"],
+      sites: ["7"],
+      grupos_sites: ["2"],
+      grupos_usuarios: ["3"],
+      responsaveis: ["e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3"],
+      conclusao: "incompleto",
+      nota_minima: 50,
+      nota_maxima: 90,
+      busca: "extintor",
+      busca_respostas: "vencido",
+      ordem: "antigos",
+    });
+  });
+});
+
+describe("paraLinhaDoHistorico", () => {
+  const doBanco = (extra: Partial<LinhaDoBanco> = {}): LinhaDoBanco => ({
+    id: 36,
+    numero: 19,
+    ano: 2026,
+    tipo: "CONSULTORIA",
+    motivo: null,
+    criado_em: "2026-10-21T13:05:00Z",
+    modelo_id: 5,
+    modelo_nome: "Cooperativa",
+    inicio_em: "2026-10-21T12:50:00Z",
+    funcionario_id: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
+    responsavel: "Inspetor",
+    site_id: 30,
+    site_nome: "Agencia",
+    caminho: "UP Serviços → Agencia",
+    motivo_da_visita: "Visita programada",
+    total_perguntas: 12,
+    respondidas: 12,
+    nao_conformidades: 1,
+    nota: 91,
+    ...extra,
   });
 
-  it("busca livre varre numero, site, responsavel, motivo e tipo, sem diferenciar caixa", () => {
-    expect(ids({ ...SEM_FILTROS, busca: "ACE" })).toEqual([1, 2, 3]);
-    expect(ids({ ...SEM_FILTROS, busca: "portão" })).toEqual([3]);
-    expect(ids({ ...SEM_FILTROS, busca: "00003/2026" })).toEqual([3]);
-    expect(ids({ ...SEM_FILTROS, busca: "nao existe" })).toEqual([]);
+  it("as colunas que a tela mostra, com as derivadas vindas do banco", () => {
+    const linha = paraLinhaDoHistorico(doBanco());
+    expect(linha).toMatchObject({
+      numeroAno: "00019/2026",
+      checklist: "Consultoria",
+      modelo: "Cooperativa",
+      caminhoDoSite: "UP Serviços → Agencia",
+      motivo: "Visita programada",
+      respondidas: 12,
+      totalPerguntas: 12,
+      naoConformidades: 1,
+      nota: 91,
+    });
+    expect(textoDaConclusao(linha)).toBe("Concluído (12/12)");
+    expect(textoDaSituacao(linha)).toBe("1 não conformidade");
   });
 
-  it("busca de respostas olha as observacoes e o motivo da corretiva", () => {
-    expect(ids({ ...SEM_FILTROS, buscaRespostas: "extintor" })).toEqual([1]);
-    expect(ids({ ...SEM_FILTROS, buscaRespostas: "portão" })).toEqual([3]);
+  it("corretiva: o motivo digitado, sem modelo, sem nota, concluida", () => {
+    const linha = paraLinhaDoHistorico(
+      doBanco({ tipo: "CORRETIVA", motivo: "Portão danificado", modelo_id: null, modelo_nome: null, nota: null }),
+    );
+    expect(linha).toMatchObject({ checklist: "Corretiva", modelo: "", motivo: "Portão danificado", nota: null });
+    expect(estaConcluido(linha)).toBe(true);
   });
 
-  it("combina os filtros derivados entre si", () => {
-    expect(ids({ ...SEM_FILTROS, conclusao: "finalizado", notaMaxima: 60 })).toEqual([]);
+  it("sem caminho, cai no nome do site", () => {
+    expect(paraLinhaDoHistorico(doBanco({ caminho: null })).caminhoDoSite).toBe("Agencia");
   });
 });
 
@@ -361,27 +419,6 @@ describe("toTableRow", () => {
     expect(colunas[2]).toBe("Corretiva");
     expect(colunas[8]).toBe("Finalizado");
     expect(colunas[9]).toBe("");
-  });
-});
-
-describe("caminhoDoSite", () => {
-  const sites = new Map([
-    [1, { nome: "UP Serviços", superior: null }],
-    [2, { nome: "Cooperativa", superior: 1 }],
-    [3, { nome: "RAFARD", superior: 2 }],
-    [8, { nome: "Ciclo A", superior: 9 }],
-    [9, { nome: "Ciclo B", superior: 8 }],
-  ]);
-
-  it("do site mais alto ate o proprio", () => {
-    expect(caminhoDoSite(3, sites)).toBe("UP Serviços → Cooperativa → RAFARD");
-    expect(caminhoDoSite(1, sites)).toBe("UP Serviços");
-  });
-
-  it("site desconhecido ou nulo da vazio, e ciclo no cadastro nao trava", () => {
-    expect(caminhoDoSite(null, sites)).toBe("");
-    expect(caminhoDoSite(77, sites)).toBe("");
-    expect(caminhoDoSite(8, sites).split(" → ")).toHaveLength(10);
   });
 });
 
@@ -523,27 +560,6 @@ describe("decisao pelo tipo cru, nao pelo rotulo de tela", () => {
     expect(estaConcluido(renomeada)).toBe(true);
     expect(textoDaSituacao(renomeada)).toBe("Corretiva");
     expect(textoDaConclusao(renomeada)).toBe("Concluído");
-    expect(aplicarFiltrosDerivados([renomeada], { ...SEM_FILTROS, conclusao: "finalizado" })).toEqual([renomeada]);
-  });
-});
-
-describe("textosDeResposta", () => {
-  it("junta as observacoes e o motivo da corretiva", () => {
-    expect(linha(bruto(1, "CONSULTORIA", [{ resposta: "NAO", observacao: "Extintor vencido" }]))
-      .textosDeResposta).toEqual(["Extintor vencido"]);
-    expect(linha(bruto(2, "CORRETIVA", [])).textosDeResposta).toEqual(["Portão danificado"]);
-  });
-
-  it("nao inclui o motivo da VISITA -- ninguem o digitou respondendo o checklist", () => {
-    const consultoria = linha(bruto(3, "CONSULTORIA", [{ resposta: "SIM" }]));
-
-    // O motivo da visita aparece na coluna Motivo (busca livre comum)...
-    expect(consultoria.motivo).toBe("Visita programada");
-    // ...mas nao na busca de respostas tipo texto.
-    expect(consultoria.textosDeResposta).toEqual([]);
-    expect(
-      aplicarFiltrosDerivados([consultoria], { ...SEM_FILTROS, buscaRespostas: "programada" }),
-    ).toEqual([]);
   });
 });
 

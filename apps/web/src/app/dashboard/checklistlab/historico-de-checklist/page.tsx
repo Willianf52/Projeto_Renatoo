@@ -30,7 +30,6 @@ import {
   SITUACAO_OPCOES,
   STATUS_OPCOES,
   TABLE_COLUMNS,
-  TETO_DO_HISTORICO,
   comPadroesDaTela,
   conclusaoDaLista,
   datasDaLinha,
@@ -344,16 +343,14 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
   const filtros = extrairFiltros(params);
   const pagina = Math.max(1, Number(primeiro(params.pagina)) || 1);
 
-  const historico = await getHistorico(filtros);
+  // So a pagina vem do banco, ja filtrada e com as colunas calculadas
+  // (`historico_de_checklist`, 0079); o total vem junto. Pagina alem do fim
+  // volta como a ultima, e `historico.pagina` diz qual.
+  const historico = await getHistorico(filtros, pagina);
 
-  // Paginacao em memoria: os filtros de Situacao/Conclusao/Nota/buscas sao
-  // decididos depois da consulta (ver getHistorico), entao o corte de pagina
-  // precisa vir depois deles -- cortar no banco devolveria paginas de tamanho
-  // variavel. Mesmo arranjo de `registro-de-rondas`.
-  const totalItems = historico.linhas.length;
+  const totalItems = historico.total;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
-  const paginaValida = Math.min(pagina, totalPages);
-  const inicio = (paginaValida - 1) * PAGE_SIZE;
+  const paginaValida = historico.pagina;
 
   // Os filtros atuais viajam junto no link do detalhe para que o "Voltar ao
   // histórico" de la reencontre a mesma pagina filtrada, e nao a listagem
@@ -362,7 +359,7 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
   const querystringAtual = querystringDe(params, ["salvo"]);
   const sufixo = querystringAtual ? `?${querystringAtual}` : "";
 
-  const rows = historico.linhas.slice(inicio, inicio + PAGE_SIZE).map((linha) => [
+  const rows = historico.linhas.map((linha) => [
     String(linha.id),
     linha.numeroAno,
     nomeDoChecklist(linha),
@@ -406,13 +403,6 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
 
   return (
     <>
-      {historico.truncado && (
-        <p className="border-b border-slate-800 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-          Mais de {TETO_DO_HISTORICO} checklists no filtro: a listagem abaixo está incompleta. Reduza o
-          período ou use os demais filtros.
-        </p>
-      )}
-
       <DataTable
         columns={COLUNAS_DA_TELA}
         rows={rows}
