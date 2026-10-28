@@ -68,7 +68,7 @@ export default function QrCodePage({ searchParams }: { searchParams: SearchParam
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "QR-Codes" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "QR-Codes" }]} />
       </div>
 
       <div

@@ -56,7 +56,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
       <div className="animate-fade-in">
         <Breadcrumbs
           items={[
-            { label: "Cadastros" },
+            { label: "Configurações" },
             { label: "Usuários" },
             { label: usuario.nome_completo || usuario.email },
           ]}

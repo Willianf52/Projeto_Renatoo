@@ -23,7 +23,7 @@ export default function NovoSitePage({ searchParams }: { searchParams: SearchPar
     <div className="space-y-4">
       <div className="animate-fade-in">
         <Breadcrumbs
-          items={[{ label: "Cadastros" }, { label: "Site / Planta" }, { label: "Novo" }]}
+          items={[{ label: "Configurações" }, { label: "Site / Planta" }, { label: "Novo" }]}
         />
       </div>
 

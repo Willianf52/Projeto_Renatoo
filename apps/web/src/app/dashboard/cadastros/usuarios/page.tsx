@@ -102,7 +102,7 @@ export default function UsuariosPage({ searchParams }: { searchParams: SearchPar
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Usuários" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Usuários" }]} />
       </div>
 
       <Suspense fallback={null}>

@@ -19,7 +19,7 @@ export default function NovoQrCodePage() {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "QR-Code" }, { label: "Novo" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "QR-Code" }, { label: "Novo" }]} />
       </div>
 
       <div

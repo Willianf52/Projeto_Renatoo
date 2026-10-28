@@ -213,8 +213,30 @@ function NavegacaoDaSidebar({
                         );
                       }
 
-                      const isActive = naRota(pathname, child.href);
                       const ChildIcon = child.icon;
+
+                      // O "Suporte Tecnico" (WhatsApp): outra aba, sem `Link`
+                      // do Next e sem realce de rota ativa, como o link
+                      // externo de primeiro nivel acima.
+                      if (child.externo) {
+                        return (
+                          <a
+                            key={child.href}
+                            href={child.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={onCloseMobile}
+                            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium animate-slide-down transition-colors duration-200 text-brand-muted hover:bg-slate-800/60 hover:text-white"
+                            style={{ animationDelay: `${childIndex * 50}ms` }}
+                          >
+                            <ChildIcon className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 flex-1">{child.label}</span>
+                            <span className="sr-only">(abre em outra aba)</span>
+                          </a>
+                        );
+                      }
+
+                      const isActive = naRota(pathname, child.href);
 
                       return (
                         <Link

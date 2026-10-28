@@ -39,7 +39,7 @@ export default function CadastroDeEventosPage({ searchParams }: { searchParams: 
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Eventos" }, { label: "Cadastro de Eventos" }]} />
+        <Breadcrumbs items={[{ label: "Eventos" }, { label: "Configurações" }, { label: "Cadastro de Eventos" }]} />
       </div>
 
       <Suspense fallback={null}>

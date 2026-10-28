@@ -130,7 +130,7 @@ export default function TrocarSenhaPage() {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Trocar Senha" }]} />
+        <Breadcrumbs items={[{ label: "Suporte" }, { label: "Trocar Senha" }]} />
       </div>
 
       <div

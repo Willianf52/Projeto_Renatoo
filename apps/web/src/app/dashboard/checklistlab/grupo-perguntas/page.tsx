@@ -45,7 +45,7 @@ export default function GrupoPerguntasPage({ searchParams }: { searchParams: Sea
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Administração" }, { label: "Grupo Perguntas" }]} />
+        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Grupo Perguntas" }]} />
       </div>
 
       <div

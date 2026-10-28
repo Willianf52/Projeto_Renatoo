@@ -80,7 +80,7 @@ export default function ColetasImportadasPage({
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Coletas Importadas" }]} />
+        <Breadcrumbs items={[{ label: "Inspeções" }, { label: "Relatórios" }, { label: "Coletas Importadas" }]} />
       </div>
 
       {/* Os dois sinais das escritas da tela (0067): o cadastro manual volta

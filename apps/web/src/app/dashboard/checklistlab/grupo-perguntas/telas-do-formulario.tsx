@@ -24,7 +24,7 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Grupo Perguntas" }, { label: grupo?.nome ?? "Novo" }]} />
+        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Grupo Perguntas" }, { label: grupo?.nome ?? "Novo" }]} />
       </div>
       <div
         className="max-w-2xl overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"

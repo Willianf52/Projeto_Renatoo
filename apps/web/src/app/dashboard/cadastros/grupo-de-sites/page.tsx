@@ -67,7 +67,7 @@ export default function GrupoDeSitesPage({
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Grupo de Sites" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Grupo de Sites" }]} />
       </div>
 
       <div

@@ -45,7 +45,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     <div className="space-y-4">
       <div className="animate-fade-in">
         <Breadcrumbs
-          items={[{ label: "Cadastros" }, { label: "QR-Code" }, { label: qrCode.codigo }]}
+          items={[{ label: "Configurações" }, { label: "QR-Code" }, { label: qrCode.codigo }]}
         />
       </div>
 

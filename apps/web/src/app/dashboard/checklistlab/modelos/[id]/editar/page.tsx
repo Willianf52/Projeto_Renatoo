@@ -38,7 +38,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     <div className="space-y-4">
       <div className="animate-fade-in">
         <Breadcrumbs
-          items={[{ label: "ChecklistLab" }, { label: "Modelos de Checklist" }, { label: modelo.nome }]}
+          items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Modelos de Checklist" }, { label: modelo.nome }]}
         />
       </div>
 

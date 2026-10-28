@@ -27,7 +27,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Criar Checklist" }, { label: `Duplicar ${modelo.nome}` }]} />
+        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Criar Checklist" }, { label: `Duplicar ${modelo.nome}` }]} />
       </div>
       <div
         className="max-w-2xl overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"

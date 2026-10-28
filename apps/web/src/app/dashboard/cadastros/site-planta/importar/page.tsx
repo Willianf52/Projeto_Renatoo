@@ -23,7 +23,7 @@ async function Conteudo() {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Site / Planta" }, { label: "Importar" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Site / Planta" }, { label: "Importar" }]} />
       </div>
 
       <div

@@ -70,7 +70,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Usuários" }, { label: "Novo" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Usuários" }, { label: "Novo" }]} />
       </div>
 
       <div

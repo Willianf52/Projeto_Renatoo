@@ -124,7 +124,7 @@ export default function SitePlantaPage({ searchParams }: { searchParams: SearchP
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Site / Planta" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Site / Planta" }]} />
       </div>
 
       <div

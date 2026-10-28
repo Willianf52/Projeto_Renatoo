@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   isGroup,
-  itemDoSuporte,
   itensDoMenu,
+  linkDoSuporteTecnico,
   naRota,
   NAV_ITEMS,
   TELAS_DO_MENU,
@@ -32,20 +32,57 @@ describe("naRota", () => {
   });
 });
 
-describe("itemDoSuporte", () => {
+describe("linkDoSuporteTecnico", () => {
   it("vira link externo com o endereco da variavel", () => {
-    expect(itemDoSuporte(" https://wa.me/5500000000000 ")).toMatchObject({
-      label: "Suporte",
+    expect(linkDoSuporteTecnico(" https://wa.me/5500000000000 ")).toMatchObject({
+      label: "Suporte Técnico",
       href: "https://wa.me/5500000000000",
       externo: true,
     });
   });
 
   it("some sem variavel, ou com endereco que nao e https", () => {
-    expect(itemDoSuporte(undefined)).toBeNull();
-    expect(itemDoSuporte("   ")).toBeNull();
-    expect(itemDoSuporte("http://wa.me/5500000000000")).toBeNull();
-    expect(itemDoSuporte("javascript:alert(1)")).toBeNull();
+    expect(linkDoSuporteTecnico(undefined)).toBeNull();
+    expect(linkDoSuporteTecnico("   ")).toBeNull();
+    expect(linkDoSuporteTecnico("http://wa.me/5500000000000")).toBeNull();
+    expect(linkDoSuporteTecnico("javascript:alert(1)")).toBeNull();
+  });
+});
+
+describe("organizacao de 05/11 do sistema de referencia", () => {
+  it("modulos na ordem do guia de navegacao", () => {
+    expect(NAV_ITEMS.map((item) => item.label)).toEqual([
+      "Página Principal",
+      "Configurações",
+      "ChecklistLab",
+      "Eventos",
+      "Inspeções",
+      "Suporte",
+    ]);
+  });
+
+  it("Trocar Senha mora no Suporte, e o Suporte existe mesmo sem o WhatsApp", () => {
+    const suporte = NAV_ITEMS.find((item) => item.label === "Suporte");
+    expect(suporte?.href).toBeUndefined();
+    expect(suporte?.children.map((child) => child.label)).toContain("Trocar Senha");
+    expect(TELAS_DO_MENU.find((tela) => tela.href === "/dashboard/cadastros/trocar-senha")?.secao).toBe("Suporte");
+  });
+
+  it("Coletas Importadas fica em Inspecoes > Relatorios", () => {
+    const inspecoes = NAV_ITEMS.find((item) => item.label === "Inspeções");
+    const relatorios = inspecoes?.children.find((child) => child.label === "Relatórios");
+    expect(relatorios && isGroup(relatorios) ? relatorios.items[0].label : null).toBe("Coletas Importadas");
+  });
+
+  it("os enderecos das telas nao mudaram: atalhos e links salvos seguem abrindo", () => {
+    expect(TELAS_DO_MENU.map((tela) => tela.href)).toEqual(
+      expect.arrayContaining([
+        "/dashboard/cadastros/usuarios",
+        "/dashboard/cadastros/trocar-senha",
+        "/dashboard/inspecoes/coletas-importadas",
+        "/dashboard/checklistlab/modelos",
+      ]),
+    );
   });
 });
 
@@ -66,18 +103,18 @@ const DO_GESTOR = TELAS_DO_MENU.filter((tela) => tela.somenteGestor).map((tela) 
 describe("telas so do GESTOR (issue #209)", () => {
   it("sao as telas do menu do GESTOR na referencia", () => {
     expect(DO_GESTOR).toEqual([
-      "/dashboard/eventos/painel-de-eventos",
-      "/dashboard/eventos/cadastro-de-eventos",
-      "/dashboard/eventos/registrar-evento",
-      "/dashboard/eventos/tipos-de-analise",
-      "/dashboard/eventos/tipos-de-classificacao",
-      "/dashboard/eventos/relatorios/analitico-de-eventos",
-      "/dashboard/eventos/relatorios/graficos-por-classificacao",
+      "/dashboard/checklistlab/grupo-perguntas",
+      "/dashboard/checklistlab/modelos",
       "/dashboard/checklistlab/relatorios/analitico-por-checklist",
       "/dashboard/checklistlab/relatorios/indicadores-por-site",
       "/dashboard/checklistlab/relatorios/detalhamento-do-checklist",
-      "/dashboard/checklistlab/modelos",
-      "/dashboard/checklistlab/grupo-perguntas",
+      "/dashboard/eventos/tipos-de-analise",
+      "/dashboard/eventos/tipos-de-classificacao",
+      "/dashboard/eventos/cadastro-de-eventos",
+      "/dashboard/eventos/registrar-evento",
+      "/dashboard/eventos/painel-de-eventos",
+      "/dashboard/eventos/relatorios/analitico-de-eventos",
+      "/dashboard/eventos/relatorios/graficos-por-classificacao",
     ]);
   });
 
@@ -98,9 +135,12 @@ describe("telas so do GESTOR (issue #209)", () => {
     expect(menu).toContain("/dashboard/checklistlab/historico-de-checklist");
   });
 
-  it("subgrupo que fica vazio some (a Administracao do ChecklistLab), a secao nao", () => {
-    const checklistlab = itensDoMenu(NAV_ITEMS, false).find((item) => item.label === "ChecklistLab");
+  it("subgrupo que fica vazio some (as Configuracoes do ChecklistLab e de Eventos), a secao nao", () => {
+    const menu = itensDoMenu(NAV_ITEMS, false);
+    const checklistlab = menu.find((item) => item.label === "ChecklistLab");
     expect(checklistlab?.children.map((child) => child.label)).toEqual(["Histórico de Checklist"]);
+    const eventos = menu.find((item) => item.label === "Eventos");
+    expect(eventos?.children.map((child) => child.label)).toEqual(["Relatórios"]);
   });
 
   // Esconder do menu e so vitrine. O portao e o `layout.tsx` da pasta.

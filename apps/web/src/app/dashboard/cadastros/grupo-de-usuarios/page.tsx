@@ -68,7 +68,7 @@ export default function GrupoDeUsuariosPage({
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Cadastros" }, { label: "Grupo de Usuários" }]} />
+        <Breadcrumbs items={[{ label: "Configurações" }, { label: "Grupo de Usuários" }]} />
       </div>
 
       <Suspense fallback={null}>

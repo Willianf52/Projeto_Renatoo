@@ -37,7 +37,7 @@ export function ListaDeTipos({ tipo, searchParams }: { tipo: TipoDeCadastro; sea
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Eventos" }, { label: cadastro.titulo }]} />
+        <Breadcrumbs items={[{ label: "Eventos" }, { label: "Configurações" }, { label: cadastro.titulo }]} />
       </div>
 
       <Suspense fallback={null}>
@@ -170,7 +170,7 @@ async function ConteudoNovo({ tipo }: { tipo: TipoDeCadastro }) {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Eventos" }, { label: cadastro.titulo }, { label: "Novo" }]} />
+        <Breadcrumbs items={[{ label: "Eventos" }, { label: "Configurações" }, { label: cadastro.titulo }, { label: "Novo" }]} />
       </div>
       <Cartao titulo={`Novo ${cadastro.singular}`}>
         <TipoForm tipo={tipo} valoresIniciais={{ nome: "", cor: COR_PADRAO, ativo: true }} />
@@ -199,7 +199,7 @@ async function ConteudoEditar({ tipo, params }: { tipo: TipoDeCadastro; params: 
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "Eventos" }, { label: cadastro.titulo }, { label: linha.nome }]} />
+        <Breadcrumbs items={[{ label: "Eventos" }, { label: "Configurações" }, { label: cadastro.titulo }, { label: linha.nome }]} />
       </div>
       <Cartao titulo={`Editar ${cadastro.singular}`}>
         <TipoForm

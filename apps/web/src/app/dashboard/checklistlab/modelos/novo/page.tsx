@@ -31,7 +31,7 @@ async function Conteudo() {
     <div className="space-y-4">
       <div className="animate-fade-in">
         <Breadcrumbs
-          items={[{ label: "ChecklistLab" }, { label: "Modelos de Checklist" }, { label: "Novo" }]}
+          items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Modelos de Checklist" }, { label: "Novo" }]}
         />
       </div>
 

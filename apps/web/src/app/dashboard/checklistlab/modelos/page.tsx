@@ -59,7 +59,7 @@ export default function ModelosDeChecklistPage({ searchParams }: { searchParams:
       </Suspense>
 
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Modelos de Checklist" }]} />
+        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Configurações" }, { label: "Modelos de Checklist" }]} />
       </div>
 
       <div
