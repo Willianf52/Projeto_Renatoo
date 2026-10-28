@@ -321,26 +321,33 @@ test.describe("Carga", () => {
         "/dashboard/cadastros/site-planta",
       ];
 
+      // Tambem por tela, so para leitura: o total diz QUE o painel ficou
+      // lento, a quebra diz QUAL tela.
+      const porTela = new Map<string, Amostra[]>(telas.map((tela) => [tela, []]));
+
       const { amostras, duracaoMs } = await emParalelo(ABAS_DO_PAINEL, async (aba) => {
         const daAba: Amostra[] = [];
         for (let rodada = 0; rodada < RODADAS_DO_PAINEL; rodada++) {
           const tela = telas[(aba + rodada) % telas.length];
-          daAba.push(
-            await medir(async () => {
-              // A resposta inteira, streaming de Suspense incluido: `text()`
-              // so resolve quando o servidor fecha o corpo.
-              const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
-              if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
-              const html = await resposta.text();
-              if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
-            }),
-          );
+          const amostra = await medir(async () => {
+            // A resposta inteira, streaming de Suspense incluido: `text()`
+            // so resolve quando o servidor fecha o corpo.
+            const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
+            if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
+            const html = await resposta.text();
+            if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
+          });
+          daAba.push(amostra);
+          porTela.get(tela)!.push(amostra);
         }
         return daAba;
       });
 
       const resumo = resumir("painel (telas pesadas)", amostras, duracaoMs);
       publicar(resumo);
+      for (const [tela, daTela] of porTela) {
+        publicar(resumir(`painel: ${tela.split("/").at(-1)}`, daTela, duracaoMs));
+      }
 
       expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
       expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.painel);
