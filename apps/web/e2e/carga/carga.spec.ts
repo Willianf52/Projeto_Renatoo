@@ -154,6 +154,111 @@ test.describe("Carga", () => {
     expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.campo);
   });
 
+  test(`importacao: ${INTEGRADORES} integradores enviando lotes de ${LINHAS_POR_LOTE} linhas em paralelo`, async ({
+    request,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    const segredo = process.env.IMPORTACAO_SECRET;
+    test.skip(!segredo, "requer IMPORTACAO_SECRET");
+
+    const base = 700_000_000 + randomInt(0, 90_000_000);
+
+    const { amostras, duracaoMs } = await emParalelo(INTEGRADORES, async (integrador) => {
+      // IP proprio por integrador: o limite da rota e por origem (20/min).
+      const cabecalhos = { ...ipDeTeste(), "x-importacao-secret": segredo! };
+      const doIntegrador: Amostra[] = [];
+
+      for (let lote = 0; lote < LOTES_POR_INTEGRADOR; lote++) {
+        const coletas = montarLote(base + integrador * 10_000 + lote * 1_000, LINHAS_POR_LOTE);
+        doIntegrador.push(
+          await medir(async () => {
+            const resposta = await request.post("/api/importar/coletas", {
+              headers: cabecalhos,
+              data: { coletas },
+              timeout: 60_000,
+            });
+            if (resposta.status() !== 200) {
+              throw new Error(`HTTP ${resposta.status()}: ${await resposta.text()}`);
+            }
+            const corpo = await resposta.json();
+            if (corpo.leituras_novas !== LINHAS_POR_LOTE) {
+              throw new Error(`esperava ${LINHAS_POR_LOTE} leituras novas, vieram ${corpo.leituras_novas}`);
+            }
+          }),
+        );
+      }
+
+      return doIntegrador;
+    });
+
+    const resumo = resumir(`importação (lotes de ${LINHAS_POR_LOTE})`, amostras, duracaoMs);
+    publicar(resumo);
+
+    expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
+    expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.importacao);
+  });
+
+  test.describe(() => {
+    test.use({ storageState: SESSAO_DO_GESTOR });
+
+    test(`painel: ${ABAS_DO_PAINEL} abas do GESTOR abrindo as telas pesadas ao mesmo tempo`, async ({
+      request,
+    }) => {
+      test.setTimeout(5 * 60_000);
+
+      const telas = [
+        // Sem periodo, como abre de verdade: desde 30/09/2026 a tela sem datas
+        // mostra so o aviso e nao consulta leituras. Abrir com um periodo
+        // largo aqui estourou o p95 (10 s contra 1,5 s, com statement timeout):
+        // o filtro de data em `leituras` e lento sob carga, e isso ja era
+        // assim antes -- esta tela so nunca tinha sido medida filtrada. Fica
+        // registrado numa issue propria, para ser corrigido no banco e so
+        // entao medido aqui.
+        "/dashboard/inspecoes/coletas-importadas",
+        "/dashboard/inspecoes/relatorios/registro-de-rondas",
+        "/dashboard/checklistlab/historico-de-checklist",
+        "/dashboard/cadastros/site-planta",
+      ];
+
+      // Tambem por tela, so para leitura: o total diz QUE o painel ficou
+      // lento, a quebra diz QUAL tela.
+      const porTela = new Map<string, Amostra[]>(telas.map((tela) => [tela, []]));
+
+      const { amostras, duracaoMs } = await emParalelo(ABAS_DO_PAINEL, async (aba) => {
+        const daAba: Amostra[] = [];
+        for (let rodada = 0; rodada < RODADAS_DO_PAINEL; rodada++) {
+          const tela = telas[(aba + rodada) % telas.length];
+          const amostra = await medir(async () => {
+            // A resposta inteira, streaming de Suspense incluido: `text()`
+            // so resolve quando o servidor fecha o corpo.
+            const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
+            if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
+            const html = await resposta.text();
+            if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
+          });
+          daAba.push(amostra);
+          porTela.get(tela)!.push(amostra);
+        }
+        return daAba;
+      });
+
+      const resumo = resumir("painel (telas pesadas)", amostras, duracaoMs);
+      publicar(resumo);
+      for (const [tela, daTela] of porTela) {
+        publicar(resumir(`painel: ${tela.split("/").at(-1)}`, daTela, duracaoMs));
+      }
+
+      expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
+      expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.painel);
+    });
+  });
+
+  // POR ULTIMO de proposito: as 60 inspecoes que ele grava deixam o banco
+  // maior, e os cenarios acima precisam medir sempre a mesma base para o
+  // numero ser comparavel entre PRs. Rodando antes dele, o p95 do painel
+  // foi de ~1,5 s para 6 a 13 s, puxado pelo Historico de Checklist (p95
+  // ~7 s, p50 ~4,7 s), que carrega todos os checklists com as respostas
+  // (28/10/2026, PR #257).
   test(`campo completo: ${TECNICOS} técnicos no início do turno, ao mesmo tempo`, async () => {
     test.setTimeout(10 * 60_000);
 
@@ -253,105 +358,6 @@ test.describe("Carga", () => {
     expect(checklistsEnviados).toHaveLength(TECNICOS * INSPECOES_POR_TECNICO);
     expect(respostas.count).toBe(checklistsEnviados.length * PERGUNTAS_DO_MODELO);
     expect(fotos.count).toBe(checklistsEnviados.length * (FOTOS_GERAIS + FOTOS_DE_PERGUNTA));
-  });
-
-  test(`importacao: ${INTEGRADORES} integradores enviando lotes de ${LINHAS_POR_LOTE} linhas em paralelo`, async ({
-    request,
-  }) => {
-    test.setTimeout(5 * 60_000);
-    const segredo = process.env.IMPORTACAO_SECRET;
-    test.skip(!segredo, "requer IMPORTACAO_SECRET");
-
-    const base = 700_000_000 + randomInt(0, 90_000_000);
-
-    const { amostras, duracaoMs } = await emParalelo(INTEGRADORES, async (integrador) => {
-      // IP proprio por integrador: o limite da rota e por origem (20/min).
-      const cabecalhos = { ...ipDeTeste(), "x-importacao-secret": segredo! };
-      const doIntegrador: Amostra[] = [];
-
-      for (let lote = 0; lote < LOTES_POR_INTEGRADOR; lote++) {
-        const coletas = montarLote(base + integrador * 10_000 + lote * 1_000, LINHAS_POR_LOTE);
-        doIntegrador.push(
-          await medir(async () => {
-            const resposta = await request.post("/api/importar/coletas", {
-              headers: cabecalhos,
-              data: { coletas },
-              timeout: 60_000,
-            });
-            if (resposta.status() !== 200) {
-              throw new Error(`HTTP ${resposta.status()}: ${await resposta.text()}`);
-            }
-            const corpo = await resposta.json();
-            if (corpo.leituras_novas !== LINHAS_POR_LOTE) {
-              throw new Error(`esperava ${LINHAS_POR_LOTE} leituras novas, vieram ${corpo.leituras_novas}`);
-            }
-          }),
-        );
-      }
-
-      return doIntegrador;
-    });
-
-    const resumo = resumir(`importação (lotes de ${LINHAS_POR_LOTE})`, amostras, duracaoMs);
-    publicar(resumo);
-
-    expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
-    expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.importacao);
-  });
-
-  test.describe(() => {
-    test.use({ storageState: SESSAO_DO_GESTOR });
-
-    test(`painel: ${ABAS_DO_PAINEL} abas do GESTOR abrindo as telas pesadas ao mesmo tempo`, async ({
-      request,
-    }) => {
-      test.setTimeout(5 * 60_000);
-
-      const telas = [
-        // Sem periodo, como abre de verdade: desde 30/09/2026 a tela sem datas
-        // mostra so o aviso e nao consulta leituras. Abrir com um periodo
-        // largo aqui estourou o p95 (10 s contra 1,5 s, com statement timeout):
-        // o filtro de data em `leituras` e lento sob carga, e isso ja era
-        // assim antes -- esta tela so nunca tinha sido medida filtrada. Fica
-        // registrado numa issue propria, para ser corrigido no banco e so
-        // entao medido aqui.
-        "/dashboard/inspecoes/coletas-importadas",
-        "/dashboard/inspecoes/relatorios/registro-de-rondas",
-        "/dashboard/checklistlab/historico-de-checklist",
-        "/dashboard/cadastros/site-planta",
-      ];
-
-      // Tambem por tela, so para leitura: o total diz QUE o painel ficou
-      // lento, a quebra diz QUAL tela.
-      const porTela = new Map<string, Amostra[]>(telas.map((tela) => [tela, []]));
-
-      const { amostras, duracaoMs } = await emParalelo(ABAS_DO_PAINEL, async (aba) => {
-        const daAba: Amostra[] = [];
-        for (let rodada = 0; rodada < RODADAS_DO_PAINEL; rodada++) {
-          const tela = telas[(aba + rodada) % telas.length];
-          const amostra = await medir(async () => {
-            // A resposta inteira, streaming de Suspense incluido: `text()`
-            // so resolve quando o servidor fecha o corpo.
-            const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
-            if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
-            const html = await resposta.text();
-            if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
-          });
-          daAba.push(amostra);
-          porTela.get(tela)!.push(amostra);
-        }
-        return daAba;
-      });
-
-      const resumo = resumir("painel (telas pesadas)", amostras, duracaoMs);
-      publicar(resumo);
-      for (const [tela, daTela] of porTela) {
-        publicar(resumir(`painel: ${tela.split("/").at(-1)}`, daTela, duracaoMs));
-      }
-
-      expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
-      expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.painel);
-    });
   });
 });
 
