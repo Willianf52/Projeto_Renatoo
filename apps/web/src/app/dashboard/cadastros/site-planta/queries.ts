@@ -68,7 +68,6 @@ export type SiteRow = {
  * para `profiles` duas vezes -- por `responsavel_id` e por `criado_por`. Sem
  * dizer qual, o PostgREST recusa a consulta inteira com PGRST201 em vez de
  * escolher uma, e a tela cai no error boundary sem renderizar linha nenhuma.
- * Mesmo padrao de `superior:profiles!superior_id` em usuarios/queries.ts.
  *
  * Nada de comentario dentro desta string: ela vai crua na querystring do
  * PostgREST, que so tolera a remocao de espaco em branco feita pelo client.

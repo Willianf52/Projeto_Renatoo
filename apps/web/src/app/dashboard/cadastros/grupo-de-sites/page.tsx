@@ -22,10 +22,10 @@ import {
 } from "@/components/dashboard/icons";
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
-import { getGruposSites, toTableRow, PAGE_SIZE, type GrupoSiteFiltros } from "./queries";
+import { COLUNAS_DA_TELA, getGruposSites, toLinhaDaTela, PAGE_SIZE, type GrupoSiteFiltros } from "./queries";
 
-const TABLE_COLUMNS = ["ID", "Nome", "Status", "Descrição", "Ações"];
-const MIN_WIDTH = "min-w-[700px]";
+const TABLE_COLUMNS = [...COLUNAS_DA_TELA, "Ações"];
+const MIN_WIDTH = "min-w-[900px]";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type SearchParamsPromise = Promise<SearchParams>;
@@ -192,7 +192,7 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
   // Quem nao administra continua vendo o botao, desabilitado: escondê-lo faria
   // a coluna "Ações" aparecer vazia, sem explicar por que.
   const rows = resultado.rows.map((grupo) => [
-    ...toTableRow(grupo),
+    ...toLinhaDaTela(grupo),
     podeAdministrar ? (
       <Acao
         key={grupo.id}

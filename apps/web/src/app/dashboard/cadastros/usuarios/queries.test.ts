@@ -12,13 +12,20 @@ type Chain = {
   or: (filtro: string) => Chain;
   not: () => Chain;
   limit: () => Chain;
+  in: (coluna: string, valores: unknown[]) => Chain;
+  maybeSingle: () => Promise<{ data: unknown; error: null }>;
   range: () => Chain;
   order: (coluna: string, opcoes?: { ascending?: boolean }) => Chain;
   then: (resolve: (resultado: Resultado) => void) => void;
 };
 
-const { createClientMock, eqs, ordens, ors, rpcResultado } = vi.hoisted(() => {
+const { createClientMock, eqs, ins, lista, ordens, ors, rpcResultado, superiores } = vi.hoisted(() => {
   const ordens: Ordem[] = [];
+  const ins: [string, unknown[]][] = [];
+  /** O que a consulta da listagem devolve, e o que a dos superiores (a que usa
+   * `.in`) devolve. */
+  const lista: { data: unknown[] } = { data: [] };
+  const superiores: { data: unknown[] } = { data: [] };
   const ors: string[] = [];
   const eqs: [string, unknown][] = [];
   const rpcResultado: { data: unknown; error: { message: string } | null } = {
@@ -28,6 +35,7 @@ const { createClientMock, eqs, ordens, ors, rpcResultado } = vi.hoisted(() => {
 
   const createClientMock = vi.fn(async () => ({
     from() {
+      let porId = false;
       const chain: Chain = {
         select: () => chain,
         eq: (coluna, valor) => {
@@ -41,24 +49,33 @@ const { createClientMock, eqs, ordens, ors, rpcResultado } = vi.hoisted(() => {
         },
         not: () => chain,
         limit: () => chain,
+        in: (coluna, valores) => {
+          porId = true;
+          ins.push([coluna, valores]);
+          return chain;
+        },
+        maybeSingle: async () => ({ data: lista.data[0] ?? null, error: null }),
         range: () => chain,
         order: (coluna, opcoes) => {
           ordens.push({ coluna, ascending: opcoes?.ascending });
           return chain;
         },
-        then: (resolve) => resolve({ data: [], error: null, count: 0 }),
+        then: (resolve) => {
+          const data = porId ? superiores.data : lista.data;
+          resolve({ data, error: null, count: data.length });
+        },
       };
       return chain;
     },
     rpc: async () => rpcResultado,
   }));
 
-  return { createClientMock, eqs, ordens, ors, rpcResultado };
+  return { createClientMock, eqs, ins, lista, ordens, ors, rpcResultado, superiores };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
-const { getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao, toTableRow } = await import(
+const { getUsuario, getUsuarios, montarSelectDeUsuarios, podeVerTodaOperacao, toTableRow } = await import(
   "./queries"
 );
 
@@ -66,6 +83,9 @@ beforeEach(() => {
   ordens.length = 0;
   ors.length = 0;
   eqs.length = 0;
+  ins.length = 0;
+  lista.data = [];
+  superiores.data = [];
   rpcResultado.data = null;
   rpcResultado.error = null;
 });
@@ -75,13 +95,76 @@ describe("montarSelectDeUsuarios", () => {
     const select = montarSelectDeUsuarios(false);
 
     expect(select).not.toContain("grupos_usuarios_membros");
-    expect(select).toContain("superior:profiles!superior_id");
+    expect(select).toContain("superior_id");
+    // O embed de `profiles` nela mesma nao devolvia o superior -- ver
+    // `comNomeDoSuperior` em queries.ts.
+    expect(select).not.toContain("profiles!");
   });
 
   it("com filtro de grupo, embute os membros como inner para filtrar no banco", () => {
     const select = montarSelectDeUsuarios(true);
 
     expect(select).toContain("grupos_usuarios_membros!inner ( grupo_id )");
+  });
+});
+
+/** Perfil como vem do banco, sem o `superior` resolvido. */
+const perfil = (id: string, nome: string, superiorId: string | null) => ({
+  id,
+  nome_completo: nome,
+  login: null,
+  email: `${id}@exemplo.com`,
+  funcao: null,
+  cargo: "OPERACIONAL",
+  tipo: "PADRAO",
+  ativo: true,
+  pais: "Brasil",
+  superior_id: superiorId,
+});
+
+describe("nome do superior", () => {
+  /** A coluna "Usuário Superior" saia em branco com o superior gravado no
+   * banco (auditoria de paridade de 28/10/2026). */
+  it("a listagem preenche o superior pelo id, numa consulta a parte", async () => {
+    lista.data = [perfil("a", "Ana", "c"), perfil("b", "Bruno", "c"), perfil("c", "Carla", null)];
+    superiores.data = [{ id: "c", nome_completo: "Carla" }];
+
+    const { rows } = await getUsuarios({ pagina: 1 });
+
+    expect(ins).toEqual([["id", ["c"]]]);
+    expect(rows.map((r) => [r.nome_completo, r.superior?.nome_completo ?? null])).toEqual([
+      ["Ana", "Carla"],
+      ["Bruno", "Carla"],
+      ["Carla", null],
+    ]);
+  });
+
+  it("pagina sem ninguem com superior nao faz a segunda consulta", async () => {
+    lista.data = [perfil("a", "Ana", null)];
+
+    const { rows } = await getUsuarios({ pagina: 1 });
+
+    expect(ins).toEqual([]);
+    expect(rows[0].superior).toBeNull();
+  });
+
+  /** O RLS pode esconder o superior de quem le: celula em branco, sem erro. */
+  it("superior que nao voltou na consulta fica em branco", async () => {
+    lista.data = [perfil("a", "Ana", "invisivel")];
+
+    const { rows } = await getUsuarios({ pagina: 1 });
+
+    expect(rows[0].superior).toBeNull();
+  });
+
+  it("o formulario tambem recebe o nome do superior", async () => {
+    lista.data = [perfil("a", "Ana", "c")];
+    superiores.data = [{ id: "c", nome_completo: "Carla" }];
+
+    const usuario = await getUsuario("a");
+
+    expect(usuario?.superior_id).toBe("c");
+    expect(usuario?.superior).toEqual({ nome_completo: "Carla" });
   });
 });
 
@@ -153,6 +236,7 @@ describe("toTableRow", () => {
       tipo: "PADRAO",
       ativo: true,
       pais: "Brasil",
+      superior_id: "def",
       superior: { nome_completo: "Gesiel" },
     });
 
@@ -179,6 +263,7 @@ describe("toTableRow", () => {
       tipo: "PADRAO",
       ativo: false,
       pais: "Brasil",
+      superior_id: null,
       superior: null,
     });
 

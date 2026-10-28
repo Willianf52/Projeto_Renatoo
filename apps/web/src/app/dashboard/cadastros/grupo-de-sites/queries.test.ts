@@ -3,17 +3,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Resultado = { data: unknown[]; error: null };
 type Chamada = { metodo: string; args: unknown[] };
 
-const { createClientMock, rpcResultado, fromResultado, chamadas } = vi.hoisted(() => {
+const { createClientMock, rpcResultado, fromResultado, porTabela, chamadas } = vi.hoisted(() => {
   const rpcResultado: { data: unknown; error: { message: string } | null } = {
     data: null,
     error: null,
   };
   const fromResultado: Resultado = { data: [], error: null };
   const chamadas: Chamada[] = [];
+  /** Resultado proprio de uma tabela; sem entrada, vale `fromResultado`. So a
+   * primeira pagina (range a partir de 0) recebe as linhas, para
+   * `buscarEmPaginas` parar na segunda. */
+  const porTabela: Record<string, unknown[]> = {};
 
   const createClientMock = vi.fn(async () => ({
     rpc: async () => rpcResultado,
-    from() {
+    from(tabela: string) {
+      let inicio = 0;
       const chain = {
         select: (...args: unknown[]) => {
           chamadas.push({ metodo: "select", args });
@@ -25,6 +30,15 @@ const { createClientMock, rpcResultado, fromResultado, chamadas } = vi.hoisted((
         },
         range: (...args: unknown[]) => {
           chamadas.push({ metodo: "range", args });
+          inicio = Number(args[0]);
+          return chain;
+        },
+        in: (...args: unknown[]) => {
+          chamadas.push({ metodo: `in:${tabela}`, args });
+          return chain;
+        },
+        eq: (...args: unknown[]) => {
+          chamadas.push({ metodo: `eq:${tabela}`, args });
           return chain;
         },
         or: (...args: unknown[]) => {
@@ -35,13 +49,17 @@ const { createClientMock, rpcResultado, fromResultado, chamadas } = vi.hoisted((
           chamadas.push({ metodo: "neq", args });
           return chain;
         },
-        then: (resolve: (resultado: Resultado) => void) => resolve(fromResultado),
+        then: (resolve: (resultado: Resultado) => void) => {
+          const linhas = porTabela[tabela];
+          if (!linhas) return resolve(fromResultado);
+          resolve({ data: inicio === 0 ? linhas : [], error: null });
+        },
       };
       return chain;
     },
   }));
 
-  return { createClientMock, rpcResultado, fromResultado, chamadas };
+  return { createClientMock, rpcResultado, fromResultado, porTabela, chamadas };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
@@ -50,11 +68,15 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 // de Site / Planta passou a precisar da mesma regra -- os testes dela foram
 // junto, para `lib/permissoes.test.ts`.
 const {
+  COLUNAS_DA_TELA,
   COLUNAS_DO_EXCEL,
+  getGruposSites,
   getGruposSitesParaExportar,
   getGruposSitesParaPai,
   montarHierarquiaDeSites,
+  montarLinhasDaLista,
   textoDosSites,
+  toLinhaDaTela,
   toLinhaDoExcel,
   LIMITE_EXPORTACAO,
 } = await import("./queries");
@@ -65,6 +87,7 @@ beforeEach(() => {
   fromResultado.data = [];
   fromResultado.error = null;
   chamadas.length = 0;
+  for (const tabela of Object.keys(porTabela)) delete porTabela[tabela];
 });
 
 describe("getGruposSitesParaExportar", () => {
@@ -218,5 +241,61 @@ describe("coluna Sites do Excel", () => {
     expect(COLUNAS_DO_EXCEL).toEqual(["ID", "Nome", "Status", "Descrição", "Sites"]);
     expect(linha).toEqual(["9220", "ACE Limpeza", "Ativo", "", "ACE Limpeza;"]);
     expect(linha).toHaveLength(COLUNAS_DO_EXCEL.length);
+  });
+});
+
+/** Colunas "Grupo de Site Pai" e "Sites" do antigo, que faltavam na listagem
+ * (auditoria de paridade de 28/10/2026). */
+describe("listagem com pai e quantidade de sites", () => {
+  const grupo = (id: number, nome: string, paiId: number | null) => ({
+    id,
+    nome,
+    descricao: null,
+    ativo: true,
+    grupo_pai_id: paiId,
+  });
+
+  it("poe o nome do pai e conta os sites de cada grupo", () => {
+    const linhas = montarLinhasDaLista(
+      [grupo(1, "Lote 1", null), grupo(2, "Portarias", 1), grupo(3, "Sem sites", 99)],
+      [{ id: 1, nome: "Lote 1" }],
+      [{ grupo_site_id: 1 }, { grupo_site_id: 2 }, { grupo_site_id: 2 }],
+    );
+
+    expect(linhas.map((l) => [l.nome, l.grupoPai, l.quantidadeDeSites])).toEqual([
+      ["Lote 1", "", 1],
+      ["Portarias", "Lote 1", 2],
+      // Pai que o leitor nao enxerga (ou que sumiu) vira celula em branco.
+      ["Sem sites", "", 0],
+    ]);
+  });
+
+  it("a linha da tela segue a ordem do cabecalho do antigo", () => {
+    const [linha] = montarLinhasDaLista([grupo(9, "Portarias", 1)], [{ id: 1, nome: "Lote 1" }], [
+      { grupo_site_id: 9 },
+    ]);
+
+    expect(COLUNAS_DA_TELA).toEqual(["ID", "Nome", "Grupo de Site Pai", "Sites", "Status", "Descrição"]);
+    expect(toLinhaDaTela(linha)).toEqual(["9", "Portarias", "Lote 1", "1", "Ativo", ""]);
+  });
+
+  it("busca o pai e os sites ativos so dos grupos da pagina", async () => {
+    porTabela.grupos_sites = [grupo(1, "Lote 1", null), grupo(2, "Portarias", 1)];
+    porTabela.sites = [{ grupo_site_id: 2 }];
+
+    const { rows } = await getGruposSites({ pagina: 1 });
+
+    expect(chamadas).toContainEqual({ metodo: "in:grupos_sites", args: ["id", [1]] });
+    expect(chamadas).toContainEqual({ metodo: "in:sites", args: ["grupo_site_id", [1, 2]] });
+    expect(chamadas).toContainEqual({ metodo: "eq:sites", args: ["ativo", true] });
+    expect(rows.map((r) => r.quantidadeDeSites)).toEqual([0, 1]);
+  });
+
+  it("pagina vazia nao faz as consultas extras", async () => {
+    porTabela.grupos_sites = [];
+
+    await getGruposSites({ pagina: 1 });
+
+    expect(chamadas.some((c) => c.metodo.startsWith("in:"))).toBe(false);
   });
 });
