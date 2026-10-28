@@ -7,6 +7,7 @@ import {
   View,
   type TextInputProps,
 } from "react-native";
+import type { TextInputInstance } from "react-native";
 
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 import { IconeDeOlho, IconeDeOlhoFechado } from "./icones";
@@ -23,7 +24,7 @@ import { IconeDeOlho, IconeDeOlhoFechado } from "./icones";
  * Como na web, so senha ganha o botao de revelar: nao ha o que esconder num
  * e-mail, e um olho ali so daria mais um alvo de toque sem funcao.
  */
-export const Campo = forwardRef<TextInput, {
+export const Campo = forwardRef<TextInputInstance, {
   rotulo: string;
   valor: string;
   aoMudar: (valor: string) => void;
