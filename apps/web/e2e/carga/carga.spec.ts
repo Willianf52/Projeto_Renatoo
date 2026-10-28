@@ -93,10 +93,13 @@ const ROTULO_DA_ETAPA: Record<Etapa, string> = {
 };
 
 /** Tetos do campo completo: generosos pelo mesmo motivo dos de cima (runner
- * compartilhado); o que reprova de verdade e erro. */
+ * compartilhado); o que reprova de verdade e erro. O pacote tem 5 s e nao 3:
+ * nas quatro primeiras execucoes (PR #257) o p95 dele foi 2,98 s, 1,38 s,
+ * 1,86 s e 2,93 s -- 30 tecnicos baixando as quatro tabelas ao mesmo tempo
+ * oscila muito no runner, e 3 s viraria teste intermitente. */
 const TETO_P95_CAMPO_COMPLETO_MS: Record<Etapa, number> = {
   login: 3_000,
-  pacote: 3_000,
+  pacote: 5_000,
   ronda: 3_000,
   foto: 5_000,
   envio: 8_000,
