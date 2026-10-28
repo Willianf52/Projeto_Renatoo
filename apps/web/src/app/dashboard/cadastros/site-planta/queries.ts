@@ -230,13 +230,13 @@ export async function getSites(filtros: SiteFiltros): Promise<{
     supabase
       .from("sites")
       .select(COLUNAS, { count: "exact" })
-      .order("nome", { ascending: true })
-      // Desempate obrigatorio, ao contrario de `grupos_sites`: a unicidade de
-      // `sites.nome` e do par com o grupo (migration 0012), nao da coluna --
-      // dois grupos podem ter uma "Agencia Centro" cada. Sem o desempate, a
-      // ordem entre elas nao e garantida e a paginacao pode repetir uma e
-      // pular outra.
-      .order("id", { ascending: true })
+      // Mais recentes primeiro, como o sistema de referencia abre (auditoria
+      // de paridade de 28/10/2026); antes era por nome.
+      .order("criado_em", { ascending: false })
+      // Desempate obrigatorio: os sites importados juntos tem o mesmo
+      // `criado_em`, e sem ele a ordem entre eles nao e garantida e a
+      // paginacao pode repetir uma linha e pular outra.
+      .order("id", { ascending: false })
       .range(from, to),
     filtros,
   );
@@ -262,8 +262,8 @@ export async function getSitesParaExportar(
     supabase
       .from("sites")
       .select(COLUNAS)
-      .order("nome", { ascending: true })
-      .order("id", { ascending: true })
+      .order("criado_em", { ascending: false })
+      .order("id", { ascending: false })
       .range(0, LIMITE_EXPORTACAO),
     filtros,
   );

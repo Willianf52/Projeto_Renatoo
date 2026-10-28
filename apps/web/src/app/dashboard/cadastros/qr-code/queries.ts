@@ -53,10 +53,11 @@ function montarSelect(precisaSite: boolean): string {
 }
 
 /**
- * "Todos" e opcao explicita, e "Ativos" e o default -- como no sistema de
- * referencia e em Site / Planta (`SITUACAO_PADRAO` la).
+ * Abre em "Todos", como o QR-Code do sistema de referencia (auditoria de
+ * paridade de 28/10/2026: o antigo lista os 565, inativos inclusos). Site /
+ * Planta segue abrindo em "Ativos", que e o que o antigo faz la.
  */
-export const SITUACAO_PADRAO: Situacao = "ativos";
+export const SITUACAO_PADRAO: Situacao = "todos";
 
 export const SITUACOES = [
   { value: "ativos", label: "Ativos" },
