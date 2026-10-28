@@ -235,17 +235,13 @@ describe("getSitesParaExportar", () => {
     expect(eqs).not.toContain("ativo");
   });
 
-  it("ordena pelos mais recentes, com desempate por id", async () => {
-    // Como o sistema de referencia abre. Os sites importados juntos tem o
-    // mesmo `criado_em`, entao sem o desempate a paginacao pode repetir uma
-    // linha e pular outra.
+  it("ordena por nome com desempate por id", async () => {
+    // `sites.nome` nao e unico (a unicidade e do par com o grupo), entao sem o
+    // desempate a paginacao pode repetir uma linha e pular outra.
     await getSitesParaExportar(filtros());
 
-    const orders = chamadas.filter((c) => c.metodo === "order").map((c) => c.args);
-    expect(orders).toEqual([
-      ["criado_em", { ascending: false }],
-      ["id", { ascending: false }],
-    ]);
+    const orders = chamadas.filter((c) => c.metodo === "order").map((c) => c.args[0]);
+    expect(orders).toEqual(["nome", "id"]);
   });
 
   it("pede LIMITE_EXPORTACAO + 1 linhas, para detectar truncamento sem um count a mais", async () => {
