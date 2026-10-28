@@ -18,8 +18,34 @@ function exigirEnv(nome: string, valor: string | undefined): string {
   return valor;
 }
 
+/**
+ * O token da sessao, as respostas e as fotos da inspecao vao por essa conexao:
+ * fora da rede local, so HTTPS. O Android de release e o iOS ja recusam texto
+ * puro por padrao, mas isso depende da configuracao nativa de cada build; aqui
+ * a recusa vem antes e com mensagem, no lugar de uma "falha de rede" muda no
+ * campo (revisao de seguranca de 27/10/2026).
+ *
+ * `http://` continua aceito para endereco de rede local: e o stack do Supabase
+ * rodando na maquina de desenvolvimento (emulador em 10.0.2.2, aparelho no
+ * Wi-Fi de casa). Regex e nao `new URL`: o `URL` do React Native nao tinha
+ * `hostname` ate pouco tempo, e este modulo roda antes de tudo.
+ */
+const ENDERECO_DE_REDE_LOCAL =
+  /^http:\/\/(localhost|127\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?(\/|$)/i;
+
+function exigirHttps(nome: string, valor: string): string {
+  if (/^https:\/\//i.test(valor) || ENDERECO_DE_REDE_LOCAL.test(valor)) return valor;
+
+  throw new Error(
+    `${nome} precisa começar com https://. Endereço http só vale para o Supabase local de desenvolvimento.`,
+  );
+}
+
 export const env = {
-  supabaseUrl: exigirEnv("EXPO_PUBLIC_SUPABASE_URL", process.env.EXPO_PUBLIC_SUPABASE_URL),
+  supabaseUrl: exigirHttps(
+    "EXPO_PUBLIC_SUPABASE_URL",
+    exigirEnv("EXPO_PUBLIC_SUPABASE_URL", process.env.EXPO_PUBLIC_SUPABASE_URL),
+  ),
   supabaseAnonKey: exigirEnv(
     "EXPO_PUBLIC_SUPABASE_ANON_KEY",
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

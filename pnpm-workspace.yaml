@@ -86,7 +86,12 @@ overrides:
   # mesma familia -- host com maiuscula/minuscula em octeto percent-encoded
   # normalizado de forma inconsistente. Mesmo caminho, mesmo alcance, e o
   # `^3.0.1` do `ajv` ainda cobre.
-  'fast-uri@<3.1.8': '^3.1.8'
+  #
+  # 27/10/2026: piso subiu para 3.1.9 por GHSA-w74x-v6f9-j3xg e
+  # GHSA-wjr9-j795-jxcr (moderate) e GHSA-xhq7-xmqj-769h e GHSA-333x-w4r6-6crp
+  # (low), ainda a mesma familia (host e esquema mal separados). A 3.1.9 saiu
+  # em 19/10/2026; mesmo caminho, mesmo alcance.
+  'fast-uri@<3.1.9': '^3.1.9'
 
   # GHSA-6gmq-8vp8-gcm6 (moderate): `@xmldom/xmldom` monta `EntityReference`
   # com `nodeName` invalido e serializa sem recusar quando `requireWellFormed`
