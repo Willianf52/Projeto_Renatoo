@@ -1678,6 +1678,10 @@ export type Database = {
         Args: { p_modelo_id: number; p_nome: string }
         Returns: number
       }
+      historico_de_checklist: {
+        Args: { p_deslocamento?: number; p_filtros: Json; p_limite?: number }
+        Returns: Json
+      }
       lista_de_emails_valida: { Args: { p_emails: string[] }; Returns: boolean }
       mover_pergunta: {
         Args: { p_para_cima: boolean; p_pergunta_id: number }

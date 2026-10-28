@@ -260,8 +260,9 @@ test.describe("Carga", () => {
   // maior, e os cenarios acima precisam medir sempre a mesma base para o
   // numero ser comparavel entre PRs. Rodando antes dele, o p95 do painel
   // foi de ~1,5 s para 6 a 13 s, puxado pelo Historico de Checklist (p95
-  // ~7 s, p50 ~4,7 s), que carrega todos os checklists com as respostas
-  // (28/10/2026, PR #257).
+  // ~7 s, p50 ~4,7 s), que carregava todos os checklists com as respostas
+  // (28/10/2026, PR #257). Com a 0079 (PR #260), na mesma situacao, o
+  // Historico ficou em p50 2,3 s / p95 3,3 s.
   test(`campo completo: ${TECNICOS} técnicos no início do turno, ao mesmo tempo`, async () => {
     test.setTimeout(10 * 60_000);
 
