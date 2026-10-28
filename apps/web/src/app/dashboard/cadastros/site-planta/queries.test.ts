@@ -67,7 +67,6 @@ function siteRow(extra: Record<string, unknown> = {}) {
     grupos_sites: { nome: "Cooplivre" },
     tipos_servico: { nome: "Portaria" },
     responsavel: { nome_completo: "Maria Silva" },
-    criador: { nome_completo: "Gesiel" },
     // Migration 0021.
     site_superior_id: null,
     cep: null,
@@ -168,14 +167,14 @@ describe("toTableRow", () => {
     );
   });
 
-  it("traz quem cadastrou", () => {
-    expect(toTableRow(siteRow())[COL["Usuário"]]).toBe("Gesiel");
+  /** No antigo a coluna "Usuário" e o responsavel pelo site, nao quem o
+   * cadastrou (auditoria de paridade de 28/10/2026). */
+  it("traz o responsavel pelo site", () => {
+    expect(toTableRow(siteRow())[COL["Usuário"]]).toBe("Maria Silva");
   });
 
-  /** A FK de `criado_por` e `on delete set null`: perfil apagado deixa a
-   * coluna vazia, e a linha continua valendo. */
-  it("aceita criador ausente sem quebrar", () => {
-    expect(toTableRow(siteRow({ criador: null }))[COL["Usuário"]]).toBe("");
+  it("site sem responsavel fica com a celula vazia", () => {
+    expect(toTableRow(siteRow({ responsavel: null }))[COL["Usuário"]]).toBe("");
   });
 });
 
