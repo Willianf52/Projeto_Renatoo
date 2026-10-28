@@ -201,61 +201,6 @@ test.describe("Carga", () => {
     expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.importacao);
   });
 
-  test.describe(() => {
-    test.use({ storageState: SESSAO_DO_GESTOR });
-
-    test(`painel: ${ABAS_DO_PAINEL} abas do GESTOR abrindo as telas pesadas ao mesmo tempo`, async ({
-      request,
-    }) => {
-      test.setTimeout(5 * 60_000);
-
-      const telas = [
-        // Sem periodo, como abre de verdade: desde 30/09/2026 a tela sem datas
-        // mostra so o aviso e nao consulta leituras. Abrir com um periodo
-        // largo aqui estourou o p95 (10 s contra 1,5 s, com statement timeout):
-        // o filtro de data em `leituras` e lento sob carga, e isso ja era
-        // assim antes -- esta tela so nunca tinha sido medida filtrada. Fica
-        // registrado numa issue propria, para ser corrigido no banco e so
-        // entao medido aqui.
-        "/dashboard/inspecoes/coletas-importadas",
-        "/dashboard/inspecoes/relatorios/registro-de-rondas",
-        "/dashboard/checklistlab/historico-de-checklist",
-        "/dashboard/cadastros/site-planta",
-      ];
-
-      // Tambem por tela, so para leitura: o total diz QUE o painel ficou
-      // lento, a quebra diz QUAL tela.
-      const porTela = new Map<string, Amostra[]>(telas.map((tela) => [tela, []]));
-
-      const { amostras, duracaoMs } = await emParalelo(ABAS_DO_PAINEL, async (aba) => {
-        const daAba: Amostra[] = [];
-        for (let rodada = 0; rodada < RODADAS_DO_PAINEL; rodada++) {
-          const tela = telas[(aba + rodada) % telas.length];
-          const amostra = await medir(async () => {
-            // A resposta inteira, streaming de Suspense incluido: `text()`
-            // so resolve quando o servidor fecha o corpo.
-            const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
-            if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
-            const html = await resposta.text();
-            if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
-          });
-          daAba.push(amostra);
-          porTela.get(tela)!.push(amostra);
-        }
-        return daAba;
-      });
-
-      const resumo = resumir("painel (telas pesadas)", amostras, duracaoMs);
-      publicar(resumo);
-      for (const [tela, daTela] of porTela) {
-        publicar(resumir(`painel: ${tela.split("/").at(-1)}`, daTela, duracaoMs));
-      }
-
-      expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
-      expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.painel);
-    });
-  });
-
   // POR ULTIMO de proposito: as 60 inspecoes que ele grava deixam o banco
   // maior, e os cenarios acima precisam medir sempre a mesma base para o
   // numero ser comparavel entre PRs. Rodando antes dele, o p95 do painel
@@ -362,6 +307,62 @@ test.describe("Carga", () => {
     expect(respostas.count).toBe(checklistsEnviados.length * PERGUNTAS_DO_MODELO);
     expect(fotos.count).toBe(checklistsEnviados.length * (FOTOS_GERAIS + FOTOS_DE_PERGUNTA));
   });
+
+  test.describe(() => {
+    test.use({ storageState: SESSAO_DO_GESTOR });
+
+    test(`painel: ${ABAS_DO_PAINEL} abas do GESTOR abrindo as telas pesadas ao mesmo tempo`, async ({
+      request,
+    }) => {
+      test.setTimeout(5 * 60_000);
+
+      const telas = [
+        // Sem periodo, como abre de verdade: desde 30/09/2026 a tela sem datas
+        // mostra so o aviso e nao consulta leituras. Abrir com um periodo
+        // largo aqui estourou o p95 (10 s contra 1,5 s, com statement timeout):
+        // o filtro de data em `leituras` e lento sob carga, e isso ja era
+        // assim antes -- esta tela so nunca tinha sido medida filtrada. Fica
+        // registrado numa issue propria, para ser corrigido no banco e so
+        // entao medido aqui.
+        "/dashboard/inspecoes/coletas-importadas",
+        "/dashboard/inspecoes/relatorios/registro-de-rondas",
+        "/dashboard/checklistlab/historico-de-checklist",
+        "/dashboard/cadastros/site-planta",
+      ];
+
+      // Tambem por tela, so para leitura: o total diz QUE o painel ficou
+      // lento, a quebra diz QUAL tela.
+      const porTela = new Map<string, Amostra[]>(telas.map((tela) => [tela, []]));
+
+      const { amostras, duracaoMs } = await emParalelo(ABAS_DO_PAINEL, async (aba) => {
+        const daAba: Amostra[] = [];
+        for (let rodada = 0; rodada < RODADAS_DO_PAINEL; rodada++) {
+          const tela = telas[(aba + rodada) % telas.length];
+          const amostra = await medir(async () => {
+            // A resposta inteira, streaming de Suspense incluido: `text()`
+            // so resolve quando o servidor fecha o corpo.
+            const resposta = await request.get(tela, { maxRedirects: 0, timeout: 60_000 });
+            if (resposta.status() !== 200) throw new Error(`${tela}: HTTP ${resposta.status()}`);
+            const html = await resposta.text();
+            if (html.includes("Erro na area do dashboard")) throw new Error(`${tela}: tela de erro`);
+          });
+          daAba.push(amostra);
+          porTela.get(tela)!.push(amostra);
+        }
+        return daAba;
+      });
+
+      const resumo = resumir("painel (telas pesadas)", amostras, duracaoMs);
+      publicar(resumo);
+      for (const [tela, daTela] of porTela) {
+        publicar(resumir(`painel: ${tela.split("/").at(-1)}`, daTela, duracaoMs));
+      }
+
+      expect(resumo.erros, `primeiro erro: ${resumo.primeiroErro}`).toBe(0);
+      expect(resumo.p95).toBeLessThanOrEqual(TETO_P95_MS.painel);
+    });
+  });
+
 });
 
 /**
