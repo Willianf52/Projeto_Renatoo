@@ -91,9 +91,9 @@ describe("extrairFiltros", () => {
     expect(extrairFiltros({ pagina: "abc" }).pagina).toBe(1);
   });
 
-  it("cai no padrão (ativos) para situação ausente ou fora da lista", () => {
-    expect(extrairFiltros({}).situacao).toBe("ativos");
-    expect(extrairFiltros({ situacao: "xyz" }).situacao).toBe("ativos");
+  it("cai no padrão (todos, como o antigo) para situação ausente ou fora da lista", () => {
+    expect(extrairFiltros({}).situacao).toBe("todos");
+    expect(extrairFiltros({ situacao: "xyz" }).situacao).toBe("todos");
   });
 
   it("aceita 'todos' como situação explícita", () => {
