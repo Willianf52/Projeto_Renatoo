@@ -1,25 +1,12 @@
 import { TabelaImpressao } from "@/components/dashboard/TabelaImpressao";
 import {
+  COLUNAS_DO_PDF,
   getColetasParaExportar,
-  toTableRow,
+  toLinhaDoPdf,
   extrairFiltros,
   LIMITE_EXPORTACAO,
   type SearchParams,
 } from "../../queries";
-
-const TABLE_COLUMNS = [
-  "Coleta",
-  "Data / Hora",
-  "Coletor de Dados",
-  "Funcionário",
-  "Local",
-  "Área",
-  "Evento",
-  "Observação",
-  "Ação",
-  "Qualificador",
-  "Data Integração",
-];
 
 /**
  * Pagina de impressao: o botao da listagem a abre em aba nova (`target="_blank"`)
@@ -43,9 +30,12 @@ export default async function ExportarColetasImportadasPdfPage({
 
   return (
     <TabelaImpressao
-      titulo="Coletas Importadas"
-      colunas={TABLE_COLUMNS}
-      linhas={rows.map(toTableRow)}
+      titulo="Relatório Coletor de Dados"
+      periodo={{ inicio: filtros.dataInicial, fim: filtros.dataFinal }}
+      colunas={COLUNAS_DO_PDF}
+      // A consulta vem da mais nova para a mais antiga (a da tela); o PDF do
+      // antigo lista em ordem de horario, da primeira coleta do dia em diante.
+      linhas={[...rows].reverse().map(toLinhaDoPdf)}
       truncado={truncado}
       limite={LIMITE_EXPORTACAO}
     />

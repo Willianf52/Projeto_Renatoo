@@ -47,6 +47,37 @@ export function formatarDataHora(valor: string | null): string {
   }).format(new Date(valor));
 }
 
+/** Partes de data e hora no fuso do projeto, com dois digitos e relogio de 24h. */
+function partesNoFuso(instante: Date): Record<string, string> {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: FUSO_DO_PROJETO,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instante);
+  return Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+}
+
+/**
+ * Data e hora em colunas separadas ("30/10/2026" e "06:58:17"), como no PDF de
+ * coletas do sistema antigo. Nulo vira duas celulas vazias.
+ */
+export function formatarDataEHoraSeparadas(valor: string | null): { data: string; hora: string } {
+  if (!valor) return { data: "", hora: "" };
+  const p = partesNoFuso(new Date(valor));
+  return { data: `${p.day}/${p.month}/${p.year}`, hora: `${p.hour}:${p.minute}:${p.second}` };
+}
+
+/** "30/10/2026 - 10:43": o carimbo de emissao no rodape dos PDFs, como no antigo. */
+export function formatarEmissao(instante: Date): string {
+  const p = partesNoFuso(instante);
+  return `${p.day}/${p.month}/${p.year} - ${p.hour}:${p.minute}`;
+}
+
 /**
  * "yyyy-mm" de hoje, no fuso do projeto -- o mes que os relatorios abrem
  * quando ninguem escolheu nenhum.

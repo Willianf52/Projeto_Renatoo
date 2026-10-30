@@ -79,6 +79,7 @@ const { createClientMock, respostas, tabelasConsultadas, ordens, contagens, rang
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 
 const {
+  COLUNAS_DO_PDF,
   extrairFiltros,
   getColetas,
   getColetasParaExportar,
@@ -86,6 +87,7 @@ const {
   montarSelectDeColetas,
   papeisNaVisita,
   temChecklist,
+  toLinhaDoPdf,
   toTableRow,
   LIMITE_EXPORTACAO,
   __limparCacheDeReferencias,
@@ -434,6 +436,17 @@ describe("toTableRow", () => {
     });
     expect(linha[2]).toBe("Coletor 3");
     expect(linha[7]).toBe("Portão trancado");
+  });
+
+  /** O PDF segue o "Relatorio Coletor de Dados" do antigo (30/10/2026): 7
+   * colunas, data e hora separadas e com segundos, no fuso de Brasilia. */
+  it("linha do PDF tem as 7 colunas do antigo", () => {
+    const linha = toLinhaDoPdf({
+      ...DO_APP,
+      visitas: { ...DO_APP.visitas, nome_do_funcionario: "Ana", sites: { nome: "Posto" } },
+    });
+    expect(COLUNAS_DO_PDF).toEqual(["Bastão", "Funcionário", "Local", "Evento", "Observação", "Data", "Hora"]);
+    expect(linha).toEqual(["Dispositivo Móvel", "Ana", "Posto", "", "Inspeção", "30/09/2026", "08:55:18"]);
   });
 });
 
