@@ -1,38 +1,46 @@
-import { paraCsv } from "@/lib/csv";
+import { paraXlsx } from "@/lib/xlsx";
 import {
-  TABLE_COLUMNS,
+  COLUNAS_DO_EXCEL,
   TETO_DO_HISTORICO,
   extrairFiltros,
-  paramsDaUrl,
   getHistorico,
-  toTableRow,
+  getRegionais,
+  hojeNoFuso,
+  paramsDaUrl,
+  toLinhaDoExcel,
 } from "../../queries";
 
 /**
- * "Exportar para Excel" desta tela: CSV com os mesmos filtros aplicados na
- * listagem, sem a paginacao. A leitura continua sob o mesmo RLS da tela --
- * `pode_ver_visita` (0042) recorta os checklists pela visita a que pertencem,
- * entao o arquivo sai com o mesmo recorte que a pessoa ve na tela.
+ * "Exportar para Excel" desta tela: planilha .xlsx com as 17 colunas do
+ * antigo, os mesmos filtros da listagem e sem a paginacao. A leitura continua
+ * sob o mesmo RLS da tela -- `pode_ver_visita` (0042) recorta os checklists
+ * pela visita a que pertencem, entao o arquivo sai com o mesmo recorte que a
+ * pessoa ve na tela.
  */
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const filtros = extrairFiltros(paramsDaUrl(searchParams));
 
   const historico = await getHistorico(filtros);
-  const linhas = historico.linhas.map(toTableRow);
+  const regionais = await getRegionais(
+    historico.linhas.map((linha) => linha.siteId).filter((id): id is number => id !== null),
+  );
+  const linhas: (string | number)[][] = historico.linhas.map((linha) =>
+    toLinhaDoExcel(linha, linha.siteId === null ? "" : (regionais.get(linha.siteId) ?? "")),
+  );
 
   if (historico.truncado) {
     linhas.push([
       "…",
       `Resultado limitado aos primeiros ${TETO_DO_HISTORICO}: ajuste os filtros para reduzir o total`,
-      ...Array(TABLE_COLUMNS.length - 2).fill(""),
     ]);
   }
 
-  return new Response(paraCsv(TABLE_COLUMNS, linhas), {
+  return new Response(Buffer.from(paraXlsx(COLUNAS_DO_EXCEL, linhas)), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="historico-de-checklist.csv"',
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      // O mesmo nome do antigo, menos o codigo de cliente de la.
+      "Content-Disposition": `attachment; filename="checklistlab_${hojeNoFuso()}.xlsx"`,
     },
   });
 }

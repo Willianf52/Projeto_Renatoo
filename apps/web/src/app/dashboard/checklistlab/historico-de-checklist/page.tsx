@@ -131,10 +131,11 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       <Acao titulo="Exportar para Excel" href={`${LISTAGEM}/export/excel${query}`} tom="excel" target="_blank">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
-      {/* Uma linha por resposta, contra uma por checklist no botao ao lado. */}
+      {/* Como no antigo, abre a escolha do checklist: sai uma planilha por
+          modelo, com as perguntas dele em colunas. */}
       <Acao
         titulo="Exportar Respostas para Excel"
-        href={`${LISTAGEM}/export/respostas${query}`}
+        href={`${LISTAGEM}/export/escolher-modelo${query}`}
         tom="excel"
         target="_blank"
       >

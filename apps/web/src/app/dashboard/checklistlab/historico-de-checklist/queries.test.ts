@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  COLUNAS_DO_EXCEL,
+  COLUNAS_DO_PDF,
   camposDoResumo,
   comPadroesDaTela,
   conclusaoDaLista,
@@ -11,23 +13,26 @@ import {
   hojeNoFuso,
   idValido,
   interpretarNumeroAno,
-  linhasDeRespostas,
+  modelosDoHistorico,
   montarArvore,
   montarLinha,
   ordenarRespostas,
   paraLinhaDoHistorico,
+  planilhaDeRespostas,
   paramsDaUrl,
   querystringDe,
   rotuloDaResposta,
   textoDaConclusao,
   textoDaSituacao,
+  toLinhaDoExcel,
+  toLinhaDoPdf,
   toTableRow,
   totalDoModelo,
   type ChecklistBruto,
   type ChecklistDetalhe,
   type Filtros,
   type LinhaDoBanco,
-  type RespostaParaExportar,
+  type PerguntaDoModelo,
 } from "./queries";
 
 const SEM_FILTROS: Filtros = {
@@ -563,62 +568,132 @@ describe("decisao pelo tipo cru, nao pelo rotulo de tela", () => {
   });
 });
 
-describe("linhasDeRespostas", () => {
-  const resposta = (
-    checklistId: number,
-    ordem: number,
-    valor: string,
-    extra: Partial<RespostaParaExportar> = {},
-  ): RespostaParaExportar => ({
-    checklist_id: checklistId,
-    resposta: valor,
-    observacao: null,
-    perguntas_checklist: { ordem, texto: `Pergunta ${ordem}`, tipo_resposta: "CNA" },
+describe("exportacoes no formato do antigo", () => {
+  const doBanco = (extra: Partial<LinhaDoBanco> = {}): LinhaDoBanco => ({
+    id: 11318976,
+    numero: 2096,
+    ano: 2026,
+    tipo: "CONSULTORIA",
+    motivo: null,
+    criado_em: "2026-10-30T13:13:33Z",
+    modelo_id: 7,
+    modelo_nome: "Sicredi",
+    inicio_em: "2026-10-30T13:12:25Z",
+    funcionario_id: null,
+    responsavel: "Inspetora",
+    site_id: 30,
+    site_nome: "Agencia Centro",
+    caminho: "UP Serviços → Agencia Centro",
+    motivo_da_visita: null,
+    total_perguntas: 2,
+    respondidas: 2,
+    nao_conformidades: 0,
+    nota: 100,
     ...extra,
   });
 
-  it("uma linha por resposta, na ordem das perguntas, com o checklist repetido", () => {
-    const consultoria = linha(bruto(7, "CONSULTORIA", []));
-    const linhas = linhasDeRespostas(
-      [consultoria],
-      [resposta(7, 2, "NAO", { observacao: "Extintor vencido" }), resposta(7, 1, "SIM")],
-    );
-
-    expect(linhas).toHaveLength(2);
-    expect(linhas[0].slice(0, 4)).toEqual(["7", "00007/2026", "Consultoria", "Portaria"]);
-    expect(linhas[0].slice(5, 7)).toEqual(["Ana Souza", "ACE Limpeza"]);
-    expect(linhas[0].slice(7)).toEqual(["1", "Pergunta 1", "Conforme", ""]);
-    expect(linhas[1].slice(7)).toEqual(["2", "Pergunta 2", "Não conforme", "Extintor vencido"]);
+  it("Excel: as 17 colunas do antigo, nota com uma casa e datas com segundos", () => {
+    const linha = toLinhaDoExcel(paraLinhaDoHistorico(doBanco()), "SP");
+    expect(COLUNAS_DO_EXCEL).toHaveLength(17);
+    expect(linha).toEqual([
+      11318976,
+      "02096/2026",
+      "Sicredi",
+      "30/10/2026 10:12:25",
+      "30/10/2026 10:12:25",
+      "30/10/2026 10:13:33",
+      "30/10/2026 10:13:33",
+      "",
+      "Inspetora",
+      "Agencia Centro",
+      "SP",
+      "No prazo",
+      "Finalizado",
+      "100.0",
+      "Ativo",
+      "0",
+      "",
+    ]);
   });
 
-  it("o rotulo segue o tipo da pergunta: NAO numa Sim/Nao e 'Não', nao 'Não conforme'", () => {
-    const linhas = linhasDeRespostas(
-      [linha(bruto(7, "CONSULTORIA", []))],
-      [resposta(7, 1, "NAO", { perguntas_checklist: { ordem: 1, texto: "Duvidas com o RH", tipo_resposta: "SN" } })],
-    );
-
-    expect(linhas[0][9]).toBe("Não");
+  it("PDF: as 13 colunas do antigo, nota inteira", () => {
+    const linha = toLinhaDoPdf(paraLinhaDoHistorico(doBanco()));
+    expect(COLUNAS_DO_PDF).toHaveLength(13);
+    expect(linha).toHaveLength(13);
+    expect(linha.slice(0, 2)).toEqual(["02096/2026", "Sicredi"]);
+    expect(linha[10]).toBe("100");
   });
 
-  it("segue a ordem da listagem, nao a das respostas", () => {
-    const linhas = linhasDeRespostas(
-      [linha(bruto(9, "CONSULTORIA", [])), linha(bruto(3, "CONSULTORIA", []))],
-      [resposta(3, 1, "SIM"), resposta(9, 1, "SIM")],
-    );
-
-    expect(linhas.map((l) => l[0])).toEqual(["9", "3"]);
+  it("modelos do filtro, com a contagem, sem a corretiva", () => {
+    const linhas = [
+      paraLinhaDoHistorico(doBanco()),
+      paraLinhaDoHistorico(doBanco({ id: 2 })),
+      paraLinhaDoHistorico(doBanco({ id: 3, modelo_id: 4, modelo_nome: "Arumã" })),
+      paraLinhaDoHistorico(doBanco({ id: 4, tipo: "CORRETIVA", modelo_id: null, modelo_nome: null })),
+    ];
+    expect(modelosDoHistorico(linhas)).toEqual([
+      { id: 4, nome: "Arumã", total: 1 },
+      { id: 7, nome: "Sicredi", total: 2 },
+    ]);
   });
 
-  it("checklist sem resposta sai numa linha so; a corretiva leva o motivo na Observacao", () => {
-    const linhas = linhasDeRespostas(
-      [linha(bruto(4, "CONSULTORIA", [])), linha(bruto(5, "CORRETIVA", []))],
-      [],
-      new Map([[5, "Portão danificado"]]),
-    );
+  describe("planilha de respostas de um modelo", () => {
+    const perguntas: PerguntaDoModelo[] = [
+      { id: 21, ordem: 2, texto: "Duvidas com o RH", tipo_resposta: "SN" },
+      { id: 20, ordem: 1, texto: "Uniformes;", tipo_resposta: "CNA" },
+    ];
+    const resposta = (checklistId: number, perguntaId: number, valor: string, obs: string | null = null) => ({
+      checklist_id: checklistId,
+      pergunta_id: perguntaId,
+      resposta: valor,
+      observacao: obs,
+    });
 
-    expect(linhas).toHaveLength(2);
-    expect(linhas[0].slice(7)).toEqual(["", "", "", ""]);
-    expect(linhas[1].slice(7)).toEqual(["", "", "", "Portão danificado"]);
+    it("uma linha por checklist e cada pergunta numa coluna, seguida da Obs. Resposta", () => {
+      const { colunas, linhas } = planilhaDeRespostas(
+        [paraLinhaDoHistorico(doBanco())],
+        perguntas,
+        [resposta(11318976, 20, "SIM", "Tudo certo"), resposta(11318976, 21, "NAO")],
+      );
+      expect(colunas).toEqual([
+        "ID",
+        "Número/Ano",
+        "Data Planejada",
+        "Data Finalização",
+        "Responsável",
+        "Site",
+        "Situação",
+        "Conclusão",
+        "Observações",
+        "Uniformes;",
+        "Obs. Resposta",
+        "Duvidas com o RH",
+        "Obs. Resposta",
+      ]);
+      expect(linhas).toEqual([
+        [
+          11318976,
+          // Sem os zeros a esquerda, como o antigo escreve nesta planilha.
+          "2096/2026",
+          "30/10/2026 10:12:25",
+          "30/10/2026 10:13:33",
+          "Inspetora",
+          "Agencia Centro",
+          "No prazo",
+          "Finalizado",
+          "",
+          "Conforme",
+          "Tudo certo",
+          "Não",
+          "",
+        ],
+      ]);
+    });
+
+    it("pergunta sem resposta fica em branco", () => {
+      const { linhas } = planilhaDeRespostas([paraLinhaDoHistorico(doBanco())], perguntas, []);
+      expect(linhas[0].slice(9)).toEqual(["", "", "", ""]);
+    });
   });
 });
 

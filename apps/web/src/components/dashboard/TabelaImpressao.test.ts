@@ -38,6 +38,11 @@ describe("cssDaFolha", () => {
     expect(cssDaFolha("x")).not.toContain("size");
   });
 
+  /** O PDF do Historico de Checklist do antigo sai deitado. */
+  it("com paisagem, a folha ja sai deitada", () => {
+    expect(cssDaFolha("x", true)).toContain("size: A4 landscape;");
+  });
+
   it("texto nao escapa da string do CSS", () => {
     // Entrada: a"b\c + quebra de linha + d. Saida: aspas e barra escapadas, quebra virando espaco.
     expect(cssDaFolha(String.raw`a"b\c` + "\nd")).toContain(String.raw`content: "a\"b\\c d";`);

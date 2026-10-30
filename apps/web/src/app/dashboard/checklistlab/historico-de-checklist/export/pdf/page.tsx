@@ -1,10 +1,11 @@
+import type { Metadata } from "next";
 import { TabelaImpressao } from "@/components/dashboard/TabelaImpressao";
 import {
-  TABLE_COLUMNS,
+  COLUNAS_DO_PDF,
   TETO_DO_HISTORICO,
   extrairFiltros,
   getHistorico,
-  toTableRow,
+  toLinhaDoPdf,
   type SearchParams,
 } from "../../queries";
 
@@ -18,6 +19,11 @@ import {
  */
 export const instant = false;
 
+/** O titulo da aba vira o nome sugerido do arquivo ao salvar como PDF. */
+export const metadata: Metadata = { title: "historico_checklist" };
+
+/** No formato do PDF do antigo (30/10/2026): as 13 colunas de la, folha
+ * deitada, linhas brancas e texto a esquerda. */
 export default async function ExportarHistoricoDeChecklistPdfPage({
   searchParams,
 }: {
@@ -29,10 +35,12 @@ export default async function ExportarHistoricoDeChecklistPdfPage({
   return (
     <TabelaImpressao
       titulo="Histórico de Checklist"
-      colunas={TABLE_COLUMNS}
-      linhas={historico.linhas.map(toTableRow)}
+      colunas={COLUNAS_DO_PDF}
+      linhas={historico.linhas.map(toLinhaDoPdf)}
       truncado={historico.truncado}
       limite={TETO_DO_HISTORICO}
+      estilo="simples"
+      paisagem
     />
   );
 }

@@ -23,6 +23,8 @@ export async function TabelaImpressao({
   limite,
   rodape,
   periodo,
+  estilo = "zebrado",
+  paisagem = false,
 }: {
   titulo: string;
   colunas: string[];
@@ -37,7 +39,17 @@ export async function TabelaImpressao({
   rodape?: string[];
   /** Datas do filtro em "yyyy-mm-dd", como `dataValida` devolve. */
   periodo?: { inicio?: string; fim?: string };
+  /**
+   * Os PDFs do antigo nao sao todos iguais. "zebrado" e o do Relatorio
+   * Coletor de Dados: titulo e cabecalho em maiusculas, linhas zebradas e
+   * centralizadas. "simples" e o do Historico de Checklist: titulo como
+   * escrito, linhas brancas e texto a esquerda.
+   */
+  estilo?: "zebrado" | "simples";
+  /** Folha deitada, como o PDF do Historico de Checklist do antigo. */
+  paisagem?: boolean;
 }) {
+  const zebrado = estilo === "zebrado";
   const textoPeriodo = textoDoPeriodo(periodo?.inicio, periodo?.fim);
   // A emissao e a hora desta requisicao: com Cache Components, `new Date()`
   // so pode rodar depois de `connection()`, ou quebra o prerender no build.
@@ -51,7 +63,7 @@ export async function TabelaImpressao({
       // Sem isto o navegador nao imprime fundo, e a zebra some no PDF.
       style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}
     >
-      <style>{cssDaFolha(emissao)}</style>
+      <style>{cssDaFolha(emissao, paisagem)}</style>
       {/* Espera o logo carregar: imprimir antes deixaria o canto em branco. */}
       <ImprimirAoAbrir esperarImagens />
 
@@ -68,7 +80,7 @@ export async function TabelaImpressao({
           className="absolute left-0 top-0 h-10 w-auto"
           style={{ filter: "invert(1) hue-rotate(180deg)" }}
         />
-        <h1 className="text-base font-bold uppercase">{titulo}</h1>
+        <h1 className={`text-base font-bold ${zebrado ? "uppercase" : ""}`}>{titulo}</h1>
         {textoPeriodo && <p className="text-xs font-bold">{textoPeriodo}</p>}
       </header>
 
@@ -82,7 +94,7 @@ export async function TabelaImpressao({
         <thead>
           <tr>
             {colunas.map((coluna) => (
-              <th key={coluna} className="px-1 py-1 text-center font-bold uppercase">
+              <th key={coluna} className={`px-1 py-1 font-bold ${zebrado ? "text-center uppercase" : "text-left"}`}>
                 {coluna}
               </th>
             ))}
@@ -93,9 +105,9 @@ export async function TabelaImpressao({
             // Indice como key: linha nao tem id proprio disponivel aqui, e a
             // ordem e estavel dentro desta renderizacao unica (sem re-fetch
             // nem reordenacao no cliente).
-            <tr key={indice} className={indice % 2 === 0 ? "bg-neutral-200" : undefined}>
+            <tr key={indice} className={zebrado && indice % 2 === 0 ? "bg-neutral-200" : undefined}>
               {linha.map((campo, coluna) => (
-                <td key={coluna} className="px-1 py-0.5 text-center">
+                <td key={coluna} className={`px-1 py-0.5 ${zebrado ? "text-center" : "text-left"}`}>
                   {campo}
                 </td>
               ))}
@@ -106,7 +118,10 @@ export async function TabelaImpressao({
           <tfoot>
             <tr>
               {rodape.map((campo, coluna) => (
-                <td key={coluna} className="border-t border-slate-400 px-1 py-1 text-center font-bold">
+                <td
+                  key={coluna}
+                  className={`border-t border-slate-400 px-1 py-1 font-bold ${zebrado ? "text-center" : "text-left"}`}
+                >
                   {campo}
                 </td>
               ))}
@@ -133,15 +148,17 @@ export function textoDoPeriodo(inicio?: string, fim?: string): string | null {
 /**
  * Rodape de cada folha impressa: a emissao a esquerda e "N de M" no centro.
  * Vai nas caixas de margem do `@page` (Chrome 131+), o unico lugar em que o
- * navegador sabe o numero da pagina. Sem `size`: a orientacao continua sendo
- * escolha de quem imprime, e relatorio largo sai melhor deitado.
+ * navegador sabe o numero da pagina. Sem `paisagem`, nao ha `size`: a
+ * orientacao continua sendo escolha de quem imprime. Com ela, a folha ja sai
+ * deitada, como no PDF do Historico de Checklist do antigo.
  *
  * As caixas do topo vao em branco de proposito: o Chrome so deixa de imprimir
  * o cabecalho dele (data e titulo da aba) na faixa em que a pagina define as
  * suas -- no PDF de 30/10/2026 o rodape dele sumiu e o cabecalho nao.
  */
-export function cssDaFolha(emissao: string): string {
+export function cssDaFolha(emissao: string, paisagem = false): string {
   const texto = emissao.replace(/["\\]/g, "\\$&").replace(/[\r\n]+/g, " ");
   const fonte = "font: 8px sans-serif; color: #333;";
-  return `@page { margin: 12mm 10mm 16mm 10mm; @top-left { content: " "; } @top-center { content: " "; } @top-right { content: " "; } @bottom-left { content: "${texto}"; ${fonte} } @bottom-center { content: counter(page) " de " counter(pages); ${fonte} } }`;
+  const folha = paisagem ? "size: A4 landscape; " : "";
+  return `@page { ${folha}margin: 12mm 10mm 16mm 10mm; @top-left { content: " "; } @top-center { content: " "; } @top-right { content: " "; } @bottom-left { content: "${texto}"; ${fonte} } @bottom-center { content: counter(page) " de " counter(pages); ${fonte} } }`;
 }

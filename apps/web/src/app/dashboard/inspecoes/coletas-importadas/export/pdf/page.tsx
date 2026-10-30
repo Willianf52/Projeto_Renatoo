@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { TabelaImpressao } from "@/components/dashboard/TabelaImpressao";
 import {
   COLUNAS_DO_PDF,
@@ -17,6 +18,9 @@ import {
  * Cache Components em vez de deixar o aviso de rota bloqueante no overlay.
  */
 export const instant = false;
+
+/** O titulo da aba vira o nome sugerido ao salvar como PDF: "Coletas", como no antigo. */
+export const metadata: Metadata = { title: "Coletas" };
 
 export default async function ExportarColetasImportadasPdfPage({
   searchParams,
