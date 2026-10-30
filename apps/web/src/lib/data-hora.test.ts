@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   dataValida,
   fimExclusivoDoFiltro,
+  formatarDataEHoraSeparadas,
   formatarDataHora,
+  formatarEmissao,
   horaValida,
   inicioDoFiltro,
   mesAtual,
@@ -25,6 +27,27 @@ import {
  * teste deixa de importar e a asercao quebra do mesmo jeito na CI e no
  * notebook de quem desenvolve.
  */
+
+describe("formatarDataEHoraSeparadas", () => {
+  it("separa data e hora com segundos, no fuso de Brasilia", () => {
+    expect(formatarDataEHoraSeparadas("2026-10-30T09:58:17Z")).toEqual({ data: "30/10/2026", hora: "06:58:17" });
+  });
+
+  it("01:30 UTC ainda e o dia anterior aqui", () => {
+    expect(formatarDataEHoraSeparadas("2026-09-08T01:30:05Z")).toEqual({ data: "07/09/2026", hora: "22:30:05" });
+  });
+
+  it("nulo vira duas celulas vazias", () => {
+    expect(formatarDataEHoraSeparadas(null)).toEqual({ data: "", hora: "" });
+  });
+});
+
+describe("formatarEmissao", () => {
+  it("no formato do rodape do antigo, em 24h e no fuso de Brasilia", () => {
+    expect(formatarEmissao(new Date("2026-10-30T13:43:59Z"))).toBe("30/10/2026 - 10:43");
+    expect(formatarEmissao(new Date("2026-10-30T03:05:00Z"))).toBe("30/10/2026 - 00:05");
+  });
+});
 
 describe("formatarDataHora", () => {
   it("converte de UTC para o fuso de Brasilia", () => {

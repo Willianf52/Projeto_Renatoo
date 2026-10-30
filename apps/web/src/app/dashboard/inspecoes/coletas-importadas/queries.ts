@@ -1,6 +1,7 @@
 import {
   dataValida,
   fimExclusivoDoFiltro,
+  formatarDataEHoraSeparadas,
   formatarDataHora,
   horaValida,
   inicioDoFiltro,
@@ -561,4 +562,15 @@ export function toTableRow(leitura: ColetaRow): string[] {
     leitura.qualificadores?.nome ?? "",
     formatarDataHora(leitura.data_integracao),
   ];
+}
+
+/** Colunas do PDF, as do "Relatorio Coletor de Dados" do antigo (lido em
+ * 30/10/2026). A tela e o Excel continuam com as de `toTableRow`. */
+export const COLUNAS_DO_PDF = ["Bastão", "Funcionário", "Local", "Evento", "Observação", "Data", "Hora"];
+
+/** Linha do PDF: as mesmas celulas da tela, com data e hora separadas. */
+export function toLinhaDoPdf(leitura: ColetaRow): string[] {
+  const [, , coletor, funcionario, local, , evento, observacao] = toTableRow(leitura);
+  const { data, hora } = formatarDataEHoraSeparadas(leitura.data_hora);
+  return [coletor, funcionario, local, evento, observacao, data, hora];
 }
