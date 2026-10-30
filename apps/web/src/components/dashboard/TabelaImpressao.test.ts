@@ -24,6 +24,15 @@ describe("cssDaFolha", () => {
     expect(css).toContain('@bottom-center { content: counter(page) " de " counter(pages);');
   });
 
+  /** Sem as caixas do topo, o Chrome imprimia la o cabecalho dele (data e
+   * titulo da aba), visto no PDF de 30/10/2026. */
+  it("ocupa o topo da folha para o Chrome nao por o cabecalho dele", () => {
+    const css = cssDaFolha("x");
+    expect(css).toContain('@top-left { content: " "; }');
+    expect(css).toContain('@top-center { content: " "; }');
+    expect(css).toContain('@top-right { content: " "; }');
+  });
+
   /** A orientacao fica com quem imprime: relatorio largo sai melhor deitado. */
   it("nao fixa o tamanho nem a orientacao da folha", () => {
     expect(cssDaFolha("x")).not.toContain("size");
