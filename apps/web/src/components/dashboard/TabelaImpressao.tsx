@@ -58,8 +58,16 @@ export async function TabelaImpressao({
       <header className="relative mb-4 flex min-h-12 flex-col items-center justify-center text-center">
         {/* `img` e nao `next/image`: na impressao o que importa e o arquivo
             pronto quando o dialogo abre, e o `ImprimirAoAbrir` espera por ele. */}
+        {/* O arquivo do logo e branco, feito para o fundo escuro do portal, e
+            no papel sumia (conferido no PDF de 30/10/2026). Inverter e girar o
+            matiz deixa as letras pretas e as faixas na cor original. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-up-servicos.png" alt="Up Serviços" className="absolute left-0 top-0 h-10 w-auto" />
+        <img
+          src="/logo-up-servicos.png"
+          alt="Up Serviços"
+          className="absolute left-0 top-0 h-10 w-auto"
+          style={{ filter: "invert(1) hue-rotate(180deg)" }}
+        />
         <h1 className="text-base font-bold uppercase">{titulo}</h1>
         {textoPeriodo && <p className="text-xs font-bold">{textoPeriodo}</p>}
       </header>
@@ -127,9 +135,13 @@ export function textoDoPeriodo(inicio?: string, fim?: string): string | null {
  * Vai nas caixas de margem do `@page` (Chrome 131+), o unico lugar em que o
  * navegador sabe o numero da pagina. Sem `size`: a orientacao continua sendo
  * escolha de quem imprime, e relatorio largo sai melhor deitado.
+ *
+ * As caixas do topo vao em branco de proposito: o Chrome so deixa de imprimir
+ * o cabecalho dele (data e titulo da aba) na faixa em que a pagina define as
+ * suas -- no PDF de 30/10/2026 o rodape dele sumiu e o cabecalho nao.
  */
 export function cssDaFolha(emissao: string): string {
   const texto = emissao.replace(/["\\]/g, "\\$&").replace(/[\r\n]+/g, " ");
   const fonte = "font: 8px sans-serif; color: #333;";
-  return `@page { margin: 12mm 10mm 16mm 10mm; @bottom-left { content: "${texto}"; ${fonte} } @bottom-center { content: counter(page) " de " counter(pages); ${fonte} } }`;
+  return `@page { margin: 12mm 10mm 16mm 10mm; @top-left { content: " "; } @top-center { content: " "; } @top-right { content: " "; } @bottom-left { content: "${texto}"; ${fonte} } @bottom-center { content: counter(page) " de " counter(pages); ${fonte} } }`;
 }
