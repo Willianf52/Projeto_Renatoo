@@ -11,6 +11,7 @@ contas existirem.
 |---|---|
 | Identificador do app: `br.com.upservicos.inspecao` (Android e iPhone) | `apps/mobile/app.json` |
 | Build de loja: perfil `production` (Android em AAB, versão sobe sozinha) | `apps/mobile/eas.json` |
+| Versão do app de loja: **1.2.0**, Expo SDK 58 (desde 28/10, #251). O primeiro build de loja é um build nativo novo, então já sai nela | `apps/mobile/app.json` |
 | Variáveis do ambiente `production` do EAS, inclusive `EXPO_PUBLIC_URL_DO_PORTAL` (26/10) | painel do EAS |
 | Textos de permissão da câmera em português | plugins `expo-camera` e `expo-image-picker` no `app.json` |
 | iPhone: sem criptografia própria (`usesNonExemptEncryption: false`) e idioma base pt-BR | `apps/mobile/app.json` |
@@ -49,7 +50,7 @@ contas existirem.
 |---|---|---|
 | Ícone da loja | 512 x 512 px, PNG | Hoje o app usa o ícone de 12/10; o logo em alta resolução ainda está pendente |
 | Imagem de destaque (só Google) | 1024 x 500 px | Fundo azul da marca com o logo serve |
-| Prints do celular | pelo menos 2 (Google) e 3 (Apple) | Tirados do app com dado de teste, nunca com cliente real |
+| Prints do celular | pelo menos 2 (Google) e 3 (Apple) | Tirados do app com dado de teste, nunca com cliente real. Os do iPhone (1320 x 2868) servem na Apple como estão; na Google a proporção máxima é 2:1, então as cópias da Google são recortadas. Pelo Expo Go, ocultar antes o botão flutuante de ferramentas (a engrenagem azul), que não faz parte do app. Os 6 prints da versão 1.2.0 foram tirados em 30/10 e ficam fora do repositório (pasta `paridade`) |
 | Prints de tablet | opcional na Google; exigido na Apple se `supportsTablet` | O `app.json` declara suporte a iPad hoje |
 
 ## Formulário de segurança de dados (Google Play)
