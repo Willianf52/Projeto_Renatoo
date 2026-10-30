@@ -326,6 +326,9 @@ export type HistoricoLinha = {
   checklist: string;
   /** Nome do modelo respondido; vazio na corretiva. */
   modelo: string;
+  /** Id do modelo respondido; nulo na corretiva. Separa as planilhas de
+   * respostas, uma por modelo, como no antigo. */
+  modeloId: number | null;
   enviadoEm: string;
   /** `visitas.criado_em`: a abertura da visita (Planejada e Inicio na coluna Datas). */
   inicioEm: string;
@@ -384,6 +387,7 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     numeroAno: formatarNumeroAno(bruto.numero, bruto.ano),
     checklist: bruto.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
     modelo: bruto.modelos_checklist?.nome ?? "",
+    modeloId: bruto.modelo_id,
     enviadoEm: bruto.criado_em,
     inicioEm: bruto.visitas?.criado_em ?? bruto.criado_em,
     responsavel: bruto.visitas?.profiles?.nome_completo ?? "",
@@ -612,6 +616,7 @@ export function paraLinhaDoHistorico(linha: LinhaDoBanco): HistoricoLinha {
     numeroAno: formatarNumeroAno(linha.numero, linha.ano),
     checklist: linha.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
     modelo: linha.modelo_nome ?? "",
+    modeloId: linha.modelo_id,
     enviadoEm: linha.criado_em,
     inicioEm: linha.inicio_em ?? linha.criado_em,
     responsavel: linha.responsavel ?? "",
@@ -972,123 +977,260 @@ export function camposDoResumo(detalhe: ChecklistDetalhe): { rotulo: string; val
 }
 
 // ---------------------------------------------------------------------------
-// Exportar Respostas para Excel
+// Exportacoes no formato do sistema antigo (Excel, Respostas e PDF)
 // ---------------------------------------------------------------------------
+//
+// Copiadas dos arquivos que o antigo exportou em 30/10/2026: o Excel e o de
+// Respostas sao .xlsx (`lib/xlsx.ts`), e o PDF sai deitado. Dados que o
+// sistema novo nao tem (aprovacao, agendamento, atividade) saem como no
+// antigo, que os mostra vazios ou zerados.
 
-/** Uma linha por resposta: as colunas do checklist se repetem em cada uma,
- * para a planilha poder ser filtrada por site, pergunta ou resposta sem
- * precisar de um segundo arquivo. */
-export const RESPOSTAS_COLUMNS = [
+/** As 17 colunas do "Exportar para Excel" do antigo, na mesma ordem. */
+export const COLUNAS_DO_EXCEL = [
   "ID",
   "Número/Ano",
   "Checklist",
-  "Modelo",
-  "Enviado em",
+  "Data Planejada",
+  "Data Início",
+  "Data Término",
+  "Data Finalização",
+  "Data Aprovação",
   "Responsável",
   "Site",
-  "Ordem",
-  "Pergunta",
-  "Resposta",
-  "Observação",
+  "Regional",
+  "Situação",
+  "Conclusão",
+  "Nota",
+  "Status",
+  "Agendamento ID",
+  "Atividade",
 ];
+
+/** As 13 colunas do "Exportar para PDF" do antigo. */
+export const COLUNAS_DO_PDF = [
+  "Número/Ano",
+  "Checklist",
+  "Data Planejada",
+  "Data Início",
+  "Data Término",
+  "Data Finalização",
+  "Responsável",
+  "Site",
+  "Situação",
+  "Conclusão",
+  "Nota",
+  "Status",
+  "Atividade",
+];
+
+/** As quatro datas do antigo. Sem agenda, a Planejada e a abertura da visita;
+ * sem hora de termino separada, Termino e Finalizacao sao o envio (mesma
+ * regra de `datasDaLinha`). */
+function datasDoAntigo(linha: HistoricoLinha) {
+  const inicio = formatarDataHoraComSegundos(linha.inicioEm);
+  const envio = formatarDataHoraComSegundos(linha.enviadoEm);
+  return { planejada: inicio, inicio, termino: envio, finalizacao: envio };
+}
+
+/** Linha do Excel. A nota vai como o antigo a escreve ("100.0"). */
+export function toLinhaDoExcel(linha: HistoricoLinha, regional: string): (string | number)[] {
+  const datas = datasDoAntigo(linha);
+  return [
+    linha.id,
+    linha.numeroAno,
+    nomeDoChecklist(linha),
+    datas.planejada,
+    datas.inicio,
+    datas.termino,
+    datas.finalizacao,
+    "",
+    linha.responsavel,
+    linha.site,
+    regional,
+    SITUACAO_DA_LISTA,
+    conclusaoDaLista(linha),
+    linha.nota === null ? "" : linha.nota.toFixed(1),
+    "Ativo",
+    "0",
+    "",
+  ];
+}
+
+/** Linha do PDF. Aqui a nota vai inteira, como no PDF do antigo ("100"). */
+export function toLinhaDoPdf(linha: HistoricoLinha): string[] {
+  const datas = datasDoAntigo(linha);
+  return [
+    linha.numeroAno,
+    nomeDoChecklist(linha),
+    datas.planejada,
+    datas.inicio,
+    datas.termino,
+    datas.finalizacao,
+    linha.responsavel,
+    linha.site,
+    SITUACAO_DA_LISTA,
+    conclusaoDaLista(linha),
+    linha.nota === null ? "" : String(linha.nota),
+    "Ativo",
+    "",
+  ];
+}
+
+/**
+ * Regional de cada site, para a coluna do Excel. A linha do historico (0079)
+ * nao a traz, entao sai numa consulta a parte, pelos sites das linhas.
+ */
+export async function getRegionais(siteIds: readonly number[]): Promise<Map<number, string>> {
+  const supabase = await createClient();
+  const regionais = new Map<number, string>();
+  for (const lote of emLotes([...new Set(siteIds)], IDS_POR_CONSULTA)) {
+    const { data, error } = await supabase.from("sites").select("id, regional").in("id", lote);
+    if (error) throw error;
+    for (const site of (data ?? []) as { id: number; regional: string | null }[]) {
+      regionais.set(site.id, site.regional ?? "");
+    }
+  }
+  return regionais;
+}
+
+/** Os modelos que aparecem no filtro, com quantos checklists cada um tem -- a
+ * lista de onde se escolhe a planilha de respostas, como a caixa do antigo. */
+export function modelosDoHistorico(
+  linhas: readonly HistoricoLinha[],
+): { id: number; nome: string; total: number }[] {
+  const porId = new Map<number, { id: number; nome: string; total: number }>();
+  for (const linha of linhas) {
+    if (linha.modeloId === null) continue;
+    const atual = porId.get(linha.modeloId) ?? { id: linha.modeloId, nome: linha.modelo, total: 0 };
+    atual.total += 1;
+    porId.set(linha.modeloId, atual);
+  }
+  return [...porId.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
 
 export type RespostaParaExportar = {
   checklist_id: number;
+  pergunta_id: number;
   resposta: string;
   observacao: string | null;
-  perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string } | null;
 };
 
+export type PerguntaDoModelo = { id: number; ordem: number; texto: string; tipo_resposta: string };
+
 /**
- * Monta as linhas da planilha, na ordem da listagem e, dentro de cada
- * checklist, na ordem das perguntas.
+ * Monta a planilha de respostas de UM modelo, no formato do antigo: uma linha
+ * por checklist e, para cada pergunta, uma coluna com a resposta seguida de
+ * uma "Obs. Resposta". As perguntas seguem a `ordem` do modelo.
  *
- * Checklist sem resposta nenhuma tambem sai, numa linha com as colunas de
- * resposta em branco: sumir da planilha faria o total de checklists dela
- * discordar da tela. Na CORRETIVA, que nao tem questionario (0042), a linha
- * leva o motivo digitado pelo inspetor na Observacao.
+ * O Numero/Ano aqui vai sem os zeros a esquerda ("2096/2026"), como o antigo
+ * escreve nesta planilha -- no Excel e no PDF ele usa cinco digitos.
  */
-export function linhasDeRespostas(
+export function planilhaDeRespostas(
   linhas: readonly HistoricoLinha[],
+  perguntas: readonly PerguntaDoModelo[],
   respostas: readonly RespostaParaExportar[],
-  motivos: ReadonlyMap<number, string | null> = new Map(),
-): string[][] {
-  const porChecklist = new Map<number, RespostaParaExportar[]>();
+): { colunas: string[]; linhas: (string | number)[][] } {
+  const ordenadas = [...perguntas].sort((a, b) => a.ordem - b.ordem);
+  const colunas = [
+    "ID",
+    "Número/Ano",
+    "Data Planejada",
+    "Data Finalização",
+    "Responsável",
+    "Site",
+    "Situação",
+    "Conclusão",
+    "Observações",
+    ...ordenadas.flatMap((pergunta) => [pergunta.texto, "Obs. Resposta"]),
+  ];
+
+  const porChecklist = new Map<number, Map<number, RespostaParaExportar>>();
   for (const resposta of respostas) {
-    const lista = porChecklist.get(resposta.checklist_id) ?? [];
-    lista.push(resposta);
-    porChecklist.set(resposta.checklist_id, lista);
+    const doChecklist = porChecklist.get(resposta.checklist_id) ?? new Map<number, RespostaParaExportar>();
+    doChecklist.set(resposta.pergunta_id, resposta);
+    porChecklist.set(resposta.checklist_id, doChecklist);
   }
 
-  return linhas.flatMap((linha) => {
-    const doChecklist = [
-      String(linha.id),
-      linha.numeroAno,
-      linha.checklist,
-      linha.modelo,
-      formatarDataHora(linha.enviadoEm),
-      linha.responsavel,
-      linha.site,
-    ];
-
-    const lista = (porChecklist.get(linha.id) ?? [])
-      .slice()
-      .sort(
-        (a, b) =>
-          (a.perguntas_checklist?.ordem ?? Number.MAX_SAFE_INTEGER) -
-          (b.perguntas_checklist?.ordem ?? Number.MAX_SAFE_INTEGER),
-      );
-
-    if (lista.length === 0) {
-      const motivo = linha.tipo === TIPO_CORRETIVA ? (motivos.get(linha.id) ?? "") : "";
-      return [[...doChecklist, "", "", "", motivo]];
-    }
-
-    return lista.map((resposta) => [
-      ...doChecklist,
-      resposta.perguntas_checklist ? String(resposta.perguntas_checklist.ordem) : "",
-      resposta.perguntas_checklist?.texto ?? "",
-      rotuloDaResposta(tipoDeResposta(resposta.perguntas_checklist?.tipo_resposta), resposta.resposta),
-      resposta.observacao ?? "",
-    ]);
-  });
+  return {
+    colunas,
+    linhas: linhas.map((linha) => {
+      const datas = datasDoAntigo(linha);
+      const doChecklist = porChecklist.get(linha.id) ?? new Map<number, RespostaParaExportar>();
+      return [
+        linha.id,
+        linha.numeroAno.replace(/^0+(?=\d)/, ""),
+        datas.planejada,
+        datas.finalizacao,
+        linha.responsavel,
+        linha.site,
+        SITUACAO_DA_LISTA,
+        conclusaoDaLista(linha),
+        linha.tipo === TIPO_CORRETIVA ? linha.motivo : "",
+        ...ordenadas.flatMap((pergunta) => {
+          const resposta = doChecklist.get(pergunta.id);
+          if (!resposta) return ["", ""];
+          return [
+            rotuloDaResposta(tipoDeResposta(pergunta.tipo_resposta), resposta.resposta),
+            resposta.observacao ?? "",
+          ];
+        }),
+      ];
+    }),
+  };
 }
 
-export type RespostasDoHistorico = {
-  linhas: string[][];
+export type RespostasDoModelo = {
+  nomeDoModelo: string;
+  colunas: string[];
+  linhas: (string | number)[][];
   /** O historico passou do teto, ou as respostas passaram do delas. */
   truncado: boolean;
 };
 
 /**
- * As respostas de todos os checklists do filtro, ja em linhas de planilha.
+ * A planilha de respostas de um modelo, dentro do filtro da tela.
  *
- * Parte da mesma `getHistorico` da tela (sem pagina, ate o teto), para a
- * planilha trazer exatamente os checklists que a listagem mostra -- os filtros
- * de Conclusao, Nota e as buscas sao decididos no banco (0079) --, e busca as
- * respostas desses ids em lotes.
+ * Parte da mesma `getHistorico` da tela (sem pagina, ate o teto), para trazer
+ * exatamente os checklists que a listagem mostra, e fica com os do modelo.
+ * Entram todas as perguntas do modelo, inclusive as desativadas depois: um
+ * checklist antigo pode ter resposta numa pergunta que hoje nao esta ativa.
  */
-export async function getRespostasDoHistorico(filtros: Filtros): Promise<RespostasDoHistorico> {
+export async function getRespostasDoModelo(filtros: Filtros, modeloId: number): Promise<RespostasDoModelo> {
   const historico = await getHistorico(filtros);
+  const doModelo = historico.linhas.filter((linha) => linha.modeloId === modeloId);
   const supabase = await createClient();
-  const ids = historico.linhas.map((linha) => linha.id);
+
+  const { data: modelo, error: erroDoModelo } = await supabase
+    .from("modelos_checklist")
+    .select("nome")
+    .eq("id", modeloId)
+    .maybeSingle();
+  if (erroDoModelo) throw erroDoModelo;
+
+  const { data: perguntas, error: erroDasPerguntas } = await supabase
+    .from("perguntas_checklist")
+    .select("id, ordem, texto, tipo_resposta")
+    .eq("modelo_id", modeloId)
+    .order("ordem");
+  if (erroDasPerguntas) throw erroDasPerguntas;
 
   const respostas: RespostaParaExportar[] = [];
   let atingiuTeto = false;
-
-  for (const lote of emLotes(ids, IDS_POR_CONSULTA)) {
-    const restante = TETO_DE_AGREGACAO - respostas.length;
+  for (const lote of emLotes(
+    doModelo.map((linha) => linha.id),
+    IDS_POR_CONSULTA,
+  )) {
     const resultado = await buscarEmPaginas<RespostaParaExportar>(
       (de, ate) =>
         supabase
           .from("checklist_respostas")
-          .select("checklist_id, resposta, observacao, perguntas_checklist ( ordem, texto, tipo_resposta )")
+          .select("checklist_id, pergunta_id, resposta, observacao")
           .in("checklist_id", lote)
           // Chave primaria inteira: ordem estavel entre as paginas.
           .order("checklist_id")
           .order("pergunta_id")
           .range(de, ate),
-      restante,
+      TETO_DE_AGREGACAO - respostas.length,
     );
     respostas.push(...resultado.linhas);
     if (resultado.atingiuTeto) {
@@ -1104,14 +1246,10 @@ export async function getRespostasDoHistorico(filtros: Filtros): Promise<Respost
     );
   }
 
-  // O motivo da corretiva: `linha.motivo` cai no motivo da VISITA na
-  // consultoria, mas na corretiva e sempre o digitado (ver `montarLinha`).
-  const motivos = new Map(
-    historico.linhas.filter((linha) => linha.tipo === TIPO_CORRETIVA).map((linha) => [linha.id, linha.motivo]),
-  );
-
+  const planilha = planilhaDeRespostas(doModelo, (perguntas ?? []) as PerguntaDoModelo[], respostas);
   return {
-    linhas: linhasDeRespostas(historico.linhas, respostas, motivos),
+    nomeDoModelo: modelo?.nome ?? "",
+    ...planilha,
     truncado: historico.truncado || atingiuTeto,
   };
 }
