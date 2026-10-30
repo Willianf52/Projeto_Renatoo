@@ -27,6 +27,7 @@ export type Resumo = {
   erros: number;
   p50: number;
   p95: number;
+  p99: number;
   max: number;
   porSegundo: number;
   primeiroErro?: string;
@@ -47,6 +48,7 @@ export function resumir(cenario: string, amostras: Amostra[], duracaoMs: number)
     erros: erros.length,
     p50: percentil(tempos, 50),
     p95: percentil(tempos, 95),
+    p99: percentil(tempos, 99),
     max: Math.round(tempos.at(-1) ?? 0),
     porSegundo: Number((amostras.length / (duracaoMs / 1000)).toFixed(1)),
     primeiroErro: erros[0]?.erro,
@@ -61,7 +63,7 @@ export function publicar(resumo: Resumo): void {
   if (!arquivo) return;
   appendFileSync(
     arquivo,
-    `| ${resumo.cenario} | ${resumo.total} | ${resumo.erros} | ${resumo.p50} | ${resumo.p95} | ${resumo.max} | ${resumo.porSegundo} |\n`,
+    `| ${resumo.cenario} | ${resumo.total} | ${resumo.erros} | ${resumo.p50} | ${resumo.p95} | ${resumo.p99} | ${resumo.max} | ${resumo.porSegundo} |\n`,
   );
 }
 
@@ -70,7 +72,7 @@ export function cabecalhoDoResumo(): void {
   if (!arquivo) return;
   appendFileSync(
     arquivo,
-    "### Teste de carga\n\n| Cenário | Requisições | Erros | p50 (ms) | p95 (ms) | máx (ms) | req/s |\n|---|---|---|---|---|---|---|\n",
+    "### Teste de carga\n\n| Cenário | Requisições | Erros | p50 (ms) | p95 (ms) | p99 (ms) | máx (ms) | req/s |\n|---|---|---|---|---|---|---|---|\n",
   );
 }
 

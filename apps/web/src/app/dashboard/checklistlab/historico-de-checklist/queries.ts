@@ -114,7 +114,7 @@ export type Filtros = {
   gruposSites: string[];
   gruposUsuarios: string[];
   responsaveis: string[];
-  /** "no_prazo" | "atrasado" | "antecipado" -- ver `aplicarFiltrosDerivados`. */
+  /** "no_prazo" | "atrasado" | "antecipado" -- ver `filtrosSemResultado`. */
   situacao?: string;
   /** Um dos valores de `CONCLUSAO_OPCOES`. */
   conclusao?: string;
@@ -340,15 +340,6 @@ export type HistoricoLinha = {
    * motivo (constraint `checklists_visita_motivo_por_tipo`, 0042) e cai no
    * motivo da visita, quando a visita tem um. */
   motivo: string;
-  /**
-   * Todo texto livre que o inspetor digitou neste checklist: a `observacao`
-   * de cada resposta mais o `motivo` da corretiva (0042 -- SIM/NAO/NA nao sao
-   * texto livre). Mora na linha, e nao e relido da linha crua na hora de
-   * filtrar, para que `aplicarFiltrosDerivados` precise de um array so: com
-   * dois arrays em paralelo, a correspondencia era por INDICE, e nada no tipo
-   * impedia passar um recortado e outro nao.
-   */
-  textosDeResposta: string[];
   respondidas: number;
   totalPerguntas: number;
   naoConformidades: number;
@@ -401,12 +392,6 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     siteId: bruto.visitas?.sites?.id ?? null,
     caminhoDoSite: bruto.visitas?.sites?.nome ?? "",
     motivo: bruto.motivo ?? motivoDaVisita,
-    // `bruto.motivo`, e nao `motivo` acima: na consultoria aquele campo cai no
-    // motivo da VISITA, que ninguem digitou respondendo o checklist e por isso
-    // nao pertence a "Busca Livre Respostas tipo Texto".
-    textosDeResposta: [...respostas.map((r) => r.observacao ?? ""), bruto.motivo ?? ""].filter(
-      (texto) => texto.length > 0,
-    ),
     respondidas: respostas.length,
     totalPerguntas,
     naoConformidades: nao,
@@ -446,91 +431,26 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
 }
 
 /**
- * "No prazo" e o unico valor de Situacao no sistema novo (nao ha agenda para
- * estar atrasado ou antecipado), entao filtrar pelos outros dois nao acha nada
- * -- igual a referencia filtrando checklists avulsos.
+ * Os filtros da referencia que nao acham nada no sistema novo, decididos aqui,
+ * sem ir ao banco:
+ *   - Situacao: "No prazo" e o unico valor (nao ha agenda para estar atrasado
+ *     ou antecipado) -- igual a referencia filtrando checklists avulsos;
+ *   - Conclusao: so "Finalizado" e "Incompleto" existem aqui; as outras seis da
+ *     referencia dependem de agenda ou aprovacao;
+ *   - Origem Agenda, Atividade e Status Inativos: nao ha agenda, atividade nem
+ *     checklist inativado;
+ *   - Numero/Ano que nao e numero.
+ * A lista volta vazia de proposito: ignorar o filtro mostraria tudo como se
+ * tivesse achado.
  */
-function combinaSituacao(situacao: string | undefined): boolean {
-  return !situacao || situacao === "no_prazo";
-}
-
-/** "Finalizado" e "Incompleto" sao os dois que existem aqui; as outras seis
- * conclusoes da referencia dependem de agenda ou aprovacao, e nao acham nada. */
-function combinaConclusao(linha: HistoricoLinha, conclusao: string | undefined): boolean {
-  if (!conclusao) return true;
-  if (conclusao === "finalizado") return estaConcluido(linha);
-  if (conclusao === "incompleto") return !estaConcluido(linha);
+export function filtrosSemResultado(filtros: Filtros): boolean {
+  if (filtros.situacao && filtros.situacao !== "no_prazo") return true;
+  if (filtros.conclusao && filtros.conclusao !== "finalizado" && filtros.conclusao !== "incompleto") return true;
+  if (filtros.origem === "agenda" || filtros.atividade || filtros.status === "inativos") return true;
+  if (filtros.numeroAno && !interpretarNumeroAno(filtros.numeroAno)) return true;
   return false;
 }
 
-/** Checklist sem nota (corretiva, ou sem pergunta de conformidade) nao entra
- * quando ha limite de nota: nao da para dizer que ele passa do limite. */
-function combinaNota(linha: HistoricoLinha, minima: number | undefined, maxima: number | undefined): boolean {
-  if (minima === undefined && maxima === undefined) return true;
-  if (linha.nota === null) return false;
-  if (minima !== undefined && linha.nota < minima) return false;
-  if (maxima !== undefined && linha.nota > maxima) return false;
-  return true;
-}
-
-function contem(texto: string | null | undefined, termo: string): boolean {
-  return (texto ?? "").toLocaleLowerCase("pt-BR").includes(termo);
-}
-
-/**
- * Os filtros que o PostgREST nao resolve, aplicados sobre a linha ja montada.
- *
- * Situacao, Conclusao e as duas buscas livres dependem das RESPOSTAS do
- * checklist -- contar 'NAO', comparar o total de respondidas com o cadastro de
- * perguntas, procurar num campo de observacao. Nenhuma delas e uma comparacao
- * de coluna: seriam agregacao ou subconsulta, que o PostgREST so exporia por
- * uma view ou RPC. Enquanto o volume desta tabela for uma linha por visita,
- * decidir aqui custa menos que uma migration a mais para manter em sincronia.
- *
- * Exportada pura (sem Supabase) para ser testada com linhas fabricadas.
- */
-export function aplicarFiltrosDerivados(
-  linhas: HistoricoLinha[],
-  filtros: Filtros,
-): HistoricoLinha[] {
-  const busca = filtros.busca?.trim().toLocaleLowerCase("pt-BR");
-  const buscaRespostas = filtros.buscaRespostas?.trim().toLocaleLowerCase("pt-BR");
-
-  return linhas.filter((linha) => {
-    if (!combinaSituacao(filtros.situacao)) return false;
-    if (!combinaConclusao(linha, filtros.conclusao)) return false;
-    if (!combinaNota(linha, filtros.notaMinima, filtros.notaMaxima)) return false;
-
-    if (busca) {
-      const casa =
-        contem(linha.numeroAno, busca) ||
-        contem(linha.caminhoDoSite, busca) ||
-        contem(linha.responsavel, busca) ||
-        contem(linha.motivo, busca) ||
-        contem(linha.checklist, busca) ||
-        contem(linha.modelo, busca);
-      if (!casa) return false;
-    }
-
-    // "Busca Livre Respostas tipo Texto": ver `textosDeResposta` em
-    // `HistoricoLinha` para o que entra ali e o que fica de fora.
-    if (buscaRespostas && !linha.textosDeResposta.some((t) => contem(t, buscaRespostas))) {
-      return false;
-    }
-
-    return true;
-  });
-}
-
-/**
- * O `!inner` em `visitas` e `sites` e permanente, nao condicional como em
- * `coletas-importadas`: `checklists_visita.visita_id` e `visitas.site_id` sao
- * NOT NULL (0042/0003), entao o join nunca descarta linha -- e sem ele o
- * PostgREST nao aceitaria filtrar por `visitas.sites.id`. Ja `profiles` vem de
- * `visitas.funcionario_id`, que e NULLABLE: ali o `!inner` entra so quando o
- * filtro de Grupo de Usuarios precisa dele, senao esconderia checklist de
- * visita importada sem funcionario.
- */
 /**
  * O filtro "Numero/Ano" aceita "35/2026" (aquele checklist) ou so "35" (o 35
  * de qualquer ano). Espacos em volta da barra sao tolerados; qualquer outra
@@ -542,73 +462,45 @@ export function interpretarNumeroAno(texto: string): { numero: number; ano: numb
   return { numero: Number(achado[1]), ano: achado[2] ? Number(achado[2]) : null };
 }
 
-export function montarSelect(precisaProfile: boolean): string {
-  return `
-    id, numero, ano, tipo, motivo, criado_em, modelo_id,
-    modelos_checklist ( nome ),
-    visitas!inner (
-      criado_em,
-      funcionario_id,
-      motivos_visita ( nome ),
-      ${precisaProfile ? "profiles!inner" : "profiles"} (
-        nome_completo
-        ${precisaProfile ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
-      ),
-      sites!inner ( id, nome, grupo_site_id, site_superior_id )
-    ),
-    checklist_respostas ( resposta, observacao, perguntas_checklist ( tipo_resposta ) )
-  `;
-}
-
 /**
- * `query: any` pelo mesmo motivo de `aplicarFiltrosDeColeta`: o builder do
- * PostgREST nao expoe um tipo para "o mesmo builder de volta" a cada `.eq()`
- * reencadeado condicionalmente.
+ * O `p_filtros` de `historico_de_checklist` (0079). As regras de cada filtro
+ * (Conclusao, Nota, as duas buscas, o caminho do site) moram na funcao do
+ * banco; aqui so os nomes e as datas, que viram instantes no fuso do projeto
+ * como nas outras telas -- o fim e exclusivo, ver `fimExclusivoDoFiltro`.
+ *
+ * O periodo recorta a abertura da visita ("Planejada" e "Inicio") ou o envio
+ * do checklist ("Termino" e "Finalizacao"), como a coluna Datas mostra.
  */
-function aplicarFiltros(query: any, filtros: Filtros) {
-  let q = query;
-
-  if (filtros.modelos.length) q = q.in("modelo_id", filtros.modelos);
-  if (filtros.sites.length) q = q.in("visitas.sites.id", filtros.sites);
-  if (filtros.gruposSites.length) q = q.in("visitas.sites.grupo_site_id", filtros.gruposSites);
-  if (filtros.responsaveis.length) q = q.in("visitas.funcionario_id", filtros.responsaveis);
-  if (filtros.gruposUsuarios.length) {
-    q = q.in("visitas.profiles.grupos_usuarios_membros.grupo_id", filtros.gruposUsuarios);
-  }
-  // Sem agenda, sem atividade e sem checklist inativado no sistema novo: estes
-  // tres filtros da referencia so tem resultado na opcao que vale para todos
-  // (Avulso, Ativos). Nas outras, a lista volta vazia de proposito -- ignorar
-  // o filtro mostraria tudo como se tivesse achado.
-  if (filtros.origem === "agenda" || filtros.atividade || filtros.status === "inativos") {
-    q = q.eq("id", -1);
-  }
-  if (filtros.numeroAno) {
-    const procurado = interpretarNumeroAno(filtros.numeroAno);
-    // Texto que nao e numero nao acha checklist nenhum: melhor a lista vazia
-    // do que ignorar o filtro e mostrar tudo como se tivesse achado.
-    if (!procurado) q = q.eq("numero", -1);
-    else {
-      q = q.eq("numero", procurado.numero);
-      if (procurado.ano !== null) q = q.eq("ano", procurado.ano);
-    }
-  }
-
-  // Qual coluna o periodo recorta depende do que a pessoa escolheu no primeiro
-  // select da tela, exatamente como na referencia.
-  const coluna =
-    filtros.campoData === "planejada" || filtros.campoData === "inicio" ? "visitas.criado_em" : "criado_em";
-  // `criado_em` tem fracao de segundo: limite superior exclusivo, ver
-  // `fimExclusivoDoFiltro`.
-  if (filtros.dataInicial) q = q.gte(coluna, inicioDoFiltro(filtros.dataInicial));
-  if (filtros.dataFinal) q = q.lt(coluna, fimExclusivoDoFiltro(filtros.dataFinal));
-
-  return q;
+export function filtrosParaOBanco(filtros: Filtros): Record<string, string | number | string[] | null> {
+  const procurado = filtros.numeroAno ? interpretarNumeroAno(filtros.numeroAno) : null;
+  return {
+    campo_data: filtros.campoData === "planejada" || filtros.campoData === "inicio" ? "visita" : "checklist",
+    inicio: filtros.dataInicial ? inicioDoFiltro(filtros.dataInicial) : null,
+    fim: filtros.dataFinal ? fimExclusivoDoFiltro(filtros.dataFinal) : null,
+    numero: procurado?.numero ?? null,
+    ano: procurado?.ano ?? null,
+    modelos: filtros.modelos,
+    sites: filtros.sites,
+    grupos_sites: filtros.gruposSites,
+    grupos_usuarios: filtros.gruposUsuarios,
+    responsaveis: filtros.responsaveis,
+    conclusao: filtros.conclusao ?? null,
+    nota_minima: filtros.notaMinima ?? null,
+    nota_maxima: filtros.notaMaxima ?? null,
+    busca: filtros.busca ?? null,
+    busca_respostas: filtros.buscaRespostas ?? null,
+    ordem: filtros.ordem,
+  };
 }
 
 export type Historico = {
+  /** So a pagina pedida, ou tudo ate o teto quando nao se pede pagina. */
   linhas: HistoricoLinha[];
-  /** true quando o teto foi atingido -- ha mais checklists no filtro do que a
-   * tela buscou, e o Total exibido esta por baixo. */
+  /** Quantos checklists o filtro acha, inteiro, mesmo quando so uma pagina veio. */
+  total: number;
+  /** A pagina devolvida: a pedida, ou a ultima quando a pedida passou do fim. */
+  pagina: number;
+  /** true quando, sem pagina, o filtro passou do teto: a lista esta incompleta. */
   truncado: boolean;
 };
 
@@ -682,85 +574,109 @@ export async function getSitesDaArvore(): Promise<Map<number, SiteDoCaminho>> {
   return carregarSites(await createClient());
 }
 
-/**
- * "UP Serviços → Coopertativa → RAFARD": do site mais alto ate o proprio,
- * como a coluna Site da referencia. O teto de 10 niveis protege de um ciclo
- * no cadastro (A superior de B, B superior de A), que travaria a tela.
- */
-export function caminhoDoSite(siteId: number | null, sites: ReadonlyMap<number, SiteDoCaminho>): string {
-  const nomes: string[] = [];
-  let atual = siteId;
-  for (let nivel = 0; atual !== null && nivel < 10; nivel++) {
-    const site = sites.get(atual);
-    if (!site) break;
-    nomes.unshift(site.nome);
-    atual = site.superior;
-  }
-  return nomes.join(" → ");
-}
 
 /** O total que `montarLinha` recebe: o do modelo respondido, zero na corretiva. */
 export function totalDoModelo(porModelo: Map<number, number>, modeloId: number | null): number {
   return modeloId === null ? 0 : (porModelo.get(modeloId) ?? 0);
 }
 
+/** Uma linha como `historico_de_checklist` (0079) devolve. */
+export type LinhaDoBanco = {
+  id: number;
+  numero: number;
+  ano: number;
+  tipo: string;
+  motivo: string | null;
+  criado_em: string;
+  modelo_id: number | null;
+  modelo_nome: string | null;
+  inicio_em: string | null;
+  funcionario_id: string | null;
+  responsavel: string | null;
+  site_id: number | null;
+  site_nome: string | null;
+  /** "UP Serviços → Site", pelos sites superiores que quem pede enxerga. */
+  caminho: string | null;
+  motivo_da_visita: string | null;
+  total_perguntas: number;
+  respondidas: number;
+  nao_conformidades: number;
+  nota: number | null;
+};
+
+/** A linha da tela, a partir da do banco -- as mesmas colunas de `montarLinha`. */
+export function paraLinhaDoHistorico(linha: LinhaDoBanco): HistoricoLinha {
+  return {
+    id: linha.id,
+    tipo: linha.tipo,
+    numeroAno: formatarNumeroAno(linha.numero, linha.ano),
+    checklist: linha.tipo === TIPO_CORRETIVA ? "Corretiva" : "Consultoria",
+    modelo: linha.modelo_nome ?? "",
+    enviadoEm: linha.criado_em,
+    inicioEm: linha.inicio_em ?? linha.criado_em,
+    responsavel: linha.responsavel ?? "",
+    responsavelId: linha.funcionario_id,
+    site: linha.site_nome ?? "",
+    siteId: linha.site_id,
+    caminhoDoSite: linha.caminho || linha.site_nome || "",
+    // Na corretiva, o motivo digitado; na consultoria, o da visita.
+    motivo: linha.motivo ?? linha.motivo_da_visita ?? "",
+    respondidas: linha.respondidas,
+    totalPerguntas: linha.total_perguntas,
+    naoConformidades: linha.nao_conformidades,
+    nota: linha.nota,
+  };
+}
+
 /**
- * O historico inteiro dentro do filtro, ja com as colunas derivadas.
+ * O historico dentro do filtro, pela `historico_de_checklist` (0079), que
+ * filtra, calcula Nota/Conclusao/caminho e pagina no banco.
  *
- * Nao pagina no banco: os filtros de Situacao/Conclusao/busca em respostas sao
- * decididos em memoria (ver `aplicarFiltrosDerivados`), e paginar antes deles
- * devolveria paginas de tamanho aleatorio -- 25 linhas buscadas, 4 exibidas.
- * A paginacao acontece sobre o resultado ja filtrado, em `page.tsx`, do mesmo
- * jeito que em `registro-de-rondas`.
+ * Com `pagina`: so aquela pagina de `PAGE_SIZE` e o total -- e o que a tela
+ * pede. Uma pagina alem do fim (link antigo, filtro que encolheu) devolve a
+ * ultima, com o numero dela em `pagina`.
  *
- * `buscarEmPaginas` e nao um `.range(0, TETO)` unico: o PostgREST corta em
- * `max_rows` (1000 por padrao) e devolve o pedaco SEM erro nenhum -- a tela
- * mostraria um total menor que o real com cara de certo.
+ * Sem `pagina`: tudo ate `TETO_DO_HISTORICO`, para as exportacoes; `truncado`
+ * diz se o filtro achou mais do que isso.
  */
-export async function getHistorico(filtros: Filtros): Promise<Historico> {
+export async function getHistorico(filtros: Filtros, pagina?: number): Promise<Historico> {
+  if (filtrosSemResultado(filtros)) return { linhas: [], total: 0, pagina: 1, truncado: false };
+
   const supabase = await createClient();
-  const precisaProfile = filtros.gruposUsuarios.length > 0;
-  const ascendente = filtros.ordem === "antigos";
+  const p_filtros = filtrosParaOBanco(filtros);
 
-  const [perguntasPorModelo, sitesPorId, resultado] = await Promise.all([
-    contarPerguntasAtivasPorModelo(supabase),
-    carregarSites(supabase),
-    buscarEmPaginas<ChecklistBruto>(
-      (de, ate) =>
-        aplicarFiltros(
-          supabase
-            .from("checklists_visita")
-            .select(montarSelect(precisaProfile))
-            .order("criado_em", { ascending: ascendente })
-            // Desempate obrigatorio: `criado_em` tem default `now()` e dois
-            // envios podem cair no mesmo instante. Sem um segundo criterio,
-            // cada `.range()` e uma consulta nova e a mesma linha pode
-            // aparecer em duas paginas enquanto outra nao aparece em nenhuma.
-            .order("id", { ascending: ascendente })
-            .range(de, ate),
-          filtros,
-        ),
-      TETO_DO_HISTORICO,
-    ),
-  ]);
+  const consultar = async (limite: number, deslocamento: number) => {
+    const { data, error } = await supabase.rpc("historico_de_checklist", {
+      p_filtros,
+      p_limite: limite,
+      p_deslocamento: deslocamento,
+    });
+    if (error) throw error;
+    const resultado = data as unknown as { total: number; linhas: LinhaDoBanco[] };
+    return { total: Number(resultado.total), linhas: resultado.linhas.map(paraLinhaDoHistorico) };
+  };
 
-  if (resultado.atingiuTeto) {
-    erro(
-      gerarIdDeRequisicao(),
-      `Histórico de Checklist: teto de ${TETO_DO_HISTORICO} checklists atingido; a listagem está incompleta.`,
-    );
+  if (pagina === undefined) {
+    const { total, linhas } = await consultar(TETO_DO_HISTORICO, 0);
+    const truncado = total > TETO_DO_HISTORICO;
+    if (truncado) {
+      erro(
+        gerarIdDeRequisicao(),
+        `Histórico de Checklist: teto de ${TETO_DO_HISTORICO} checklists atingido; a exportação está incompleta.`,
+      );
+    }
+    return { linhas, total, pagina: 1, truncado };
   }
 
-  const brutos = resultado.linhas;
-  const linhas = brutos.map((bruto) => {
-    const linha = montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id));
-    return { ...linha, caminhoDoSite: caminhoDoSite(linha.siteId, sitesPorId) || linha.site };
-  });
+  const pedida = Math.max(1, Math.floor(pagina));
+  const primeira = await consultar(PAGE_SIZE, (pedida - 1) * PAGE_SIZE);
+  const ultima = Math.max(1, Math.ceil(primeira.total / PAGE_SIZE));
+  if (pedida <= ultima) return { ...primeira, pagina: pedida, truncado: false };
+  // Filtro vazio: nao ha ultima pagina a buscar.
+  if (primeira.total === 0) return { ...primeira, pagina: 1, truncado: false };
 
-  return {
-    linhas: aplicarFiltrosDerivados(linhas, filtros),
-    truncado: resultado.atingiuTeto,
-  };
+  const daUltima = await consultar(PAGE_SIZE, (ultima - 1) * PAGE_SIZE);
+  return { ...daUltima, pagina: ultima, truncado: false };
 }
 
 export const TABLE_COLUMNS = [
@@ -1147,9 +1063,10 @@ export type RespostasDoHistorico = {
 /**
  * As respostas de todos os checklists do filtro, ja em linhas de planilha.
  *
- * Parte da mesma `getHistorico` da tela, para a planilha trazer exatamente os
- * checklists que a listagem mostra (Situacao, Conclusao e as buscas livres sao
- * decididas em memoria), e busca as respostas desses ids em lotes.
+ * Parte da mesma `getHistorico` da tela (sem pagina, ate o teto), para a
+ * planilha trazer exatamente os checklists que a listagem mostra -- os filtros
+ * de Conclusao, Nota e as buscas sao decididos no banco (0079) --, e busca as
+ * respostas desses ids em lotes.
  */
 export async function getRespostasDoHistorico(filtros: Filtros): Promise<RespostasDoHistorico> {
   const historico = await getHistorico(filtros);

@@ -36,10 +36,9 @@ export type UsuarioRow = {
   ativo: boolean;
   /** Migration 0058. `not null default 'Brasil'`, entao nunca vem nulo. */
   pais: string;
+  /** Preenchido por `comNomeDoSuperior`, nao pelo select -- ver la. */
   superior: { nome_completo: string | null } | null;
-  /** So vem em `getUsuario`, para preencher o select do formulario -- a
-   * listagem exibe o nome do superior, nao o id. */
-  superior_id?: string | null;
+  superior_id: string | null;
   /** "Enviar E-mail para o Superior?" (0068) -- tambem so em `getUsuario`. */
   email_superior_ocorrencia?: boolean;
   email_superior_checklist?: boolean;
@@ -108,7 +107,7 @@ export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
       tipo,
       ativo,
       pais,
-      superior:profiles!superior_id ( nome_completo )
+      superior_id
       ${filtrandoPorGrupo ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
       `;
 }
@@ -229,7 +228,41 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
   const { data, error, count } = await query;
   if (error) throw error;
 
-  return { rows: (data ?? []) as unknown as UsuarioRow[], totalItems: count ?? 0 };
+  const rows = await comNomeDoSuperior(supabase, (data ?? []) as unknown as PerfilSemSuperior[]);
+  return { rows, totalItems: count ?? 0 };
+}
+
+type PerfilSemSuperior = Omit<UsuarioRow, "superior">;
+
+/**
+ * Nome do superior de cada linha, numa segunda consulta pelos ids da pagina.
+ * Nao vai por embed (`superior:profiles!superior_id`) porque `profiles` aponta
+ * para ela mesma, e o embed nao devolvia o superior: a coluna "Usuário
+ * Superior" saia em branco em todas as linhas, com o superior gravado no banco
+ * (auditoria de paridade de 28/10/2026). Mesmo motivo de
+ * `eventos/cadastro-de-eventos/queries.ts`, que tambem resolve o superior a
+ * parte.
+ *
+ * Recortado pelo RLS como o resto da tela: superior que o leitor nao enxerga
+ * vira celula em branco, sem erro.
+ */
+async function comNomeDoSuperior(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  perfis: PerfilSemSuperior[],
+): Promise<UsuarioRow[]> {
+  const ids = [...new Set(perfis.map((p) => p.superior_id).filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) return perfis.map((p) => ({ ...p, superior: null }));
+
+  const { data, error } = await supabase.from("profiles").select("id, nome_completo").in("id", ids);
+  if (error) throw error;
+
+  const nomePorId = new Map(
+    ((data ?? []) as { id: string; nome_completo: string | null }[]).map((p) => [p.id, p.nome_completo]),
+  );
+  return perfis.map((p) => ({
+    ...p,
+    superior: p.superior_id && nomePorId.has(p.superior_id) ? { nome_completo: nomePorId.get(p.superior_id) ?? null } : null,
+  }));
 }
 
 export async function getUsuario(id: string): Promise<UsuarioRow | null> {
@@ -239,13 +272,15 @@ export async function getUsuario(id: string): Promise<UsuarioRow | null> {
     .from("profiles")
     .select(
       montarSelectDeUsuarios(false) +
-        ", superior_id, email_superior_ocorrencia, email_superior_checklist, email_superior_evento",
+        ", email_superior_ocorrencia, email_superior_checklist, email_superior_evento",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error) throw error;
-  return data as unknown as UsuarioRow | null;
+  if (!data) return null;
+  const [usuario] = await comNomeDoSuperior(supabase, [data as unknown as PerfilSemSuperior]);
+  return usuario;
 }
 
 /**

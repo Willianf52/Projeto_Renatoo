@@ -184,7 +184,7 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
           options={opcoes.gruposSites}
         />
         {/* Sem placeholder vazio: "Todos" ja e a opcao de nao filtrar, e o
-            padrao e "Ativos" -- ver SITUACAO_PADRAO em queries.ts. */}
+            padrao e "Todos" -- ver SITUACAO_PADRAO em queries.ts. */}
         <FilterSelect
           label="Situação"
           name="situacao"

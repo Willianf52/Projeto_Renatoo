@@ -58,9 +58,6 @@ export type SiteRow = {
   grupos_sites: { nome: string } | null;
   tipos_servico: { nome: string } | null;
   responsavel: { nome_completo: string } | null;
-  /** Quem cadastrou (`criado_por`, migration 0003). Nulo quando o perfil foi
-   * apagado depois -- a FK e `on delete set null`. */
-  criador: { nome_completo: string | null } | null;
 };
 
 /**
@@ -68,7 +65,6 @@ export type SiteRow = {
  * para `profiles` duas vezes -- por `responsavel_id` e por `criado_por`. Sem
  * dizer qual, o PostgREST recusa a consulta inteira com PGRST201 em vez de
  * escolher uma, e a tela cai no error boundary sem renderizar linha nenhuma.
- * Mesmo padrao de `superior:profiles!superior_id` em usuarios/queries.ts.
  *
  * Nada de comentario dentro desta string: ela vai crua na querystring do
  * PostgREST, que so tolera a remocao de espaco em branco feita pelo client.
@@ -81,8 +77,7 @@ const COLUNAS = `
   grupo_site_id, tipo_servico_id, responsavel_id,
   grupos_sites ( nome ),
   tipos_servico ( nome ),
-  responsavel:profiles!responsavel_id ( nome_completo ),
-  criador:profiles!criado_por ( nome_completo )
+  responsavel:profiles!responsavel_id ( nome_completo )
 `;
 
 /**
@@ -380,7 +375,10 @@ export function toTableRow(site: SiteRow): string[] {
     site.observacao ?? "",
     site.cidade ?? "",
     site.uf ?? "",
-    site.criador?.nome_completo ?? "",
+    // "Usuário" e o responsavel, como no antigo (o campo `usuario_id` do
+    // formulario de la), e nao quem cadastrou: os sites importados mostravam
+    // o nome de quem rodou a importacao (auditoria de paridade de 28/10/2026).
+    site.responsavel?.nome_completo ?? "",
     formatarDataHora(site.criado_em),
     site.ativo ? "Ativo" : "Inativo",
   ];

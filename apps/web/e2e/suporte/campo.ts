@@ -20,7 +20,7 @@ type Cliente = SupabaseClient<Database>;
 
 /** PNG 1x1 transparente. Serve de assinatura: o bucket confere tipo e
  * tamanho (0046), nao o desenho. */
-const PNG_1X1 = Buffer.from(
+export const PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==",
   "base64",
 );

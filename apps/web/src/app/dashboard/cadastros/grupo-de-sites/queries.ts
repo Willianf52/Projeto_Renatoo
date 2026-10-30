@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { termoParaOr } from "@/lib/postgrest-escape";
-import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+import { buscarEmPaginas, LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
 
 export { LIMITE_EXPORTACAO };
 
@@ -47,8 +47,39 @@ function comBusca<Q extends { or(filtro: string): unknown }>(
   return query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`) as Q;
 }
 
+/** Linha da listagem: o grupo mais as colunas "Grupo de Site Pai" e "Sites"
+ * do antigo (auditoria de paridade de 28/10/2026). */
+export type GrupoSiteDaLista = GrupoSiteRow & { grupoPai: string; quantidadeDeSites: number };
+
+/**
+ * Junta a pagina de grupos com o nome do pai e a contagem de sites, que vem de
+ * consultas a parte. O pai nao vai por embed porque `grupos_sites` aponta para
+ * ela mesma (`grupo_pai_id`), o mesmo caso do superior em
+ * `usuarios/queries.ts`, em que o embed nao devolvia o registro certo.
+ *
+ * Conta so os sites ativos, pelo mesmo motivo da coluna "Sites" do Excel (ver
+ * `textoDosSites`): e o criterio que mais bate com a contagem do antigo.
+ */
+export function montarLinhasDaLista(
+  grupos: (GrupoSiteRow & { grupo_pai_id: number | null })[],
+  pais: { id: number; nome: string }[],
+  sitesAtivos: { grupo_site_id: number }[],
+): GrupoSiteDaLista[] {
+  const nomeDoPai = new Map(pais.map((pai) => [pai.id, pai.nome]));
+  const quantidade = new Map<number, number>();
+  for (const site of sitesAtivos) {
+    quantidade.set(site.grupo_site_id, (quantidade.get(site.grupo_site_id) ?? 0) + 1);
+  }
+
+  return grupos.map(({ grupo_pai_id, ...grupo }) => ({
+    ...grupo,
+    grupoPai: grupo_pai_id === null ? "" : (nomeDoPai.get(grupo_pai_id) ?? ""),
+    quantidadeDeSites: quantidade.get(grupo.id) ?? 0,
+  }));
+}
+
 export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
-  rows: GrupoSiteRow[];
+  rows: GrupoSiteDaLista[];
   totalItems: number;
 }> {
   const supabase = await createClient();
@@ -58,7 +89,7 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   const query = comBusca(
     supabase
       .from("grupos_sites")
-      .select("id, nome, descricao, ativo", { count: "exact" })
+      .select("id, nome, descricao, ativo, grupo_pai_id", { count: "exact" })
       // Sem desempate de proposito: `grupos_sites.nome` e `not null unique`
       // (migration 0003), entao esta ordenacao ja e total e a paginacao nao
       // repete nem pula linha. Se a restricao de unicidade cair, um
@@ -71,7 +102,32 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
   const { data, error, count } = await query;
   if (error) throw error;
 
-  return { rows: (data ?? []) as GrupoSiteRow[], totalItems: count ?? 0 };
+  const grupos = (data ?? []) as (GrupoSiteRow & { grupo_pai_id: number | null })[];
+  if (grupos.length === 0) return { rows: [], totalItems: count ?? 0 };
+
+  const idsDosPais = [...new Set(grupos.map((g) => g.grupo_pai_id).filter((id): id is number => id !== null))];
+  const [pais, sites] = await Promise.all([
+    idsDosPais.length === 0
+      ? Promise.resolve({ data: [], error: null })
+      : supabase.from("grupos_sites").select("id, nome").in("id", idsDosPais),
+    // Em paginas: um grupo sozinho passa de 200 sites, e o teto de linhas por
+    // resposta do PostgREST cortaria a contagem sem erro nenhum.
+    buscarEmPaginas<{ grupo_site_id: number }>((de, ate) =>
+      supabase
+        .from("sites")
+        .select("grupo_site_id")
+        .in("grupo_site_id", grupos.map((g) => g.id))
+        .eq("ativo", true)
+        .order("id")
+        .range(de, ate),
+    ),
+  ]);
+  if (pais.error) throw pais.error;
+
+  return {
+    rows: montarLinhasDaLista(grupos, (pais.data ?? []) as { id: number; nome: string }[], sites.linhas),
+    totalItems: count ?? 0,
+  };
 }
 
 /**
@@ -219,9 +275,26 @@ export async function getSitesParaSelecao(): Promise<SiteParaSelecao[]> {
   return montarHierarquiaDeSites((data ?? []) as SiteBruto[]);
 }
 
-/** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
+/** Colunas de texto do PDF e base do Excel. A tela tem as suas, em
+ * `toLinhaDaTela`. */
 export function toTableRow(grupo: GrupoSiteRow): string[] {
   return [String(grupo.id), grupo.nome, grupo.ativo ? "Ativo" : "Inativo", grupo.descricao ?? ""];
+}
+
+/** Colunas da listagem, na ordem do antigo: ID, Nome, Grupo de Site Pai,
+ * Sites, Status, Descrição. "Grupo de Inspeção" fica de fora: esta vazio em
+ * todos os grupos do antigo. A coluna "Ações" e montada na pagina. */
+export const COLUNAS_DA_TELA = ["ID", "Nome", "Grupo de Site Pai", "Sites", "Status", "Descrição"];
+
+export function toLinhaDaTela(grupo: GrupoSiteDaLista): string[] {
+  return [
+    String(grupo.id),
+    grupo.nome,
+    grupo.grupoPai,
+    String(grupo.quantidadeDeSites),
+    grupo.ativo ? "Ativo" : "Inativo",
+    grupo.descricao ?? "",
+  ];
 }
 
 /** Colunas do "Exportar para Excel": as da tela mais "Sites", como no sistema
