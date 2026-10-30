@@ -51,7 +51,7 @@ contas existirem.
 | Ícone da loja | 512 x 512 px, PNG | Hoje o app usa o ícone de 12/10; o logo em alta resolução ainda está pendente |
 | Imagem de destaque (só Google) | 1024 x 500 px | Fundo azul da marca com o logo serve |
 | Prints do celular | pelo menos 2 (Google) e 3 (Apple) | Tirados do app com dado de teste, nunca com cliente real. Os do iPhone (1320 x 2868) servem na Apple como estão; na Google a proporção máxima é 2:1, então as cópias da Google são recortadas. Pelo Expo Go, ocultar antes o botão flutuante de ferramentas (a engrenagem azul), que não faz parte do app. Os 6 prints da versão 1.2.0 foram tirados em 30/10 e ficam fora do repositório (pasta `paridade`) |
-| Prints de tablet | opcional na Google; exigido na Apple se `supportsTablet` | O `app.json` declara suporte a iPad hoje |
+| Prints de tablet | opcional na Google; exigido na Apple se `supportsTablet` | Não se aplica: desde 30/10 o `app.json` não declara suporte a iPad, porque a empresa só usa celulares. Os prints de tablet da Google, opcionais, também não são feitos |
 
 ## Formulário de segurança de dados (Google Play)
 

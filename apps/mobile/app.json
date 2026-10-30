@@ -16,7 +16,7 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#03031a",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "br.com.upservicos.inspecao",
       "config": {
         "usesNonExemptEncryption": false
