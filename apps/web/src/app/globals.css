@@ -30,6 +30,14 @@
   /* Texto em cima do verde da marca: navy no escuro, branco no claro (onde o
      verde escurece -- ver "TEMAS"). */
   --color-sobre-verde: #03031a;
+
+  /* Sombras dos cartoes (31/10/2026): duas camadas, uma curta e firme que
+     assenta o cartao no fundo e uma longa e difusa que da profundidade, as duas
+     tingidas de azul-ardosia em vez de preto puro -- preto puro suja o cinza do
+     tema claro. Redefinir o token do Tailwind vale para os ~70 cartoes que ja
+     usam `shadow-sm` e o `hover:shadow-md` das listagens, sem tocar em tela. */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 2px 8px -2px rgb(15 23 42 / 0.08);
+  --shadow-md: 0 2px 4px -1px rgb(15 23 42 / 0.06), 0 12px 28px -8px rgb(15 23 42 / 0.16);
 }
 
 @theme inline {
@@ -238,6 +246,8 @@ h3 {
   --grafico-eixo: #334155;
   /* Barras e rotulos de destaque (o azul-claro dos graficos de Inspecoes). */
   --grafico-destaque: #7dd3fc;
+  /* Faixa de luz que atravessa o esqueleto de carregamento. */
+  --brilho: rgb(255 255 255 / 0.07);
 }
 
 /* Papel e branco: impressao e etiqueta usam a paleta original sobre fundo
@@ -288,6 +298,7 @@ h3 {
   --grafico-grade: #e2e8f0;
   --grafico-eixo: #cbd5e1;
   --grafico-destaque: #0284c7;
+  --brilho: rgb(255 255 255 / 0.75);
 }
 
 /* Scrollbar fina e visivel sobre o fundo escuro do menu lateral -- a padrao
@@ -313,6 +324,56 @@ h3 {
 
 .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(148, 163, 184, 0.65);
+}
+
+/* Esqueleto de carregamento com uma faixa de luz passando (31/10/2026), alem
+   do pulso: o pulso sozinho parece "piscando", a faixa da a ideia de que algo
+   esta vindo. A faixa e um pseudo-elemento, entao a classe entra junto do
+   `animate-pulse` sem mudar o tamanho de nada. Com movimento reduzido, a regra
+   logo abaixo zera a animacao e sobra o bloco parado. */
+.brilho-de-carregamento {
+  position: relative;
+  overflow: hidden;
+}
+
+.brilho-de-carregamento::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--brilho), transparent);
+  animation: brilho 1.6s ease-in-out infinite;
+}
+
+@keyframes brilho {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Janelas (`<dialog>` nativo: excluir coleta, excluir checklist, descricao do
+   evento, personalizar atalhos) entram crescendo de 96% e o fundo escurece aos
+   poucos, em vez de surgirem num quadro so (31/10/2026). Vale para todas de uma
+   vez porque todas sao `<dialog>` com `showModal`. A curva e a mesma do
+   `--ease-out-soft`, escrita de novo porque aquele token e `inline` e nao vira
+   variavel no CSS final. */
+dialog[open] {
+  animation: entrada-de-janela 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+dialog[open]::backdrop {
+  animation: fade-in 0.22s ease-out both;
+}
+
+@keyframes entrada-de-janela {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Acessibilidade: respeita quem desativou animacoes no sistema operacional.

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { alturaDeControle } from "@projeto-renatoo/shared";
 
+import { toqueLeve } from "../lib/toque";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 
 type Variante = "primaria" | "secundaria" | "perigo";
@@ -53,7 +54,12 @@ export function Botao({
 
   return (
     <Pressable
-      onPress={aoPressionar}
+      onPress={() => {
+        // So o primario vibra: e a acao que leva a tela adiante. Secundario e
+        // perigo (Cancelar, Limpar) ficam quietos -- ver `lib/toque.ts`.
+        if (variante === "primaria") toqueLeve();
+        aoPressionar();
+      }}
       disabled={inerte}
       accessibilityRole="button"
       accessibilityState={{ disabled: inerte, busy: carregando }}

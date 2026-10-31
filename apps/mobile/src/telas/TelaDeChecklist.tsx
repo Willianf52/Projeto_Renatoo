@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -38,6 +39,7 @@ import {
 } from "../campo/pendencias-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
+import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
 import { Aviso } from "../componentes/Aviso";
@@ -669,6 +671,7 @@ export function TelaDeChecklist({
       // Falhar aqui nao desfaz o envio, entao so registra e segue.
       envioConcluido.current = true;
       gravacaoPendente.current = null;
+      toqueDeSucesso();
       await descartarRascunho(chave).catch((falha) => {
         capturarErro(falha, { onde: "descartarRascunho", visita: String(chave) });
       });
@@ -815,38 +818,40 @@ export function TelaDeChecklist({
                     const estilo = perguntaAtual.tipoResposta === "SN" ? ESTILO_DA_ESCOLHA.NA : ESTILO_DA_ESCOLHA[valor];
 
                     return (
-                      <Pressable
-                        key={valor}
-                        onPress={() => {
-                          setRespostas((atuais) => ({ ...atuais, [perguntaAtual.id]: valor }));
-                          // O aviso do "Proximo" e desta pergunta: respondida,
-                          // ele sai -- as outras sem resposta nao o mantem.
-                          setErro(null);
-                          setDestaque(null);
-                          // Fixa a posicao no primeiro toque: sem isto, a tela
-                          // seguiria a "primeira sem resposta" e pularia para a
-                          // proxima sozinha, antes do "Proximo".
-                          if (modeloEfetivo !== null) {
-                            setPosicao((atual) =>
-                              atual !== null && atual.modeloId === modeloEfetivo
-                                ? atual
-                                : { modeloId: modeloEfetivo, indice },
-                            );
-                          }
-                        }}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: escolhida }}
-                        style={({ pressed }) => [
-                          estilos.resposta,
-                          estilos.respostaEmLinha,
-                          escolhida && estilo.opcao,
-                          pressed && estilos.opcaoPressionada,
-                        ]}
-                      >
-                        <Text style={[estilos.respostaTexto, escolhida && estilo.texto]}>
-                          {rotuloDaResposta(perguntaAtual.tipoResposta, valor)}
-                        </Text>
-                      </Pressable>
+                      <OpcaoDeResposta key={`${perguntaAtual.id}-${valor}`} escolhida={escolhida}>
+                        <Pressable
+                          onPress={() => {
+                            if (!escolhida) toqueDeEscolha();
+                            setRespostas((atuais) => ({ ...atuais, [perguntaAtual.id]: valor }));
+                            // O aviso do "Proximo" e desta pergunta: respondida,
+                            // ele sai -- as outras sem resposta nao o mantem.
+                            setErro(null);
+                            setDestaque(null);
+                            // Fixa a posicao no primeiro toque: sem isto, a tela
+                            // seguiria a "primeira sem resposta" e pularia para a
+                            // proxima sozinha, antes do "Proximo".
+                            if (modeloEfetivo !== null) {
+                              setPosicao((atual) =>
+                                atual !== null && atual.modeloId === modeloEfetivo
+                                  ? atual
+                                  : { modeloId: modeloEfetivo, indice },
+                              );
+                            }
+                          }}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: escolhida }}
+                          style={({ pressed }) => [
+                            estilos.resposta,
+                            estilos.respostaEmLinha,
+                            escolhida && estilo.opcao,
+                            pressed && estilos.opcaoPressionada,
+                          ]}
+                        >
+                          <Text style={[estilos.respostaTexto, escolhida && estilo.texto]}>
+                            {rotuloDaResposta(perguntaAtual.tipoResposta, valor)}
+                          </Text>
+                        </Pressable>
+                      </OpcaoDeResposta>
                     );
                   })}
                 </View>
@@ -1139,6 +1144,32 @@ export function TelaDeChecklist({
       </Modal>
     </KeyboardAvoidingView>
   );
+}
+
+/**
+ * Moldura de uma opcao de resposta que "assenta" quando vira a escolhida
+ * (31/10/2026): encolhe a 96% e volta com mola, junto com a troca de cor. A cor
+ * sozinha mudava num quadro so, e de luva, no sol, o toque nao parecia ter
+ * pego. `Animated` do proprio React Native, sem biblioteca nova: e uma escala
+ * so, e o driver nativo a anima fora da thread do JavaScript.
+ */
+function OpcaoDeResposta({ escolhida, children }: { escolhida: boolean; children: React.ReactNode }) {
+  // Inicializador preguicoso, como em `componentes/entrada.ts`: ler
+  // `useRef(...).current` durante a renderizacao e o que `react-hooks/refs` recusa.
+  const [escala] = useState(() => new Animated.Value(1));
+  // So a troca feita agora anima: voltar a uma pergunta ja respondida monta a
+  // opcao ja escolhida, e ela nao deve pular sozinha.
+  const anterior = useRef(escolhida);
+
+  useEffect(() => {
+    const acabouDeSerEscolhida = escolhida && !anterior.current;
+    anterior.current = escolhida;
+    if (!acabouDeSerEscolhida) return;
+    escala.setValue(0.96);
+    Animated.spring(escala, { toValue: 1, friction: 5, tension: 160, useNativeDriver: true }).start();
+  }, [escolhida, escala]);
+
+  return <Animated.View style={{ transform: [{ scale: escala }] }}>{children}</Animated.View>;
 }
 
 /**

@@ -8,6 +8,7 @@ import { rascunhoDeRondaDoSite } from "../campo/rascunho";
 import { useSessao } from "../auth/SessaoProvider";
 import { motivoParaNaoAbrir, novoNumeroDeColeta, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { Aviso } from "../componentes/Aviso";
+import { EntradaEmCascata } from "../componentes/EntradaEmCascata";
 import { Campo } from "../componentes/Campo";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
@@ -177,21 +178,23 @@ export function TelaDeSites() {
               }
             />
           }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => void abrir(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`Fazer checklist em ${item.nome}`}
-              style={({ pressed }) => [
-                estilos.site,
-                larguraDoItem !== undefined && { width: larguraDoItem },
-                pressed && estilos.pressionado,
-              ]}
-            >
-              <Text style={estilos.nome} numberOfLines={2}>
-                {item.nome}
-              </Text>
-            </Pressable>
+          renderItem={({ item, index }) => (
+            <EntradaEmCascata indice={index}>
+              <Pressable
+                onPress={() => void abrir(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Fazer checklist em ${item.nome}`}
+                style={({ pressed }) => [
+                  estilos.site,
+                  larguraDoItem !== undefined && { width: larguraDoItem },
+                  pressed && estilos.pressionado,
+                ]}
+              >
+                <Text style={estilos.nome} numberOfLines={2}>
+                  {item.nome}
+                </Text>
+              </Pressable>
+            </EntradaEmCascata>
           )}
         />
       )}

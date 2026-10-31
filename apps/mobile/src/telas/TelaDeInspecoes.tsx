@@ -19,6 +19,7 @@ import type { RotasDoApp } from "../navegacao/Navegacao";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Cartao, LinhaDoCartao } from "../componentes/Cartao";
+import { EntradaEmCascata } from "../componentes/EntradaEmCascata";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
 import { colunasParaLargura, larguraDoItemNaGrade } from "../lib/grade";
@@ -180,38 +181,40 @@ export function TelaDeInspecoes() {
              embaixo da outra. O rotulo e o mesmo do `<thead>` de la, com a
              mesma tipografia -- e o que permite conferir os dois lado a lado
              sem traduzir nome de campo na cabeca. */
-          renderItem={({ item }) => (
-            <Cartao estilo={larguraDoItem !== undefined ? { width: larguraDoItem } : undefined}>
-              <Text style={estilos.cartaoTitulo}>Coleta {numeroDaColeta(item.numero_coleta, item.id)}</Text>
-              <LinhaDoCartao rotulo="Site" valor={String(item.site_id)} />
-              <LinhaDoCartao rotulo="Registrada em" valor={formatarData(item.criado_em)} />
+          renderItem={({ item, index }) => (
+            <EntradaEmCascata indice={index}>
+              <Cartao estilo={larguraDoItem !== undefined ? { width: larguraDoItem } : undefined}>
+                <Text style={estilos.cartaoTitulo}>Coleta {numeroDaColeta(item.numero_coleta, item.id)}</Text>
+                <LinhaDoCartao rotulo="Site" valor={String(item.site_id)} />
+                <LinhaDoCartao rotulo="Registrada em" valor={formatarData(item.criado_em)} />
 
-              {/* INSPETOR (na propria visita) e GESTOR fecham visita; os demais
-                  cargos so leem. O portao de verdade e
-                  `autorizacao.pode_finalizar_visita` (0059) -- isto aqui e para
-                  nao oferecer o que o banco vai recusar. */}
-              {item.checklists_visita ? (
-                // Ja fechada: sem botao para ninguem. Desde a 0059 sao duas
-                // pessoas que podem fechar a mesma visita, e oferecer o botao
-                // aqui era convidar a preencher um checklist inteiro que o
-                // banco vai recusar pela unique de `visita_id`.
-                <LinhaDoCartao rotulo="Situação" valor="Finalizada" />
-              ) : podeFinalizar ? (
-                <Botao
-                  titulo="Finalizar visita"
-                  variante="secundaria"
-                  tamanho="medio"
-                  larguraTotal
-                  estilo={estilos.finalizar}
-                  aoPressionar={() =>
-                    navegacao.navigate("TipoDeVisita", {
-                      visitaId: item.id,
-                      numeroColeta: item.numero_coleta,
-                    })
-                  }
-                />
-              ) : null}
-            </Cartao>
+                {/* INSPETOR (na propria visita) e GESTOR fecham visita; os demais
+                    cargos so leem. O portao de verdade e
+                    `autorizacao.pode_finalizar_visita` (0059) -- isto aqui e para
+                    nao oferecer o que o banco vai recusar. */}
+                {item.checklists_visita ? (
+                  // Ja fechada: sem botao para ninguem. Desde a 0059 sao duas
+                  // pessoas que podem fechar a mesma visita, e oferecer o botao
+                  // aqui era convidar a preencher um checklist inteiro que o
+                  // banco vai recusar pela unique de `visita_id`.
+                  <LinhaDoCartao rotulo="Situação" valor="Finalizada" />
+                ) : podeFinalizar ? (
+                  <Botao
+                    titulo="Finalizar visita"
+                    variante="secundaria"
+                    tamanho="medio"
+                    larguraTotal
+                    estilo={estilos.finalizar}
+                    aoPressionar={() =>
+                      navegacao.navigate("TipoDeVisita", {
+                        visitaId: item.id,
+                        numeroColeta: item.numero_coleta,
+                      })
+                    }
+                  />
+                ) : null}
+              </Cartao>
+            </EntradaEmCascata>
           )}
         />
       )}
