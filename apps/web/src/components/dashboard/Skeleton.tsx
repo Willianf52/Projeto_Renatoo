@@ -15,5 +15,5 @@ export function Skeleton({
   className?: string;
   as?: "div" | "span";
 }) {
-  return <Tag className={`animate-pulse rounded bg-white/10 ${className}`} />;
+  return <Tag className={`brilho-de-carregamento animate-pulse rounded bg-white/10 ${className}`} />;
 }

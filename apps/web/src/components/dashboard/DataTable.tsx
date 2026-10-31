@@ -159,7 +159,7 @@ export function DataTable({
                   <TableSkeleton columns={columns} />
                 ) : (
                   rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="group border-b border-slate-800/60 hover:bg-white/5">
+                    <tr key={rowIndex} className="group border-b border-slate-800/60 transition-colors duration-150 hover:bg-white/5">
                       {row.map((cell, cellIndex) => (
                         <td
                           key={cellIndex}
@@ -429,7 +429,7 @@ function TableSkeleton({ columns }: { columns: string[] }) {
         >
           {columns.map((column) => (
             <td key={column} className="px-4 py-3.5">
-              <div className="h-3 animate-pulse rounded bg-white/10" />
+              <div className="brilho-de-carregamento h-3 animate-pulse rounded bg-white/10" />
             </td>
           ))}
         </tr>

@@ -123,7 +123,7 @@ function GradeEsqueleto() {
       <Cabecalho />
       <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: TAMANHO_DA_GRADE }, (_, i) => (
-          <div key={i} className="h-[78px] animate-pulse rounded-lg border border-slate-800 bg-brand-navy" />
+          <div key={i} className="brilho-de-carregamento h-[78px] animate-pulse rounded-lg border border-slate-800 bg-brand-navy" />
         ))}
       </div>
     </div>
