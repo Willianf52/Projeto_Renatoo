@@ -85,13 +85,14 @@ const FOLGA_DO_REMOVER = (alturaDeControle.padrao - LADO_DO_REMOVER) / 2;
  * outro), e mostrar os dois conjuntos de campos ao mesmo tempo obrigaria a
  * pessoa a descobrir qual metade ignorar, em pe, com o aparelho na mao.
  *
- * Foto e assinatura ficam fora do galho condicional porque os dois caminhos
- * pedem os dois -- e o que `comumDoChecklist` no esquema do shared ja diz.
+ * A assinatura fica fora do galho condicional porque os dois caminhos a pedem.
+ * As fotos gerais, nao: desde 03/11/2026 so a corretiva as tem (pedido do dono,
+ * como no sistema de referencia, onde a consultoria so tem foto por pergunta).
  *
  * UMA PERGUNTA POR VEZ (pedido do dono, 11/10/2026, como no app do sistema de
  * referencia): na consultoria, cada pergunta ocupa a tela, com "Progresso do
  * checklist X de N" e Anterior/Proximo no rodape; depois da ultima vem o
- * resumo, com as fotos gerais, a assinatura e o "Finalizar visita". A
+ * resumo, com a assinatura e o "Finalizar visita". A
  * corretiva continua numa tela so -- e o motivo, uma foto e a assinatura.
  */
 export function TelaDeChecklist({
@@ -416,7 +417,7 @@ export function TelaDeChecklist({
         ? total
         : primeiraSemResposta;
   const perguntaAtual = paginado && indice < total ? (perguntas ?? [])[indice] : null;
-  // Fotos gerais, assinatura e "Finalizar": na corretiva sempre; na
+  // Fotos (so da corretiva), assinatura e "Finalizar": na corretiva sempre; na
   // consultoria, so no resumo. Escolhendo o modelo ou carregando, nada disso.
   const noFechamento = perguntaAtual === null && !escolhaDeModeloPendente && !carregandoPerguntas;
 
@@ -918,57 +919,64 @@ export function TelaDeChecklist({
 
         {noFechamento ? (
           <>
-            <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
-              <View style={estilos.cabecalhoDaSecao}>
-                <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
-                  {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
-                  {/* So a quantidade tirada, sem o teto: o limite existe (regras.ts) mas a pessoa
-                      nao precisa ve-lo (pedido do dono, 21/10/2026). */}
-                  {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"}{fotos.length > 0 ? ` (${fotos.length})` : ""}
-                </Text>
+            {/* Consultoria sem fotos gerais (03/11/2026): so foto por pergunta,
+                como no sistema de referencia. O rascunho de antes da mudanca que
+                ja tinha foto geral continua mostrando-a, para nao sumir com ela. */}
+            {tipo !== "CONSULTORIA" || fotos.length > 0 ? (
+              <View style={estilos.secao} onLayout={(evento) => medirSecao("fotos", evento)}>
+                <View style={estilos.cabecalhoDaSecao}>
+                  <Text style={[estilos.rotulo, destacar("fotos") && estilos.rotuloPendente]}>
+                    {/* Na consultoria, "gerais": ha tambem a foto de cada pergunta. */}
+                    {/* So a quantidade tirada, sem o teto: o limite existe (regras.ts) mas a pessoa
+                        nao precisa ve-lo (pedido do dono, 21/10/2026). */}
+                    {tipo === "CONSULTORIA" ? "Fotos gerais" : "Fotos"}{fotos.length > 0 ? ` (${fotos.length})` : ""}
+                  </Text>
+                </View>
+
+                {fotos.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
+                    {fotos.map((uri, indice) => (
+                      // Miniatura e "remover" sao irmaos, e nao um dentro do outro:
+                      // um Pressable acessivel engole os filhos para o leitor de
+                      // tela, e o "remover" deixaria de ser alcancavel.
+                      <View key={uri} style={estilos.tira}>
+                        <Pressable
+                          onPress={() => setFotoAberta({ uri, dono: null })}
+                          accessibilityRole="imagebutton"
+                          accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
+                        >
+                          <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
+                        </Pressable>
+                        <Pressable
+                          onPress={() => removerFoto(uri, null)}
+                          // O circulo tem 22 de desenho; o alvo de toque vai a 44
+                          // pelo `hitSlop`, sem crescer por cima da foto.
+                          hitSlop={FOLGA_DO_REMOVER}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remover foto ${indice + 1}`}
+                          style={estilos.remover}
+                        >
+                          <Text style={estilos.removerTexto}>✕</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : null}
+
+                {tipo !== "CONSULTORIA" ? (
+                  <Botao
+                    titulo="Tirar foto"
+                    variante="secundaria"
+                    tamanho="medio"
+                    larguraTotal
+                    desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
+                    aoPressionar={() => {
+                      void anexarFoto(null);
+                    }}
+                  />
+                ) : null}
               </View>
-
-              {fotos.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.tiras}>
-                  {fotos.map((uri, indice) => (
-                    // Miniatura e "remover" sao irmaos, e nao um dentro do outro:
-                    // um Pressable acessivel engole os filhos para o leitor de
-                    // tela, e o "remover" deixaria de ser alcancavel.
-                    <View key={uri} style={estilos.tira}>
-                      <Pressable
-                        onPress={() => setFotoAberta({ uri, dono: null })}
-                        accessibilityRole="imagebutton"
-                        accessibilityLabel={`Ver foto ${indice + 1} de ${fotos.length}`}
-                      >
-                        <Image source={{ uri }} alt="Foto anexada à visita" style={estilos.miniatura} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => removerFoto(uri, null)}
-                        // O circulo tem 22 de desenho; o alvo de toque vai a 44
-                        // pelo `hitSlop`, sem crescer por cima da foto.
-                        hitSlop={FOLGA_DO_REMOVER}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remover foto ${indice + 1}`}
-                        style={estilos.remover}
-                      >
-                        <Text style={estilos.removerTexto}>✕</Text>
-                      </Pressable>
-                    </View>
-                  ))}
-                </ScrollView>
-              ) : null}
-
-              <Botao
-                titulo="Tirar foto"
-                variante="secundaria"
-                tamanho="medio"
-                larguraTotal
-                desabilitado={fotos.length >= MAXIMO_DE_FOTOS}
-                aoPressionar={() => {
-                  void anexarFoto(null);
-                }}
-              />
-            </View>
+            ) : null}
 
             <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
               <AreaDeAssinatura
