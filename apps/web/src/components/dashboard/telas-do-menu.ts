@@ -254,6 +254,13 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
       },
+      // Agendas de checklist (0084), na posicao do sistema de referencia.
+      {
+        label: "Agendamentos",
+        href: "/dashboard/checklistlab/agendamentos",
+        icon: ClipboardListIcon,
+        somenteGestor: true,
+      },
       {
         label: "Relatórios",
         icon: PrinterIcon,
@@ -288,6 +295,12 @@ export const NAV_ITEMS: NavItem[] = [
           {
             label: "Criar Checklist",
             href: "/dashboard/checklistlab/modelos",
+            icon: ClipboardListIcon,
+            somenteGestor: true,
+          },
+          {
+            label: "Criar Agenda",
+            href: "/dashboard/checklistlab/agendas",
             icon: ClipboardListIcon,
             somenteGestor: true,
           },
