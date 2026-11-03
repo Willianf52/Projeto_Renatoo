@@ -17,13 +17,15 @@ describe("montarEmailDeChecklist", () => {
   it("consultoria conforme: assunto, horario de Brasilia, nota e link", () => {
     const { assunto, texto } = montarEmailDeChecklist(BASE);
 
-    expect(assunto).toBe("Checklist enviado - Portaria - Posto Central - Ana Souza");
+    expect(assunto).toBe("Inspeção realizada - Ana Souza - Posto Central - Portaria");
+    expect(texto).toContain("Ana Souza realizou uma inspeção em Posto Central.");
     expect(texto).toContain("Checklist: Consultoria (Portaria)");
     expect(texto).toContain("Enviado em: 06/10/2026, 18:29");
     expect(texto).toContain("Situação: Conforme");
     expect(texto).toContain("Nota: 100%");
     expect(texto).toContain(`Ver no portal: ${BASE.link}`);
-    expect(texto).toContain("como superior de Ana Souza");
+    expect(texto).toContain("por ser gestor no portal ou superior de Ana Souza");
+    expect(texto).not.toContain("PDF");
   });
 
   it("corretiva leva o motivo e nao tem nota", () => {
@@ -35,7 +37,7 @@ describe("montarEmailDeChecklist", () => {
       motivo: "Portão danificado",
     });
 
-    expect(assunto).toBe("Checklist enviado - Corretiva - Posto Central - Ana Souza");
+    expect(assunto).toBe("Inspeção realizada - Ana Souza - Posto Central - Corretiva");
     expect(texto).toContain("Situação: Corretiva");
     expect(texto).toContain("Motivo:\nPortão danificado");
     expect(texto).not.toContain("Nota:");
@@ -46,5 +48,11 @@ describe("montarEmailDeChecklist", () => {
 
     expect(texto).toContain("Situação: 2 não conformidades");
     expect(assunto).not.toMatch(/[\r\n]/);
+  });
+
+  it("com o PDF anexado, o texto avisa", () => {
+    const { texto } = montarEmailDeChecklist({ ...BASE, comPdf: true });
+
+    expect(texto).toContain("O PDF do checklist vai anexado a este e-mail.");
   });
 });

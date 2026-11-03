@@ -3,8 +3,10 @@ import {
   rotuloDaResposta as rotuloDaRespostaPorTipo,
   tipoDeResposta,
   type RespostaDoChecklist as ValorDaResposta,
+  type Database,
   type TipoDeResposta,
 } from "@projeto-renatoo/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { dataValida, fimExclusivoDoFiltro, formatarDataHora, FUSO_DO_PROJETO, inicioDoFiltro } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
@@ -518,7 +520,7 @@ export type Historico = {
  * `max_rows` do PostgREST, e o corte seria calado.
  */
 async function contarPerguntasAtivasPorModelo(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient<Database>,
 ): Promise<Map<number, number>> {
   const { linhas } = await buscarEmPaginas<{ modelo_id: number }>(
     (de, ate) =>
@@ -869,7 +871,19 @@ const SELECT_DO_DETALHE = `
  * Postgres subindo ate a fronteira de erro do App Router.
  */
 export async function getChecklist(id: number): Promise<ChecklistDetalhe | null> {
-  const supabase = await createClient();
+  return getChecklistPeloCliente(await createClient(), id);
+}
+
+/**
+ * O mesmo detalhe, com o cliente de quem chama. Existe para o PDF anexado ao
+ * aviso de inspecao (`lib/pdf-do-checklist.ts`), que roda na fila de e-mails
+ * com a service_role, sem sessao -- e precisa mostrar exatamente o que a tela
+ * mostra, entao usa a mesma consulta e a mesma montagem.
+ */
+export async function getChecklistPeloCliente(
+  supabase: SupabaseClient<Database>,
+  id: number,
+): Promise<ChecklistDetalhe | null> {
 
   const [perguntasPorModelo, resultado] = await Promise.all([
     contarPerguntasAtivasPorModelo(supabase),

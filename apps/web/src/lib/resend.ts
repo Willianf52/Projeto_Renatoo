@@ -56,10 +56,18 @@ export async function enviarEmailDeOcorrencia(mensagem: {
   assunto: string;
   texto: string;
   chave: string;
+  /** Arquivos anexados -- o PDF do checklist no aviso de inspecao (0080). */
+  anexos?: { nome: string; conteudo: Uint8Array }[];
 }): Promise<string | null> {
   const resend = getResendClient();
   const { data, error } = await resend.emails.send(
-    { from: mensagem.remetente, to: mensagem.para, subject: mensagem.assunto, text: mensagem.texto },
+    {
+      from: mensagem.remetente,
+      to: mensagem.para,
+      subject: mensagem.assunto,
+      text: mensagem.texto,
+      attachments: mensagem.anexos?.map((anexo) => ({ filename: anexo.nome, content: Buffer.from(anexo.conteudo) })),
+    },
     { idempotencyKey: mensagem.chave },
   );
   if (error) throw new Error(error.message);
