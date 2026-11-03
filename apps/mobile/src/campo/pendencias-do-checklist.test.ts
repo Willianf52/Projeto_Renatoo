@@ -111,10 +111,18 @@ describe("textoDoResumo", () => {
 
   it("junta as pecas com virgula e 'e' no fim", () => {
     const pendencias = pendenciasDoChecklist(
+      estado({ tipo: "CORRETIVA", motivo: "", quantidadeDeFotos: 0, temAssinatura: false }),
+    );
+
+    expect(textoDoResumo(pendencias)).toBe("Falta: o motivo, uma foto e a assinatura.");
+  });
+
+  it("consultoria nao exige foto: so as perguntas e a assinatura (03/11/2026)", () => {
+    const pendencias = pendenciasDoChecklist(
       estado({ tipo: "CONSULTORIA", perguntas, respostas: {}, quantidadeDeFotos: 0, temAssinatura: false }),
     );
 
-    expect(textoDoResumo(pendencias)).toBe("Falta: 3 perguntas, uma foto e a assinatura.");
+    expect(textoDoResumo(pendencias)).toBe("Falta: 3 perguntas e a assinatura.");
   });
 
   it("singular para uma pergunta, e uma peca so sem 'e'", () => {

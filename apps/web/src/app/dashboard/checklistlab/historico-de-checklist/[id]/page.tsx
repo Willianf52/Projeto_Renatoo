@@ -131,21 +131,17 @@ async function Detalhe({ params, searchParams }: Props) {
       )}
 
       {/* Na consultoria, "gerais": as fotos de cada pergunta (0061) ja
-          aparecem na linha dela, na tabela acima. */}
-      <Cartao
-        titulo={`${linha.tipo === TIPO_CONSULTORIA ? "Fotos gerais" : "Fotos"} (${detalhe.fotos.length})`}
-        atraso="200ms"
-      >
-        <Fotos
-          checklistId={linha.id}
-          fotos={detalhe.fotos}
-          vazio={
-            linha.tipo === TIPO_CONSULTORIA && detalhe.respostas.some((resposta) => resposta.fotos.length > 0)
-              ? "As fotos deste checklist foram tiradas nas perguntas, e estão na tabela de respostas."
-              : "Nenhuma foto foi enviada junto com este checklist."
-          }
-        />
-      </Cartao>
+          aparecem na linha dela, na tabela acima. Desde 03/11/2026 o app nao
+          tira mais foto geral na consultoria (como o sistema de referencia):
+          o cartao so aparece nos checklists antigos que tem alguma. */}
+      {(linha.tipo !== TIPO_CONSULTORIA || detalhe.fotos.length > 0) && (
+        <Cartao
+          titulo={`${linha.tipo === TIPO_CONSULTORIA ? "Fotos gerais" : "Fotos"} (${detalhe.fotos.length})`}
+          atraso="200ms"
+        >
+          <Fotos checklistId={linha.id} fotos={detalhe.fotos} vazio="Nenhuma foto foi enviada junto com este checklist." />
+        </Cartao>
+      )}
 
       <Cartao titulo="Assinatura do responsável no local" atraso="240ms">
         {detalhe.temAssinatura ? (

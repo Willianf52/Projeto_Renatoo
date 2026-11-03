@@ -55,7 +55,10 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
     if (pendenciaDePerguntas) pendencias.push(pendenciaDePerguntas);
   }
 
-  if (estado.quantidadeDeFotos === 0) {
+  // Foto obrigatoria so na corretiva, que nao tem perguntas: e a unica prova
+  // visual da visita. Na consultoria a foto e por pergunta e opcional, como no
+  // sistema de referencia (decisao do dono, 03/11/2026).
+  if (estado.tipo === "CORRETIVA" && estado.quantidadeDeFotos === 0) {
     pendencias.push({ alvo: "fotos", mensagem: "Anexe ao menos uma foto." });
   }
 
