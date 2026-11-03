@@ -176,6 +176,12 @@ export function SelecaoMultipla({
             value={opcao.value}
             checked={marcados.has(opcao.value)}
             readOnly
+            // So carregam o valor: fora da leitura de tela e do Tab, que ja
+            // passam pelo combobox acima. O rotulo fica por garantia (o axe
+            // da CI cobra rotulo de todo campo de formulario).
+            aria-label={opcao.label}
+            aria-hidden="true"
+            tabIndex={-1}
             className="sr-only"
           />
         ))}
