@@ -9,6 +9,8 @@ vi.mock("@/lib/resend", () => ({
   configuracaoDoRemetente: () => configuracao(),
 }));
 vi.mock("@/lib/log", () => ({ erro: vi.fn() }));
+const gerarPdf = vi.fn();
+vi.mock("@/lib/pdf-do-checklist", () => ({ gerarPdfDoChecklist: (...args: unknown[]) => gerarPdf(...args) }));
 
 const { processarFilaDeEmailsDeChecklist, resumoDasRespostas } = await import("./fila-de-emails-de-checklist");
 
@@ -50,6 +52,8 @@ function bancoFalso(lote: Linha[], tentativas = 1) {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 1000 });
   enviar.mockReset();
+  gerarPdf.mockReset();
+  gerarPdf.mockResolvedValue({ arquivo: new Uint8Array([37, 80, 68, 70]), nome: "checklist-29-2026.pdf" });
   configuracao.mockReturnValue({ remetente: "Teste <t@x>", somente: null });
 });
 
@@ -70,10 +74,34 @@ describe("processarFilaDeEmailsDeChecklist", () => {
     expect(rpc).toHaveBeenCalledWith("reservar_emails_de_checklist", { p_limite: 20, p_somente: undefined });
     const mensagem = enviar.mock.calls[0][0];
     expect(mensagem).toMatchObject({ para: "chefe@x.test", chave: "checklist-email-4" });
-    expect(mensagem.assunto).toBe("Checklist enviado - Portaria - Posto Central - Ana Souza");
+    expect(mensagem.assunto).toBe("Inspeção realizada - Ana Souza - Posto Central - Portaria");
+    expect(mensagem.anexos).toEqual([{ nome: "checklist-29-2026.pdf", conteudo: new Uint8Array([37, 80, 68, 70]) }]);
+    expect(mensagem.texto).toContain("O PDF do checklist vai anexado");
     expect(mensagem.texto).toContain("Situação: 1 não conformidade");
     expect(mensagem.texto).toContain("https://portal.test/dashboard/checklistlab/historico-de-checklist/31");
     expect(updates).toEqual([{ id: 4, dados: expect.objectContaining({ status: "ENVIADO", id_externo: "re_9" }) }]);
+  });
+
+  it("o mesmo checklist para dois gestores gera um PDF so", async () => {
+    enviar.mockResolvedValue("re_1");
+    const { admin } = bancoFalso([
+      { id: 5, checklist_id: 31, destinatario: "a@x.test" },
+      { id: 6, checklist_id: 31, destinatario: "b@x.test" },
+    ]);
+
+    expect(await processarFilaDeEmailsDeChecklist(admin, "https://portal.test", "req")).toEqual({ enviados: 2, falhas: 0 });
+    expect(gerarPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it("sem o PDF, o aviso sai mesmo assim, sem anexo", async () => {
+    enviar.mockResolvedValue("re_2");
+    gerarPdf.mockRejectedValue(new Error("storage fora"));
+    const { admin } = bancoFalso([{ id: 7, checklist_id: 31, destinatario: "a@x.test" }]);
+
+    expect(await processarFilaDeEmailsDeChecklist(admin, "https://portal.test", "req")).toEqual({ enviados: 1, falhas: 0 });
+    const mensagem = enviar.mock.calls[0][0];
+    expect(mensagem.anexos).toBeUndefined();
+    expect(mensagem.texto).not.toContain("PDF");
   });
 
   it("falha na terceira tentativa vira FALHOU", async () => {

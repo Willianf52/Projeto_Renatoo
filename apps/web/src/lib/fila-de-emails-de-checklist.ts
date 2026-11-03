@@ -2,6 +2,7 @@ import "server-only";
 
 import { notaDoChecklist, tipoDeResposta, type RespostaDoChecklist } from "@projeto-renatoo/shared";
 import { montarEmailDeChecklist } from "@/lib/emails-de-checklist";
+import { gerarPdfDoChecklist } from "@/lib/pdf-do-checklist";
 import type { ResultadoDaFila } from "@/lib/fila-de-emails-de-ocorrencia";
 import { erro } from "@/lib/log";
 import { configuracaoDoRemetente, enviarEmailDeOcorrencia } from "@/lib/resend";
@@ -82,6 +83,24 @@ export async function processarFilaDeEmailsDeChecklist(
 
   const porId = new Map(((checklists ?? []) as unknown as ChecklistDoEmail[]).map((c) => [c.id, c]));
 
+  // Um PDF por checklist, e nao por destinatario: o mesmo checklist vai para
+  // todos os gestores do lote. Falhou o PDF, o aviso sai sem o anexo -- quem
+  // recebe ainda tem o "Ver no portal", e saber da inspecao vale mais que o
+  // arquivo.
+  const pdfs = new Map<number, Promise<{ arquivo: Uint8Array; nome: string } | null>>();
+  const pdfDo = (checklistId: number) => {
+    if (!pdfs.has(checklistId)) {
+      pdfs.set(
+        checklistId,
+        gerarPdfDoChecklist(admin, checklistId).catch((falha) => {
+          erro(idRequisicao, `Fila de e-mails de checklist: PDF do checklist ${checklistId} nao gerado.`, falha);
+          return null;
+        }),
+      );
+    }
+    return pdfs.get(checklistId)!;
+  };
+
   let enviados = 0;
   let falhas = 0;
 
@@ -91,7 +110,9 @@ export async function processarFilaDeEmailsDeChecklist(
     const c = porId.get(linha.checklist_id);
     try {
       if (!c) throw new Error("checklist não encontrado");
+      const pdf = await pdfDo(c.id);
       const { assunto, texto } = montarEmailDeChecklist({
+        comPdf: pdf !== null,
         tipo: c.tipo,
         modelo: c.modelos_checklist?.nome ?? null,
         site: c.visitas?.sites?.nome ?? "Site",
@@ -108,6 +129,7 @@ export async function processarFilaDeEmailsDeChecklist(
         assunto,
         texto,
         chave: `checklist-email-${linha.id}`,
+        anexos: pdf ? [{ nome: pdf.nome, conteudo: pdf.arquivo }] : undefined,
       });
 
       await admin

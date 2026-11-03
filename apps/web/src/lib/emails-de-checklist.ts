@@ -1,6 +1,6 @@
 /**
- * Texto do e-mail ao superior quando um checklist e enviado ("Enviar E-mail
- * para o Superior?" > Checklist, migration 0068). Puro e sem I/O, como
+ * Texto do aviso de checklist enviado: ao superior de quem enviou ("Enviar
+ * E-mail para o Superior?" > Checklist, migration 0068) e aos gestores (0080). Puro e sem I/O, como
  * `emails-de-ocorrencia.ts`: quem busca os dados e envia e
  * `fila-de-emails-de-checklist.ts`; quem decide QUEM recebe e o banco.
  */
@@ -22,6 +22,8 @@ export type DadosDoChecklist = {
   motivo: string | null;
   /** Link absoluto para o detalhe no Historico de Checklist. */
   link: string;
+  /** O PDF do checklist vai anexado (0080); falso quando nao deu para gerar. */
+  comPdf?: boolean;
 };
 
 const DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
@@ -46,10 +48,11 @@ function situacao(d: DadosDoChecklist): string {
 
 export function montarEmailDeChecklist(d: DadosDoChecklist): { assunto: string; texto: string } {
   const nomeDoChecklist = d.tipo === "CORRETIVA" ? "Corretiva" : (d.modelo ?? "Consultoria");
-  const assunto = umaLinha(`Checklist enviado - ${nomeDoChecklist} - ${d.site} - ${d.funcionario}`);
+  // Como o aviso do sistema antigo: quem inspecionou qual lugar.
+  const assunto = umaLinha(`Inspeção realizada - ${d.funcionario} - ${d.site} - ${nomeDoChecklist}`);
 
   const linhas = [
-    `${d.funcionario} enviou um checklist.`,
+    `${d.funcionario} realizou uma inspeção em ${d.site}.`,
     "",
     `Checklist: ${d.tipo === "CORRETIVA" ? "Corretiva" : `Consultoria (${d.modelo ?? "sem modelo"})`}`,
     `Site: ${d.site}`,
@@ -59,11 +62,13 @@ export function montarEmailDeChecklist(d: DadosDoChecklist): { assunto: string; 
   if (d.nota !== null) linhas.push(`Nota: ${d.nota}%`);
   if (d.motivo?.trim()) linhas.push("", "Motivo:", d.motivo.trim());
 
+  if (d.comPdf) linhas.push("", "O PDF do checklist vai anexado a este e-mail.");
+
   linhas.push(
     "",
     `Ver no portal: ${d.link}`,
     "",
-    `Mensagem automática do Portal Operacional Up Serviços. Você recebe este aviso como superior de ${umaLinha(d.funcionario)}. Para deixar de receber, peça ao gestor que desmarque "Checklist" em "Enviar e-mail para o superior" no cadastro dessa pessoa.`,
+    `Mensagem automática do Portal Operacional Up Serviços. Você recebe este aviso por ser gestor no portal ou superior de ${umaLinha(d.funcionario)}.`,
   );
 
   return { assunto, texto: linhas.join("\n") };
