@@ -2,7 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
-const { descricaoAutomatica, extrairFiltros, montarResumo, periodoPadrao, rotuloDaResposta, tempoEmAberto } =
+const {
+  descricaoAutomatica,
+  extrairFiltros,
+  idsPelaSituacao,
+  montarResumo,
+  ordenarAnalises,
+  periodoPadrao,
+  rotuloDaResposta,
+  situacaoPelosAndamentos,
+  tempoEmAberto,
+} =
   await import("./queries");
 
 const AGORA = new Date("2026-10-05T12:00:00Z");
@@ -76,5 +86,85 @@ describe("montarResumo", () => {
       { status: "AGUARDANDO", quantidade: 2 },
       { status: "EM_ANALISE", quantidade: 1 },
     ]);
+  });
+});
+
+describe("filtros novos do Painel (paridade de 03/11)", () => {
+  it("le QR-Code, Checklist, andamentos, grupos e a visao", () => {
+    const uuid = "11111111-2222-4333-8444-555555555555";
+    expect(
+      extrairFiltros(
+        {
+          qrcode: "  PC-01 ",
+          checklist: "7",
+          tipo_analise: "2",
+          remetente: uuid,
+          responsavel: uuid,
+          grupo_abertura: "3",
+          grupo_remetente: "4",
+          grupo_responsavel: "5",
+          visao: "quadro",
+        },
+        AGORA,
+      ),
+    ).toMatchObject({
+      qrcode: "PC-01",
+      checklist: "7",
+      tipoAnalise: "2",
+      remetente: uuid,
+      responsavel: uuid,
+      grupoAbertura: "3",
+      grupoRemetente: "4",
+      grupoResponsavel: "5",
+      visao: "quadro",
+    });
+  });
+
+  it("descarta valor torto e abre na Lista", () => {
+    expect(
+      extrairFiltros({ checklist: "x", remetente: "nao-e-uuid", grupo_abertura: "-1", visao: "kanban" }, AGORA),
+    ).toMatchObject({ checklist: undefined, remetente: undefined, grupoAbertura: undefined, visao: "lista" });
+  });
+});
+
+describe("situacaoPelosAndamentos", () => {
+  const A = "aaaaaaaa-0000-4000-8000-000000000001";
+  const B = "bbbbbbbb-0000-4000-8000-000000000002";
+  const C = "cccccccc-0000-4000-8000-000000000003";
+
+  it("remetente e tipo do ultimo andamento; responsavel do ultimo que indicou alguem", () => {
+    const situacao = situacaoPelosAndamentos([
+      // fora de ordem de proposito: a funcao ordena por data e id
+      { id: 3, ocorrencia_id: 10, criado_em: "2026-11-02T12:00:00Z", autor_id: C, responsavel_id: null, tipo_analise_id: 9 },
+      { id: 1, ocorrencia_id: 10, criado_em: "2026-11-01T12:00:00Z", autor_id: A, responsavel_id: B, tipo_analise_id: 8 },
+      { id: 2, ocorrencia_id: 11, criado_em: "2026-11-01T13:00:00Z", autor_id: B, responsavel_id: null, tipo_analise_id: 8 },
+    ]);
+    expect(situacao.get(10)).toEqual({ remetente: C, responsavel: B, tipoAnalise: 9 });
+    expect(situacao.get(11)).toEqual({ remetente: B, responsavel: null, tipoAnalise: 8 });
+  });
+
+  it("idsPelaSituacao cruza filtros e grupos", () => {
+    const situacao = new Map([
+      [10, { remetente: C, responsavel: B, tipoAnalise: 9 }],
+      [11, { remetente: B, responsavel: null, tipoAnalise: 8 }],
+    ]);
+    expect(idsPelaSituacao(situacao, { tipoAnalise: "8" }, {})).toEqual([11]);
+    expect(idsPelaSituacao(situacao, { responsavel: B }, {})).toEqual([10]);
+    expect(idsPelaSituacao(situacao, {}, { remetente: new Set([B, C]) })).toEqual([10, 11]);
+    // sem responsavel nao passa no filtro de grupo do responsavel
+    expect(idsPelaSituacao(situacao, {}, { responsavel: new Set([B]) })).toEqual([10]);
+  });
+});
+
+describe("ordenarAnalises", () => {
+  it("na ordem da lista e, dentro de cada evento, na ordem em que aconteceram", () => {
+    const linhas = [{ id: 20 }, { id: 10 }];
+    const andamentos = [
+      { id: 1, ocorrencia_id: 10, criado_em: "2026-11-01T10:00:00Z" },
+      { id: 4, ocorrencia_id: 20, criado_em: "2026-11-03T10:00:00Z" },
+      { id: 2, ocorrencia_id: 20, criado_em: "2026-11-02T10:00:00Z" },
+      { id: 9, ocorrencia_id: 99, criado_em: "2026-11-02T10:00:00Z" },
+    ];
+    expect(ordenarAnalises(linhas, andamentos).map((a) => a.id)).toEqual([2, 4, 1]);
   });
 });

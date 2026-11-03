@@ -7,7 +7,8 @@
  * legivel em qualquer cliente e nao vira spam por HTML mal formado.
  */
 
-export type Motivo = "ABERTURA" | "ANALISE" | "FINALIZACAO";
+/** ENVIO: o "Enviar Evento" do detalhe, mandado a mao por alguem (0081). */
+export type Motivo = "ABERTURA" | "ANALISE" | "FINALIZACAO" | "ENVIO";
 
 export type DadosDaMensagem = {
   motivo: Motivo;
@@ -26,6 +27,10 @@ export type DadosDaMensagem = {
   textoDoAndamento: string | null;
   /** Link absoluto para o detalhe no portal. */
   link: string;
+  /** So no ENVIO: quem mandou e o status do evento naquele momento, como
+   * gravado no banco ("EM_ANALISE"). */
+  remetente?: string | null;
+  status?: string | null;
 };
 
 const DATA_HORA = new Intl.DateTimeFormat("pt-BR", {
@@ -41,12 +46,23 @@ const SITUACAO: Record<Motivo, string> = {
   ABERTURA: "Aberto",
   ANALISE: "Em análise",
   FINALIZACAO: "Finalizado",
+  ENVIO: "Encaminhado",
 };
 
 const ROTULO_DO_ANDAMENTO: Record<Motivo, string | null> = {
   ABERTURA: null,
   ANALISE: "Análise",
   FINALIZACAO: "Ações realizadas",
+  ENVIO: null,
+};
+
+/** Mesmos rotulos do Painel de Eventos (`painel-de-eventos/queries.ts`). */
+const STATUS_LEGIVEL: Record<string, string> = {
+  AGUARDANDO: "Aguardando",
+  EM_ANALISE: "Em Análise",
+  ATENDIDO: "Atendido",
+  CANCELADO: "Cancelado",
+  CRITICO: "Crítico",
 };
 
 /** Mesmo rotulo do detalhe (`painel-de-eventos/queries.ts`). */
@@ -62,11 +78,17 @@ function umaLinha(texto: string): string {
 export function montarEmailDeOcorrencia(d: DadosDaMensagem): { assunto: string; texto: string } {
   const assunto = umaLinha(`Evento nº ${d.numero}/${d.ano} - ${d.evento} - ${d.site} - ${SITUACAO[d.motivo]}`);
 
+  const encaminhado = d.motivo === "ENVIO";
+  const abertura = encaminhado
+    ? `${d.remetente?.trim() || "Um usuário do portal"} encaminhou a você o evento nº ${d.numero}/${d.ano}.`
+    : `Evento nº ${d.numero}/${d.ano}: ${SITUACAO[d.motivo].toLowerCase()}.`;
+
   const linhas = [
-    `Evento nº ${d.numero}/${d.ano}: ${SITUACAO[d.motivo].toLowerCase()}.`,
+    abertura,
     "",
     `Evento: ${d.evento}`,
     `Site: ${d.site}`,
+    ...(encaminhado && d.status ? [`Status: ${STATUS_LEGIVEL[d.status] ?? d.status}`] : []),
     `Aberto em: ${DATA_HORA.format(new Date(d.abertaEm))}`,
     ...(d.pergunta !== null && d.resposta !== null
       ? [`Pergunta: ${d.pergunta}`, `Resposta: ${rotuloDaResposta(d.resposta)}`]

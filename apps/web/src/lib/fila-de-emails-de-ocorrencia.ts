@@ -48,24 +48,37 @@ export async function processarFilaDeEmails(
 
   const ocorrenciaIds = [...new Set(lote.map((l) => l.ocorrencia_id))];
   const andamentoIds = [...new Set(lote.map((l) => l.andamento_id).filter((id): id is number => id !== null))];
+  // "Enviar Evento" (0081): o nome de quem mandou vai no texto.
+  const envioIds = lote.filter((l) => l.motivo === "ENVIO").map((l) => l.id);
 
-  const [ocorrencias, andamentos] = await Promise.all([
+  const [ocorrencias, andamentos, envios] = await Promise.all([
     admin
       .from("ocorrencias")
-      .select("id, numero, ano, criado_em, pergunta_texto, resposta, observacao, eventos!ocorrencias_evento_id_fkey ( nome ), sites ( nome )")
+      .select("id, numero, ano, criado_em, status, pergunta_texto, resposta, observacao, eventos!ocorrencias_evento_id_fkey ( nome ), sites ( nome )")
       .in("id", ocorrenciaIds),
     andamentoIds.length
       ? admin.from("ocorrencia_andamentos").select("id, texto").in("id", andamentoIds)
       : Promise.resolve({ data: [] as { id: number; texto: string }[], error: null }),
+    envioIds.length
+      ? admin
+          .from("ocorrencia_emails")
+          .select("id, remetente:profiles!ocorrencia_emails_enviado_por_fkey ( nome_completo )")
+          .in("id", envioIds)
+      : Promise.resolve({ data: [] as { id: number; remetente: { nome_completo: string | null } | null }[], error: null }),
   ]);
-  if (ocorrencias.error || andamentos.error) {
-    erro(idRequisicao, "Fila de e-mails de ocorrência: falha ao ler as ocorrências do lote.", ocorrencias.error ?? andamentos.error);
+  if (ocorrencias.error || andamentos.error || envios.error) {
+    erro(
+      idRequisicao,
+      "Fila de e-mails de ocorrência: falha ao ler as ocorrências do lote.",
+      ocorrencias.error ?? andamentos.error ?? envios.error,
+    );
     // Ficam ENVIANDO; a proxima reserva devolve a fila depois de 10 minutos.
     return { enviados: 0, falhas: 0 };
   }
 
   const porOcorrencia = new Map((ocorrencias.data ?? []).map((o) => [o.id, o]));
   const textoDoAndamento = new Map((andamentos.data ?? []).map((a) => [a.id, a.texto]));
+  const remetenteDoEnvio = new Map((envios.data ?? []).map((e) => [e.id, e.remetente?.nome_completo ?? null]));
 
   let enviados = 0;
   let falhas = 0;
@@ -88,6 +101,8 @@ export async function processarFilaDeEmails(
         observacao: o.observacao,
         textoDoAndamento: linha.andamento_id === null ? null : (textoDoAndamento.get(linha.andamento_id) ?? null),
         link: `${origem}/dashboard/eventos/painel-de-eventos/${o.id}`,
+        remetente: remetenteDoEnvio.get(linha.id) ?? null,
+        status: o.status,
       });
 
       const idExterno = await enviarEmailDeOcorrencia({

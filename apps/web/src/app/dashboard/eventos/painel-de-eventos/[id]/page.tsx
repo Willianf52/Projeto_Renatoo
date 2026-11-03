@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { Acao } from "@/components/dashboard/Acao";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
 import { AvisoDeSalvo } from "@/components/dashboard/AvisoDeSalvo";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import { Skeleton } from "@/components/dashboard/Skeleton";
-import { ChevronLeftIcon, ClipboardListIcon, PdfIcon } from "@/components/dashboard/icons";
+import { ChevronLeftIcon, ClipboardListIcon, MailIcon, PdfIcon } from "@/components/dashboard/icons";
 import { FUSO_DO_PROJETO } from "@/lib/data-hora";
 import { podeVerTodaAOperacao } from "@/lib/permissoes";
 import { AbrirPeloHash } from "../AbrirPeloHash";
 import { aceitaAndamento } from "../andamentos";
 import { FormularioDeAndamento } from "../FormularioDeAndamento";
+import { FormularioDeEnvio } from "../FormularioDeEnvio";
 import {
   getOcorrencia,
   getOpcoesDoAndamento,
@@ -75,12 +77,22 @@ async function Detalhe({ params, searchParams }: Props) {
   // botao desabilitado. Os cadastros do formulario so sao lidos se for preciso.
   const aberta = aceitaAndamento(ocorrencia.status);
   const podeAgir = await podeVerTodaAOperacao();
-  const opcoes = podeAgir && aberta ? await getOpcoesDoAndamento() : null;
+  // As opcoes servem a analise (so com a ocorrencia aberta) e ao "Enviar
+  // Evento" (0081), que vale tambem para ocorrencia encerrada.
+  const opcoes = podeAgir ? await getOpcoesDoAndamento() : null;
 
   return (
     <div className="space-y-4">
       <Suspense fallback={null}>
         <AvisoDeSalvo searchParams={searchParams} listagem={`${PAINEL}/${ocorrencia.id}`} mensagem="Registro salvo com sucesso." />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem={`${PAINEL}/${ocorrencia.id}`}
+          mensagem="Evento enviado por e-mail."
+          parametro="enviado"
+        />
       </Suspense>
 
       <div className="animate-fade-in">
@@ -94,9 +106,23 @@ async function Detalhe({ params, searchParams }: Props) {
             Registro de Evento On-Line
           </h1>
           <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar para PDF" tom="pdf">
+            <Acao titulo="Exportar para PDF" href={`${PAINEL}/${ocorrencia.id}/export/pdf`} tom="pdf" target="_blank">
               <PdfIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
+            </Acao>
+            {opcoes ? (
+              <a
+                href="#enviar"
+                title="Enviar Email"
+                aria-label="Enviar Email"
+                className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-green text-sobre-verde transition-colors hover:bg-brand-green-hover"
+              >
+                <MailIcon className="h-4 w-4" />
+              </a>
+            ) : (
+              <AcaoDesabilitada titulo="Enviar Email" motivo="sem permissão" tom="excel">
+                <MailIcon className="h-4 w-4" />
+              </AcaoDesabilitada>
+            )}
             <Button href={PAINEL} variant="secondary" className="group">
               <ChevronLeftIcon className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-0.5" />
               Voltar ao painel
@@ -106,6 +132,12 @@ async function Detalhe({ params, searchParams }: Props) {
 
         <Campos ocorrencia={ocorrencia} />
       </div>
+
+      {opcoes && (
+        <FormularioRecolhido id="enviar" titulo="Enviar Email">
+          <FormularioDeEnvio ocorrenciaId={ocorrencia.id} usuarios={opcoes.usuarios} />
+        </FormularioRecolhido>
+      )}
 
       <Secao titulo="E-mails Enviados">
         <EmailsEnviados emails={ocorrencia.emails} />
@@ -170,9 +202,10 @@ async function Detalhe({ params, searchParams }: Props) {
         )}
       </Secao>
 
-      {opcoes ? (
+      {opcoes && <AbrirPeloHash ids={ANCORAS} />}
+
+      {opcoes && aberta ? (
         <>
-          <AbrirPeloHash ids={ANCORAS} />
           <div className="flex flex-wrap justify-end gap-2">
             <a href="#analise" className={`${BOTAO} bg-brand-green text-sobre-verde hover:bg-brand-green-hover`}>
               ADICIONAR ANÁLISE
@@ -262,7 +295,7 @@ function Campos({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
   );
 }
 
-const ANCORAS = ["analise", "finalizar"];
+const ANCORAS = ["analise", "finalizar", "enviar"];
 const BOTAO =
   "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold transition-colors";
 
@@ -348,6 +381,7 @@ function EmailsEnviados({ emails }: { emails: EmailDaOcorrencia[] }) {
             <th className="px-4 py-2">Momento</th>
             <th className="px-4 py-2">Data / Hora</th>
             <th className="px-4 py-2">Situação</th>
+            <th className="px-4 py-2">Remetente</th>
           </tr>
         </thead>
         <tbody>
@@ -357,6 +391,7 @@ function EmailsEnviados({ emails }: { emails: EmailDaOcorrencia[] }) {
               <td className="px-4 py-2">{rotuloDoMotivoDoEmail(e.motivo)}</td>
               <td className="px-4 py-2 tabular-nums">{dataHora(e.enviadoEm ?? e.criadoEm)}</td>
               <td className="px-4 py-2">{rotuloDaSituacaoDoEmail(e.status)}</td>
+              <td className="px-4 py-2">{e.remetente}</td>
             </tr>
           ))}
         </tbody>

@@ -1,7 +1,7 @@
 import { dataValida, periodoEntreDatas } from "@/lib/data-hora";
 import { niveisDoSite } from "@/lib/hierarquia-de-sites";
 import { filtroDeId, filtroDeUuid, idNaUrl } from "@/lib/id-na-url";
-import { termoParaOr } from "@/lib/postgrest-escape";
+import { escaparLike, termoParaOr } from "@/lib/postgrest-escape";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas, paginar } from "@/lib/supabase/query-helpers";
 
@@ -62,8 +62,26 @@ export type Filtros = {
   evento?: string;
   grupoSite?: string;
   usuario?: string;
+  /** Codigo (ou parte) do QR-Code lido na visita que abriu a ocorrencia. */
+  qrcode?: string;
+  /** Modelo de checklist que abriu a ocorrencia. */
+  checklist?: string;
+  /** Tipo de analise do andamento mais recente. */
+  tipoAnalise?: string;
+  /** Autor do andamento mais recente ("Usuario Remetente" do antigo). */
+  remetente?: string;
+  /** Responsavel atual: o do andamento mais recente que indicou um. */
+  responsavel?: string;
+  grupoAbertura?: string;
+  grupoRemetente?: string;
+  grupoResponsavel?: string;
+  visao: Visao;
   pagina: number;
 };
+
+/** "Lista" (a tabela paginada) ou "Quadro" (colunas por status), como os dois
+ * botoes de "Modo de visualizacao" do sistema de referencia. */
+export type Visao = "lista" | "quadro";
 
 /** "yyyy-mm-dd" de hoje e de `dias` atras, no horario de Brasilia (UTC-3, sem
  * horario de verao desde 2019). `agora` injetavel para o teste. */
@@ -91,6 +109,15 @@ export function extrairFiltros(params: SearchParams, agora: Date): Filtros {
     evento: filtroDeId(primeiro(params.evento)),
     grupoSite: filtroDeId(primeiro(params.grupo_site)),
     usuario: filtroDeUuid(primeiro(params.usuario)),
+    qrcode: primeiro(params.qrcode)?.trim().slice(0, 60) || undefined,
+    checklist: filtroDeId(primeiro(params.checklist)),
+    tipoAnalise: filtroDeId(primeiro(params.tipo_analise)),
+    remetente: filtroDeUuid(primeiro(params.remetente)),
+    responsavel: filtroDeUuid(primeiro(params.responsavel)),
+    grupoAbertura: filtroDeId(primeiro(params.grupo_abertura)),
+    grupoRemetente: filtroDeId(primeiro(params.grupo_remetente)),
+    grupoResponsavel: filtroDeId(primeiro(params.grupo_responsavel)),
+    visao: primeiro(params.visao) === "quadro" ? "quadro" : "lista",
     pagina: Number.isInteger(pagina) && pagina > 0 ? pagina : 1,
   };
 }
@@ -153,6 +180,8 @@ type LinhaDoBanco = {
 
 export type LinhaDoPainel = {
   id: number;
+  subtipo: string;
+  classificacao: string;
   numeroAno: string;
   criadoEm: string;
   status: string;
@@ -177,6 +206,8 @@ export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
     status: o.status,
     siteNiveis: niveisDoSite(o.sites?.grupos_sites?.nome, o.sites?.nome ?? ""),
     evento: o.eventos?.nome ?? "",
+    subtipo: o.subevento?.nome ?? "",
+    classificacao: o.tipos_de_classificacao?.nome ?? "",
     usuarioAbertura: o.autor?.nome_completo ?? "",
     descricao: descricaoAutomatica({
       checklistId: o.checklist_id,
@@ -187,10 +218,154 @@ export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
   };
 }
 
+/**
+ * O que os filtros de outras tabelas (QR-Code, Checklist, andamentos, grupos
+ * de usuarios) deixam passar, ja resolvido em listas de ids. `undefined` e
+ * "este filtro nao foi usado"; lista vazia e "nenhuma ocorrencia passa".
+ *
+ * Calculado uma vez por tela e aplicado igual na lista, no resumo, no quadro
+ * e nas exportacoes: os numeros do topo nao podem discordar da tabela.
+ */
+export type Restricoes = {
+  ids?: number[];
+  visitas?: number[];
+  checklists?: number[];
+  abertaPor?: string[];
+};
+
+export type AndamentoResumido = {
+  id: number;
+  ocorrencia_id: number;
+  criado_em: string;
+  autor_id: string | null;
+  responsavel_id: string | null;
+  tipo_analise_id: number;
+};
+
+export type SituacaoDaOcorrencia = {
+  remetente: string | null;
+  responsavel: string | null;
+  tipoAnalise: number | null;
+};
+
+/**
+ * A situacao de cada ocorrencia segundo os andamentos: quem mandou o ultimo
+ * ("Remetente"), o tipo de analise dele e o responsavel atual -- o do ultimo
+ * andamento que indicou alguem, porque a finalizacao nao indica responsavel e
+ * nao tira a responsabilidade de quem a tinha. Pura.
+ */
+export function situacaoPelosAndamentos(andamentos: AndamentoResumido[]): Map<number, SituacaoDaOcorrencia> {
+  const ordenados = [...andamentos].sort((a, b) => a.criado_em.localeCompare(b.criado_em) || a.id - b.id);
+  const situacao = new Map<number, SituacaoDaOcorrencia>();
+  for (const a of ordenados) {
+    const atual = situacao.get(a.ocorrencia_id);
+    situacao.set(a.ocorrencia_id, {
+      remetente: a.autor_id,
+      responsavel: a.responsavel_id ?? atual?.responsavel ?? null,
+      tipoAnalise: a.tipo_analise_id,
+    });
+  }
+  return situacao;
+}
+
+/**
+ * As ocorrencias cuja situacao atende aos filtros de andamento. `membros` traz
+ * os usuarios de cada grupo escolhido. Ocorrencia sem andamento nao tem
+ * remetente nem responsavel: sai sempre que um desses filtros esta em uso. Pura.
+ */
+export function idsPelaSituacao(
+  situacao: Map<number, SituacaoDaOcorrencia>,
+  filtros: Pick<Filtros, "tipoAnalise" | "remetente" | "responsavel">,
+  membros: { remetente?: Set<string>; responsavel?: Set<string> },
+): number[] {
+  const ids: number[] = [];
+  for (const [id, s] of situacao) {
+    if (filtros.tipoAnalise && String(s.tipoAnalise) !== filtros.tipoAnalise) continue;
+    if (filtros.remetente && s.remetente !== filtros.remetente) continue;
+    if (filtros.responsavel && s.responsavel !== filtros.responsavel) continue;
+    if (membros.remetente && !(s.remetente && membros.remetente.has(s.remetente))) continue;
+    if (membros.responsavel && !(s.responsavel && membros.responsavel.has(s.responsavel))) continue;
+    ids.push(id);
+  }
+  return ids.sort((a, b) => a - b);
+}
+
+type Cliente = Awaited<ReturnType<typeof createClient>>;
+
+async function membrosDoGrupo(supabase: Cliente, grupo: string | undefined): Promise<Set<string> | undefined> {
+  if (!grupo) return undefined;
+  const { data, error } = await supabase
+    .from("grupos_usuarios_membros")
+    .select("profile_id")
+    .eq("grupo_id", Number(grupo));
+  if (error) throw error;
+  return new Set((data ?? []).map((m) => m.profile_id));
+}
+
+/** Resolve os filtros que dependem de outras tabelas (ver `Restricoes`). */
+export async function resolverRestricoes(supabase: Cliente, filtros: Filtros): Promise<Restricoes> {
+  const restricoes: Restricoes = {};
+
+  const [abertura, remetente, responsavel] = await Promise.all([
+    membrosDoGrupo(supabase, filtros.grupoAbertura),
+    membrosDoGrupo(supabase, filtros.grupoRemetente),
+    membrosDoGrupo(supabase, filtros.grupoResponsavel),
+  ]);
+  if (abertura) restricoes.abertaPor = [...abertura];
+
+  if (filtros.checklist) {
+    const { linhas } = await buscarEmPaginas<{ id: number }>((de, ate) =>
+      supabase
+        .from("checklists_visita")
+        .select("id")
+        .eq("modelo_id", Number(filtros.checklist))
+        .order("id")
+        .range(de, ate),
+    );
+    restricoes.checklists = linhas.map((c) => c.id);
+  }
+
+  if (filtros.qrcode) {
+    const { data: qrs, error } = await supabase
+      .from("qr_codes")
+      .select("id")
+      .ilike("codigo", `%${escaparLike(filtros.qrcode)}%`)
+      .limit(500);
+    if (error) throw error;
+    const idsDosQr = (qrs ?? []).map((q) => q.id);
+    if (idsDosQr.length === 0) {
+      restricoes.visitas = [];
+    } else {
+      const { linhas } = await buscarEmPaginas<{ visita_id: number }>((de, ate) =>
+        supabase.from("leituras").select("visita_id").in("qr_code_id", idsDosQr).order("id").range(de, ate),
+      );
+      restricoes.visitas = [...new Set(linhas.map((l) => l.visita_id))];
+    }
+  }
+
+  if (filtros.tipoAnalise || filtros.remetente || filtros.responsavel || remetente || responsavel) {
+    const { linhas } = await buscarEmPaginas<AndamentoResumido>((de, ate) =>
+      supabase
+        .from("ocorrencia_andamentos")
+        .select("id, ocorrencia_id, criado_em, autor_id, responsavel_id, tipo_analise_id")
+        .order("id")
+        .range(de, ate),
+    );
+    restricoes.ids = idsPelaSituacao(situacaoPelosAndamentos(linhas), filtros, { remetente, responsavel });
+  }
+
+  return restricoes;
+}
+
+/** `in.()` vazio: troca por um valor que nao existe, para a consulta voltar
+ * vazia sem depender de como o PostgREST trata a lista vazia. */
+const NENHUM_ID = [-1];
+const NENHUM_UUID = ["00000000-0000-0000-0000-000000000000"];
+
 // O construtor do PostgREST muda de tipo a cada `.eq`; os filtros sao os
 // mesmos para a lista e para o resumo, entao recebem e devolvem o construtor
 // sem amarrar o tipo de linha.
-function aplicarFiltros(consulta: any, filtros: Filtros, comStatus: boolean) {
+function aplicarFiltros(consulta: any, filtros: Filtros, comStatus: boolean, restricoes: Restricoes = {}) {
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
   let q = consulta.gte("criado_em", inicio).lt("criado_em", fim);
   if (filtros.sites) q = q.eq("site_id", filtros.sites);
@@ -200,6 +375,10 @@ function aplicarFiltros(consulta: any, filtros: Filtros, comStatus: boolean) {
   if (filtros.evento) q = q.eq("evento_id", filtros.evento);
   if (filtros.grupoSite) q = q.eq("sites.grupo_site_id", filtros.grupoSite);
   if (filtros.usuario) q = q.eq("aberta_por", filtros.usuario);
+  if (restricoes.ids) q = q.in("id", restricoes.ids.length ? restricoes.ids : NENHUM_ID);
+  if (restricoes.visitas) q = q.in("visita_id", restricoes.visitas.length ? restricoes.visitas : NENHUM_ID);
+  if (restricoes.checklists) q = q.in("checklist_id", restricoes.checklists.length ? restricoes.checklists : NENHUM_ID);
+  if (restricoes.abertaPor) q = q.in("aberta_por", restricoes.abertaPor.length ? restricoes.abertaPor : NENHUM_UUID);
   if (filtros.busca) {
     const termo = termoParaOr(filtros.busca);
     q = q.or(`pergunta_texto.ilike."*${termo}*",observacao.ilike."*${termo}*"`);
@@ -218,11 +397,13 @@ export type Painel = {
 export async function getPainel(filtros: Filtros): Promise<Painel> {
   const supabase = await createClient();
   const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
+  const restricoes = await resolverRestricoes(supabase, filtros);
 
   const lista = aplicarFiltros(
     supabase.from("ocorrencias").select(SELECT_DA_LISTA, { count: "exact" }),
     filtros,
     true,
+    restricoes,
   )
     .order("criado_em", { ascending: false })
     .order("id", { ascending: false })
@@ -231,7 +412,12 @@ export async function getPainel(filtros: Filtros): Promise<Painel> {
   const [{ data, count, error }, { linhas: statusDoFiltro }] = await Promise.all([
     lista as Promise<{ data: LinhaDoBanco[] | null; count: number | null; error: unknown }>,
     buscarEmPaginas<{ status: string }>((de, ate) =>
-      aplicarFiltros(supabase.from("ocorrencias").select("status, sites!inner ( grupo_site_id )"), filtros, false)
+      aplicarFiltros(
+        supabase.from("ocorrencias").select("status, sites!inner ( grupo_site_id )"),
+        filtros,
+        false,
+        restricoes,
+      )
         .order("id", { ascending: true })
         .range(de, ate),
     ),
@@ -246,6 +432,129 @@ export async function getPainel(filtros: Filtros): Promise<Painel> {
   };
 }
 
+/**
+ * Teto do Quadro e das exportacoes. O Painel do sistema de referencia abre
+ * com algumas centenas; passar disto e sinal para estreitar o periodo, e a
+ * tela diz que cortou em vez de fingir que mostrou tudo.
+ */
+export const TETO_SEM_PAGINACAO = 1000;
+
+export type TodasAsLinhas = {
+  linhas: LinhaDoPainel[];
+  cortado: boolean;
+};
+
+/** Todas as linhas do filtro, sem paginar: Quadro e exportacoes. */
+export async function getTodasAsLinhas(filtros: Filtros, teto: number = TETO_SEM_PAGINACAO): Promise<TodasAsLinhas> {
+  const supabase = await createClient();
+  const restricoes = await resolverRestricoes(supabase, filtros);
+  const { linhas, atingiuTeto } = await buscarEmPaginas<LinhaDoBanco>(
+    (de, ate) =>
+      aplicarFiltros(supabase.from("ocorrencias").select(SELECT_DA_LISTA), filtros, true, restricoes)
+        .order("criado_em", { ascending: false })
+        .order("id", { ascending: false })
+        .range(de, ate),
+    teto,
+  );
+  return { linhas: linhas.map(paraLinha), cortado: atingiuTeto };
+}
+
+/** Uma linha de "Exportar Analises": o andamento com a ocorrencia dele. */
+export type AnaliseExportada = {
+  numeroAno: string;
+  site: string;
+  evento: string;
+  status: string;
+  criadoEm: string;
+  tipo: string;
+  tipoDeAnalise: string;
+  classificacao: string;
+  autor: string;
+  responsavel: string;
+  grupo: string;
+  texto: string;
+};
+
+type AndamentoParaExportar = {
+  id: number;
+  ocorrencia_id: number;
+  tipo: string;
+  criado_em: string;
+  texto: string;
+  autor_id: string | null;
+  responsavel_id: string | null;
+  tipos_de_analise: { nome: string } | null;
+  tipos_de_classificacao: { nome: string } | null;
+  grupos_usuarios: { nome: string } | null;
+};
+
+/** Os andamentos (analises e finalizacoes) das ocorrencias do filtro. */
+export async function getAnalisesDoFiltro(filtros: Filtros): Promise<{ analises: AnaliseExportada[]; cortado: boolean }> {
+  const { linhas, cortado } = await getTodasAsLinhas(filtros);
+  if (linhas.length === 0) return { analises: [], cortado };
+
+  const supabase = await createClient();
+  const porId = new Map(linhas.map((l) => [l.id, l]));
+  const { linhas: andamentos } = await buscarEmPaginas<AndamentoParaExportar>((de, ate) =>
+    supabase
+      .from("ocorrencia_andamentos")
+      .select(
+        `id, ocorrencia_id, tipo, criado_em, texto, autor_id, responsavel_id,
+         tipos_de_analise ( nome ), tipos_de_classificacao ( nome ), grupos_usuarios ( nome )`,
+      )
+      .in("ocorrencia_id", [...porId.keys()])
+      .order("id")
+      .range(de, ate),
+  );
+
+  const pessoas = [
+    ...new Set(andamentos.flatMap((a) => [a.autor_id, a.responsavel_id]).filter((v): v is string => Boolean(v))),
+  ];
+  const nomes = new Map<string, string>();
+  if (pessoas.length > 0) {
+    const { data } = await supabase.from("profiles").select("id, nome_completo").in("id", pessoas);
+    for (const p of data ?? []) nomes.set(p.id, p.nome_completo ?? "");
+  }
+  const nomeDe = (uuid: string | null) => (uuid ? (nomes.get(uuid) ?? "") : "");
+
+  return { cortado, analises: ordenarAnalises(linhas, andamentos).map((a) => {
+    const o = porId.get(a.ocorrencia_id)!;
+    return {
+      numeroAno: o.numeroAno,
+      site: o.siteNiveis.join(" > "),
+      evento: o.evento,
+      status: rotuloDoStatus(o.status),
+      criadoEm: a.criado_em,
+      tipo: a.tipo === "FINALIZACAO" ? "Finalização" : "Análise",
+      tipoDeAnalise: a.tipos_de_analise?.nome ?? "",
+      classificacao: a.tipos_de_classificacao?.nome ?? "",
+      autor: nomeDe(a.autor_id),
+      responsavel: nomeDe(a.responsavel_id),
+      grupo: a.grupos_usuarios?.nome ?? "",
+      texto: a.texto,
+    };
+  }) };
+}
+
+/**
+ * Na ordem da lista (ocorrencia mais recente primeiro) e, dentro de cada
+ * ocorrencia, na ordem em que os andamentos aconteceram. Pura.
+ */
+export function ordenarAnalises<A extends { id: number; ocorrencia_id: number; criado_em: string }>(
+  linhas: { id: number }[],
+  andamentos: A[],
+): A[] {
+  const posicao = new Map(linhas.map((l, i) => [l.id, i]));
+  return [...andamentos]
+    .filter((a) => posicao.has(a.ocorrencia_id))
+    .sort(
+      (a, b) =>
+        posicao.get(a.ocorrencia_id)! - posicao.get(b.ocorrencia_id)! ||
+        a.criado_em.localeCompare(b.criado_em) ||
+        a.id - b.id,
+    );
+}
+
 /** Contagem por status, na ordem de `STATUS`, so dos que aparecem. Pura. */
 export function montarResumo(linhas: { status: string }[]): { status: string; quantidade: number }[] {
   const contagem = new Map<string, number>();
@@ -253,16 +562,28 @@ export function montarResumo(linhas: { status: string }[]): { status: string; qu
   return STATUS.filter((s) => contagem.has(s.value)).map((s) => ({ status: s.value, quantidade: contagem.get(s.value)! }));
 }
 
-export type OpcoesFiltros = { sites: Opcao[]; eventos: Opcao[]; grupos: Opcao[]; usuarios: Opcao[] };
+export type OpcoesFiltros = {
+  sites: Opcao[];
+  eventos: Opcao[];
+  grupos: Opcao[];
+  usuarios: Opcao[];
+  checklists: Opcao[];
+  tiposDeAnalise: Opcao[];
+  gruposDeUsuarios: Opcao[];
+};
 
-/** Sem cache: `sites` e `profiles` sao recortados por RLS conforme quem pede. */
+/** Sem cache: `sites` e `profiles` sao recortados por RLS conforme quem pede.
+ * Tipos de analise so a gestao le (0064): para os demais a lista vem vazia. */
 export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   const supabase = await createClient();
-  const [sites, eventos, grupos, usuarios] = await Promise.all([
+  const [sites, eventos, grupos, usuarios, checklists, tiposDeAnalise, gruposDeUsuarios] = await Promise.all([
     supabase.from("sites").select("id, nome, grupos_sites ( nome )").eq("ativo", true).order("nome"),
     supabase.from("eventos").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_sites").select("id, nome").order("nome"),
     supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.from("modelos_checklist").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("tipos_de_analise").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("grupos_usuarios").select("id, nome").order("nome"),
   ]);
 
   return {
@@ -272,6 +593,9 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
     eventos: (eventos.data ?? []).map((e) => ({ value: String(e.id), label: e.nome })),
     grupos: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
     usuarios: (usuarios.data ?? []).map((u) => ({ value: String(u.id), label: u.nome_completo ?? "" })),
+    checklists: (checklists.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
+    tiposDeAnalise: (tiposDeAnalise.data ?? []).map((t) => ({ value: String(t.id), label: t.nome })),
+    gruposDeUsuarios: (gruposDeUsuarios.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
   };
 }
 
@@ -308,6 +632,8 @@ export type EmailDaOcorrencia = {
   status: string;
   criadoEm: string;
   enviadoEm: string | null;
+  /** Quem mandou pelo "Enviar Evento" (0081); vazio nas automaticas. */
+  remetente: string;
 };
 
 export type OcorrenciaDetalhe = LinhaDoPainel & {
@@ -328,6 +654,7 @@ const MOTIVO_DO_EMAIL: Record<string, string> = {
   ABERTURA: "Abertura",
   ANALISE: "Análise",
   FINALIZACAO: "Finalização",
+  ENVIO: "Envio manual",
 };
 
 export function rotuloDoMotivoDoEmail(motivo: string): string {
@@ -386,7 +713,7 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
       .order("id", { ascending: true }),
     supabase
       .from("ocorrencia_emails")
-      .select("id, destinatario, motivo, status, criado_em, enviado_em")
+      .select("id, destinatario, motivo, status, criado_em, enviado_em, enviado_por")
       .eq("ocorrencia_id", id)
       .order("id", { ascending: true }),
     supabase
@@ -402,7 +729,12 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
   // Nomes das pessoas citadas. O RLS de `profiles` decide quem aparece: a
   // gestao ve todo mundo, o INSPETOR so a si mesmo -- o resto vira vazio.
   const ids = Array.from(
-    new Set(doBanco.flatMap((a) => [a.autor_id, a.responsavel_id, ...a.apoio, ...a.avisar]).filter((v): v is string => Boolean(v))),
+    new Set(
+      [
+        ...doBanco.flatMap((a) => [a.autor_id, a.responsavel_id, ...a.apoio, ...a.avisar]),
+        ...(emails ?? []).map((e) => e.enviado_por),
+      ].filter((v): v is string => Boolean(v)),
+    ),
   );
   const nomes = new Map<string, string>();
   if (ids.length > 0) {
@@ -446,6 +778,7 @@ export async function getOcorrencia(id: number): Promise<OcorrenciaDetalhe | nul
       status: e.status,
       criadoEm: e.criado_em,
       enviadoEm: e.enviado_em,
+      remetente: nomeDe(e.enviado_por),
     })),
   };
 }

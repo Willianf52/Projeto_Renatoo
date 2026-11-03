@@ -1032,6 +1032,7 @@ export type Database = {
           criado_em: string
           destinatario: string
           enviado_em: string | null
+          enviado_por: string | null
           erro: string | null
           id: number
           id_externo: string | null
@@ -1046,6 +1047,7 @@ export type Database = {
           criado_em?: string
           destinatario: string
           enviado_em?: string | null
+          enviado_por?: string | null
           erro?: string | null
           id?: never
           id_externo?: string | null
@@ -1060,6 +1062,7 @@ export type Database = {
           criado_em?: string
           destinatario?: string
           enviado_em?: string | null
+          enviado_por?: string | null
           erro?: string | null
           id?: never
           id_externo?: string | null
@@ -1075,6 +1078,13 @@ export type Database = {
             columns: ["andamento_id"]
             isOneToOne: false
             referencedRelation: "ocorrencia_andamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ocorrencia_emails_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1676,6 +1686,10 @@ export type Database = {
       }
       duplicar_modelo: {
         Args: { p_modelo_id: number; p_nome: string }
+        Returns: number
+      }
+      enviar_ocorrencia_por_email: {
+        Args: { p_destinatarios: string[]; p_ocorrencia_id: number }
         Returns: number
       }
       historico_de_checklist: {

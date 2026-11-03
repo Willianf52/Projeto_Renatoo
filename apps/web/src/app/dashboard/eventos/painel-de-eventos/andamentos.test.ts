@@ -11,6 +11,7 @@ import {
   MAXIMO_DE_BYTES,
   nomeSeguro,
   tipoPorExtensao,
+  lerEnvio,
 } from "./andamentos";
 
 const UUID = "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e";
@@ -174,5 +175,29 @@ describe("aceitaAndamento", () => {
     expect(aceitaAndamento("CRITICO")).toBe(true);
     expect(aceitaAndamento("ATENDIDO")).toBe(false);
     expect(aceitaAndamento("CANCELADO")).toBe(false);
+  });
+});
+
+describe("lerEnvio (Enviar Evento, 0081)", () => {
+  const PESSOA = "11111111-2222-4333-8444-555555555555";
+  const envio = (campos: [string, string][]) => {
+    const fd = new FormData();
+    for (const [nome, valor] of campos) fd.append(nome, valor);
+    return lerEnvio(fd);
+  };
+
+  it("aceita o evento e as pessoas, sem repetir", () => {
+    expect(envio([["ocorrencia_id", "16"], ["destinatarios", PESSOA], ["destinatarios", PESSOA]])).toEqual({
+      ok: true,
+      dados: { ocorrenciaId: 16, destinatarios: [PESSOA] },
+    });
+  });
+
+  it("recusa sem destinatario, com id torto e acima do teto", () => {
+    expect(envio([["ocorrencia_id", "16"]])).toMatchObject({ ok: false, erro: "Escolha ao menos um destinatário." });
+    expect(envio([["ocorrencia_id", "x"], ["destinatarios", PESSOA]])).toMatchObject({ ok: false });
+    expect(envio([["ocorrencia_id", "16"], ["destinatarios", "nao-e-uuid"]])).toMatchObject({ ok: false });
+    const muitos = Array.from({ length: 21 }, (_, i) => ["destinatarios", `11111111-2222-4333-8444-${String(i).padStart(12, "0")}`] as [string, string]);
+    expect(envio([["ocorrencia_id", "16"], ...muitos])).toMatchObject({ ok: false, erro: "Escolha no máximo 20 destinatários." });
   });
 });

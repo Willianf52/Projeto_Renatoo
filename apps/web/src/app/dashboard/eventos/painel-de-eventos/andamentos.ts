@@ -211,3 +211,27 @@ export function lerAndamento(formData: FormData): { ok: true; dados: DadosDoAnda
 export function aceitaAndamento(status: string): boolean {
   return status !== "ATENDIDO" && status !== "CANCELADO";
 }
+
+/** Teto do "Enviar Evento", o mesmo da funcao do banco (0081). */
+export const MAXIMO_DE_DESTINATARIOS = 20;
+
+/**
+ * Le e confere o "Enviar Evento" (0081): o evento e as pessoas escolhidas. O
+ * banco confere de novo (permissao, pessoa ativa, e-mail cadastrado); aqui so
+ * se poupa a viagem e se da a mensagem certa.
+ */
+export function lerEnvio(
+  formData: FormData,
+): { ok: true; dados: { ocorrenciaId: number; destinatarios: string[] } } | { ok: false; erro: string } {
+  const ocorrenciaId = idPositivo(String(formData.get("ocorrencia_id") ?? "").trim());
+  if (ocorrenciaId === null) return { ok: false, erro: "Evento inválido." };
+
+  const destinatarios = uuids(formData.getAll("destinatarios"));
+  if (destinatarios === null) return { ok: false, erro: "Seleção de destinatários inválida." };
+  if (destinatarios.length === 0) return { ok: false, erro: "Escolha ao menos um destinatário." };
+  if (destinatarios.length > MAXIMO_DE_DESTINATARIOS) {
+    return { ok: false, erro: `Escolha no máximo ${MAXIMO_DE_DESTINATARIOS} destinatários.` };
+  }
+
+  return { ok: true, dados: { ocorrenciaId, destinatarios } };
+}
