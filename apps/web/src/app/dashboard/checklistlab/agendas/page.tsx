@@ -173,6 +173,10 @@ async function TabelaDeAgendas({ searchParams }: { searchParams: SearchParamsPro
         <Acao titulo={`Agendamentos de ${a.nome}`} href={`${AGENDAMENTOS}?agenda=${a.id}`} tom="neutro">
           <SearchIcon className="h-4 w-4" />
         </Acao>
+        {/* "Exclusão de Agendamentos" do antigo: a partir de uma data. */}
+        <Acao titulo={`Excluir agendamentos de ${a.nome}`} href={`${LISTAGEM}/${a.id}/encerrar`} tom="neutro">
+          <span className="text-xs">Encerrar</span>
+        </Acao>
         {/* "Exclusão Física da Agenda" do antigo. */}
         <form action={excluirAgenda}>
           <input type="hidden" name="id" value={a.id} />

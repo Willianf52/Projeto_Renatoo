@@ -273,14 +273,14 @@ describe("textoDaSituacao", () => {
 describe("filtrosSemResultado", () => {
   // Os filtros da referencia que nao acham nada no sistema novo: a tela nem
   // chama o banco.
-  it("Situacao diferente de No prazo, Conclusao que depende de agenda, Origem Agenda, Atividade e Inativos", () => {
+  it("Conclusao que depende de aprovacao, Atividade e Inativos nao acham nada; Situacao e Origem vao ao banco (0087)", () => {
     expect(filtrosSemResultado(SEM_FILTROS)).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "no_prazo" })).toBe(false);
-    expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "atrasado" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "atrasado" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "finalizado" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "incompleto" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "aprovado" })).toBe(true);
-    expect(filtrosSemResultado({ ...SEM_FILTROS, origem: "agenda" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, origem: "agenda" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, atividade: "1" })).toBe(true);
     expect(filtrosSemResultado({ ...SEM_FILTROS, status: "inativos" })).toBe(true);
   });
@@ -412,7 +412,8 @@ describe("toTableRow", () => {
     ]);
     expect(colunas[4]).toBe("Ana Souza");
     expect(colunas[5]).toBe("ACE Limpeza");
-    expect(colunas[6]).toBe("-");
+    // Sem agenda (checklist avulso), a coluna Agenda fica em branco.
+    expect(colunas[6]).toBe("");
     expect(colunas[7]).toBe("No prazo");
     expect(colunas[8]).toBe("Incompleto");
     expect(colunas[9]).toBe("50");

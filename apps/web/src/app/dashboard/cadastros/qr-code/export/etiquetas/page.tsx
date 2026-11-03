@@ -26,7 +26,14 @@ export default async function ExportarEtiquetasPage({
   const params = await searchParams;
   const filtros = extrairFiltros(params);
 
-  const { rows, truncado } = await getQrCodesParaExportar(filtros);
+  const { rows: todas, truncado } = await getQrCodesParaExportar(filtros);
+  // Sites marcados na caixa de opcoes; nenhum marcado, todos do filtro.
+  const escolhidos = new Set(
+    (Array.isArray(params.etiqueta_sites) ? params.etiqueta_sites : params.etiqueta_sites ? [params.etiqueta_sites] : []).filter(
+      (v) => /^\d+$/.test(v),
+    ),
+  );
+  const rows = escolhidos.size === 0 ? todas : todas.filter((r) => escolhidos.has(String(r.site_id)));
   // Formato e logo escolhidos em `../opcoes-de-etiqueta`; sem eles, A4 sem
   // logo, como era antes da tela de opcoes.
   const formato = formatoDeEtiqueta(primeiro(params.formato));

@@ -90,3 +90,44 @@ export async function excluirAgenda(formData: FormData): Promise<void> {
   revalidatePath(AGENDAMENTOS);
   redirect(`${LISTAGEM}?excluido=1`);
 }
+
+export type EstadoDoEncerramento = { erro?: string };
+
+/**
+ * "Exclusão de Agendamentos" do sistema de referencia: os agendamentos a
+ * partir da data escolhida deixam de existir e a agenda fica inativa. Aqui os
+ * agendamentos saem da recorrencia (0084), entao basta encerrar a agenda na
+ * vespera da data; os checklists ja feitos ficam, porque sao do campo.
+ */
+export async function encerrarAgenda(_estado: EstadoDoEncerramento, formData: FormData): Promise<EstadoDoEncerramento> {
+  const id = texto(formData, "id");
+  const data = texto(formData, "data");
+  if (!ID.test(id)) return { erro: "Agenda inválida." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || Number.isNaN(Date.parse(`${data}T12:00:00Z`))) {
+    return { erro: "Escolha a data a partir da qual os agendamentos saem." };
+  }
+
+  const supabase = await createClient();
+  const { data: agenda } = await supabase.from("agendas").select("data_inicial").eq("id", Number(id)).maybeSingle();
+  if (!agenda) return { erro: "Agenda não encontrada ou sem permissão." };
+
+  // A vespera da data; antes do inicio, a agenda fica so com o primeiro dia
+  // (o CHECK da 0084 nao aceita fim antes do inicio) -- e inativa, nao gera nada.
+  const vespera = new Date(Date.parse(`${data}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+  const fim = vespera < agenda.data_inicial ? agenda.data_inicial : vespera;
+
+  const { data: alterada, error } = await supabase
+    .from("agendas")
+    .update({ data_final: fim, ativo: false })
+    .eq("id", Number(id))
+    .select("id")
+    .maybeSingle();
+  if (error || !alterada) {
+    if (error) registrarErro(gerarIdDeRequisicao(), "Criar Agenda: falha ao encerrar:", error);
+    return { erro: "Não foi possível excluir os agendamentos. Tente de novo." };
+  }
+
+  revalidatePath(LISTAGEM);
+  revalidatePath(AGENDAMENTOS);
+  redirect(`${LISTAGEM}?salvo=1`);
+}

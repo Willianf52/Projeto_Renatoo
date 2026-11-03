@@ -351,6 +351,12 @@ export type HistoricoLinha = {
   /** `notaDoChecklist` do shared: percentual de Conforme entre as perguntas
    * de conformidade, sem "Nao se aplica" nem Sim/Nao. `null` sem o que medir. */
   nota: number | null;
+  /** A agenda que o checklist cumpre (0087); vazio no avulso. */
+  agenda: string;
+  /** Data planejada da agenda ("aaaa-mm-dd"); nula no avulso. */
+  dataPlanejada: string | null;
+  /** "No prazo" | "Atrasado" | "Antecipado", pela agenda (0087). */
+  situacao: string;
 };
 
 
@@ -402,6 +408,11 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     totalPerguntas,
     naoConformidades: nao,
     nota: notaDoChecklist(comTipo),
+    // A agenda vem da funcao do banco (0087); a linha montada aqui (detalhe)
+    // nao a consulta.
+    agenda: "",
+    dataPlanejada: null,
+    situacao: SITUACAO_DA_LISTA,
   };
 }
 
@@ -450,9 +461,8 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
  * tivesse achado.
  */
 export function filtrosSemResultado(filtros: Filtros): boolean {
-  if (filtros.situacao && filtros.situacao !== "no_prazo") return true;
   if (filtros.conclusao && filtros.conclusao !== "finalizado" && filtros.conclusao !== "incompleto") return true;
-  if (filtros.origem === "agenda" || filtros.atividade || filtros.status === "inativos") return true;
+  if (filtros.atividade || filtros.status === "inativos") return true;
   if (filtros.numeroAno && !interpretarNumeroAno(filtros.numeroAno)) return true;
   return false;
 }
@@ -491,6 +501,9 @@ export function filtrosParaOBanco(filtros: Filtros): Record<string, string | num
     grupos_usuarios: filtros.gruposUsuarios,
     responsaveis: filtros.responsaveis,
     conclusao: filtros.conclusao ?? null,
+    // Origem e Situacao pela agenda de cada checklist (0087).
+    origem: filtros.origem === "agenda" || filtros.origem === "avulso" ? filtros.origem : null,
+    situacao: SITUACAO_OPCOES.some((s) => s.value === filtros.situacao) ? (filtros.situacao ?? null) : null,
     nota_minima: filtros.notaMinima ?? null,
     nota_maxima: filtros.notaMaxima ?? null,
     busca: filtros.busca ?? null,
@@ -608,6 +621,10 @@ export type LinhaDoBanco = {
   respondidas: number;
   nao_conformidades: number;
   nota: number | null;
+  /** Da 0087; ausentes nas linhas montadas pelos testes antigos. */
+  agenda_nome?: string | null;
+  data_planejada?: string | null;
+  situacao?: string | null;
 };
 
 /** A linha da tela, a partir da do banco -- as mesmas colunas de `montarLinha`. */
@@ -632,7 +649,22 @@ export function paraLinhaDoHistorico(linha: LinhaDoBanco): HistoricoLinha {
     totalPerguntas: linha.total_perguntas,
     naoConformidades: linha.nao_conformidades,
     nota: linha.nota,
+    agenda: linha.agenda_nome ?? "",
+    dataPlanejada: linha.data_planejada ?? null,
+    situacao: rotuloDaSituacao(linha.situacao),
   };
+}
+
+/** "atrasado" -> "Atrasado"; sem agenda (ou valor desconhecido), "No prazo". */
+export function rotuloDaSituacao(valor: string | null | undefined): string {
+  return SITUACAO_OPCOES.find((s) => s.value === valor)?.label ?? SITUACAO_DA_LISTA;
+}
+
+/** Data planejada da agenda, ou a abertura da visita no avulso. */
+function planejadaDaLinha(linha: HistoricoLinha, inicioFormatado: string): string {
+  if (!linha.dataPlanejada) return inicioFormatado;
+  const [ano, mes, dia] = linha.dataPlanejada.split("-");
+  return `${dia}/${mes}/${ano}`;
 }
 
 /**
@@ -716,7 +748,7 @@ export function datasDaLinha(linha: HistoricoLinha): { rotulo: string; valor: st
   const inicio = formatarDataHoraComSegundos(linha.inicioEm);
   const envio = formatarDataHoraComSegundos(linha.enviadoEm);
   return [
-    { rotulo: "Planejada", valor: inicio },
+    { rotulo: "Planejada", valor: planejadaDaLinha(linha, inicio) },
     { rotulo: "Início", valor: inicio },
     { rotulo: "Término", valor: envio },
     { rotulo: "Finalização", valor: envio },
@@ -760,8 +792,8 @@ export function toTableRow(linha: HistoricoLinha): string[] {
       .join("\n"),
     linha.responsavel,
     linha.caminhoDoSite,
-    "-",
-    SITUACAO_DA_LISTA,
+    linha.agenda,
+    linha.situacao,
     conclusaoDaLista(linha),
     linha.nota === null ? "" : String(linha.nota),
     "Ativo",
@@ -1043,7 +1075,7 @@ export const COLUNAS_DO_PDF = [
 function datasDoAntigo(linha: HistoricoLinha) {
   const inicio = formatarDataHoraComSegundos(linha.inicioEm);
   const envio = formatarDataHoraComSegundos(linha.enviadoEm);
-  return { planejada: inicio, inicio, termino: envio, finalizacao: envio };
+  return { planejada: planejadaDaLinha(linha, inicio), inicio, termino: envio, finalizacao: envio };
 }
 
 /** Linha do Excel. A nota vai como o antigo a escreve ("100.0"). */
@@ -1061,7 +1093,7 @@ export function toLinhaDoExcel(linha: HistoricoLinha, regional: string): (string
     linha.responsavel,
     linha.site,
     regional,
-    SITUACAO_DA_LISTA,
+    linha.situacao,
     conclusaoDaLista(linha),
     linha.nota === null ? "" : linha.nota.toFixed(1),
     "Ativo",
@@ -1082,7 +1114,7 @@ export function toLinhaDoPdf(linha: HistoricoLinha): string[] {
     datas.finalizacao,
     linha.responsavel,
     linha.site,
-    SITUACAO_DA_LISTA,
+    linha.situacao,
     conclusaoDaLista(linha),
     linha.nota === null ? "" : String(linha.nota),
     "Ativo",
@@ -1177,7 +1209,7 @@ export function planilhaDeRespostas(
         datas.finalizacao,
         linha.responsavel,
         linha.site,
-        SITUACAO_DA_LISTA,
+        linha.situacao,
         conclusaoDaLista(linha),
         linha.tipo === TIPO_CORRETIVA ? linha.motivo : "",
         ...ordenadas.flatMap((pergunta) => {
