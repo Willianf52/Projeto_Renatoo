@@ -51,6 +51,7 @@ import { enviarChecklist, type MidiaJaEnviada } from "../lib/envio-de-checklist"
 import { lerModelosDoSite, lerPerguntasDoModelo, type PerguntaDoModelo } from "../lib/modelos-do-checklist";
 import { capturarErro } from "../lib/observabilidade";
 import { reduzirFoto } from "../lib/reduzir-foto";
+import { supabase } from "../lib/supabase";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 
 /** De onde e uma foto: do checklist inteiro (`null`) ou de uma pergunta. */
@@ -155,6 +156,28 @@ export function TelaDeChecklist({
   const [fotosDePergunta, setFotosDePergunta] = useState<Record<number, string[]>>({});
   /** Observacao de cada pergunta (o "Adicione observacao" da referencia). */
   const [observacoes, setObservacoes] = useState<Record<number, string>>({});
+  /**
+   * Minimo de caracteres da descricao do "Nao conforme" (Cadastros >
+   * Cliente, 0085/0086). Sem rede ou sem leitura, fica zero: o checklist
+   * offline nunca trava por uma configuracao que nao chegou.
+   */
+  const [minimoDaObservacao, setMinimoDaObservacao] = useState(0);
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("cliente")
+      .select("min_caracteres_descricao")
+      .maybeSingle()
+      .then(
+        ({ data }) => {
+          if (ativo && data) setMinimoDaObservacao(data.min_caracteres_descricao ?? 0);
+        },
+        () => undefined,
+      );
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   /**
    * Em qual pergunta o inspetor esta, amarrada ao modelo: trocar de modelo
@@ -399,8 +422,21 @@ export function TelaDeChecklist({
       // Gerais e de pergunta, somadas: qualquer uma comprova a visita.
       quantidadeDeFotos: fotos.length + (tipo === "CONSULTORIA" ? fotosDasPerguntas.length : 0),
       temAssinatura,
+      observacoes,
+      minimoDaObservacao,
     }),
-    [tipo, motivo, perguntas, respostas, escolhaDeModeloPendente, fotos.length, fotosDasPerguntas.length, temAssinatura],
+    [
+      tipo,
+      motivo,
+      perguntas,
+      respostas,
+      escolhaDeModeloPendente,
+      fotos.length,
+      fotosDasPerguntas.length,
+      temAssinatura,
+      observacoes,
+      minimoDaObservacao,
+    ],
   );
   const pendencias = useMemo(() => pendenciasDoChecklist(estadoDoChecklist), [estadoDoChecklist]);
   const progresso = progressoDasPerguntas(estadoDoChecklist);

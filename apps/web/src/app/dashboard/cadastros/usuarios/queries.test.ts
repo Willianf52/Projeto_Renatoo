@@ -237,6 +237,8 @@ describe("toTableRow", () => {
       ativo: true,
       pais: "Brasil",
       lingua: "PT",
+      setor_id: null,
+      alerta_panico_id: null,
       superior_id: "def",
       superior: { nome_completo: "Gesiel" },
     });
@@ -265,6 +267,8 @@ describe("toTableRow", () => {
       ativo: false,
       pais: "Brasil",
       lingua: "PT",
+      setor_id: null,
+      alerta_panico_id: null,
       superior_id: null,
       superior: null,
     });

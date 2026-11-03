@@ -90,6 +90,7 @@ function siteRow(extra: Record<string, unknown> = {}) {
     data_instalacao: null,
     dias_instalacao: null,
     data_desinstalacao: null,
+    tipo_curva_id: null,
     recebe_visita: true,
     gerar_qrcode_automatico: true,
     gerar_registro_coletas: false,

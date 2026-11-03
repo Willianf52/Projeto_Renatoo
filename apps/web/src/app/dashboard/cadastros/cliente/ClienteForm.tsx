@@ -141,7 +141,8 @@ export function ClienteForm({ valoresIniciais, temLogotipo }: { valoresIniciais:
           </div>
         </div>
         <p className="text-xs text-brand-muted">
-          Os mínimos valem para a análise e para as ações realizadas no Painel de Eventos. Zero: sem mínimo.
+          Os mínimos valem para a análise e para as ações realizadas no Painel de Eventos. O da análise vale também para
+          a observação de um &quot;Não conforme&quot; no app de campo. Zero: sem mínimo.
         </p>
       </fieldset>
 

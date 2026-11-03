@@ -9,6 +9,7 @@ import { valoresParaDuplicar } from "../constantes";
 import {
   getEscopoDoCliente,
   getGruposSitesParaEscopo,
+  getListasDoUsuario,
   getSuperiores,
   getUsuario,
 } from "../queries";
@@ -55,11 +56,12 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
 
   const idParaDuplicar = primeiro((await searchParams).duplicar);
 
-  const [superiores, gruposSites, modelo, escopoDoModelo] = await Promise.all([
+  const [superiores, gruposSites, modelo, escopoDoModelo, listas] = await Promise.all([
     getSuperiores(),
     getGruposSitesParaEscopo(),
     idParaDuplicar ? getUsuario(idParaDuplicar) : Promise.resolve(null),
     idParaDuplicar ? getEscopoDoCliente(idParaDuplicar) : Promise.resolve([]),
+    getListasDoUsuario(),
   ]);
 
   // Modelo que sumiu entre a listagem e o clique cai no formulario em branco:
@@ -94,6 +96,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
         <UsuarioForm
           valoresIniciais={valoresIniciais}
           superiores={superiores}
+          listas={listas}
           gruposSites={gruposSites}
         />
       </div>

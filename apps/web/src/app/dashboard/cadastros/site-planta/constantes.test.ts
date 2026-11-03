@@ -41,6 +41,7 @@ function modelo(extra: Partial<ModeloParaDuplicar> = {}): ModeloParaDuplicar {
     data_instalacao: "2026-10-01",
     dias_instalacao: 30,
     data_desinstalacao: null,
+    tipo_curva_id: null,
     ...extra,
   };
 }

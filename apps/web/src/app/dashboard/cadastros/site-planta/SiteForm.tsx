@@ -148,7 +148,7 @@ export function SiteForm({
   /** Ausente na criacao; presente na edicao. */
   id?: number;
   valoresIniciais: ValoresDoSite;
-  opcoes: { gruposSites: Opcao[]; tiposServico: Opcao[]; responsaveis: Opcao[] };
+  opcoes: { gruposSites: Opcao[]; tiposServico: Opcao[]; responsaveis: Opcao[]; tiposCurva: Opcao[] };
   /** Migration 0021. Ja vem sem o proprio site em edicao -- ver
    * `getSitesParaSuperior`. */
   sitesSuperiores: Opcao[];
@@ -521,6 +521,16 @@ export function SiteForm({
             name="responsavel_prevencao_id"
             options={opcoes.responsaveis}
             defaultValue={valores.responsavelPrevencaoId}
+            vazio="Nenhum"
+          />
+        </Campo>
+
+        <Campo id="tipo_curva_id" rotulo="Tipo de Curva">
+          <Select
+            id="tipo_curva_id"
+            name="tipo_curva_id"
+            options={opcoes.tiposCurva}
+            defaultValue={valores.tipoCurvaId}
             vazio="Nenhum"
           />
         </Campo>

@@ -75,3 +75,15 @@ export async function salvarTipoDeClassificacao(
 ): Promise<EstadoDoFormulario> {
   return salvar("classificacao", formData);
 }
+
+export async function salvarSetor(_estado: EstadoDoFormulario, formData: FormData): Promise<EstadoDoFormulario> {
+  return salvar("setor", formData);
+}
+
+export async function salvarTipoDeAlerta(_estado: EstadoDoFormulario, formData: FormData): Promise<EstadoDoFormulario> {
+  return salvar("alerta", formData);
+}
+
+export async function salvarTipoDeCurva(_estado: EstadoDoFormulario, formData: FormData): Promise<EstadoDoFormulario> {
+  return salvar("curva", formData);
+}

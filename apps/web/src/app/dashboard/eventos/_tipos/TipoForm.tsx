@@ -6,7 +6,10 @@ import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
 import {
   salvarTipoDeAnalise,
+  salvarSetor,
+  salvarTipoDeAlerta,
   salvarTipoDeClassificacao,
+  salvarTipoDeCurva,
   type EstadoDoFormulario,
   type ValoresDoTipo,
 } from "./actions";
@@ -24,7 +27,13 @@ export function TipoForm({
   id?: number;
   valoresIniciais: ValoresDoTipo;
 }) {
-  const acao = tipo === "analise" ? salvarTipoDeAnalise : salvarTipoDeClassificacao;
+  const acao = {
+    analise: salvarTipoDeAnalise,
+    classificacao: salvarTipoDeClassificacao,
+    setor: salvarSetor,
+    alerta: salvarTipoDeAlerta,
+    curva: salvarTipoDeCurva,
+  }[tipo];
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(acao, {});
   const valores = estado.valores ?? valoresIniciais;
 

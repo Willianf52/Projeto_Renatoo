@@ -101,6 +101,15 @@ export const NAV_ITEMS: NavItem[] = [
       },
       // O cadastro da conta (0085), na posicao do sistema de referencia.
       { label: "Cliente", href: "/dashboard/cadastros/cliente", icon: BuildingIcon, somenteGestor: true },
+      // As listas do Setor, do Alerta de Panico e do Tipo de Curva (0086).
+      { label: "Setores", href: "/dashboard/cadastros/setores", icon: GridIcon, somenteGestor: true },
+      {
+        label: "Tipos de Alerta de Pânico",
+        href: "/dashboard/cadastros/tipos-de-alerta-de-panico",
+        icon: GridIcon,
+        somenteGestor: true,
+      },
+      { label: "Tipos de Curva", href: "/dashboard/cadastros/tipos-de-curva", icon: GridIcon, somenteGestor: true },
       { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],

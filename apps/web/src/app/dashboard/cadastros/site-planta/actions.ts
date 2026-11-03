@@ -50,6 +50,8 @@ export type ValoresDoSite = {
   dataInstalacao: string;
   diasInstalacao: string;
   dataDesinstalacao: string;
+  /** "Tipo de Curva" (0086): id da lista, ou vazio. */
+  tipoCurvaId: string;
   recebeVisita: boolean;
   gerarQrcodeAutomatico: boolean;
   gerarRegistroColetas: boolean;
@@ -97,6 +99,7 @@ function extrairValores(formData: FormData): ValoresDoSite {
     dataInstalacao: texto(formData, "data_instalacao"),
     diasInstalacao: texto(formData, "dias_instalacao"),
     dataDesinstalacao: texto(formData, "data_desinstalacao"),
+    tipoCurvaId: texto(formData, "tipo_curva_id"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     recebeVisita: formData.get("recebe_visita") !== null,
     gerarQrcodeAutomatico: formData.get("gerar_qrcode_automatico") !== null,
@@ -141,6 +144,7 @@ type LinhaDoSite = {
   data_instalacao: string | null;
   dias_instalacao: number | null;
   data_desinstalacao: string | null;
+  tipo_curva_id: number | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -240,6 +244,9 @@ function validar(
   if (!dataInstalacao.ok) return dataInstalacao;
   const dataDesinstalacao = lerData(valores.dataDesinstalacao, "Data de desinstalação");
   if (!dataDesinstalacao.ok) return dataDesinstalacao;
+  if (valores.tipoCurvaId && !/^[1-9]\d{0,17}$/.test(valores.tipoCurvaId)) {
+    return { ok: false, erro: "Tipo de curva inválido." };
+  }
   let diasInstalacao: number | null = null;
   if (valores.diasInstalacao) {
     diasInstalacao = Number(valores.diasInstalacao);
@@ -286,6 +293,7 @@ function validar(
       data_instalacao: dataInstalacao.valor,
       dias_instalacao: diasInstalacao,
       data_desinstalacao: dataDesinstalacao.valor,
+      tipo_curva_id: valores.tipoCurvaId ? Number(valores.tipoCurvaId) : null,
       recebe_visita: valores.recebeVisita,
       gerar_qrcode_automatico: valores.gerarQrcodeAutomatico,
       gerar_registro_coletas: valores.gerarRegistroColetas,

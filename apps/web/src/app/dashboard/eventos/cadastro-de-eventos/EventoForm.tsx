@@ -110,6 +110,7 @@ export function EventoForm({
   usuarios,
   classificacoes,
   gruposDeUsuarios,
+  setores,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
@@ -120,6 +121,7 @@ export function EventoForm({
   usuarios: Opcao[];
   classificacoes: Opcao[];
   gruposDeUsuarios: Opcao[];
+  setores: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(salvarEvento, {});
   const valores = estado.valores ?? valoresIniciais;
@@ -316,6 +318,20 @@ export function EventoForm({
               ))}
             </Selecao>
           </div>
+        </div>
+
+        <div className="md:w-1/3">
+          <label htmlFor="setor_responsavel_id" className={rotuloClasses}>
+            Setor Responsável
+          </label>
+          <Selecao id="setor_responsavel_id" name="setor_responsavel_id" defaultValue={valores.setorResponsavelId}>
+            <option value="">Nenhum</option>
+            {setores.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Selecao>
         </div>
 
         <div>

@@ -10,6 +10,7 @@ import { getDadosPessoais } from "../../ler-dados-pessoais";
 import {
   getEscopoDoCliente,
   getGruposSitesParaEscopo,
+  getListasDoUsuario,
   getSuperiores,
   getUsuario,
 } from "../../queries";
@@ -42,12 +43,13 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   }
 
   // `getDadosPessoais` le com a service_role: so depois da checagem acima.
-  const [usuario, superiores, gruposSites, escopo, dadosPessoais] = await Promise.all([
+  const [usuario, superiores, gruposSites, escopo, dadosPessoais, listas] = await Promise.all([
     getUsuario(id),
     getSuperiores(id),
     getGruposSitesParaEscopo(),
     getEscopoDoCliente(id),
     getDadosPessoais(id),
+    getListasDoUsuario(),
   ]);
   if (!usuario) notFound();
 
@@ -77,6 +79,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
         <UsuarioForm
           id={usuario.id}
           superiores={superiores}
+          listas={listas}
           gruposSites={gruposSites}
           valoresIniciais={{
             nomeCompleto: usuario.nome_completo ?? "",
@@ -88,6 +91,8 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             funcao: usuario.funcao ?? "",
             pais: usuario.pais,
             lingua: usuario.lingua,
+            setorId: usuario.setor_id ? String(usuario.setor_id) : "",
+            alertaPanicoId: usuario.alerta_panico_id ? String(usuario.alerta_panico_id) : "",
             cargo: usuario.cargo,
             tipo: usuario.tipo,
             superiorId: usuario.superior_id ?? "",

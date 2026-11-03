@@ -80,6 +80,7 @@ describe("salvarEvento", () => {
         nps: null,
         tipo_classificacao_id: null,
         grupo_responsavel_id: null,
+        setor_responsavel_id: null,
       },
     });
     expect(redirectMock).toHaveBeenCalledWith("/dashboard/eventos/cadastro-de-eventos?salvo=1");

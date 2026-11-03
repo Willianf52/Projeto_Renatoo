@@ -75,12 +75,15 @@ export function UsuarioForm({
   valoresIniciais,
   superiores,
   gruposSites,
+  listas = { setores: [], alertas: [] },
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: string;
   valoresIniciais: ValoresDoUsuario;
   superiores: FilterOption[];
   gruposSites: FilterOption[];
+  /** Setor e Tipo de Alerta de Panico (0086). */
+  listas?: { setores: FilterOption[]; alertas: FilterOption[] };
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
     salvarUsuario,
@@ -204,6 +207,34 @@ export function UsuarioForm({
           <select id="lingua" name="lingua" defaultValue={valores.lingua} className={getInputClasses(false)}>
             <option value="PT">Português</option>
             <option value="ES">Espanhol</option>
+          </select>
+        </Campo>
+
+        {/* Setor e Tipo de Alerta de Pânico do sistema de referencia (0086). */}
+        <Campo id="setor_id" rotulo="Setor">
+          <select id="setor_id" name="setor_id" defaultValue={valores.setorId} className={getInputClasses(false)}>
+            <option value="">Nenhum</option>
+            {listas.setores.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </Campo>
+
+        <Campo id="alerta_panico_id" rotulo="Tipo de Alerta de Pânico">
+          <select
+            id="alerta_panico_id"
+            name="alerta_panico_id"
+            defaultValue={valores.alertaPanicoId}
+            className={getInputClasses(false)}
+          >
+            <option value="">Nenhum</option>
+            {listas.alertas.map((a) => (
+              <option key={a.value} value={a.value}>
+                {a.label}
+              </option>
+            ))}
           </select>
         </Campo>
 

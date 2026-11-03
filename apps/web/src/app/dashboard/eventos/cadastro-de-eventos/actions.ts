@@ -35,6 +35,8 @@ export type ValoresDoEvento = {
   nps: string;
   tipoClassificacaoId: string;
   grupoResponsavelId: string;
+  /** "Setor Responsavel" (0086): id da lista, ou vazio. */
+  setorResponsavelId: string;
 };
 
 export type EstadoDoFormulario = { erro?: string; valores?: ValoresDoEvento };
@@ -66,6 +68,7 @@ function extrairValores(formData: FormData): ValoresDoEvento {
     nps: texto(formData, "nps"),
     tipoClassificacaoId: texto(formData, "tipo_classificacao_id"),
     grupoResponsavelId: texto(formData, "grupo_responsavel_id"),
+    setorResponsavelId: texto(formData, "setor_responsavel_id"),
   };
 }
 
@@ -124,7 +127,7 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
   for (const uuid of [valores.usuarioFinalId, valores.responsavelAtendimentoId]) {
     if (uuid && !UUID.test(uuid)) return { erro: "Usuário inválido.", valores };
   }
-  for (const idTexto of [valores.tipoClassificacaoId, valores.grupoResponsavelId]) {
+  for (const idTexto of [valores.tipoClassificacaoId, valores.grupoResponsavelId, valores.setorResponsavelId]) {
     if (idTexto && !ID.test(idTexto)) return { erro: "Classificação ou grupo inválido.", valores };
   }
   const emailsCopia = lerEmailsDoEvento(valores.emailsCopia);
@@ -158,6 +161,7 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
       nps: valores.nps || null,
       tipo_classificacao_id: valores.tipoClassificacaoId ? Number(valores.tipoClassificacaoId) : null,
       grupo_responsavel_id: valores.grupoResponsavelId ? Number(valores.grupoResponsavelId) : null,
+      setor_responsavel_id: valores.setorResponsavelId ? Number(valores.setorResponsavelId) : null,
     },
   });
 

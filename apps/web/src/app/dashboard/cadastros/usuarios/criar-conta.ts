@@ -34,6 +34,9 @@ export type ValoresDoUsuario = {
   pais: string;
   /** "Lingua" do sistema de referencia (0082): PT ou ES. */
   lingua: string;
+  /** Setor e Tipo de Alerta de Panico (0086): ids das listas, ou vazio. */
+  setorId: string;
+  alertaPanicoId: string;
   cargo: string;
   /** Migration 0019. Coluna sem grant para `authenticated`, como `cargo`:
    * so passa por aqui, atras da checagem de permissao. */
@@ -65,6 +68,8 @@ export function perfilDosValores(valores: ValoresDoUsuario) {
     pais: valores.pais || PAIS_PADRAO,
     // `not null default 'PT'` (0082): vazio ou fora da lista cai no default.
     lingua: valores.lingua === "ES" ? "ES" : "PT",
+    setor_id: /^[1-9]\d{0,17}$/.test(valores.setorId) ? Number(valores.setorId) : null,
+    alerta_panico_id: /^[1-9]\d{0,17}$/.test(valores.alertaPanicoId) ? Number(valores.alertaPanicoId) : null,
     cargo: valores.cargo,
     tipo: valores.tipo,
     ativo: valores.ativo,
