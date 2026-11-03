@@ -1,9 +1,10 @@
-import { FolhaDeEtiquetas } from "@/components/dashboard/FolhaDeEtiquetas";
+import { FolhaDeEtiquetas, formatoDeEtiqueta } from "@/components/dashboard/FolhaDeEtiquetas";
 import { gerarQrCodeDataUrl } from "@/lib/qrcode";
 import {
   extrairFiltros,
   getQrCodesParaExportar,
   LIMITE_EXPORTACAO,
+  primeiro,
   type SearchParams,
 } from "../../queries";
 
@@ -26,15 +27,29 @@ export default async function ExportarEtiquetasPage({
   const filtros = extrairFiltros(params);
 
   const { rows, truncado } = await getQrCodesParaExportar(filtros);
+  // Formato e logo escolhidos em `../opcoes-de-etiqueta`; sem eles, A4 sem
+  // logo, como era antes da tela de opcoes.
+  const formato = formatoDeEtiqueta(primeiro(params.formato));
+  const comLogo = primeiro(params.logo) === "1";
+  // QR maior no papel pede mais pixels, senao a impressao sai borrada.
+  const largura = formato === "A4_1" ? 900 : formato === "A3" ? 400 : 240;
 
   const etiquetas = await Promise.all(
     rows.map(async (qrCode) => ({
       codigo: qrCode.codigo,
-      qrDataUrl: await gerarQrCodeDataUrl(qrCode.codigo),
+      qrDataUrl: await gerarQrCodeDataUrl(qrCode.codigo, largura),
       site: qrCode.sites?.nome ?? "",
       finalidade: qrCode.finalidade,
     })),
   );
 
-  return <FolhaDeEtiquetas etiquetas={etiquetas} truncado={truncado} limite={LIMITE_EXPORTACAO} />;
+  return (
+    <FolhaDeEtiquetas
+      etiquetas={etiquetas}
+      truncado={truncado}
+      limite={LIMITE_EXPORTACAO}
+      formato={formato}
+      comLogo={comLogo}
+    />
+  );
 }

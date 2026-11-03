@@ -134,8 +134,7 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       </Acao>
       <Acao
         titulo="Imprimir Etiquetas"
-        href={`/dashboard/cadastros/qr-code/export/etiquetas${queryExportacao}`} tom="neutro"
-        target="_blank"
+        href={`/dashboard/cadastros/qr-code/export/opcoes-de-etiqueta${queryExportacao}`} tom="neutro"
       >
         <QrCodeIcon className="h-4 w-4" />
       </Acao>
