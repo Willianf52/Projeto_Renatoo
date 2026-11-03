@@ -208,6 +208,21 @@ export function RegistrarEventoForm({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label htmlFor="local" className={rotulo}>
+            Local do evento
+          </label>
+          {/* "Digite o Local do evento" do sistema de referencia (0082). */}
+          <input
+            id="local"
+            name="local"
+            type="text"
+            maxLength={200}
+            placeholder="Digite o local do evento"
+            className={getInputClasses(false)}
+          />
+        </div>
+
         <div>
           <label htmlFor="site_id" className={rotulo}>
             Site<span className="text-red-400"> *</span>
