@@ -110,6 +110,10 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
           <Acao titulo="Importar Eventos" href={`${LISTAGEM}/importar`} tom="importar">
             <UploadIcon className="h-4 w-4" />
           </Acao>
+          {/* "Alterar Eventos" do sistema de referencia: permissoes em massa (0083). */}
+          <Acao titulo="Alterar Eventos" href={`${LISTAGEM}/alterar-em-massa`} tom="neutro">
+            <PencilIcon className="h-4 w-4" />
+          </Acao>
           <Acao titulo="Novo evento" href={`${LISTAGEM}/novo`} tom="novo">
             <PlusCircleIcon className="h-4 w-4" />
           </Acao>
@@ -118,6 +122,9 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
         <>
           <AcaoDesabilitada titulo="Importar Eventos" motivo="você não tem permissão" tom="importar">
             <UploadIcon className="h-4 w-4" />
+          </AcaoDesabilitada>
+          <AcaoDesabilitada titulo="Alterar Eventos" motivo="você não tem permissão" tom="neutro">
+            <PencilIcon className="h-4 w-4" />
           </AcaoDesabilitada>
           <AcaoDesabilitada titulo="Novo evento" motivo="você não tem permissão" tom="novo">
             <PlusCircleIcon className="h-4 w-4" />

@@ -41,6 +41,21 @@ function Selecao({
 }
 
 /** Quantidade + unidade, como na referencia ("0" + "Minuto(s)/Hora(s)/Dia(s)"). */
+/** "Nao / Sim" como no sistema de referencia. */
+function SimNao({ id, rotulo, valor }: { id: string; rotulo: string; valor: boolean }) {
+  return (
+    <div>
+      <label htmlFor={id} className={rotuloClasses}>
+        {rotulo}
+      </label>
+      <Selecao id={id} name={id} defaultValue={valor ? "sim" : "nao"}>
+        <option value="nao">Não</option>
+        <option value="sim">Sim</option>
+      </Selecao>
+    </div>
+  );
+}
+
 function Prazo({
   prefixo,
   rotulo,
@@ -92,6 +107,9 @@ export function EventoForm({
   superiores,
   temSubtipos,
   sites,
+  usuarios,
+  classificacoes,
+  gruposDeUsuarios,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
@@ -99,6 +117,9 @@ export function EventoForm({
   superiores: Opcao[];
   temSubtipos: boolean;
   sites: Opcao[];
+  usuarios: Opcao[];
+  classificacoes: Opcao[];
+  gruposDeUsuarios: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(salvarEvento, {});
   const valores = estado.valores ?? valoresIniciais;
@@ -209,6 +230,140 @@ export function EventoForm({
         />
         <p className="mt-1.5 text-xs text-brand-muted">Nenhum marcado: o evento vale para todos os sites.</p>
       </div>
+
+      <fieldset className="space-y-4 rounded-md border border-slate-800 p-4">
+        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-brand-muted">
+          Atendimento e finalização
+        </legend>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Prazo
+            prefixo="finalizacao"
+            rotulo="Tempo para Finalização"
+            ajuda="Prazo para finalizar a ocorrência. Com a finalização automática, ela é encerrada quando o prazo vence."
+            quantidade={valores.finalizacaoQuantidade}
+            unidade={valores.finalizacaoUnidade}
+          />
+          <Prazo
+            prefixo="prorrogacao"
+            rotulo="Tempo de Prorrogação de Atendimento"
+            ajuda="Quanto o prazo de atendimento pode ser prorrogado. Vazio ou 0: sem prorrogação."
+            quantidade={valores.prorrogacaoQuantidade}
+            unidade={valores.prorrogacaoUnidade}
+          />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label htmlFor="status_final" className={rotuloClasses}>
+              Status final
+            </label>
+            <Selecao id="status_final" name="status_final" defaultValue={valores.statusFinal}>
+              <option value="">Nenhum</option>
+              <option value="ATENDIDO">Atendido</option>
+              <option value="CANCELADO">Cancelado</option>
+            </Selecao>
+          </div>
+          <div>
+            <label htmlFor="usuario_final_id" className={rotuloClasses}>
+              Usuário final
+            </label>
+            <Selecao id="usuario_final_id" name="usuario_final_id" defaultValue={valores.usuarioFinalId}>
+              <option value="">Nenhum</option>
+              {usuarios.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </Selecao>
+          </div>
+          <SimNao id="finalizacao_automatica" rotulo="Finalização automática?" valor={valores.finalizacaoAutomatica} />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div>
+            <label htmlFor="responsavel_atendimento_id" className={rotuloClasses}>
+              Responsável
+            </label>
+            <Selecao
+              id="responsavel_atendimento_id"
+              name="responsavel_atendimento_id"
+              defaultValue={valores.responsavelAtendimentoId}
+            >
+              <option value="">Nenhum</option>
+              {usuarios.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </Selecao>
+          </div>
+          <SimNao
+            id="enviar_superior_imediato"
+            rotulo="Enviar ao superior imediato?"
+            valor={valores.enviarSuperiorImediato}
+          />
+          <div>
+            <label htmlFor="grupo_responsavel_id" className={rotuloClasses}>
+              Grupo Responsável
+            </label>
+            <Selecao id="grupo_responsavel_id" name="grupo_responsavel_id" defaultValue={valores.grupoResponsavelId}>
+              <option value="">Nenhum</option>
+              {gruposDeUsuarios.map((g) => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
+            </Selecao>
+          </div>
+        </div>
+
+        <div>
+          <label htmlFor="emails_copia" className={rotuloClasses}>
+            E-mails (cópia)
+          </label>
+          <textarea
+            id="emails_copia"
+            name="emails_copia"
+            rows={2}
+            defaultValue={valores.emailsCopia}
+            className={`${getInputClasses(false)} resize-y`}
+          />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <SimNao id="alarme" rotulo="É alarme?" valor={valores.alarme} />
+          <SimNao
+            id="finalizacao_pela_ocorrencia_inicio"
+            rotulo="Finalização pela ocorrência (no início)?"
+            valor={valores.finalizacaoPelaOcorrenciaInicio}
+          />
+          <div>
+            <label htmlFor="nps" className={rotuloClasses}>
+              NPS
+            </label>
+            <Selecao id="nps" name="nps" defaultValue={valores.nps}>
+              <option value="">Nenhum</option>
+              <option value="POSITIVO">Positivo</option>
+              <option value="NEUTRO">Neutro</option>
+              <option value="NEGATIVO">Negativo</option>
+            </Selecao>
+          </div>
+          <div>
+            <label htmlFor="tipo_classificacao_id" className={rotuloClasses}>
+              Tipo de Classificação
+            </label>
+            <Selecao id="tipo_classificacao_id" name="tipo_classificacao_id" defaultValue={valores.tipoClassificacaoId}>
+              <option value="">Nenhum</option>
+              {classificacoes.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </Selecao>
+          </div>
+        </div>
+      </fieldset>
 
       <div className="md:w-1/2">
         <label htmlFor="status" className={rotuloClasses}>

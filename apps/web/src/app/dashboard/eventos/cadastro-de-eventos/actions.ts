@@ -19,6 +19,22 @@ export type ValoresDoEvento = {
   bloqueioQuantidade: string;
   bloqueioUnidade: string;
   ativo: boolean;
+  // Campos da 0083.
+  finalizacaoQuantidade: string;
+  finalizacaoUnidade: string;
+  statusFinal: string;
+  usuarioFinalId: string;
+  responsavelAtendimentoId: string;
+  enviarSuperiorImediato: boolean;
+  emailsCopia: string;
+  prorrogacaoQuantidade: string;
+  prorrogacaoUnidade: string;
+  alarme: boolean;
+  finalizacaoAutomatica: boolean;
+  finalizacaoPelaOcorrenciaInicio: boolean;
+  nps: string;
+  tipoClassificacaoId: string;
+  grupoResponsavelId: string;
 };
 
 export type EstadoDoFormulario = { erro?: string; valores?: ValoresDoEvento };
@@ -35,8 +51,25 @@ function extrairValores(formData: FormData): ValoresDoEvento {
     bloqueioQuantidade: texto(formData, "bloqueio_quantidade"),
     bloqueioUnidade: texto(formData, "bloqueio_unidade"),
     ativo: texto(formData, "status") !== "inativo",
+    finalizacaoQuantidade: texto(formData, "finalizacao_quantidade"),
+    finalizacaoUnidade: texto(formData, "finalizacao_unidade"),
+    statusFinal: texto(formData, "status_final"),
+    usuarioFinalId: texto(formData, "usuario_final_id"),
+    responsavelAtendimentoId: texto(formData, "responsavel_atendimento_id"),
+    enviarSuperiorImediato: texto(formData, "enviar_superior_imediato") === "sim",
+    emailsCopia: texto(formData, "emails_copia"),
+    prorrogacaoQuantidade: texto(formData, "prorrogacao_quantidade"),
+    prorrogacaoUnidade: texto(formData, "prorrogacao_unidade"),
+    alarme: texto(formData, "alarme") === "sim",
+    finalizacaoAutomatica: texto(formData, "finalizacao_automatica") === "sim",
+    finalizacaoPelaOcorrenciaInicio: texto(formData, "finalizacao_pela_ocorrencia_inicio") === "sim",
+    nps: texto(formData, "nps"),
+    tipoClassificacaoId: texto(formData, "tipo_classificacao_id"),
+    grupoResponsavelId: texto(formData, "grupo_responsavel_id"),
   };
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ID = /^[1-9]\d{0,17}$/;
 
@@ -70,6 +103,33 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
   const bloqueio = paraMinutos(valores.bloqueioQuantidade, valores.bloqueioUnidade, "Bloqueio de Repetição");
   if (!bloqueio.ok) return { erro: bloqueio.erro, valores };
 
+  // Campos da 0083.
+  const finalizacao = paraMinutos(valores.finalizacaoQuantidade, valores.finalizacaoUnidade, "Tempo para Finalização");
+  if (!finalizacao.ok) return { erro: finalizacao.erro, valores };
+  const prorrogacao = paraMinutos(
+    valores.prorrogacaoQuantidade,
+    valores.prorrogacaoUnidade,
+    "Tempo de Prorrogação de Atendimento",
+  );
+  if (!prorrogacao.ok) return { erro: prorrogacao.erro, valores };
+  if (valores.finalizacaoAutomatica && finalizacao.minutos === null) {
+    return { erro: "Para a finalização automática, informe o Tempo para Finalização.", valores };
+  }
+  if (valores.statusFinal && !["ATENDIDO", "CANCELADO"].includes(valores.statusFinal)) {
+    return { erro: "Status final inválido.", valores };
+  }
+  if (valores.nps && !["POSITIVO", "NEUTRO", "NEGATIVO"].includes(valores.nps)) {
+    return { erro: "NPS inválido.", valores };
+  }
+  for (const uuid of [valores.usuarioFinalId, valores.responsavelAtendimentoId]) {
+    if (uuid && !UUID.test(uuid)) return { erro: "Usuário inválido.", valores };
+  }
+  for (const idTexto of [valores.tipoClassificacaoId, valores.grupoResponsavelId]) {
+    if (idTexto && !ID.test(idTexto)) return { erro: "Classificação ou grupo inválido.", valores };
+  }
+  const emailsCopia = lerEmailsDoEvento(valores.emailsCopia);
+  if (!emailsCopia.ok) return { erro: `E-mails (cópia): ${emailsCopia.erro}`, valores };
+
   const supabase = await createClient();
   // Evento, sites e e-mails numa transacao so (`salvar_evento`, 0072). As
   // policies sao o portao: quem nao e GESTOR recebe 42501.
@@ -84,6 +144,21 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
     p_ativo: valores.ativo,
     p_sites: valores.sites.map(Number),
     p_emails: emails.emails,
+    p_extras: {
+      tempo_finalizacao_minutos: finalizacao.minutos,
+      status_final: valores.statusFinal || null,
+      usuario_final_id: valores.usuarioFinalId || null,
+      responsavel_atendimento_id: valores.responsavelAtendimentoId || null,
+      enviar_superior_imediato: valores.enviarSuperiorImediato,
+      emails_copia: emailsCopia.emails,
+      prorrogacao_minutos: prorrogacao.minutos,
+      alarme: valores.alarme,
+      finalizacao_automatica: valores.finalizacaoAutomatica,
+      finalizacao_pela_ocorrencia_inicio: valores.finalizacaoPelaOcorrenciaInicio,
+      nps: valores.nps || null,
+      tipo_classificacao_id: valores.tipoClassificacaoId ? Number(valores.tipoClassificacaoId) : null,
+      grupo_responsavel_id: valores.grupoResponsavelId ? Number(valores.grupoResponsavelId) : null,
+    },
   });
 
   if (error) {

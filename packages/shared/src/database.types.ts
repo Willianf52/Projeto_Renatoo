@@ -362,41 +362,108 @@ export type Database = {
       }
       eventos: {
         Row: {
+          alarme: boolean
           ativo: boolean
           bloqueio_repeticao_minutos: number | null
           criado_em: string
           descricao: string | null
+          emails_copia: string[]
+          enviar_superior_imediato: boolean
+          finalizacao_automatica: boolean
+          finalizacao_pela_ocorrencia_inicio: boolean
+          grupo_responsavel_id: number | null
           id: number
           nome: string
+          nps: string | null
+          prorrogacao_minutos: number | null
+          responsavel_atendimento_id: string | null
+          status_final: string | null
           superior_id: number | null
           tempo_atendimento_minutos: number | null
+          tempo_finalizacao_minutos: number | null
+          tipo_classificacao_id: number | null
+          usuario_final_id: string | null
         }
         Insert: {
+          alarme?: boolean
           ativo?: boolean
           bloqueio_repeticao_minutos?: number | null
           criado_em?: string
           descricao?: string | null
+          emails_copia?: string[]
+          enviar_superior_imediato?: boolean
+          finalizacao_automatica?: boolean
+          finalizacao_pela_ocorrencia_inicio?: boolean
+          grupo_responsavel_id?: number | null
           id?: never
           nome: string
+          nps?: string | null
+          prorrogacao_minutos?: number | null
+          responsavel_atendimento_id?: string | null
+          status_final?: string | null
           superior_id?: number | null
           tempo_atendimento_minutos?: number | null
+          tempo_finalizacao_minutos?: number | null
+          tipo_classificacao_id?: number | null
+          usuario_final_id?: string | null
         }
         Update: {
+          alarme?: boolean
           ativo?: boolean
           bloqueio_repeticao_minutos?: number | null
           criado_em?: string
           descricao?: string | null
+          emails_copia?: string[]
+          enviar_superior_imediato?: boolean
+          finalizacao_automatica?: boolean
+          finalizacao_pela_ocorrencia_inicio?: boolean
+          grupo_responsavel_id?: number | null
           id?: never
           nome?: string
+          nps?: string | null
+          prorrogacao_minutos?: number | null
+          responsavel_atendimento_id?: string | null
+          status_final?: string | null
           superior_id?: number | null
           tempo_atendimento_minutos?: number | null
+          tempo_finalizacao_minutos?: number | null
+          tipo_classificacao_id?: number | null
+          usuario_final_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "eventos_grupo_responsavel_id_fkey"
+            columns: ["grupo_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_responsavel_atendimento_id_fkey"
+            columns: ["responsavel_atendimento_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "eventos_superior_id_fkey"
             columns: ["superior_id"]
             isOneToOne: false
             referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_tipo_classificacao_id_fkey"
+            columns: ["tipo_classificacao_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_de_classificacao"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_usuario_final_id_fkey"
+            columns: ["usuario_final_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1710,6 +1777,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      alterar_eventos_em_massa: {
+        Args: {
+          p_eventos: number[]
+          p_grupo_responsavel_id: number
+          p_sites: number[]
+          p_substituir: boolean
+        }
+        Returns: number
+      }
       cadastrar_coletas_manuais: {
         Args: {
           p_acao_id?: number
@@ -1925,6 +2001,7 @@ export type Database = {
           p_bloqueio_repeticao_minutos: number
           p_descricao: string
           p_emails?: string[]
+          p_extras?: Json
           p_id: number
           p_nome: string
           p_sites?: number[]
