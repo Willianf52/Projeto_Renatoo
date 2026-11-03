@@ -73,10 +73,12 @@ describe("telas so do GESTOR (issue #209)", () => {
       "/dashboard/eventos/tipos-de-classificacao",
       "/dashboard/eventos/relatorios/analitico-de-eventos",
       "/dashboard/eventos/relatorios/graficos-por-classificacao",
+      "/dashboard/checklistlab/agendamentos",
       "/dashboard/checklistlab/relatorios/analitico-por-checklist",
       "/dashboard/checklistlab/relatorios/indicadores-por-site",
       "/dashboard/checklistlab/relatorios/detalhamento-do-checklist",
       "/dashboard/checklistlab/modelos",
+      "/dashboard/checklistlab/agendas",
       "/dashboard/checklistlab/grupo-perguntas",
     ]);
   });
