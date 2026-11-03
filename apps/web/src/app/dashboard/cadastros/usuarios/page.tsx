@@ -13,6 +13,7 @@ import {
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import {
   CopyIcon,
+  ExcelIcon,
   FilterIcon,
   PencilIcon,
   SitemapIcon,
@@ -23,6 +24,7 @@ import {
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import {
+  extrairFiltros,
   getFuncoes,
   getGruposUsuarios,
   getUsuarios,
@@ -33,9 +35,7 @@ import {
   SITUACAO_PADRAO,
   SITUACOES,
   TIPOS_USUARIO,
-  type UsuarioFiltros,
 } from "./queries";
-import { filtroDeId } from "@/lib/id-na-url";
 
 /** Mesma ordem de `toTableRow` -- ver o comentario de la. */
 const TABLE_COLUMNS = [
@@ -66,20 +66,25 @@ function primeiro(valor: string | string[] | undefined): string | undefined {
   return (Array.isArray(valor) ? valor[0] : valor) || undefined;
 }
 
-function extrairFiltros(params: SearchParams): UsuarioFiltros {
-  return {
-    busca: primeiro(params.busca),
-    funcao: primeiro(params.funcao),
-    tipo: primeiro(params.tipo),
-    nivelAcesso: primeiro(params.nivel_acesso),
-    grupoUsuarios: filtroDeId(primeiro(params.grupo_usuarios)),
-    // Valor fora da lista cai no padrao, como em Site / Planta: a URL e
-    // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
-    situacao: SITUACOES.some((s) => s.value === primeiro(params.situacao))
-      ? (primeiro(params.situacao) as UsuarioFiltros["situacao"])
-      : SITUACAO_PADRAO,
-    pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
-  };
+/** Os filtros da URL, sem a pagina, para o "Exportar para Excel". */
+async function AcaoDeExportar({ searchParams }: { searchParams: SearchParamsPromise }) {
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  for (const [chave, valor] of Object.entries(params)) {
+    const v = primeiro(valor);
+    if (v && chave !== "pagina" && chave !== "salvo") query.set(chave, v);
+  }
+  const texto = query.toString();
+  return (
+    <Acao
+      titulo="Exportar para Excel"
+      href={`/dashboard/cadastros/usuarios/export/excel${texto ? `?${texto}` : ""}`}
+      tom="excel"
+      target="_blank"
+    >
+      <ExcelIcon className="h-4 w-4" />
+    </Acao>
+  );
 }
 
 /**
@@ -118,9 +123,14 @@ export default function UsuariosPage({ searchParams }: { searchParams: SearchPar
             <UserIcon className="h-4 w-4" />
             Usuários
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
-            <AcaoDeNovoUsuario />
-          </Suspense>
+          <div className="flex items-center gap-2">
+            <Suspense fallback={null}>
+              <AcaoDeExportar searchParams={searchParams} />
+            </Suspense>
+            <Suspense fallback={<AcoesEsqueleto quantidade={2} />}>
+              <AcaoDeNovoUsuario />
+            </Suspense>
+          </div>
         </div>
 
         <Suspense fallback={<FiltrosEmLinhaEsqueleto campos={5} gradeInterna={GRADE_DE_FILTROS} />}>
