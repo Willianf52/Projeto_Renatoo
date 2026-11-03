@@ -12,6 +12,7 @@ import {
   nomeSeguro,
   tipoPorExtensao,
   lerEnvio,
+  erroDoMinimoDeTexto,
 } from "./andamentos";
 
 const UUID = "0b6c1f2e-3a4d-4b5c-8d9e-0f1a2b3c4d5e";
@@ -199,5 +200,17 @@ describe("lerEnvio (Enviar Evento, 0081)", () => {
     expect(envio([["ocorrencia_id", "16"], ["destinatarios", "nao-e-uuid"]])).toMatchObject({ ok: false });
     const muitos = Array.from({ length: 21 }, (_, i) => ["destinatarios", `11111111-2222-4333-8444-${String(i).padStart(12, "0")}`] as [string, string]);
     expect(envio([["ocorrencia_id", "16"], ...muitos])).toMatchObject({ ok: false, erro: "Escolha no máximo 20 destinatários." });
+  });
+});
+
+describe("erroDoMinimoDeTexto (Cadastros > Cliente, 0085)", () => {
+  const minimos = { minCaracteresDescricao: 10, minCaracteresAcoes: 5 };
+  it("análise usa o mínimo da descrição; finalização, o das ações", () => {
+    expect(erroDoMinimoDeTexto("ANALISE", "curto", minimos)).toBe("A análise deve ter pelo menos 10 caracteres.");
+    expect(erroDoMinimoDeTexto("FINALIZACAO", "feito", minimos)).toBeNull();
+    expect(erroDoMinimoDeTexto("FINALIZACAO", "ok", minimos)).toBe("As ações realizadas devem ter pelo menos 5 caracteres.");
+  });
+  it("zero é sem mínimo", () => {
+    expect(erroDoMinimoDeTexto("ANALISE", "x", { minCaracteresDescricao: 0, minCaracteresAcoes: 0 })).toBeNull();
   });
 });

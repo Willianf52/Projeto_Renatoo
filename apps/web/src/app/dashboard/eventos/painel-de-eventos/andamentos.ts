@@ -235,3 +235,20 @@ export function lerEnvio(
 
   return { ok: true, dados: { ocorrenciaId, destinatarios } };
 }
+
+/**
+ * "Qtd. Minima de Caracteres da Descricao / Acoes Realizadas" (Cadastros >
+ * Cliente, 0085): a analise conta como descricao, a finalizacao como acoes
+ * realizadas. Zero: sem minimo. Pura.
+ */
+export function erroDoMinimoDeTexto(
+  tipo: "ANALISE" | "FINALIZACAO",
+  texto: string,
+  minimos: { minCaracteresDescricao: number; minCaracteresAcoes: number },
+): string | null {
+  const minimo = tipo === "ANALISE" ? minimos.minCaracteresDescricao : minimos.minCaracteresAcoes;
+  if (minimo <= 0 || texto.trim().length >= minimo) return null;
+  return tipo === "ANALISE"
+    ? `A análise deve ter pelo menos ${minimo} caracteres.`
+    : `As ações realizadas devem ter pelo menos ${minimo} caracteres.`;
+}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { montarEmailDeOcorrencia, type Motivo } from "@/lib/emails-de-ocorrencia";
 import { erro } from "@/lib/log";
+import { lerConfiguracaoDoCliente, remetenteComNome } from "@/lib/configuracao-do-cliente";
 import { configuracaoDoRemetente, enviarEmailDeOcorrencia } from "@/lib/resend";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
@@ -32,7 +33,9 @@ export async function processarFilaDeEmails(
   origem: string,
   idRequisicao: string,
 ): Promise<ResultadoDaFila> {
-  const { remetente, somente } = configuracaoDoRemetente();
+  const { remetente: remetenteBase, somente } = configuracaoDoRemetente();
+  // "Usar Nome Fantasia no FROM dos emails" (Cadastros > Cliente, 0085).
+  const remetente = remetenteComNome(remetenteBase, await lerConfiguracaoDoCliente(admin));
   // Modo de teste sem o dono da conta configurado: nada pode ser entregue.
   if (somente && somente.length === 0) return { enviados: 0, falhas: 0 };
 

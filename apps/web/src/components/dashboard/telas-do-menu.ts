@@ -99,6 +99,8 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/cadastros/grupo-de-usuarios",
         icon: UsersIcon,
       },
+      // O cadastro da conta (0085), na posicao do sistema de referencia.
+      { label: "Cliente", href: "/dashboard/cadastros/cliente", icon: BuildingIcon, somenteGestor: true },
       { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],

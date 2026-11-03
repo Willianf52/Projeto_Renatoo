@@ -5,6 +5,7 @@ import { montarEmailDeChecklist } from "@/lib/emails-de-checklist";
 import { gerarPdfDoChecklist } from "@/lib/pdf-do-checklist";
 import type { ResultadoDaFila } from "@/lib/fila-de-emails-de-ocorrencia";
 import { erro } from "@/lib/log";
+import { lerConfiguracaoDoCliente, remetenteComNome } from "@/lib/configuracao-do-cliente";
 import { configuracaoDoRemetente, enviarEmailDeOcorrencia } from "@/lib/resend";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
@@ -53,7 +54,9 @@ export async function processarFilaDeEmailsDeChecklist(
   origem: string,
   idRequisicao: string,
 ): Promise<ResultadoDaFila> {
-  const { remetente, somente } = configuracaoDoRemetente();
+  const { remetente: remetenteBase, somente } = configuracaoDoRemetente();
+  // "Usar Nome Fantasia no FROM dos emails" (Cadastros > Cliente, 0085).
+  const remetente = remetenteComNome(remetenteBase, await lerConfiguracaoDoCliente(admin));
   if (somente && somente.length === 0) return { enviados: 0, falhas: 0 };
 
   const { data: lote, error } = await admin.rpc("reservar_emails_de_checklist", {
