@@ -55,6 +55,25 @@ describe("montarEmailDeOcorrencia", () => {
     expect(texto).toContain("Observação: Portão aberto");
   });
 
+  it("envio manual (0081): diz quem encaminhou e o status do evento", () => {
+    const { assunto, texto } = montarEmailDeOcorrencia({
+      ...base,
+      motivo: "ENVIO",
+      remetente: "Maria Gestora",
+      status: "EM_ANALISE",
+    });
+
+    expect(assunto).toBe("Evento nº 5/2026 - Uniforme - Posto Central - Encaminhado");
+    expect(texto.split("\n")[0]).toBe("Maria Gestora encaminhou a você o evento nº 5/2026.");
+    expect(texto).toContain("Status: Em Análise");
+    expect(texto).toContain("Resposta: Não conforme");
+  });
+
+  it("envio manual sem o nome de quem mandou não deixa a frase vazia", () => {
+    const { texto } = montarEmailDeOcorrencia({ ...base, motivo: "ENVIO", remetente: null });
+    expect(texto.split("\n")[0]).toBe("Um usuário do portal encaminhou a você o evento nº 5/2026.");
+  });
+
   it("quebra de linha no nome não chega ao assunto", () => {
     const { assunto } = montarEmailDeOcorrencia({ ...base, site: "Posto\r\nBcc: alguem@fora" });
     expect(assunto).not.toMatch(/[\r\n]/);

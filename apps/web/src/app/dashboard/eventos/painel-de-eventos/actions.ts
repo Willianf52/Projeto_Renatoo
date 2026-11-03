@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { podeVerTodaAOperacao } from "@/lib/permissoes";
 import { createClient } from "@/lib/supabase/server";
-import { lerAndamento } from "./andamentos";
+import { lerAndamento, lerEnvio } from "./andamentos";
 
 const PAINEL = "/dashboard/eventos/painel-de-eventos";
 
@@ -68,4 +68,40 @@ export async function registrarAndamento(
   revalidatePath(PAINEL);
   revalidatePath(`${PAINEL}/${dados.ocorrenciaId}`);
   redirect(`${PAINEL}/${dados.ocorrenciaId}?salvo=1`);
+}
+
+export type EstadoDoEnvio = { erro?: string };
+
+/**
+ * "Enviar Evento" (migration 0081): enfileira o evento para o e-mail das
+ * pessoas escolhidas; a fila da 0065 entrega. Quem pode e o banco que decide
+ * (`enviar_ocorrencia_por_email`), como no andamento.
+ */
+export async function enviarEventoPorEmail(_estado: EstadoDoEnvio, formData: FormData): Promise<EstadoDoEnvio> {
+  const lido = lerEnvio(formData);
+  if (!lido.ok) return { erro: lido.erro };
+  const { ocorrenciaId, destinatarios } = lido.dados;
+
+  if (!(await podeVerTodaAOperacao())) {
+    return { erro: "Sua conta não pode enviar eventos por e-mail." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("enviar_ocorrencia_por_email", {
+    p_ocorrencia_id: ocorrenciaId,
+    p_destinatarios: destinatarios,
+  });
+
+  if (error) {
+    // 22023: a funcao recusou a lista (vazia, grande demais, ninguem com
+    // e-mail) e a mensagem dela ja e a certa para a tela.
+    if (error.code === "22023") return { erro: error.message };
+    if (error.code === "42501") return { erro: "Sem permissão para enviar este evento por e-mail." };
+    if (error.code === "P0002") return { erro: "Este evento não existe mais. Atualize a página." };
+    erro(gerarIdDeRequisicao(), "Falha ao enviar o evento por e-mail:", error.message);
+    return { erro: "Não foi possível enviar. Tente de novo." };
+  }
+
+  revalidatePath(`${PAINEL}/${ocorrenciaId}`);
+  redirect(`${PAINEL}/${ocorrenciaId}?enviado=1`);
 }

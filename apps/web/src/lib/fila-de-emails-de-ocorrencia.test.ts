@@ -29,6 +29,7 @@ function bancoFalso(lote: Linha[], tentativas = 1) {
                   numero: 5,
                   ano: 2026,
                   criado_em: "2026-10-06T21:29:23Z",
+                  status: "EM_ANALISE",
                   pergunta_texto: "Uniformes",
                   resposta: "NAO",
                   observacao: null,
@@ -38,7 +39,9 @@ function bancoFalso(lote: Linha[], tentativas = 1) {
               ],
               error: null,
             }
-          : { data: [{ id: 3, texto: "Resolvido" }], error: null },
+          : tabela === "ocorrencia_emails"
+            ? { data: [{ id: 4, remetente: { nome_completo: "Maria Gestora" } }], error: null }
+            : { data: [{ id: 3, texto: "Resolvido" }], error: null },
       eq: () => ({ maybeSingle: async () => ({ data: { tentativas }, error: null }) }),
     }),
     update: (dados: Record<string, unknown>) => ({
@@ -75,6 +78,20 @@ describe("processarFilaDeEmails", () => {
       [1, "ENVIADO", "re_1"],
       [2, "ENVIADO", "re_1"],
     ]);
+  });
+
+  it("envio manual (0081): o texto diz quem encaminhou e o status do evento", async () => {
+    enviar.mockResolvedValue("re_4");
+    const { admin } = bancoFalso([
+      { id: 4, ocorrencia_id: 7, andamento_id: null, motivo: "ENVIO", destinatario: "c@x.test" },
+    ]);
+
+    const resultado = await processarFilaDeEmails(admin, "https://portal.test", "req");
+
+    expect(resultado).toEqual({ enviados: 1, falhas: 0 });
+    expect(enviar.mock.calls[0][0].assunto).toContain("Encaminhado");
+    expect(enviar.mock.calls[0][0].texto).toContain("Maria Gestora encaminhou a você o evento nº 5/2026.");
+    expect(enviar.mock.calls[0][0].texto).toContain("Status: Em Análise");
   });
 
   it("falha antes da terceira tentativa volta para a fila; na terceira, FALHOU", async () => {

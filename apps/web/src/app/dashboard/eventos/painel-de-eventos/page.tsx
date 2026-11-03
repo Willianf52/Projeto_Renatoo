@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AcaoDesabilitada } from "@/components/dashboard/AcaoDesabilitada";
+import { Acao } from "@/components/dashboard/Acao";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { Button } from "@/components/Button";
 import { DataTable } from "@/components/dashboard/DataTable";
@@ -27,11 +28,13 @@ import {
   extrairFiltros,
   getOpcoesFiltros,
   getPainel,
+  getTodasAsLinhas,
   PAGE_SIZE,
   primeiro,
   rotuloDoStatus,
   STATUS,
   tempoEmAberto,
+  TETO_SEM_PAGINACAO,
   type Filtros,
   type LinhaDoPainel,
   type Painel,
@@ -84,7 +87,13 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
   const params = await searchParams;
   const agora = new Date();
   const filtros = extrairFiltros(params, agora);
-  const [painel, podeAgir] = await Promise.all([getPainel(filtros), podeVerTodaAOperacao()]);
+  const quadro = filtros.visao === "quadro";
+  const [painel, podeAgir, todas] = await Promise.all([
+    getPainel(filtros),
+    podeVerTodaAOperacao(),
+    quadro ? getTodasAsLinhas(filtros) : Promise.resolve(null),
+  ]);
+  const consulta = consultaDosFiltros(params);
 
   return (
     <>
@@ -100,33 +109,159 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
             Painel de Eventos
           </h1>
           <div className="flex items-center gap-2">
-            <AcaoDesabilitada titulo="Exportar Eventos para PDF Unificado" tom="pdf">
+            <Acao target="_blank"
+              href={`${BASE}/export/pdf-unificado${consulta}`}
+              titulo="Exportar Eventos para PDF Unificado"
+              tom="pdf"
+            >
               <PdfIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
-            <AcaoDesabilitada titulo="Exportar para CSV" tom="excel">
+            </Acao>
+            <Acao target="_blank" href={`${BASE}/export/excel${consulta}`} titulo="Exportar para CSV" tom="excel">
               <ExcelIcon className="h-4 w-4" />
-            </AcaoDesabilitada>
+            </Acao>
+            <Acao target="_blank"
+              href={`${BASE}/export/analises${consulta}`}
+              titulo="Exportar Análises para Excel"
+              tom="excel"
+            >
+              <ExcelIcon className="h-4 w-4" />
+            </Acao>
           </div>
         </div>
 
-        <Suspense fallback={<FiltrosEmGradeEsqueleto celulas={11} colunas="xl:grid-cols-4" />}>
+        <Suspense fallback={<FiltrosEmGradeEsqueleto celulas={19} colunas="xl:grid-cols-4" />}>
           <FormularioDeFiltros filtros={filtros} />
         </Suspense>
 
-        <DataTable
-          columns={COLUNAS}
-          rows={painel.linhas.map((linha) => celulas(linha, agora, podeAgir))}
-          page={filtros.pagina}
-          totalPages={Math.max(1, Math.ceil(painel.total / PAGE_SIZE))}
-          totalItems={painel.total}
-          buildPageHref={(pagina) => hrefDaPagina(params, pagina)}
-          emptyTitle="Nenhum evento encontrado"
-          emptyDescription="Ajuste o período ou os filtros acima para localizar registros."
-          minWidth={MIN_WIDTH}
-          rotulo="Painel de eventos"
-        />
+        <ModoDeVisualizacao params={params} visao={filtros.visao} />
+
+        {todas ? (
+          <Quadro linhas={todas.linhas} cortado={todas.cortado} agora={agora} />
+        ) : (
+          <DataTable
+            columns={COLUNAS}
+            rows={painel.linhas.map((linha) => celulas(linha, agora, podeAgir))}
+            page={filtros.pagina}
+            totalPages={Math.max(1, Math.ceil(painel.total / PAGE_SIZE))}
+            totalItems={painel.total}
+            buildPageHref={(pagina) => hrefDaPagina(params, pagina)}
+            emptyTitle="Nenhum evento encontrado"
+            emptyDescription="Ajuste o período ou os filtros acima para localizar registros."
+            minWidth={MIN_WIDTH}
+            rotulo="Painel de eventos"
+          />
+        )}
       </div>
     </>
+  );
+}
+
+/** Os filtros da URL, sem a pagina e a visao, para os botoes de exportar: o
+ * arquivo leva o filtro inteiro, nunca so a pagina que esta na tela. */
+function consultaDosFiltros(params: SearchParams): string {
+  const query = new URLSearchParams();
+  for (const [chave, valor] of Object.entries(params)) {
+    const v = primeiro(valor);
+    if (v && chave !== "pagina" && chave !== "visao" && chave !== "salvo") query.set(chave, v);
+  }
+  const texto = query.toString();
+  return texto ? `?${texto}` : "";
+}
+
+/** "Lista" e "Quadro", como o "Modo de visualizacao" do sistema de referencia. */
+function ModoDeVisualizacao({ params, visao }: { params: SearchParams; visao: "lista" | "quadro" }) {
+  const base = consultaDosFiltros(params);
+  const hrefLista = `${BASE}${base}`;
+  const hrefQuadro = `${BASE}${base ? `${base}&` : "?"}visao=quadro`;
+  const classe = (ativo: boolean) =>
+    `inline-flex h-8 items-center rounded-md px-3 text-xs font-semibold transition-colors ${
+      ativo ? "bg-brand-green text-sobre-verde" : "text-brand-muted hover:bg-white/10 hover:text-white"
+    }`;
+
+  return (
+    <div className="flex justify-end border-b border-slate-800 px-4 py-2">
+      <nav aria-label="Modo de visualização" className="inline-flex gap-1 rounded-lg border border-slate-700 p-1">
+        <Link href={hrefLista} className={classe(visao === "lista")} aria-current={visao === "lista" ? "page" : undefined}>
+          Lista
+        </Link>
+        <Link href={hrefQuadro} className={classe(visao === "quadro")} aria-current={visao === "quadro" ? "page" : undefined}>
+          Quadro
+        </Link>
+      </nav>
+    </div>
+  );
+}
+
+/**
+ * "Quadro": uma coluna por status, com um cartao por evento, como no sistema
+ * de referencia. Clicar no cartao abre o detalhe. Arrastar o cartao para
+ * mudar o status (que o antigo permite) fica de fora: aqui o status so muda
+ * por analise ou finalizacao registrada, com texto e autor (0064).
+ */
+function Quadro({ linhas, cortado, agora }: { linhas: LinhaDoPainel[]; cortado: boolean; agora: Date }) {
+  return (
+    <div className="space-y-3 p-4">
+      <p className="text-sm text-brand-muted">
+        <span className="font-semibold text-white">{linhas.length} evento(s)</span> com os filtros atuais.
+        {cortado && ` Mostrando os ${TETO_SEM_PAGINACAO} mais recentes; ajuste os filtros para ver o restante.`} Clique
+        no cartão para ver os detalhes.
+      </p>
+      <div className="flex gap-3 overflow-x-auto pb-2">
+        {STATUS.map((status) => {
+          const daColuna = linhas.filter((linha) => linha.status === status.value);
+          return (
+            <section
+              key={status.value}
+              aria-label={`${status.label}: ${daColuna.length}`}
+              className="flex w-64 shrink-0 flex-col rounded-lg border border-slate-800 bg-brand-bg/40"
+              style={{ borderTopColor: status.anel, borderTopWidth: 3 }}
+            >
+              <h2 className="flex items-center justify-between px-3 py-2 text-sm font-semibold text-white">
+                <span className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full" style={{ background: status.anel }} aria-hidden />
+                  {status.label}
+                </span>
+                <span className="rounded-full border border-slate-700 px-2 text-xs text-brand-muted">{daColuna.length}</span>
+              </h2>
+              <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto px-2 pb-2">
+                {daColuna.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-slate-700 px-3 py-4 text-center text-xs text-brand-muted">
+                    Nenhum evento
+                  </p>
+                ) : (
+                  daColuna.map((linha) => <CartaoDoQuadro key={linha.id} linha={linha} agora={agora} cor={status.anel} />)
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CartaoDoQuadro({ linha, agora, cor }: { linha: LinhaDoPainel; agora: Date; cor: string }) {
+  const criado = new Date(linha.criadoEm);
+  const { dias, horas } = tempoEmAberto(linha.criadoEm, agora);
+  return (
+    <Link
+      href={`${BASE}/${linha.id}`}
+      className="block rounded-md border border-slate-800 bg-brand-surface px-3 py-2 text-xs transition-colors hover:border-slate-600"
+      style={{ borderLeftColor: cor, borderLeftWidth: 3 }}
+    >
+      <p className="text-brand-muted">Nº {linha.numeroAno.replace(" / ", "/")}</p>
+      <p className="font-semibold text-brand-green">{linha.evento}</p>
+      <p className="mt-1 text-slate-300">{linha.siteNiveis.at(-1)}</p>
+      <p className="text-slate-300">
+        {DATA.format(criado)} {HORA.format(criado).slice(0, 5)}
+      </p>
+      {linha.usuarioAbertura && <p className="text-slate-300">{linha.usuarioAbertura}</p>}
+      {aceitaAndamento(linha.status) && (
+        <p className="mt-1 font-semibold text-white">
+          Aberto há {dias}d {horas}h
+        </p>
+      )}
+    </Link>
   );
 }
 
@@ -187,6 +322,40 @@ async function FormularioDeFiltros({ filtros }: { filtros: Filtros }) {
       <FilterSelect label="Tipos de Evento" name="evento" defaultValue={filtros.evento} options={opcoes.eventos} />
       <FilterSelect label="Grupo de Sites" name="grupo_site" defaultValue={filtros.grupoSite} options={opcoes.grupos} />
       <FilterSelect label="Usuário Abertura" name="usuario" defaultValue={filtros.usuario} options={opcoes.usuarios} />
+      <FilterInput label="QR-Code" name="qrcode" defaultValue={filtros.qrcode} />
+      <FilterSelect label="Checklist" name="checklist" defaultValue={filtros.checklist} options={opcoes.checklists} />
+      <FilterSelect
+        label="Tipo de Análise"
+        name="tipo_analise"
+        defaultValue={filtros.tipoAnalise}
+        options={opcoes.tiposDeAnalise}
+      />
+      <FilterSelect label="Usuário Remetente" name="remetente" defaultValue={filtros.remetente} options={opcoes.usuarios} />
+      <FilterSelect
+        label="Usuário Responsável"
+        name="responsavel"
+        defaultValue={filtros.responsavel}
+        options={opcoes.usuarios}
+      />
+      <FilterSelect
+        label="Grupos Usuários Abertura"
+        name="grupo_abertura"
+        defaultValue={filtros.grupoAbertura}
+        options={opcoes.gruposDeUsuarios}
+      />
+      <FilterSelect
+        label="Grupos Usuários Remetente"
+        name="grupo_remetente"
+        defaultValue={filtros.grupoRemetente}
+        options={opcoes.gruposDeUsuarios}
+      />
+      <FilterSelect
+        label="Grupos Usuários Responsável"
+        name="grupo_responsavel"
+        defaultValue={filtros.grupoResponsavel}
+        options={opcoes.gruposDeUsuarios}
+      />
+      {filtros.visao === "quadro" && <input type="hidden" name="visao" value="quadro" />}
       <div className="flex gap-2">
         <Button type="submit" className="group flex-1">
           <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
