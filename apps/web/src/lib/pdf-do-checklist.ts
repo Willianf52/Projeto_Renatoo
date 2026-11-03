@@ -1,5 +1,6 @@
 import "server-only";
 
+import * as UPNGTipos from "@pdf-lib/upng";
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import type { Database } from "@projeto-renatoo/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -9,40 +10,73 @@ import {
   TIPO_CONSULTORIA,
   type ChecklistDetalhe,
 } from "@/app/dashboard/checklistlab/historico-de-checklist/queries";
+import { formatarDataHora, formatarEmissao } from "@/lib/data-hora";
+import { LOGO_PARA_PAPEL_PNG_BASE64 } from "@/lib/logo-para-papel";
 
 /**
  * PDF de um checklist, para ir anexado ao aviso de inspecao (0080).
+ *
+ * NO PADRAO DO PORTAL (pedido do dono, 03/11/2026): copia o "Exportar PDF
+ * Unificado" do Historico de Checklist (`export/pdf-unificado/page.tsx`) e a
+ * moldura de impressao dele (`TabelaImpressao`): folha branca, logo no canto,
+ * titulo no centro, resumo em tres colunas com rotulo cinza em maiusculas,
+ * respostas numa tabela com borda (Ordem, Pergunta, Resposta, Observacao,
+ * Fotos), fotos gerais com a data embaixo, assinatura em preto, e no rodape
+ * a emissao e "N de M". Mudou la, muda aqui.
  *
  * POR QUE NO SERVIDOR. O PDF da tela sai do proprio navegador (`window.print`),
  * e um anexo de e-mail precisa existir sem ninguem com a tela aberta: a fila
  * roda sozinha, quando o inspetor envia o checklist. `pdf-lib` e JavaScript
  * puro -- sem Chrome, sem binario --, que e o que cabe numa funcao da Vercel.
  *
- * O conteudo e o da tela de detalhe do Historico, montado pela MESMA consulta
- * (`getChecklistPeloCliente`) e pelo MESMO resumo (`camposDoResumo`): o PDF e a
- * tela nao tem como mostrar coisas diferentes.
- *
- * As fotos e a assinatura vem do bucket privado pela service_role, e so entram
- * se forem JPEG ou PNG de verdade (pelos primeiros bytes, nao pelo tipo
+ * O conteudo vem da MESMA consulta (`getChecklistPeloCliente`) e do MESMO
+ * resumo (`camposDoResumo`) da tela: o PDF e a tela nao tem como mostrar coisas
+ * diferentes. Fotos e assinatura vem do bucket privado pela service_role, e so
+ * entram se forem JPEG ou PNG de verdade (pelos primeiros bytes, nao pelo tipo
  * declarado no upload -- o mesmo cuidado de `midia.ts`).
  */
 
+// O pacote declara so exportacoes nomeadas, mas o modulo entrega tudo no
+// `default` (e assim que o proprio pdf-lib o usa). Aceita as duas formas.
+const UPNG = (UPNGTipos as unknown as { default?: typeof UPNGTipos }).default ?? UPNGTipos;
+
 const BUCKET = "checklists";
 
-// A4 em pontos, margem de 1,4 cm.
+// A4 em pontos, com as margens do `@page` da `TabelaImpressao` (12/10/16 mm).
 const LARGURA = 595.28;
 const ALTURA = 841.89;
-const MARGEM = 40;
-const UTIL = LARGURA - 2 * MARGEM;
+const MM = 72 / 25.4;
+const TOPO = 12 * MM;
+const LADO = 10 * MM;
+const BASE = 16 * MM;
+const UTIL = LARGURA - 2 * LADO;
 
-const COR_TEXTO = rgb(0.09, 0.13, 0.2);
-const COR_SUAVE = rgb(0.35, 0.39, 0.47);
-const COR_LINHA = rgb(0.85, 0.87, 0.9);
-const COR_NAO_CONFORME = rgb(0.75, 0.11, 0.11);
-const COR_CONFORME = rgb(0, 0.42, 0.21);
+// As cores das classes do Tailwind usadas na pagina de impressao.
+const PRETO = rgb(0, 0, 0);
+const CINZA_ROTULO = rgb(0x47 / 255, 0x55 / 255, 0x69 / 255); // slate-600
+const BORDA = rgb(0xcb / 255, 0xd5 / 255, 0xe1 / 255); // slate-300
+const FUNDO_DO_CABECALHO = rgb(0xf1 / 255, 0xf5 / 255, 0xf9 / 255); // slate-100
+const LINHA_DO_TITULO = rgb(0x94 / 255, 0xa3 / 255, 0xb8 / 255); // slate-400
+const RODAPE = rgb(0x33 / 255, 0x33 / 255, 0x33 / 255);
+
+// text-xs (12px) e text-base (16px) da tela, em pontos.
+const TEXTO = 9;
+const TITULO = 12;
+const ENTRELINHA = 1.35;
+
+/** As colunas da tabela de respostas, nas proporcoes da pagina impressa. */
+const COLUNAS = [
+  { titulo: "Ordem", largura: 40 },
+  { titulo: "Pergunta", largura: 190 },
+  { titulo: "Resposta", largura: 72 },
+  { titulo: "Observação", largura: 120 },
+  { titulo: "Fotos", largura: UTIL - 40 - 190 - 72 - 120 },
+];
+const RECUO = 4; // px-2 / py-1 da celula
+const MINIATURA = 40; // h-16 w-16 da foto na celula
+const FOTO_GERAL = 96; // h-32 w-32 das fotos gerais
 
 type Admin = SupabaseClient<Database>;
-
 type Fontes = { normal: PDFFont; negrito: PDFFont };
 
 /**
@@ -96,6 +130,33 @@ function tipoDaImagem(bytes: Uint8Array): "jpg" | "png" | null {
   return null;
 }
 
+/**
+ * Inverte o claro e o escuro de um PNG, mantendo o matiz e a transparencia --
+ * o `filter: invert(1) hue-rotate(180deg)` que a impressao do portal aplica ao
+ * logo, e o `invert` da assinatura. Os dois arquivos sao brancos, feitos para
+ * o fundo escuro do app, e no papel sumiriam.
+ */
+export function inverterClaridade(png: Uint8Array): Uint8Array {
+  const copia = png.slice();
+  const imagem = UPNG.decode(copia.buffer as ArrayBuffer);
+  const rgba = new Uint8Array(UPNG.toRGBA8(imagem)[0]);
+  for (let i = 0; i < rgba.length; i += 4) {
+    const [r, g, b] = [rgba[i], rgba[i + 1], rgba[i + 2]];
+    // Inverter e girar o matiz em 180 graus = espelhar a luminosidade e manter
+    // a cor: soma maximo e minimo e subtrai cada canal.
+    const soma = Math.max(r, g, b) + Math.min(r, g, b);
+    rgba[i] = 255 - soma + r;
+    rgba[i + 1] = 255 - soma + g;
+    rgba[i + 2] = 255 - soma + b;
+  }
+  return new Uint8Array(UPNG.encode([rgba.buffer], imagem.width, imagem.height, 0));
+}
+
+/** O logo ja invertido para o papel (ver `logo-para-papel.ts`). */
+function logoParaPapel(): Uint8Array {
+  return Uint8Array.from(Buffer.from(LOGO_PARA_PAPEL_PNG_BASE64, "base64"));
+}
+
 /** Folha com cursor: escreve de cima para baixo e abre outra quando acaba. */
 class Folha {
   pagina: PDFPage;
@@ -106,59 +167,57 @@ class Folha {
     readonly fontes: Fontes,
   ) {
     this.pagina = doc.addPage([LARGURA, ALTURA]);
-    this.y = ALTURA - MARGEM;
+    this.y = ALTURA - TOPO;
   }
 
-  /** Garante `altura` livre antes de desenhar; senao, pagina nova. */
-  espaco(altura: number) {
-    if (this.y - altura >= MARGEM + 20) return;
+  cabe(altura: number): boolean {
+    return this.y - altura >= BASE;
+  }
+
+  /** Garante `altura` livre; senao, pagina nova. Devolve se abriu pagina. */
+  espaco(altura: number): boolean {
+    if (this.cabe(altura)) return false;
     this.pagina = this.doc.addPage([LARGURA, ALTURA]);
-    this.y = ALTURA - MARGEM;
+    this.y = ALTURA - TOPO;
+    return true;
   }
 
-  texto(conteudo: string, opcoes: { tamanho?: number; negrito?: boolean; cor?: ReturnType<typeof rgb>; x?: number; largura?: number } = {}) {
-    const tamanho = opcoes.tamanho ?? 10;
+  /** Linhas de texto a partir de `x`, na largura dada. */
+  texto(
+    conteudo: string,
+    opcoes: { tamanho?: number; negrito?: boolean; cor?: ReturnType<typeof rgb>; x?: number; largura?: number; centro?: boolean } = {},
+  ) {
+    const tamanho = opcoes.tamanho ?? TEXTO;
     const fonte = opcoes.negrito ? this.fontes.negrito : this.fontes.normal;
-    const x = opcoes.x ?? MARGEM;
-    for (const linha of quebrarEmLinhas(conteudo, fonte, tamanho, opcoes.largura ?? UTIL - (x - MARGEM))) {
-      this.espaco(tamanho + 4);
-      this.pagina.drawText(linha, { x, y: this.y - tamanho, size: tamanho, font: fonte, color: opcoes.cor ?? COR_TEXTO });
-      this.y -= tamanho + 4;
+    const x = opcoes.x ?? LADO;
+    const largura = opcoes.largura ?? UTIL - (x - LADO);
+    for (const linha of quebrarEmLinhas(conteudo, fonte, tamanho, largura)) {
+      this.espaco(tamanho * ENTRELINHA);
+      const deslocamento = opcoes.centro ? (largura - fonte.widthOfTextAtSize(linha, tamanho)) / 2 : 0;
+      this.pagina.drawText(linha, { x: x + deslocamento, y: this.y - tamanho, size: tamanho, font: fonte, color: opcoes.cor ?? PRETO });
+      this.y -= tamanho * ENTRELINHA;
     }
   }
 
-  titulo(conteudo: string) {
-    this.espaco(40);
+  /** `h3` da pagina impressa: negrito, texto pequeno, com folga embaixo. */
+  subtitulo(conteudo: string) {
     this.y -= 10;
-    this.texto(conteudo, { tamanho: 12, negrito: true });
-    this.pagina.drawLine({
-      start: { x: MARGEM, y: this.y },
-      end: { x: LARGURA - MARGEM, y: this.y },
-      thickness: 0.6,
-      color: COR_LINHA,
-    });
-    this.y -= 8;
+    this.espaco(TEXTO * ENTRELINHA + 30);
+    this.texto(conteudo, { negrito: true });
+    this.y -= 3;
   }
+}
 
-  /** Imagens em grade, `porLinha` por fileira, cada uma ajustada a caixa. */
-  imagens(lista: PDFImage[], porLinha = 3, alturaMaxima = 140) {
-    const vao = 8;
-    const largura = (UTIL - vao * (porLinha - 1)) / porLinha;
-    for (let i = 0; i < lista.length; i += porLinha) {
-      const fileira = lista.slice(i, i + porLinha).map((imagem) => imagem.scaleToFit(largura, alturaMaxima));
-      const altura = Math.max(...fileira.map((d) => d.height));
-      this.espaco(altura + vao);
-      fileira.forEach((dimensao, j) => {
-        this.pagina.drawImage(lista[i + j], {
-          x: MARGEM + j * (largura + vao),
-          y: this.y - dimensao.height,
-          width: dimensao.width,
-          height: dimensao.height,
-        });
-      });
-      this.y -= altura + vao;
-    }
-  }
+/** Uma imagem dentro de uma caixa quadrada, centralizada, com a borda da tela. */
+function desenharMiniatura(pagina: PDFPage, imagem: PDFImage, x: number, topo: number, lado: number) {
+  const ajuste = imagem.scaleToFit(lado, lado);
+  pagina.drawRectangle({ x, y: topo - lado, width: lado, height: lado, borderColor: BORDA, borderWidth: 0.6 });
+  pagina.drawImage(imagem, {
+    x: x + (lado - ajuste.width) / 2,
+    y: topo - lado + (lado - ajuste.height) / 2,
+    width: ajuste.width,
+    height: ajuste.height,
+  });
 }
 
 async function baixar(admin: Admin, caminho: string): Promise<Uint8Array | null> {
@@ -167,12 +226,12 @@ async function baixar(admin: Admin, caminho: string): Promise<Uint8Array | null>
   return new Uint8Array(await data.arrayBuffer());
 }
 
-async function embutir(doc: PDFDocument, bytes: Uint8Array | null): Promise<PDFImage | null> {
+async function embutir(doc: PDFDocument, bytes: Uint8Array | null, inverter = false): Promise<PDFImage | null> {
   if (!bytes) return null;
   const tipo = tipoDaImagem(bytes);
   try {
     if (tipo === "jpg") return await doc.embedJpg(bytes);
-    if (tipo === "png") return await doc.embedPng(bytes);
+    if (tipo === "png") return await doc.embedPng(inverter ? inverterClaridade(bytes) : bytes);
   } catch {
     // Arquivo corrompido: fica de fora, o resto do PDF segue.
   }
@@ -192,6 +251,7 @@ export function nomeDoArquivo(detalhe: Pick<ChecklistDetalhe, "linha">): string 
 export async function gerarPdfDoChecklist(
   admin: Admin,
   id: number,
+  agora: Date = new Date(),
 ): Promise<{ arquivo: Uint8Array; nome: string } | null> {
   const detalhe = await getChecklistPeloCliente(admin, id);
   if (!detalhe) return null;
@@ -203,8 +263,11 @@ export async function gerarPdfDoChecklist(
     admin.from("checklists_visita").select("assinatura_path").eq("id", id).maybeSingle(),
   ]);
 
+  const { linha } = detalhe;
+  const consultoria = linha.tipo === TIPO_CONSULTORIA;
+
   const doc = await PDFDocument.create();
-  doc.setTitle(paraWinAnsi(`Checklist ${detalhe.linha.numeroAno || detalhe.linha.id}`));
+  doc.setTitle(paraWinAnsi(`Checklist ${linha.numeroAno || linha.id}`));
   doc.setProducer("Portal Operacional Up Serviços");
   const fontes = {
     normal: await doc.embedFont(StandardFonts.Helvetica),
@@ -218,100 +281,149 @@ export async function gerarPdfDoChecklist(
       if (imagem) imagemPorFoto.set(foto.id, imagem);
     }),
   );
-  const assinatura = checklist?.assinatura_path
-    ? await embutir(doc, await baixar(admin, checklist.assinatura_path))
-    : null;
+  const [assinatura, logo] = await Promise.all([
+    checklist?.assinatura_path ? baixar(admin, checklist.assinatura_path).then((b) => embutir(doc, b, true)) : null,
+    embutir(doc, logoParaPapel()),
+  ]);
 
   const folha = new Folha(doc, fontes);
-  const { linha } = detalhe;
 
-  folha.texto("Up Serviços - Portal Operacional", { tamanho: 9, cor: COR_SUAVE });
-  folha.y -= 2;
-  folha.texto(`Checklist de ${linha.checklist} (${linha.numeroAno || `#${linha.id}`})`, { tamanho: 16, negrito: true });
-  folha.y -= 6;
+  // Cabecalho da `TabelaImpressao`: logo no canto, titulo no centro.
+  const topoDoCabecalho = folha.y;
+  if (logo) {
+    const ajuste = logo.scaleToFit(80, 30);
+    folha.pagina.drawImage(logo, { x: LADO, y: topoDoCabecalho - ajuste.height, width: ajuste.width, height: ajuste.height });
+  }
+  folha.y = topoDoCabecalho - 9;
+  folha.texto(`Checklist de ${linha.checklist} (${linha.numeroAno || `#${linha.id}`})`, {
+    tamanho: TITULO,
+    negrito: true,
+    centro: true,
+  });
+  folha.y = Math.min(folha.y, topoDoCabecalho - 34) - 4;
+  folha.pagina.drawLine({ start: { x: LADO, y: folha.y }, end: { x: LARGURA - LADO, y: folha.y }, thickness: 0.6, color: LINHA_DO_TITULO });
+  folha.y -= 10;
 
-  // Resumo em duas colunas, rotulo em cima do valor, como a tela.
-  const campos = camposDoResumo(detalhe).filter((campo) => campo.valor.trim() !== "");
-  const larguraDaColuna = (UTIL - 16) / 2;
-  for (let i = 0; i < campos.length; i += 2) {
-    const par = campos.slice(i, i + 2);
-    const alturas = par.map(
-      (campo) => quebrarEmLinhas(campo.valor, fontes.normal, 10, larguraDaColuna).length * 14 + 12,
-    );
+  // Resumo em tres colunas, rotulo em cima do valor.
+  const larguraDaColuna = (UTIL - 2 * 12) / 3;
+  const campos = camposDoResumo(detalhe);
+  for (let i = 0; i < campos.length; i += 3) {
+    const trio = campos.slice(i, i + 3);
+    const alturas = trio.map((campo) => (1 + Math.max(1, quebrarEmLinhas(campo.valor, fontes.normal, TEXTO, larguraDaColuna).length)) * TEXTO * ENTRELINHA);
     folha.espaco(Math.max(...alturas) + 6);
     const topo = folha.y;
     let fundo = topo;
-    par.forEach((campo, j) => {
+    trio.forEach((campo, j) => {
       folha.y = topo;
-      const x = MARGEM + j * (larguraDaColuna + 16);
-      folha.texto(campo.rotulo.toUpperCase(), { tamanho: 7, cor: COR_SUAVE, x, largura: larguraDaColuna });
-      folha.texto(campo.valor, { tamanho: 10, x, largura: larguraDaColuna });
+      const x = LADO + j * (larguraDaColuna + 12);
+      folha.texto(campo.rotulo.toUpperCase(), { negrito: true, cor: CINZA_ROTULO, x, largura: larguraDaColuna });
+      if (campo.valor.trim()) folha.texto(campo.valor, { x, largura: larguraDaColuna });
+      else folha.y -= TEXTO * ENTRELINHA;
       fundo = Math.min(fundo, folha.y);
     });
     folha.y = fundo - 6;
   }
 
-  if (detalhe.motivoDaCorretiva) {
-    folha.titulo("Motivo da visita corretiva");
+  if (detalhe.motivoDaCorretiva !== null) {
+    folha.subtitulo("Motivo da visita corretiva");
     folha.texto(detalhe.motivoDaCorretiva);
   }
 
-  if (detalhe.respostas.length > 0) {
-    folha.titulo(`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`);
-    for (const resposta of detalhe.respostas) {
-      folha.espaco(40);
-      folha.texto(`${resposta.ordem ?? ""}${resposta.ordem === null ? "" : ". "}${resposta.pergunta}`, { negrito: true });
-      // "Nao conforme" em vermelho e "Conforme" em verde; Sim/Nao fica neutro,
-      // como na tela -- ali nao ha acerto nem falha.
-      const cor =
-        resposta.tipo === "SN" ? COR_TEXTO : resposta.valor === "NAO" ? COR_NAO_CONFORME : resposta.valor === "SIM" ? COR_CONFORME : COR_TEXTO;
-      folha.texto(`Resposta: ${resposta.resposta}`, { cor });
-      if (resposta.observacao?.trim()) folha.texto(`Observação: ${resposta.observacao.trim()}`, { cor: COR_SUAVE });
-      const daPergunta = resposta.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []);
-      if (daPergunta.length > 0) {
-        folha.y -= 2;
-        folha.imagens(daPergunta, 4, 110);
+  if (consultoria) {
+    folha.subtitulo(`Respostas (${detalhe.respostas.length} de ${linha.totalPerguntas})`);
+
+    const cabecalhoDaTabela = () => {
+      const altura = TEXTO * ENTRELINHA + 2 * RECUO;
+      folha.espaco(altura + 20);
+      let x = LADO;
+      for (const coluna of COLUNAS) {
+        folha.pagina.drawRectangle({ x, y: folha.y - altura, width: coluna.largura, height: altura, color: FUNDO_DO_CABECALHO, borderColor: BORDA, borderWidth: 0.6 });
+        folha.pagina.drawText(paraWinAnsi(coluna.titulo), { x: x + RECUO, y: folha.y - RECUO - TEXTO, size: TEXTO, font: fontes.negrito, color: PRETO });
+        x += coluna.largura;
       }
-      folha.y -= 6;
+      folha.y -= altura;
+    };
+    cabecalhoDaTabela();
+
+    for (const resposta of detalhe.respostas) {
+      const celulas = [String(resposta.ordem ?? ""), resposta.pergunta, resposta.resposta, resposta.observacao ?? ""].map((valor, j) =>
+        quebrarEmLinhas(valor, fontes.normal, TEXTO, COLUNAS[j].largura - 2 * RECUO),
+      );
+      const daPergunta = resposta.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []);
+      const porFileira = Math.max(1, Math.floor((COLUNAS[4].largura - 2 * RECUO + 4) / (MINIATURA + 4)));
+      const alturaDasFotos = daPergunta.length > 0 ? Math.ceil(daPergunta.length / porFileira) * (MINIATURA + 4) - 4 : 0;
+      const altura = Math.max(Math.max(...celulas.map((l) => l.length)) * TEXTO * ENTRELINHA, alturaDasFotos) + 2 * RECUO;
+
+      // Linha que nao cabe vai inteira para a folha seguinte, com o cabecalho
+      // da tabela repetido -- o `break-inside-avoid` da pagina impressa.
+      if (!folha.cabe(altura)) {
+        folha.espaco(ALTURA);
+        cabecalhoDaTabela();
+      }
+
+      let x = LADO;
+      COLUNAS.forEach((coluna, j) => {
+        folha.pagina.drawRectangle({ x, y: folha.y - altura, width: coluna.largura, height: altura, borderColor: BORDA, borderWidth: 0.6 });
+        if (j < 4) {
+          celulas[j].forEach((linhaDoTexto, k) => {
+            folha.pagina.drawText(linhaDoTexto, {
+              x: x + RECUO,
+              y: folha.y - RECUO - TEXTO - k * TEXTO * ENTRELINHA,
+              size: TEXTO,
+              font: fontes.normal,
+              color: PRETO,
+            });
+          });
+        } else {
+          daPergunta.forEach((imagem, k) => {
+            const coluna = k % porFileira;
+            const fileira = Math.floor(k / porFileira);
+            desenharMiniatura(folha.pagina, imagem, x + RECUO + coluna * (MINIATURA + 4), folha.y - RECUO - fileira * (MINIATURA + 4), MINIATURA);
+          });
+        }
+        x += coluna.largura;
+      });
+      folha.y -= altura;
     }
   }
 
-  const gerais = detalhe.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []);
+  const gerais = detalhe.fotos.flatMap((foto) => {
+    const imagem = imagemPorFoto.get(foto.id);
+    return imagem ? [{ imagem, legenda: formatarDataHora(foto.criadoEm) }] : [];
+  });
   if (gerais.length > 0) {
-    folha.titulo(`${linha.tipo === TIPO_CONSULTORIA ? "Fotos gerais" : "Fotos"} (${gerais.length})`);
-    folha.imagens(gerais);
+    folha.subtitulo(consultoria ? "Fotos gerais" : "Fotos");
+    const vao = 6;
+    const porFileira = Math.max(1, Math.floor((UTIL + vao) / (FOTO_GERAL + vao)));
+    const alturaDaFileira = FOTO_GERAL + 4 + 7 * ENTRELINHA;
+    for (let i = 0; i < gerais.length; i += porFileira) {
+      folha.espaco(alturaDaFileira + vao);
+      gerais.slice(i, i + porFileira).forEach(({ imagem, legenda }, j) => {
+        const x = LADO + j * (FOTO_GERAL + vao);
+        desenharMiniatura(folha.pagina, imagem, x, folha.y, FOTO_GERAL);
+        folha.pagina.drawText(paraWinAnsi(legenda), { x, y: folha.y - FOTO_GERAL - 4 - 7, size: 7, font: fontes.normal, color: CINZA_ROTULO });
+      });
+      folha.y -= alturaDaFileira + vao;
+    }
   }
 
-  folha.titulo("Assinatura do responsável no local");
   if (assinatura) {
-    // A assinatura e traco branco sobre transparente (o fundo escuro e da
-    // tela do app): no papel branco ela sumiria, entao vai sobre um fundo
-    // escuro, como no portal.
-    const dimensao = assinatura.scaleToFit(260, 110);
-    folha.espaco(dimensao.height + 16);
-    folha.pagina.drawRectangle({
-      x: MARGEM,
-      y: folha.y - dimensao.height - 12,
-      width: dimensao.width + 12,
-      height: dimensao.height + 12,
-      color: rgb(0.01, 0.01, 0.1),
-    });
-    folha.pagina.drawImage(assinatura, {
-      x: MARGEM + 6,
-      y: folha.y - dimensao.height - 6,
-      width: dimensao.width,
-      height: dimensao.height,
-    });
-    folha.y -= dimensao.height + 18;
-  } else {
-    folha.texto("Sem assinatura.", { cor: COR_SUAVE });
+    folha.subtitulo("Assinatura do responsável no local");
+    // `max-h-32` da tela: ate 96 pontos de altura, em preto sobre o papel.
+    const ajuste = assinatura.scaleToFit(UTIL / 2, FOTO_GERAL);
+    folha.espaco(ajuste.height);
+    folha.pagina.drawImage(assinatura, { x: LADO, y: folha.y - ajuste.height, width: ajuste.width, height: ajuste.height });
+    folha.y -= ajuste.height;
   }
 
-  // Rodape em todas as paginas, depois de saber quantas sao.
+  // Rodape da `TabelaImpressao` em toda folha: emissao a esquerda, "N de M" no centro.
+  const emissao = paraWinAnsi(formatarEmissao(agora));
   const paginas = doc.getPages();
   paginas.forEach((pagina, indice) => {
-    const rodape = paraWinAnsi(`Checklist ${linha.numeroAno || linha.id}  |  Página ${indice + 1} de ${paginas.length}`);
-    pagina.drawText(rodape, { x: MARGEM, y: MARGEM - 14, size: 8, font: fontes.normal, color: COR_SUAVE });
+    const y = BASE / 2;
+    pagina.drawText(emissao, { x: LADO, y, size: 8, font: fontes.normal, color: RODAPE });
+    const contador = `${indice + 1} de ${paginas.length}`;
+    pagina.drawText(contador, { x: (LARGURA - fontes.normal.widthOfTextAtSize(contador, 8)) / 2, y, size: 8, font: fontes.normal, color: RODAPE });
   });
 
   return { arquivo: await doc.save(), nome: nomeDoArquivo(detalhe) };

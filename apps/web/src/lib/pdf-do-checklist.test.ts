@@ -15,7 +15,9 @@ vi.mock("@/app/dashboard/checklistlab/historico-de-checklist/queries", () => ({
   TIPO_CONSULTORIA: "CONSULTORIA",
 }));
 
-const { gerarPdfDoChecklist, nomeDoArquivo, paraWinAnsi, quebrarEmLinhas } = await import("./pdf-do-checklist");
+const { gerarPdfDoChecklist, inverterClaridade, nomeDoArquivo, paraWinAnsi, quebrarEmLinhas } = await import("./pdf-do-checklist");
+const UPNGTipos = await import("@pdf-lib/upng");
+const UPNG = (UPNGTipos as unknown as { default?: typeof UPNGTipos }).default ?? UPNGTipos;
 
 /** PNG de 1x1 pixel: suficiente para o pdf-lib embutir. */
 const PNG = Uint8Array.from(
@@ -109,6 +111,18 @@ describe("gerarPdfDoChecklist", () => {
   it("checklist que nao existe devolve null", async () => {
     getChecklist.mockResolvedValue(null);
     expect(await gerarPdfDoChecklist(bancoFalso({}), 999)).toBeNull();
+  });
+});
+
+describe("inverterClaridade", () => {
+  it("o traco branco da assinatura vira preto, e o transparente continua transparente", () => {
+    const rgba = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]);
+    const png = new Uint8Array(UPNG.encode([rgba.buffer], 2, 1, 0));
+
+    const invertido = new Uint8Array(UPNG.toRGBA8(UPNG.decode(inverterClaridade(png).slice().buffer))[0]);
+
+    expect([...invertido.slice(0, 4)]).toEqual([0, 0, 0, 255]);
+    expect(invertido[7]).toBe(0);
   });
 });
 
