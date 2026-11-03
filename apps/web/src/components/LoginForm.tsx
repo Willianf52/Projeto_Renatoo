@@ -204,9 +204,14 @@ export function LoginForm() {
     setLoading(true);
 
     const supabase = createClient();
-    const falha = EMAIL_REGEX.test(trimmedEmail)
+    // Login do sistema antigo com "@" (`novo.fulano@empresa.com.br`) tem forma
+    // de e-mail, mas nao e o e-mail da conta: la login e e-mail sao campos
+    // separados (achado de 31/10/2026). Recusado como e-mail, tenta como login
+    // antes de dizer "incorretos" -- e a rota responde igual exista o login ou nao.
+    const comoEmail = EMAIL_REGEX.test(trimmedEmail)
       ? await entrarComEmail(supabase, trimmedEmail, password)
-      : await entrarComLogin(supabase, trimmedEmail, password);
+      : CREDENCIAL_RECUSADA;
+    const falha = comoEmail === CREDENCIAL_RECUSADA ? await entrarComLogin(supabase, trimmedEmail, password) : comoEmail;
 
     if (falha) {
       setLoading(false);
