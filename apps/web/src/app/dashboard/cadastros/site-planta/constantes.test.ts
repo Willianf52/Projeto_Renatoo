@@ -18,6 +18,21 @@ function modelo(extra: Partial<ModeloParaDuplicar> = {}): ModeloParaDuplicar {
     gerar_qrcode_automatico: true,
     gerar_registro_coletas: false,
     ativo: true,
+    nome: "Posto Centro",
+    sigla: "PC",
+    latitude: -23.5,
+    longitude: -46.6,
+    observacao: "Portaria 24h",
+    cep: "01000-000",
+    endereco: "Rua A",
+    numero: "10",
+    bairro: "Centro",
+    complemento: "Sala 2",
+    cod_cliente: "C1",
+    cod_posto: "P1",
+    info_adicional_1: "i1",
+    info_adicional_2: "i2",
+    emails_eventos: ["a@x.test", "b@x.test"],
     ...extra,
   };
 }
@@ -37,30 +52,23 @@ describe("valoresParaDuplicar", () => {
     expect(valores.raioMetros).toBe("150");
   });
 
-  it("deixa em branco tudo que localiza o site", () => {
+  it("cópia completa, como no antigo: copia o endereço e os códigos, e marca o nome", () => {
     const valores = valoresParaDuplicar(modelo());
 
-    // Copiados, produziriam dois cadastros que o olho nao distingue na
-    // listagem -- e um QR-Code colado na parede errada.
-    for (const campo of [
-      "nome",
-      "sigla",
-      "latitude",
-      "longitude",
-      "cep",
-      "endereco",
-      "numero",
-      "bairro",
-      "complemento",
-      "codCliente",
-      "codPosto",
-      "observacao",
-      "infoAdicional1",
-      "infoAdicional2",
-      "emailsEventos",
-    ] as const) {
-      expect(valores[campo], campo).toBe("");
-    }
+    expect(valores.nome).toBe("Posto Centro cópia");
+    expect(valores.sigla).toBe("PC cópia");
+    expect(valores.latitude).toBe("-23.5");
+    expect(valores.endereco).toBe("Rua A");
+    expect(valores.numero).toBe("10");
+    expect(valores.codCliente).toBe("C1");
+    expect(valores.codPosto).toBe("P1");
+    expect(valores.observacao).toBe("Portaria 24h");
+    expect(valores.infoAdicional2).toBe("i2");
+    expect(valores.emailsEventos).toBe("a@x.test, b@x.test");
+  });
+
+  it("sem sigla na origem, a cópia continua sem sigla", () => {
+    expect(valoresParaDuplicar(modelo({ sigla: null })).sigla).toBe("");
   });
 
   it("leva as três chaves de comportamento junto", () => {
@@ -119,7 +127,7 @@ describe("valoresParaDuplicar", () => {
 
     primeiro.nome = "Agência Centro";
 
-    expect(segundo.nome).toBe("");
+    expect(segundo.nome).toBe("Posto Centro cópia");
     expect(VALORES_VAZIOS.nome).toBe("");
   });
 });

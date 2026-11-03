@@ -46,8 +46,10 @@ export const VALORES_VAZIOS = {
   ativo: true,
 };
 
-/** O que o site de origem empresta no Duplicar -- nada que o localize. */
-export type ModeloParaDuplicar = {
+/** O site como vem do banco, so com o que o formulario usa. */
+export type SiteParaFormulario = {
+  nome: string;
+  sigla: string | null;
   grupo_site_id: number;
   tipo_servico_id: number | null;
   responsavel_id: string | null;
@@ -55,37 +57,73 @@ export type ModeloParaDuplicar = {
   regional: string | null;
   cidade: string | null;
   uf: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  observacao: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  bairro: string | null;
+  complemento: string | null;
   pais: string;
-  filial: string | null;
   raio_metros: number | null;
+  cod_cliente: string | null;
+  cod_posto: string | null;
+  filial: string | null;
+  info_adicional_1: string | null;
+  info_adicional_2: string | null;
+  emails_eventos: string[];
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
   ativo: boolean;
 };
 
+/** Mantido pelo nome antigo: o Duplicar recebe o site inteiro. */
+export type ModeloParaDuplicar = SiteParaFormulario;
+
+/** O site do banco nos valores do formulario (strings nos selects). */
+export function valoresDoSite(site: SiteParaFormulario): typeof VALORES_VAZIOS {
+  return {
+    nome: site.nome,
+    sigla: site.sigla ?? "",
+    grupoSiteId: String(site.grupo_site_id),
+    tipoServicoId: site.tipo_servico_id === null ? "" : String(site.tipo_servico_id),
+    responsavelId: site.responsavel_id ?? "",
+    siteSuperiorId: site.site_superior_id === null ? "" : String(site.site_superior_id),
+    regional: site.regional ?? "",
+    cidade: site.cidade ?? "",
+    uf: site.uf ?? "",
+    latitude: site.latitude === null ? "" : String(site.latitude),
+    longitude: site.longitude === null ? "" : String(site.longitude),
+    observacao: site.observacao ?? "",
+    cep: site.cep ?? "",
+    endereco: site.endereco ?? "",
+    numero: site.numero ?? "",
+    bairro: site.bairro ?? "",
+    complemento: site.complemento ?? "",
+    pais: site.pais,
+    raioMetros: site.raio_metros === null ? "" : String(site.raio_metros),
+    codCliente: site.cod_cliente ?? "",
+    codPosto: site.cod_posto ?? "",
+    filial: site.filial ?? "",
+    infoAdicional1: site.info_adicional_1 ?? "",
+    infoAdicional2: site.info_adicional_2 ?? "",
+    emailsEventos: site.emails_eventos.join(", "),
+    recebeVisita: site.recebe_visita,
+    gerarQrcodeAutomatico: site.gerar_qrcode_automatico,
+    gerarRegistroColetas: site.gerar_registro_coletas,
+    ativo: site.ativo,
+  };
+}
+
 /**
- * Valores do "Novo Site / Planta" quando se chega por `?duplicar=<id>`, como o
- * botao Duplicar do sistema de referencia.
- *
- * A DIVISAO E ENTRE CLASSIFICACAO E ENDERECO. Copia o que diz a que operacao o
- * site pertence -- grupo, tipo de servico, responsavel, site superior,
- * regional, cidade, UF, pais, filial, raio, as tres chaves de comportamento
- * (recebe visita, gera QR-Code, gera registro em coletas) e a situacao.
- *
- * Deixa em branco o que aponta para um lugar especifico: nome, sigla,
- * latitude, longitude, CEP e o endereco inteiro, os codigos de cliente e de
- * posto, a observacao e as duas informacoes adicionais. Sao justamente os
- * campos que, copiados, produziriam dois cadastros que o olho nao distingue na
- * listagem -- e um QR-Code colado na parede errada.
- *
- * Cidade e UF vao junto de proposito, apesar de fazerem parte do endereco: o
- * caso que motiva duplicar e outro posto do mesmo cliente na mesma praca, e
- * sao dois campos faceis de corrigir quando nao for.
- *
- * A situacao acompanha inclusive quando a origem esta inativa -- mesmo
- * raciocinio de `usuarios/constantes.ts`: duplicar um cadastro desativado e
- * como se prepara o que ainda nao entrou em operacao.
+ * Valores do "Novo Site / Planta" quando se chega por `?duplicar=<id>`: a
+ * "Cópia completa" do sistema de referencia, que copia TODOS os campos do
+ * site de origem e acrescenta " cópia" ao Nome e ao Nome abreviado (decisao
+ * do dono em 03/11/2026, para ficar igual ao antigo; antes so a
+ * classificacao era copiada). O sufixo e o que separa os dois na listagem
+ * ate a pessoa ajustar o endereco e os codigos.
  *
  * Objeto novo a cada chamada: `VALORES_VAZIOS` e compartilhado, e devolver a
  * mesma referencia deixaria duas telas mexendo no mesmo estado.
@@ -93,24 +131,10 @@ export type ModeloParaDuplicar = {
 export function valoresParaDuplicar(modelo: ModeloParaDuplicar | null): typeof VALORES_VAZIOS {
   if (!modelo) return { ...VALORES_VAZIOS };
 
+  const valores = valoresDoSite(modelo);
   return {
-    ...VALORES_VAZIOS,
-    grupoSiteId: String(modelo.grupo_site_id),
-    tipoServicoId: modelo.tipo_servico_id === null ? "" : String(modelo.tipo_servico_id),
-    responsavelId: modelo.responsavel_id ?? "",
-    siteSuperiorId: modelo.site_superior_id === null ? "" : String(modelo.site_superior_id),
-    regional: modelo.regional ?? "",
-    cidade: modelo.cidade ?? "",
-    uf: modelo.uf ?? "",
-    // Sem `?? "Brasil"`: a coluna e `not null` com default, entao o valor da
-    // origem ja e o certo -- e um site cadastrado em outro pais continuaria
-    // nele ao ser duplicado.
-    pais: modelo.pais,
-    filial: modelo.filial ?? "",
-    raioMetros: modelo.raio_metros === null ? "" : String(modelo.raio_metros),
-    recebeVisita: modelo.recebe_visita,
-    gerarQrcodeAutomatico: modelo.gerar_qrcode_automatico,
-    gerarRegistroColetas: modelo.gerar_registro_coletas,
-    ativo: modelo.ativo,
+    ...valores,
+    nome: `${valores.nome} cópia`,
+    sigla: valores.sigla ? `${valores.sigla} cópia` : "",
   };
 }

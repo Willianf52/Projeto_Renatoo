@@ -134,6 +134,12 @@ export const VALORES_VAZIOS = {
 
 /** O que a conta de origem empresta no Duplicar -- nada que a identifique. */
 export type ModeloParaDuplicar = {
+  /** Opcionais: a "Cópia completa" do antigo leva o nome e o login com sufixo. */
+  nome_completo?: string | null;
+  login?: string | null;
+  email_superior_ocorrencia?: boolean;
+  email_superior_checklist?: boolean;
+  email_superior_evento?: boolean;
   funcao: string | null;
   /** Opcional: nem todo select que alimenta o Duplicar traz a coluna. */
   pais?: string;
@@ -147,10 +153,14 @@ export type ModeloParaDuplicar = {
 /**
  * Valores iniciais do formulario ao duplicar um usuario.
  *
- * Copia o PERFIL DE ACESSO: cargo, tipo, funcao, superior, situacao e os
- * grupos do escopo de cliente. Nome, e-mail, login e senha ficam em branco de
- * proposito -- sao o que identifica a pessoa, e o e-mail e unico na conta de
- * autenticacao do Supabase, entao copia-lo so produziria recusa no envio.
+ * A "Cópia completa" do sistema de referencia (decisao do dono em 03/11/2026,
+ * para ficar igual ao antigo): copia o perfil de acesso (cargo, tipo, funcao,
+ * superior, situacao, grupos do escopo de cliente e as caixas de e-mail ao
+ * superior) e leva o Nome com o sufixo " cópia" e o Login com "_copia".
+ *
+ * E-mail, senha e os dados pessoais (CPF, R.E., telefones) continuam em
+ * branco: o e-mail e unico na conta de autenticacao do Supabase, copia-lo so
+ * produziria recusa no envio, e os dados pessoais identificam outra pessoa.
  *
  * Objeto novo a cada chamada: `VALORES_VAZIOS` e compartilhado, e devolver a
  * mesma referencia (com o mesmo array de grupos) deixaria duas telas
@@ -164,6 +174,11 @@ export function valoresParaDuplicar(
 
   return {
     ...VALORES_VAZIOS,
+    nomeCompleto: modelo.nome_completo ? `${modelo.nome_completo} cópia` : "",
+    login: modelo.login ? `${modelo.login}_copia` : "",
+    emailSuperiorOcorrencia: modelo.email_superior_ocorrencia ?? false,
+    emailSuperiorChecklist: modelo.email_superior_checklist ?? false,
+    emailSuperiorEvento: modelo.email_superior_evento ?? false,
     funcao: modelo.funcao ?? "",
     // `?? VALORES_VAZIOS.pais` e nao `?? ""`: o campo e `not null` no banco, e
     // um select que nao trouxe a coluna deve cair no default, nao em vazio.

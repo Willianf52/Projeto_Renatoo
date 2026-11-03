@@ -11,7 +11,8 @@ import {
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
-import { FilterIcon, GridIcon, PencilIcon, PlusCircleIcon } from "@/components/dashboard/icons";
+import { CopyIcon, FilterIcon, GridIcon, PencilIcon, PlusCircleIcon } from "@/components/dashboard/icons";
+import { duplicarGrupo } from "./actions";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { listarGrupos } from "./queries";
 import { LISTAGEM, situacaoDe } from "./regras";
@@ -122,9 +123,23 @@ async function TabelaDeGrupos({ searchParams }: { searchParams: SearchParamsProm
     String(g.perguntas),
     g.ativo ? "Ativo" : "Inativo",
     podeEditar ? (
-      <Acao key="acoes" titulo={`Editar ${g.nome}`} href={`${LISTAGEM}/${g.id}/editar`} tom="neutro">
-        <PencilIcon className="h-4 w-4" />
-      </Acao>
+      <div key="acoes" className="flex items-center gap-1">
+        <Acao titulo={`Editar ${g.nome}`} href={`${LISTAGEM}/${g.id}/editar`} tom="neutro">
+          <PencilIcon className="h-4 w-4" />
+        </Acao>
+        {/* "Duplicar" > "Cópia completa" do sistema de referencia: grava direto. */}
+        <form action={duplicarGrupo}>
+          <input type="hidden" name="id" value={g.id} />
+          <button
+            type="submit"
+            title={`Cópia completa de ${g.nome}`}
+            aria-label={`Cópia completa de ${g.nome}`}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10"
+          >
+            <CopyIcon className="h-4 w-4" />
+          </button>
+        </form>
+      </div>
     ) : (
       <AcaoDesabilitada key="acoes" titulo={`Editar ${g.nome}`} motivo="você não tem permissão" tom="neutro">
         <PencilIcon className="h-4 w-4" />

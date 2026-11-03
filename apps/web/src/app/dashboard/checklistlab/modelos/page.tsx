@@ -17,6 +17,7 @@ import {
   FilterIcon,
   PencilIcon,
   PlusCircleIcon,
+  UploadIcon,
 } from "@/components/dashboard/icons";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { getModelos, toTableRow, PAGE_SIZE, type ModeloFiltros } from "./queries";
@@ -89,14 +90,25 @@ export default function ModelosDeChecklistPage({ searchParams }: { searchParams:
 }
 
 async function AcaoDeNovoModelo() {
+  // "Importar Checklists" ao lado do "Novo", como no sistema de referencia.
   return (await podeEditarChecklist()) ? (
-    <Acao titulo="Novo modelo" href={`${LISTAGEM}/novo`} tom="novo">
-      <PlusCircleIcon className="h-4 w-4" />
-    </Acao>
+    <div className="flex items-center gap-2">
+      <Acao titulo="Importar Checklists" href={`${LISTAGEM}/importar`} tom="importar">
+        <UploadIcon className="h-4 w-4" />
+      </Acao>
+      <Acao titulo="Novo modelo" href={`${LISTAGEM}/novo`} tom="novo">
+        <PlusCircleIcon className="h-4 w-4" />
+      </Acao>
+    </div>
   ) : (
-    <AcaoDesabilitada titulo="Novo modelo" motivo="você não tem permissão" tom="novo">
-      <PlusCircleIcon className="h-4 w-4" />
-    </AcaoDesabilitada>
+    <div className="flex items-center gap-2">
+      <AcaoDesabilitada titulo="Importar Checklists" motivo="você não tem permissão" tom="importar">
+        <UploadIcon className="h-4 w-4" />
+      </AcaoDesabilitada>
+      <AcaoDesabilitada titulo="Novo modelo" motivo="você não tem permissão" tom="novo">
+        <PlusCircleIcon className="h-4 w-4" />
+      </AcaoDesabilitada>
+    </div>
   );
 }
 

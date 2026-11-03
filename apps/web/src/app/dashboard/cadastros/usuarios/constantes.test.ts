@@ -28,15 +28,32 @@ describe("valoresParaDuplicar", () => {
     expect(valoresParaDuplicar(MODELO, []).ativo).toBe(false);
   });
 
-  it("NAO copia o que identifica a pessoa", () => {
+  it("NAO copia e-mail, senha nem dados pessoais", () => {
     const valores = valoresParaDuplicar(MODELO, ["7"]);
 
     // O e-mail e unico na conta de autenticacao: copiado, viraria recusa no
-    // envio. Os demais sao a identidade de quem vai usar a conta nova.
-    expect(valores.nomeCompleto).toBe("");
+    // envio. CPF, R.E. e telefones sao de outra pessoa.
     expect(valores.email).toBe("");
-    expect(valores.login).toBe("");
     expect(valores.senha).toBe("");
+    expect(valores.cpf).toBe("");
+    expect(valores.celular).toBe("");
+  });
+
+  it("cópia completa do antigo: nome com ' cópia', login com '_copia' e as caixas de e-mail", () => {
+    const valores = valoresParaDuplicar(
+      { ...MODELO, nome_completo: "Maria Souza", login: "maria", email_superior_evento: true },
+      [],
+    );
+    expect(valores.nomeCompleto).toBe("Maria Souza cópia");
+    expect(valores.login).toBe("maria_copia");
+    expect(valores.emailSuperiorEvento).toBe(true);
+    expect(valores.emailSuperiorChecklist).toBe(false);
+  });
+
+  it("sem nome ou login na origem, os campos ficam em branco", () => {
+    const valores = valoresParaDuplicar(MODELO, []);
+    expect(valores.nomeCompleto).toBe("");
+    expect(valores.login).toBe("");
   });
 
   it("sem modelo, devolve o formulario em branco", () => {
