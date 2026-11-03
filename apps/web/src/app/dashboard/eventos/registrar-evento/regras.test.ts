@@ -13,8 +13,14 @@ describe("lerRegistro", () => {
   it("le site, evento e os opcionais", () => {
     expect(lerRegistro(formulario({ site_id: "4", evento_id: "2", subevento_id: "", observacao: "  Portão  " }))).toEqual({
       ok: true,
-      dados: { siteId: 4, eventoId: 2, subeventoId: null, classificacaoId: null, observacao: "Portão" },
+      dados: { siteId: 4, eventoId: 2, subeventoId: null, classificacaoId: null, observacao: "Portão", local: null },
     });
+  });
+
+  it("lê o Local do evento (0082), com espaços normalizados, e recusa acima de 200", () => {
+    const lido = lerRegistro(formulario({ site_id: "4", evento_id: "2", local: "  Portaria   Norte " }));
+    expect(lido).toMatchObject({ ok: true, dados: { local: "Portaria Norte" } });
+    expect(lerRegistro(formulario({ site_id: "4", evento_id: "2", local: "x".repeat(201) })).ok).toBe(false);
   });
 
   it("exige site e evento e recusa id torto", () => {

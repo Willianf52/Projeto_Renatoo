@@ -255,6 +255,7 @@ function Campos({ ocorrencia }: { ocorrencia: OcorrenciaDetalhe }) {
     { rotulo: "Site", valor: ocorrencia.site },
     { rotulo: "Evento", valor: ocorrencia.evento },
     { rotulo: "SubTipo", valor: ocorrencia.subtipo },
+    { rotulo: "Local do evento", valor: ocorrencia.local },
     { rotulo: "Descrição", valor: "" },
     { rotulo: "Registrado por", valor: ocorrencia.usuarioAbertura ? `${ocorrencia.usuarioAbertura} em ${quando}` : quando },
     { rotulo: "Integrado em", valor: quando },

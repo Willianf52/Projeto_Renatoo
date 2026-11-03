@@ -32,6 +32,8 @@ export type ValoresDoUsuario = {
   /** Migration 0058. `not null` com default no banco -- o formulario abre
    * preenchido, e string vazia aqui vira o default na gravacao. */
   pais: string;
+  /** "Lingua" do sistema de referencia (0082): PT ou ES. */
+  lingua: string;
   cargo: string;
   /** Migration 0019. Coluna sem grant para `authenticated`, como `cargo`:
    * so passa por aqui, atras da checagem de permissao. */
@@ -61,6 +63,8 @@ export function perfilDosValores(valores: ValoresDoUsuario) {
     // `|| PAIS_PADRAO` e nao `|| null`: a coluna e `not null`. Campo apagado
     // na tela volta ao default em vez de recusar a gravacao inteira.
     pais: valores.pais || PAIS_PADRAO,
+    // `not null default 'PT'` (0082): vazio ou fora da lista cai no default.
+    lingua: valores.lingua === "ES" ? "ES" : "PT",
     cargo: valores.cargo,
     tipo: valores.tipo,
     ativo: valores.ativo,

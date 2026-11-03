@@ -44,6 +44,8 @@ export type UsuarioRow = {
   ativo: boolean;
   /** Migration 0058. `not null default 'Brasil'`, entao nunca vem nulo. */
   pais: string;
+  /** Migration 0082. `not null default 'PT'`. */
+  lingua: string;
   /** Preenchido por `comNomeDoSuperior`, nao pelo select -- ver la. */
   superior: { nome_completo: string | null } | null;
   superior_id: string | null;
@@ -142,6 +144,7 @@ export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
       tipo,
       ativo,
       pais,
+      lingua,
       superior_id
       ${filtrandoPorGrupo ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
       `;

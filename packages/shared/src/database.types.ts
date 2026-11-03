@@ -1106,6 +1106,7 @@ export type Database = {
           evento_id: number
           finalizada_em: string | null
           id: number
+          local_descricao: string | null
           numero: number
           observacao: string | null
           origem: string
@@ -1126,6 +1127,7 @@ export type Database = {
           evento_id: number
           finalizada_em?: string | null
           id?: never
+          local_descricao?: string | null
           numero: number
           observacao?: string | null
           origem?: string
@@ -1146,6 +1148,7 @@ export type Database = {
           evento_id?: number
           finalizada_em?: string | null
           id?: never
+          local_descricao?: string | null
           numero?: number
           observacao?: string | null
           origem?: string
@@ -1285,6 +1288,7 @@ export type Database = {
           email_superior_ocorrencia: boolean
           funcao: string | null
           id: string
+          lingua: string
           login: string | null
           nome_completo: string | null
           pais: string
@@ -1301,6 +1305,7 @@ export type Database = {
           email_superior_ocorrencia?: boolean
           funcao?: string | null
           id: string
+          lingua?: string
           login?: string | null
           nome_completo?: string | null
           pais?: string
@@ -1317,6 +1322,7 @@ export type Database = {
           email_superior_ocorrencia?: boolean
           funcao?: string | null
           id?: string
+          lingua?: string
           login?: string | null
           nome_completo?: string | null
           pais?: string
@@ -1400,6 +1406,10 @@ export type Database = {
           complemento: string | null
           criado_em: string
           criado_por: string | null
+          data_desinstalacao: string | null
+          data_instalacao: string | null
+          dias_instalacao: number | null
+          emails_checklist: string[]
           emails_eventos: string[]
           endereco: string | null
           filial: string | null
@@ -1412,6 +1422,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           nome: string
+          notificar_eventos: string[]
           numero: string | null
           observacao: string | null
           pais: string
@@ -1419,8 +1430,11 @@ export type Database = {
           recebe_visita: boolean
           regional: string | null
           responsavel_id: string | null
+          responsavel_perda_id: string | null
+          responsavel_prevencao_id: string | null
           sigla: string | null
           site_superior_id: number | null
+          tipo_intervencao: string | null
           tipo_servico_id: number | null
           uf: string | null
         }
@@ -1434,6 +1448,10 @@ export type Database = {
           complemento?: string | null
           criado_em?: string
           criado_por?: string | null
+          data_desinstalacao?: string | null
+          data_instalacao?: string | null
+          dias_instalacao?: number | null
+          emails_checklist?: string[]
           emails_eventos?: string[]
           endereco?: string | null
           filial?: string | null
@@ -1446,6 +1464,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nome: string
+          notificar_eventos?: string[]
           numero?: string | null
           observacao?: string | null
           pais?: string
@@ -1453,8 +1472,11 @@ export type Database = {
           recebe_visita?: boolean
           regional?: string | null
           responsavel_id?: string | null
+          responsavel_perda_id?: string | null
+          responsavel_prevencao_id?: string | null
           sigla?: string | null
           site_superior_id?: number | null
+          tipo_intervencao?: string | null
           tipo_servico_id?: number | null
           uf?: string | null
         }
@@ -1468,6 +1490,10 @@ export type Database = {
           complemento?: string | null
           criado_em?: string
           criado_por?: string | null
+          data_desinstalacao?: string | null
+          data_instalacao?: string | null
+          dias_instalacao?: number | null
+          emails_checklist?: string[]
           emails_eventos?: string[]
           endereco?: string | null
           filial?: string | null
@@ -1480,6 +1506,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           nome?: string
+          notificar_eventos?: string[]
           numero?: string | null
           observacao?: string | null
           pais?: string
@@ -1487,8 +1514,11 @@ export type Database = {
           recebe_visita?: boolean
           regional?: string | null
           responsavel_id?: string | null
+          responsavel_perda_id?: string | null
+          responsavel_prevencao_id?: string | null
           sigla?: string | null
           site_superior_id?: number | null
+          tipo_intervencao?: string | null
           tipo_servico_id?: number | null
           uf?: string | null
         }
@@ -1510,6 +1540,20 @@ export type Database = {
           {
             foreignKeyName: "sites_responsavel_id_fkey"
             columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sites_responsavel_perda_id_fkey"
+            columns: ["responsavel_perda_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sites_responsavel_prevencao_id_fkey"
+            columns: ["responsavel_prevencao_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1758,6 +1802,7 @@ export type Database = {
         Args: {
           p_classificacao_id?: number
           p_evento_id: number
+          p_local?: string
           p_observacao?: string
           p_site_id: number
           p_subevento_id?: number

@@ -88,6 +88,7 @@ function extrairValores(formData: FormData): ValoresDoUsuario {
     login: texto(formData, "login"),
     funcao: texto(formData, "funcao"),
     pais: texto(formData, "pais"),
+    lingua: texto(formData, "lingua"),
     cargo: texto(formData, "cargo"),
     tipo: texto(formData, "tipo"),
     superiorId: texto(formData, "superior_id"),

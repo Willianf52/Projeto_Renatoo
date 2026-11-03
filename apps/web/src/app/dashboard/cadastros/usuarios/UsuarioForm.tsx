@@ -199,6 +199,14 @@ export function UsuarioForm({
           />
         </Campo>
 
+        {/* "Lingua" do sistema de referencia (0082). */}
+        <Campo id="lingua" rotulo="Língua">
+          <select id="lingua" name="lingua" defaultValue={valores.lingua} className={getInputClasses(false)}>
+            <option value="PT">Português</option>
+            <option value="ES">Espanhol</option>
+          </select>
+        </Campo>
+
         {/* Migration 0019. Não é o nível de acesso: diz o que a conta é, não
             quanto ela enxerga -- uma conta de integração pode precisar do
             alcance de um gestor sem ser uma pessoa da operação. */}

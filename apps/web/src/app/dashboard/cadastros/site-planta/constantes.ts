@@ -37,6 +37,15 @@ export const VALORES_VAZIOS = {
   // Contatos avisados das ocorrencias do site (0065). Nao vai no Duplicar:
   // sao as pessoas de um posto, nao da operacao.
   emailsEventos: "",
+  // Campos da 0082, como no sistema de referencia.
+  emailsChecklist: "",
+  notificarEventos: [] as string[],
+  responsavelPerdaId: "",
+  responsavelPrevencaoId: "",
+  tipoIntervencao: "",
+  dataInstalacao: "",
+  diasInstalacao: "",
+  dataDesinstalacao: "",
   // Os tres seguem os defaults da 0021: site novo recebe visita e gera QR-Code,
   // e nao gera registro em coletas -- este ultimo cria dado, entao o padrao
   // seguro e nao criar.
@@ -73,11 +82,26 @@ export type SiteParaFormulario = {
   info_adicional_1: string | null;
   info_adicional_2: string | null;
   emails_eventos: string[];
+  emails_checklist: string[];
+  notificar_eventos: string[];
+  responsavel_perda_id: string | null;
+  responsavel_prevencao_id: string | null;
+  tipo_intervencao: string | null;
+  data_instalacao: string | null;
+  dias_instalacao: number | null;
+  data_desinstalacao: string | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
   ativo: boolean;
 };
+
+/** "Tipo Intervenção" do sistema de referencia (CHECK da 0082). */
+export const TIPOS_DE_INTERVENCAO = [
+  { value: "BARREIRA_TECNOLOGICA", label: "Barreira Tecnológica" },
+  { value: "RASTREADORES", label: "Rastreadores" },
+  { value: "CADEADO_BLUETOOTH", label: "Cadeado Bluetooth" },
+];
 
 /** Mantido pelo nome antigo: o Duplicar recebe o site inteiro. */
 export type ModeloParaDuplicar = SiteParaFormulario;
@@ -110,6 +134,14 @@ export function valoresDoSite(site: SiteParaFormulario): typeof VALORES_VAZIOS {
     infoAdicional1: site.info_adicional_1 ?? "",
     infoAdicional2: site.info_adicional_2 ?? "",
     emailsEventos: site.emails_eventos.join(", "),
+    emailsChecklist: site.emails_checklist.join(", "),
+    notificarEventos: [...site.notificar_eventos],
+    responsavelPerdaId: site.responsavel_perda_id ?? "",
+    responsavelPrevencaoId: site.responsavel_prevencao_id ?? "",
+    tipoIntervencao: site.tipo_intervencao ?? "",
+    dataInstalacao: site.data_instalacao ?? "",
+    diasInstalacao: site.dias_instalacao === null ? "" : String(site.dias_instalacao),
+    dataDesinstalacao: site.data_desinstalacao ?? "",
     recebeVisita: site.recebe_visita,
     gerarQrcodeAutomatico: site.gerar_qrcode_automatico,
     gerarRegistroColetas: site.gerar_registro_coletas,

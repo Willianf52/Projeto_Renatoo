@@ -30,6 +30,7 @@ export async function registrarEvento(formData: FormData): Promise<ResultadoDoRe
     p_subevento_id: d.subeventoId ?? undefined,
     p_classificacao_id: d.classificacaoId ?? undefined,
     p_observacao: d.observacao ?? undefined,
+    p_local: d.local ?? undefined,
   });
 
   if (error || id === null) {

@@ -251,6 +251,8 @@ export function planejarImportacaoDeUsuarios(
         login,
         funcao,
         pais,
+        // A planilha do antigo nao traz a lingua: entra no default da 0082.
+        lingua: "PT",
         cargo,
         tipo,
         ativo,

@@ -13,6 +13,8 @@ export type DadosDoRegistro = {
   subeventoId: number | null;
   classificacaoId: number | null;
   observacao: string | null;
+  /** "Local do evento" (0082): texto livre, ate 200 caracteres. */
+  local: string | null;
 };
 
 function id(valor: string): number | null {
@@ -40,7 +42,13 @@ export function lerRegistro(formData: FormData): { ok: true; dados: DadosDoRegis
     return { ok: false, erro: `A observação deve ter no máximo ${LIMITE_DA_OBSERVACAO} caracteres.` };
   }
 
-  return { ok: true, dados: { siteId, eventoId, subeventoId, classificacaoId, observacao: observacao || null } };
+  const local = campo("local").replace(/\s+/g, " ");
+  if (local.length > 200) return { ok: false, erro: "O local do evento deve ter no máximo 200 caracteres." };
+
+  return {
+    ok: true,
+    dados: { siteId, eventoId, subeventoId, classificacaoId, observacao: observacao || null, local: local || null },
+  };
 }
 
 /** Os caminhos que o navegador diz ter enviado, conferidos contra a pasta da

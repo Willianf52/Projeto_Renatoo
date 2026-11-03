@@ -37,6 +37,7 @@ export function OcorrenciaImpressa({ ocorrencia, novaPagina = false }: { ocorren
     { rotulo: "Site", valor: ocorrencia.siteNiveis.join(" > ") },
     { rotulo: "Evento", valor: ocorrencia.evento },
     { rotulo: "SubTipo", valor: ocorrencia.subtipo },
+    { rotulo: "Local do evento", valor: ocorrencia.local },
     { rotulo: "Registrado por", valor: ocorrencia.usuarioAbertura ? `${ocorrencia.usuarioAbertura} em ${quando}` : quando },
   ];
 
