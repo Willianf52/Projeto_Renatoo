@@ -30,6 +30,100 @@ export type Database = {
         }
         Relationships: []
       }
+      agenda_sites: {
+        Row: {
+          agenda_id: number
+          site_id: number
+        }
+        Insert: {
+          agenda_id: number
+          site_id: number
+        }
+        Update: {
+          agenda_id?: number
+          site_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agenda_sites_agenda_id_fkey"
+            columns: ["agenda_id"]
+            isOneToOne: false
+            referencedRelation: "agendas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agendas: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          data_final: string
+          data_inicial: string
+          grupo_usuario_id: number | null
+          id: number
+          modelo_id: number
+          nome: string
+          recorrencia: string
+          responsavel_id: string | null
+          tolerancia_dias: number
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          data_final: string
+          data_inicial: string
+          grupo_usuario_id?: number | null
+          id?: never
+          modelo_id: number
+          nome: string
+          recorrencia: string
+          responsavel_id?: string | null
+          tolerancia_dias?: number
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          data_final?: string
+          data_inicial?: string
+          grupo_usuario_id?: number | null
+          id?: never
+          modelo_id?: number
+          nome?: string
+          recorrencia?: string
+          responsavel_id?: string | null
+          tolerancia_dias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendas_grupo_usuario_id_fkey"
+            columns: ["grupo_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_usuarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendas_modelo_id_fkey"
+            columns: ["modelo_id"]
+            isOneToOne: false
+            referencedRelation: "modelos_checklist"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendas_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       areas: {
         Row: {
           ativo: boolean
@@ -1777,6 +1871,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agendamentos_do_periodo: {
+        Args: { p_fim: string; p_inicio: string }
+        Returns: {
+          agenda: string
+          agenda_id: number
+          checklist_id: number
+          data_planejada: string
+          grupo_usuario_id: number
+          modelo: string
+          modelo_id: number
+          prazo: string
+          realizado_em: string
+          responsavel_id: string
+          site_id: number
+          status: string
+        }[]
+      }
       alterar_eventos_em_massa: {
         Args: {
           p_eventos: number[]
@@ -1993,6 +2104,22 @@ export type Database = {
           motivo: string
           ocorrencia_id: number
         }[]
+      }
+      salvar_agenda: {
+        Args: {
+          p_ativo: boolean
+          p_data_final: string
+          p_data_inicial: string
+          p_grupo_usuario_id: number
+          p_id: number
+          p_modelo_id: number
+          p_nome: string
+          p_recorrencia: string
+          p_responsavel_id: string
+          p_sites: number[]
+          p_tolerancia_dias: number
+        }
+        Returns: number
       }
       salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }
       salvar_evento: {
