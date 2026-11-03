@@ -11,7 +11,14 @@ import {
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
-import { ClipboardListIcon, FilterIcon, PencilIcon, PlusCircleIcon, SearchIcon } from "@/components/dashboard/icons";
+import {
+  ClipboardListIcon,
+  FilterIcon,
+  PencilIcon,
+  PlusCircleIcon,
+  SearchIcon,
+  UploadIcon,
+} from "@/components/dashboard/icons";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { excluirAgenda } from "./actions";
 import { listarAgendas, type Situacao } from "./queries";
@@ -106,9 +113,15 @@ async function Acoes() {
         <SearchIcon className="h-4 w-4" />
       </Acao>
       {pode ? (
-        <Acao titulo="Nova agenda" href={`${LISTAGEM}/novo`} tom="novo">
-          <PlusCircleIcon className="h-4 w-4" />
-        </Acao>
+        <>
+          {/* O upload de agendas do sistema de referencia, com as mesmas colunas. */}
+          <Acao titulo="Importar Agendas" href={`${LISTAGEM}/importar`} tom="importar">
+            <UploadIcon className="h-4 w-4" />
+          </Acao>
+          <Acao titulo="Nova agenda" href={`${LISTAGEM}/novo`} tom="novo">
+            <PlusCircleIcon className="h-4 w-4" />
+          </Acao>
+        </>
       ) : (
         <AcaoDesabilitada titulo="Nova agenda" motivo="você não tem permissão" tom="novo">
           <PlusCircleIcon className="h-4 w-4" />

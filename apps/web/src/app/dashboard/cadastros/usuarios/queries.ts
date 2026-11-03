@@ -46,6 +46,9 @@ export type UsuarioRow = {
   pais: string;
   /** Migration 0082. `not null default 'PT'`. */
   lingua: string;
+  /** Migration 0086: Setor e Tipo de Alerta de Panico. */
+  setor_id: number | null;
+  alerta_panico_id: number | null;
   /** Preenchido por `comNomeDoSuperior`, nao pelo select -- ver la. */
   superior: { nome_completo: string | null } | null;
   superior_id: string | null;
@@ -145,6 +148,8 @@ export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
       ativo,
       pais,
       lingua,
+      setor_id,
+      alerta_panico_id,
       superior_id
       ${filtrandoPorGrupo ? ", grupos_usuarios_membros!inner ( grupo_id )" : ""}
       `;
@@ -448,4 +453,17 @@ export function toTableRow(usuario: UsuarioRow): string[] {
     usuario.pais,
     usuario.ativo ? "Ativo" : "Inativo",
   ];
+}
+
+/** As listas de Setor e de Tipo de Alerta de Panico (0086), so as ativas. */
+export async function getListasDoUsuario(): Promise<{ setores: FilterOption[]; alertas: FilterOption[] }> {
+  const supabase = await createClient();
+  const [setores, alertas] = await Promise.all([
+    supabase.from("setores").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("tipos_alerta_panico").select("id, nome").eq("ativo", true).order("nome"),
+  ]);
+  return {
+    setores: (setores.data ?? []).map((s) => ({ value: String(s.id), label: s.nome })),
+    alertas: (alertas.data ?? []).map((a) => ({ value: String(a.id), label: a.nome })),
+  };
 }

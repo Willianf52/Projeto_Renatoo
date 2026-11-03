@@ -60,6 +60,7 @@ export type SiteRow = {
   data_instalacao: string | null;
   dias_instalacao: number | null;
   data_desinstalacao: string | null;
+  tipo_curva_id: number | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -82,7 +83,7 @@ const COLUNAS = `
   site_superior_id, cep, endereco, numero, bairro, complemento, pais, raio_metros,
   cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2, emails_eventos,
   emails_checklist, notificar_eventos, responsavel_perda_id, responsavel_prevencao_id,
-  tipo_intervencao, data_instalacao, dias_instalacao, data_desinstalacao,
+  tipo_intervencao, data_instalacao, dias_instalacao, data_desinstalacao, tipo_curva_id,
   recebe_visita, gerar_qrcode_automatico, gerar_registro_coletas,
   grupo_site_id, tipo_servico_id, responsavel_id,
   grupos_sites ( nome ),
@@ -313,10 +314,11 @@ export async function getOpcoes(): Promise<{
   gruposSites: Opcao[];
   tiposServico: Opcao[];
   responsaveis: Opcao[];
+  tiposCurva: Opcao[];
 }> {
   const supabase = await createClient();
 
-  const [grupos, tipos, perfis] = await Promise.all([
+  const [grupos, tipos, perfis, curvas] = await Promise.all([
     supabase.from("grupos_sites").select("id, nome").order("nome"),
     supabase.from("tipos_servico").select("id, nome").order("nome"),
     // `profiles` e recortado pelo RLS (migration 0006): um operador so enxerga
@@ -331,12 +333,14 @@ export async function getOpcoes(): Promise<{
       .select("id, nome_completo, superior_id")
       .eq("ativo", true)
       .order("nome_completo"),
+    supabase.from("tipos_curva").select("id, nome").eq("ativo", true).order("nome"),
   ]);
 
   return {
     gruposSites: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
     tiposServico: (tipos.data ?? []).map((t) => ({ value: String(t.id), label: t.nome })),
     responsaveis: montarHierarquiaDePerfis(perfis.data ?? []),
+    tiposCurva: (curvas.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
   };
 }
 

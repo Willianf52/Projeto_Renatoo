@@ -59,6 +59,7 @@ export type ExtrasDoEvento = {
   nps: string;
   tipoClassificacaoId: string;
   grupoResponsavelId: string;
+  setorResponsavelId: string;
 };
 
 type EventoDoBanco = {
@@ -83,6 +84,7 @@ type EventoDoBanco = {
   nps?: string | null;
   tipo_classificacao_id?: number | null;
   grupo_responsavel_id?: number | null;
+  setor_responsavel_id?: number | null;
 };
 
 type SiteDoBanco = { id: number; nome: string; ativo: boolean; grupos_sites: { nome: string } | null };
@@ -102,7 +104,8 @@ async function carregarTudo() {
           `id, nome, descricao, superior_id, tempo_atendimento_minutos, bloqueio_repeticao_minutos, ativo,
            tempo_finalizacao_minutos, status_final, usuario_final_id, responsavel_atendimento_id,
            enviar_superior_imediato, emails_copia, prorrogacao_minutos, alarme, finalizacao_automatica,
-           finalizacao_pela_ocorrencia_inicio, nps, tipo_classificacao_id, grupo_responsavel_id`,
+           finalizacao_pela_ocorrencia_inicio, nps, tipo_classificacao_id, grupo_responsavel_id,
+           setor_responsavel_id`,
         )
         .order("id")
         .range(de, ate),
@@ -163,6 +166,7 @@ export function montarEventos(dados: Awaited<ReturnType<typeof carregarTudo>>): 
         nps: e.nps ?? "",
         tipoClassificacaoId: e.tipo_classificacao_id ? String(e.tipo_classificacao_id) : "",
         grupoResponsavelId: e.grupo_responsavel_id ? String(e.grupo_responsavel_id) : "",
+        setorResponsavelId: e.setor_responsavel_id ? String(e.setor_responsavel_id) : "",
       },
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -197,15 +201,17 @@ export type DadosDoFormulario = {
   usuarios: Opcao[];
   classificacoes: Opcao[];
   gruposDeUsuarios: Opcao[];
+  setores: Opcao[];
 };
 
 export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFormulario | null> {
   const supabase = await createClient();
-  const [dados, usuarios, classificacoes, grupos] = await Promise.all([
+  const [dados, usuarios, classificacoes, grupos, setores] = await Promise.all([
     carregarTudo(),
     supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("tipos_de_classificacao").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_usuarios").select("id, nome").order("nome"),
+    supabase.from("setores").select("id, nome").eq("ativo", true).order("nome"),
   ]);
   const eventos = montarEventos(dados);
   const evento = id === null ? null : (eventos.find((e) => e.id === id) ?? null);
@@ -224,6 +230,7 @@ export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFo
     usuarios: (usuarios.data ?? []).map((u) => ({ value: u.id, label: u.nome_completo ?? "" })),
     classificacoes: (classificacoes.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
     gruposDeUsuarios: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
+    setores: (setores.data ?? []).map((s) => ({ value: String(s.id), label: s.nome })),
   };
 }
 

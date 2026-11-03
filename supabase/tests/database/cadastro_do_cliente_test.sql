@@ -3,7 +3,7 @@
 --
 --   1) A tabela nasce com uma linha e nao aceita segunda (unica).
 --   2) O GESTOR le e edita; CNPJ fora do formato e recusado (23514).
---   3) O INSPETOR nao le (RLS) e a edicao dele nao muda nada.
+--   3) O INSPETOR le (desde a 0086) e a edicao dele nao muda nada.
 -- ============================================================================
 
 begin;
@@ -45,7 +45,9 @@ select throws_ok(
 
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000852", "role": "authenticated"}';
 
-select is((select count(*)::int from public.cliente), 0, 'o INSPETOR nao le o cliente');
+-- Desde a 0086 o INSPETOR le o cadastro (o app aplica o minimo de caracteres);
+-- editar continua so do GESTOR.
+select is((select count(*)::int from public.cliente), 1, 'o INSPETOR le o cliente (0086)');
 
 update public.cliente set titulo_pdf = 'Inspetor mudou';
 

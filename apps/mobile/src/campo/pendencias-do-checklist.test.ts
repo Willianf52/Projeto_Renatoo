@@ -169,3 +169,24 @@ describe("escolha do modelo (0061)", () => {
     ).toEqual([]);
   });
 });
+
+describe("mínimo da descrição do Não conforme (Cadastros > Cliente, 0086)", () => {
+  const comTipos = [
+    { id: 11, ordem: 1, tipoResposta: "CNA" },
+    { id: 12, ordem: 2, tipoResposta: "SN" },
+  ];
+  const base = { tipo: "CONSULTORIA" as const, perguntas: comTipos, respostas: { 11: "NAO", 12: "NAO" } };
+
+  it("observação curta num Não conforme vira pendência, apontando a pergunta", () => {
+    const pendencias = pendenciasDoChecklist(estado({ ...base, observacoes: { 11: "sujo" }, minimoDaObservacao: 10 }));
+    expect(pendencias[0]).toMatchObject({ alvo: "perguntas", perguntaId: 11 });
+    expect(pendencias[0].mensagem).toContain("pergunta 1");
+  });
+
+  it("sem mínimo, ou com a observação longa, não pede nada; Sim/Não não conta", () => {
+    expect(pendenciasDoChecklist(estado({ ...base, observacoes: {}, minimoDaObservacao: 0 }))).toEqual([]);
+    expect(
+      pendenciasDoChecklist(estado({ ...base, observacoes: { 11: "Piso sujo na portaria" }, minimoDaObservacao: 10 })),
+    ).toEqual([]);
+  });
+});

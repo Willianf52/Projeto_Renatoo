@@ -40,6 +40,7 @@ function valoresDe(evento: EventoDaLista | null): ValoresDoEvento {
     nps: x?.nps ?? "",
     tipoClassificacaoId: x?.tipoClassificacaoId ?? "",
     grupoResponsavelId: x?.grupoResponsavelId ?? "",
+    setorResponsavelId: x?.setorResponsavelId ?? "",
   };
 }
 
@@ -86,6 +87,7 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
           usuarios={dados.usuarios}
           classificacoes={dados.classificacoes}
           gruposDeUsuarios={dados.gruposDeUsuarios}
+          setores={dados.setores}
         />
       </div>
     </div>

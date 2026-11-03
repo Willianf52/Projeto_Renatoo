@@ -519,6 +519,7 @@ export type Database = {
           nps: string | null
           prorrogacao_minutos: number | null
           responsavel_atendimento_id: string | null
+          setor_responsavel_id: number | null
           status_final: string | null
           superior_id: number | null
           tempo_atendimento_minutos: number | null
@@ -542,6 +543,7 @@ export type Database = {
           nps?: string | null
           prorrogacao_minutos?: number | null
           responsavel_atendimento_id?: string | null
+          setor_responsavel_id?: number | null
           status_final?: string | null
           superior_id?: number | null
           tempo_atendimento_minutos?: number | null
@@ -565,6 +567,7 @@ export type Database = {
           nps?: string | null
           prorrogacao_minutos?: number | null
           responsavel_atendimento_id?: string | null
+          setor_responsavel_id?: number | null
           status_final?: string | null
           superior_id?: number | null
           tempo_atendimento_minutos?: number | null
@@ -585,6 +588,13 @@ export type Database = {
             columns: ["responsavel_atendimento_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eventos_setor_responsavel_id_fkey"
+            columns: ["setor_responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
             referencedColumns: ["id"]
           },
           {
@@ -1488,6 +1498,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alerta_panico_id: number | null
           ativo: boolean
           cargo: string
           created_at: string
@@ -1501,10 +1512,12 @@ export type Database = {
           login: string | null
           nome_completo: string | null
           pais: string
+          setor_id: number | null
           superior_id: string | null
           tipo: string
         }
         Insert: {
+          alerta_panico_id?: number | null
           ativo?: boolean
           cargo?: string
           created_at?: string
@@ -1518,10 +1531,12 @@ export type Database = {
           login?: string | null
           nome_completo?: string | null
           pais?: string
+          setor_id?: number | null
           superior_id?: string | null
           tipo?: string
         }
         Update: {
+          alerta_panico_id?: number | null
           ativo?: boolean
           cargo?: string
           created_at?: string
@@ -1535,10 +1550,25 @@ export type Database = {
           login?: string | null
           nome_completo?: string | null
           pais?: string
+          setor_id?: number | null
           superior_id?: string | null
           tipo?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_alerta_panico_id_fkey"
+            columns: ["alerta_panico_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_alerta_panico"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_superior_id_fkey"
             columns: ["superior_id"]
@@ -1604,6 +1634,30 @@ export type Database = {
         }
         Relationships: []
       }
+      setores: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
+      }
       sites: {
         Row: {
           ativo: boolean
@@ -1643,6 +1697,7 @@ export type Database = {
           responsavel_prevencao_id: string | null
           sigla: string | null
           site_superior_id: number | null
+          tipo_curva_id: number | null
           tipo_intervencao: string | null
           tipo_servico_id: number | null
           uf: string | null
@@ -1685,6 +1740,7 @@ export type Database = {
           responsavel_prevencao_id?: string | null
           sigla?: string | null
           site_superior_id?: number | null
+          tipo_curva_id?: number | null
           tipo_intervencao?: string | null
           tipo_servico_id?: number | null
           uf?: string | null
@@ -1727,6 +1783,7 @@ export type Database = {
           responsavel_prevencao_id?: string | null
           sigla?: string | null
           site_superior_id?: number | null
+          tipo_curva_id?: number | null
           tipo_intervencao?: string | null
           tipo_servico_id?: number | null
           uf?: string | null
@@ -1775,6 +1832,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sites_tipo_curva_id_fkey"
+            columns: ["tipo_curva_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_curva"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sites_tipo_servico_id_fkey"
             columns: ["tipo_servico_id"]
             isOneToOne: false
@@ -1782,6 +1846,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tipos_alerta_panico: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
+      }
+      tipos_curva: {
+        Row: {
+          ativo: boolean
+          cor: string | null
+          criado_em: string
+          id: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string | null
+          criado_em?: string
+          id?: never
+          nome?: string
+        }
+        Relationships: []
       }
       tipos_de_analise: {
         Row: {

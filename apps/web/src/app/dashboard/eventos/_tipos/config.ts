@@ -5,7 +5,9 @@
  * tabelas da 0064, entao a tela e uma so, parametrizada por este objeto. Pasta
  * com `_` na frente: o App Router nao a transforma em rota.
  */
-export type TipoDeCadastro = "analise" | "classificacao";
+/** Setor, Alerta de Panico e Tipo de Curva (0086) tem o mesmo formato e
+ * entram aqui tambem, na secao Cadastros. */
+export type TipoDeCadastro = "analise" | "classificacao" | "setor" | "alerta" | "curva";
 
 export const CADASTROS = {
   analise: {
@@ -14,6 +16,7 @@ export const CADASTROS = {
     titulo: "Tipos de Análise",
     singular: "Tipo de Análise",
     salvo: "Tipo de análise salvo com sucesso.",
+    secao: "Eventos",
   },
   classificacao: {
     tabela: "tipos_de_classificacao",
@@ -21,6 +24,31 @@ export const CADASTROS = {
     titulo: "Tipos de Classificação",
     singular: "Tipo de Classificação",
     salvo: "Tipo de classificação salvo com sucesso.",
+    secao: "Eventos",
+  },
+  setor: {
+    tabela: "setores",
+    rota: "/dashboard/cadastros/setores",
+    titulo: "Setores",
+    singular: "Setor",
+    salvo: "Setor salvo com sucesso.",
+    secao: "Cadastros",
+  },
+  alerta: {
+    tabela: "tipos_alerta_panico",
+    rota: "/dashboard/cadastros/tipos-de-alerta-de-panico",
+    titulo: "Tipos de Alerta de Pânico",
+    singular: "Tipo de Alerta de Pânico",
+    salvo: "Tipo de alerta de pânico salvo com sucesso.",
+    secao: "Cadastros",
+  },
+  curva: {
+    tabela: "tipos_curva",
+    rota: "/dashboard/cadastros/tipos-de-curva",
+    titulo: "Tipos de Curva",
+    singular: "Tipo de Curva",
+    salvo: "Tipo de curva salvo com sucesso.",
+    secao: "Cadastros",
   },
 } as const satisfies Record<TipoDeCadastro, unknown>;
 

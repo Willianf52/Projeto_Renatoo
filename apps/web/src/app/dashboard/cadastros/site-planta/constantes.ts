@@ -46,6 +46,7 @@ export const VALORES_VAZIOS = {
   dataInstalacao: "",
   diasInstalacao: "",
   dataDesinstalacao: "",
+  tipoCurvaId: "",
   // Os tres seguem os defaults da 0021: site novo recebe visita e gera QR-Code,
   // e nao gera registro em coletas -- este ultimo cria dado, entao o padrao
   // seguro e nao criar.
@@ -90,6 +91,7 @@ export type SiteParaFormulario = {
   data_instalacao: string | null;
   dias_instalacao: number | null;
   data_desinstalacao: string | null;
+  tipo_curva_id: number | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -142,6 +144,7 @@ export function valoresDoSite(site: SiteParaFormulario): typeof VALORES_VAZIOS {
     dataInstalacao: site.data_instalacao ?? "",
     diasInstalacao: site.dias_instalacao === null ? "" : String(site.dias_instalacao),
     dataDesinstalacao: site.data_desinstalacao ?? "",
+    tipoCurvaId: site.tipo_curva_id === null ? "" : String(site.tipo_curva_id),
     recebeVisita: site.recebe_visita,
     gerarQrcodeAutomatico: site.gerar_qrcode_automatico,
     gerarRegistroColetas: site.gerar_registro_coletas,

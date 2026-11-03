@@ -110,6 +110,8 @@ export const VALORES_VAZIOS = {
   pais: "Brasil",
   // Mesmo default da coluna (0082).
   lingua: "PT",
+  setorId: "",
+  alertaPanicoId: "",
   // Mesmo default do trigger `handle_new_user` (migration 0008): o nivel mais
   // baixo, para que conceder mais seja sempre um ato deliberado.
   cargo: "OPERADOR",
@@ -146,6 +148,8 @@ export type ModeloParaDuplicar = {
   /** Opcional: nem todo select que alimenta o Duplicar traz a coluna. */
   pais?: string;
   lingua?: string;
+  setor_id?: number | null;
+  alerta_panico_id?: number | null;
   cargo: string;
   tipo: string;
   /** Opcional: o select da listagem nem sempre traz a coluna. */
@@ -187,6 +191,8 @@ export function valoresParaDuplicar(
     // um select que nao trouxe a coluna deve cair no default, nao em vazio.
     pais: modelo.pais ?? VALORES_VAZIOS.pais,
     lingua: modelo.lingua ?? VALORES_VAZIOS.lingua,
+    setorId: modelo.setor_id ? String(modelo.setor_id) : "",
+    alertaPanicoId: modelo.alerta_panico_id ? String(modelo.alerta_panico_id) : "",
     cargo: modelo.cargo,
     tipo: modelo.tipo,
     superiorId: modelo.superior_id ?? "",

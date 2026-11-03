@@ -18,7 +18,7 @@ export type EstadoDoChecklist = {
   tipo: TipoDeVisita;
   motivo: string;
   /** `null` e "ainda carregando", como na tela. */
-  perguntas: readonly { id: number }[] | null;
+  perguntas: readonly { id: number; ordem?: number; tipoResposta?: string }[] | null;
   respostas: Readonly<Record<number, unknown>>;
   /**
    * O grupo do site tem mais de um modelo e o inspetor ainda nao escolheu
@@ -28,6 +28,14 @@ export type EstadoDoChecklist = {
   /** Gerais e de pergunta, somadas: qualquer uma comprova a visita. */
   quantidadeDeFotos: number;
   temAssinatura: boolean;
+  /** Observacao de cada pergunta, como digitada. */
+  observacoes?: Readonly<Record<number, string>>;
+  /**
+   * "Qtd. Minima de Caracteres da Descricao" do cadastro do Cliente (0085/
+   * 0086): a observacao de um "Nao conforme" e a descricao da ocorrencia que
+   * ele abre. Zero ou ausente: sem minimo.
+   */
+  minimoDaObservacao?: number;
 };
 
 export type Pendencia =
@@ -51,7 +59,7 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
   }
 
   if (estado.tipo === "CONSULTORIA") {
-    const pendenciaDePerguntas = pendenciaDasPerguntas(estado);
+    const pendenciaDePerguntas = pendenciaDasPerguntas(estado) ?? pendenciaDaDescricao(estado);
     if (pendenciaDePerguntas) pendencias.push(pendenciaDePerguntas);
   }
 
@@ -110,6 +118,25 @@ function pendenciaDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
     perguntaId: semResposta[0].id,
     faltam: semResposta.length,
     mensagem: `Responda todas as perguntas (faltam ${semResposta.length}).`,
+  };
+}
+
+/** O primeiro "Nao conforme" com observacao abaixo do minimo do Cliente. */
+function pendenciaDaDescricao(estado: EstadoDoChecklist): Pendencia | null {
+  const minimo = estado.minimoDaObservacao ?? 0;
+  if (minimo <= 0 || !estado.perguntas) return null;
+  const curta = estado.perguntas.find(
+    (p) =>
+      estado.respostas[p.id] === "NAO" &&
+      p.tipoResposta !== "SN" &&
+      (estado.observacoes?.[p.id] ?? "").trim().length < minimo,
+  );
+  if (!curta) return null;
+  return {
+    alvo: "perguntas",
+    perguntaId: curta.id,
+    faltam: null,
+    mensagem: `Descreva o "Não conforme"${curta.ordem ? ` da pergunta ${curta.ordem}` : ""} na observação, com pelo menos ${minimo} caracteres.`,
   };
 }
 
