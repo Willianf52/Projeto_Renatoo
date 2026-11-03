@@ -34,6 +34,11 @@ beforeEach(() => {
 });
 
 describe("salvarEvento", () => {
+  it("finalização automática sem Tempo para Finalização é recusada antes do banco (0083)", async () => {
+    const estado = await salvarEvento({}, formulario({ nome: "Auto", finalizacao_automatica: "sim" }));
+    expect(estado.erro).toBe("Para a finalização automática, informe o Tempo para Finalização.");
+  });
+
   it("manda evento, sites e e-mails numa chamada so, com os prazos em minutos", async () => {
     await salvarEvento(
       {},
@@ -60,6 +65,22 @@ describe("salvarEvento", () => {
       p_ativo: true,
       p_sites: [7, 9],
       p_emails: ["a@x.com", "b@y.com"],
+      // Campos da 0083: vazios no formulario, vao como "sem valor".
+      p_extras: {
+        tempo_finalizacao_minutos: null,
+        status_final: null,
+        usuario_final_id: null,
+        responsavel_atendimento_id: null,
+        enviar_superior_imediato: false,
+        emails_copia: [],
+        prorrogacao_minutos: null,
+        alarme: false,
+        finalizacao_automatica: false,
+        finalizacao_pela_ocorrencia_inicio: false,
+        nps: null,
+        tipo_classificacao_id: null,
+        grupo_responsavel_id: null,
+      },
     });
     expect(redirectMock).toHaveBeenCalledWith("/dashboard/eventos/cadastro-de-eventos?salvo=1");
   });

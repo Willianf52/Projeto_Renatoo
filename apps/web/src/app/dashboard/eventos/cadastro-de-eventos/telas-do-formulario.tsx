@@ -11,6 +11,9 @@ import { deMinutos, LISTAGEM } from "./regras";
 function valoresDe(evento: EventoDaLista | null): ValoresDoEvento {
   const tempo = deMinutos(evento?.tempoAtendimentoMinutos ?? null);
   const bloqueio = deMinutos(evento?.bloqueioRepeticaoMinutos ?? null);
+  const finalizacao = deMinutos(evento?.extras.tempoFinalizacaoMinutos ?? null);
+  const prorrogacao = deMinutos(evento?.extras.prorrogacaoMinutos ?? null);
+  const x = evento?.extras;
   return {
     nome: evento?.nome ?? "",
     descricao: evento?.descricao ?? "",
@@ -22,6 +25,21 @@ function valoresDe(evento: EventoDaLista | null): ValoresDoEvento {
     bloqueioQuantidade: bloqueio.quantidade,
     bloqueioUnidade: bloqueio.unidade,
     ativo: evento?.ativo ?? true,
+    finalizacaoQuantidade: finalizacao.quantidade,
+    finalizacaoUnidade: finalizacao.unidade,
+    statusFinal: x?.statusFinal ?? "",
+    usuarioFinalId: x?.usuarioFinalId ?? "",
+    responsavelAtendimentoId: x?.responsavelAtendimentoId ?? "",
+    enviarSuperiorImediato: x?.enviarSuperiorImediato ?? false,
+    emailsCopia: (x?.emailsCopia ?? []).join(", "),
+    prorrogacaoQuantidade: prorrogacao.quantidade,
+    prorrogacaoUnidade: prorrogacao.unidade,
+    alarme: x?.alarme ?? false,
+    finalizacaoAutomatica: x?.finalizacaoAutomatica ?? false,
+    finalizacaoPelaOcorrenciaInicio: x?.finalizacaoPelaOcorrenciaInicio ?? false,
+    nps: x?.nps ?? "",
+    tipoClassificacaoId: x?.tipoClassificacaoId ?? "",
+    grupoResponsavelId: x?.grupoResponsavelId ?? "",
   };
 }
 
@@ -65,6 +83,9 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
           superiores={dados.superiores}
           temSubtipos={dados.temSubtipos}
           sites={dados.sites}
+          usuarios={dados.usuarios}
+          classificacoes={dados.classificacoes}
+          gruposDeUsuarios={dados.gruposDeUsuarios}
         />
       </div>
     </div>

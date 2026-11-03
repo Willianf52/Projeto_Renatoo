@@ -41,6 +41,24 @@ export type EventoDaLista = {
   tempoAtendimentoMinutos: number | null;
   bloqueioRepeticaoMinutos: number | null;
   ativo: boolean;
+  /** Campos da 0083, como no Cadastro de Eventos do sistema de referencia. */
+  extras: ExtrasDoEvento;
+};
+
+export type ExtrasDoEvento = {
+  tempoFinalizacaoMinutos: number | null;
+  statusFinal: string;
+  usuarioFinalId: string;
+  responsavelAtendimentoId: string;
+  enviarSuperiorImediato: boolean;
+  emailsCopia: string[];
+  prorrogacaoMinutos: number | null;
+  alarme: boolean;
+  finalizacaoAutomatica: boolean;
+  finalizacaoPelaOcorrenciaInicio: boolean;
+  nps: string;
+  tipoClassificacaoId: string;
+  grupoResponsavelId: string;
 };
 
 type EventoDoBanco = {
@@ -51,6 +69,20 @@ type EventoDoBanco = {
   tempo_atendimento_minutos: number | null;
   bloqueio_repeticao_minutos: number | null;
   ativo: boolean;
+  // Opcionais: a leitura da 0083; os testes antigos montam sem eles.
+  tempo_finalizacao_minutos?: number | null;
+  status_final?: string | null;
+  usuario_final_id?: string | null;
+  responsavel_atendimento_id?: string | null;
+  enviar_superior_imediato?: boolean;
+  emails_copia?: string[];
+  prorrogacao_minutos?: number | null;
+  alarme?: boolean;
+  finalizacao_automatica?: boolean;
+  finalizacao_pela_ocorrencia_inicio?: boolean;
+  nps?: string | null;
+  tipo_classificacao_id?: number | null;
+  grupo_responsavel_id?: number | null;
 };
 
 type SiteDoBanco = { id: number; nome: string; ativo: boolean; grupos_sites: { nome: string } | null };
@@ -66,7 +98,12 @@ async function carregarTudo() {
     buscarEmPaginas<EventoDoBanco>((de, ate) =>
       supabase
         .from("eventos")
-        .select("id, nome, descricao, superior_id, tempo_atendimento_minutos, bloqueio_repeticao_minutos, ativo")
+        .select(
+          `id, nome, descricao, superior_id, tempo_atendimento_minutos, bloqueio_repeticao_minutos, ativo,
+           tempo_finalizacao_minutos, status_final, usuario_final_id, responsavel_atendimento_id,
+           enviar_superior_imediato, emails_copia, prorrogacao_minutos, alarme, finalizacao_automatica,
+           finalizacao_pela_ocorrencia_inicio, nps, tipo_classificacao_id, grupo_responsavel_id`,
+        )
         .order("id")
         .range(de, ate),
     ),
@@ -112,6 +149,21 @@ export function montarEventos(dados: Awaited<ReturnType<typeof carregarTudo>>): 
       tempoAtendimentoMinutos: e.tempo_atendimento_minutos,
       bloqueioRepeticaoMinutos: e.bloqueio_repeticao_minutos,
       ativo: e.ativo,
+      extras: {
+        tempoFinalizacaoMinutos: e.tempo_finalizacao_minutos ?? null,
+        statusFinal: e.status_final ?? "",
+        usuarioFinalId: e.usuario_final_id ?? "",
+        responsavelAtendimentoId: e.responsavel_atendimento_id ?? "",
+        enviarSuperiorImediato: e.enviar_superior_imediato ?? false,
+        emailsCopia: e.emails_copia ?? [],
+        prorrogacaoMinutos: e.prorrogacao_minutos ?? null,
+        alarme: e.alarme ?? false,
+        finalizacaoAutomatica: e.finalizacao_automatica ?? false,
+        finalizacaoPelaOcorrenciaInicio: e.finalizacao_pela_ocorrencia_inicio ?? false,
+        nps: e.nps ?? "",
+        tipoClassificacaoId: e.tipo_classificacao_id ? String(e.tipo_classificacao_id) : "",
+        grupoResponsavelId: e.grupo_responsavel_id ? String(e.grupo_responsavel_id) : "",
+      },
     }))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
@@ -141,10 +193,20 @@ export type DadosDoFormulario = {
   /** Evento com subtipos nao pode ganhar superior (um nivel, 0072). */
   temSubtipos: boolean;
   sites: Opcao[];
+  /** Para Responsavel e Usuario final (0083). */
+  usuarios: Opcao[];
+  classificacoes: Opcao[];
+  gruposDeUsuarios: Opcao[];
 };
 
 export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFormulario | null> {
-  const dados = await carregarTudo();
+  const supabase = await createClient();
+  const [dados, usuarios, classificacoes, grupos] = await Promise.all([
+    carregarTudo(),
+    supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
+    supabase.from("tipos_de_classificacao").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("grupos_usuarios").select("id, nome").order("nome"),
+  ]);
   const eventos = montarEventos(dados);
   const evento = id === null ? null : (eventos.find((e) => e.id === id) ?? null);
   if (id !== null && !evento) return null;
@@ -159,6 +221,9 @@ export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFo
       .filter((s) => s.ativo || evento?.sites.some((v) => v.id === s.id))
       .map((s) => ({ value: String(s.id), label: rotuloDoSite(s) }))
       .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    usuarios: (usuarios.data ?? []).map((u) => ({ value: u.id, label: u.nome_completo ?? "" })),
+    classificacoes: (classificacoes.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
+    gruposDeUsuarios: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
   };
 }
 
