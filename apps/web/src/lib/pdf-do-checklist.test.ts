@@ -6,16 +6,13 @@ vi.mock("server-only", () => ({}));
 const getChecklist = vi.fn();
 vi.mock("@/app/dashboard/checklistlab/historico-de-checklist/queries", () => ({
   getChecklistPeloCliente: (...args: unknown[]) => getChecklist(...args),
-  camposDoResumo: () => [
-    { rotulo: "Número/Ano", valor: "00029/2026" },
-    { rotulo: "Site", valor: "Rede → Posto Central" },
-    { rotulo: "Responsável", valor: "Ana Souza" },
-    { rotulo: "Nota", valor: "91%" },
-  ],
   TIPO_CONSULTORIA: "CONSULTORIA",
 }));
 
-const { gerarPdfDoChecklist, nomeDoArquivo, paraWinAnsi, quebrarEmLinhas } = await import("./pdf-do-checklist");
+const { enderecoDoSite, gerarPdfDoChecklist, nomeDoArquivo, notaComVirgula, paraWinAnsi, pintarPng, quebrarEmLinhas } =
+  await import("./pdf-do-checklist");
+const UPNGTipos = await import("@pdf-lib/upng");
+const UPNG = (UPNGTipos as unknown as { default?: typeof UPNGTipos }).default ?? UPNGTipos;
 
 /** PNG de 1x1 pixel: suficiente para o pdf-lib embutir. */
 const PNG = Uint8Array.from(
@@ -24,7 +21,19 @@ const PNG = Uint8Array.from(
 );
 
 const DETALHE = {
-  linha: { id: 46, numeroAno: "00029/2026", checklist: "Consultoria", tipo: "CONSULTORIA", totalPerguntas: 2 },
+  linha: {
+    id: 46,
+    numeroAno: "00029/2026",
+    checklist: "Consultoria",
+    tipo: "CONSULTORIA",
+    totalPerguntas: 2,
+    modelo: "Cooperativa de Crédito",
+    site: "Posto Central",
+    responsavel: "Ana Souza",
+    nota: 91,
+    enviadoEm: "2026-11-03T03:42:21Z",
+  },
+  visitaId: 113,
   respostas: [
     {
       perguntaId: 10,
@@ -59,7 +68,18 @@ function bancoFalso(arquivos: Record<string, Uint8Array>) {
                   ],
                 }),
               }
-            : { maybeSingle: async () => ({ data: { assinatura_path: "113/assinatura.png" } }) },
+            : tabela === "visitas"
+              ? {
+                  maybeSingle: async () => ({
+                    data: {
+                      id: 113,
+                      criado_em: "2026-11-03T03:41:33Z",
+                      sites: { nome: "Posto Central", endereco: null, numero: null, bairro: null, cidade: "São Paulo", uf: "SP" },
+                      leituras: [{ data_hora: "2026-11-03T03:41:33Z", qr_code_id: 601, area_id: null }],
+                    },
+                  }),
+                }
+              : { maybeSingle: async () => ({ data: { assinatura_path: "113/assinatura.png", criado_em: "2026-11-03T03:42:21Z" } }) },
       }),
     }),
     storage: {
@@ -103,12 +123,35 @@ describe("gerarPdfDoChecklist", () => {
     expect(pdf?.nome).toBe("checklist-00029-2026.pdf");
     const lido = await PDFDocument.load(pdf!.arquivo);
     expect(lido.getPageCount()).toBeGreaterThanOrEqual(1);
-    expect(lido.getTitle()).toBe("Checklist 00029/2026");
+    expect(lido.getTitle()).toBe("Posto Central 00029/2026");
   });
 
   it("checklist que nao existe devolve null", async () => {
     getChecklist.mockResolvedValue(null);
     expect(await gerarPdfDoChecklist(bancoFalso({}), 999)).toBeNull();
+  });
+});
+
+describe("pintarPng", () => {
+  it("pinta o traco branco da assinatura e mantem o transparente", () => {
+    const rgba = new Uint8Array([255, 255, 255, 255, 0, 0, 0, 0]);
+    const png = new Uint8Array(UPNG.encode([rgba.buffer], 2, 1, 0));
+
+    const pintado = new Uint8Array(UPNG.toRGBA8(UPNG.decode(pintarPng(png, { r: 26, g: 79, b: 176 }).slice().buffer))[0]);
+
+    expect([...pintado.slice(0, 4)]).toEqual([26, 79, 176, 255]);
+    expect(pintado[7]).toBe(0);
+  });
+});
+
+describe("cabecalho no formato do antigo", () => {
+  it("nota com virgula e endereco sem as partes vazias", () => {
+    expect(notaComVirgula(100)).toBe("100,00");
+    expect(notaComVirgula(91)).toBe("91,00");
+    expect(enderecoDoSite({ endereco: null, numero: null, bairro: null, cidade: "São Paulo", uf: "SP" })).toBe("São Paulo, SP");
+    expect(enderecoDoSite({ endereco: "Rua A", numero: "10", bairro: "Centro", cidade: "Barueri", uf: "SP" })).toBe(
+      "Rua A, 10 - Centro, Barueri, SP",
+    );
   });
 });
 
