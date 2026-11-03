@@ -2,8 +2,16 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { escaparLike, termoParaOr } from "@/lib/postgrest-escape";
-import { paginar } from "@/lib/supabase/query-helpers";
-import { FUNCOES_CONHECIDAS, NIVEIS_ACESSO, type FilterOption, type Situacao } from "./constantes";
+import { filtroDeId } from "@/lib/id-na-url";
+import { LIMITE_EXPORTACAO, paginar, resultadoExportacao } from "@/lib/supabase/query-helpers";
+import {
+  FUNCOES_CONHECIDAS,
+  NIVEIS_ACESSO,
+  SITUACAO_PADRAO,
+  SITUACOES,
+  type FilterOption,
+  type Situacao,
+} from "./constantes";
 
 export const PAGE_SIZE = 25;
 
@@ -44,6 +52,33 @@ export type UsuarioRow = {
   email_superior_checklist?: boolean;
   email_superior_evento?: boolean;
 };
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function primeiro(valor: string | string[] | undefined): string | undefined {
+  return (Array.isArray(valor) ? valor[0] : valor) || undefined;
+}
+
+/**
+ * Os filtros da URL. Aqui, e nao em `page.tsx`, porque o "Exportar para
+ * Excel" (`export/excel/route.ts`) le os mesmos parametros: o arquivo tem de
+ * sair com o filtro que esta na tela.
+ */
+export function extrairFiltros(params: SearchParams): UsuarioFiltros {
+  return {
+    busca: primeiro(params.busca),
+    funcao: primeiro(params.funcao),
+    tipo: primeiro(params.tipo),
+    nivelAcesso: primeiro(params.nivel_acesso),
+    grupoUsuarios: filtroDeId(primeiro(params.grupo_usuarios)),
+    // Valor fora da lista cai no padrao, como em Site / Planta: a URL e
+    // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
+    situacao: SITUACOES.some((s) => s.value === primeiro(params.situacao))
+      ? (primeiro(params.situacao) as UsuarioFiltros["situacao"])
+      : SITUACAO_PADRAO,
+    pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
+  };
+}
 
 const rotuloNivel = (cargo: string) =>
   NIVEIS_ACESSO.find((nivel) => nivel.value === cargo)?.label ?? cargo;
@@ -196,17 +231,65 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
 
   const { from, to } = paginar(filtros.pagina, PAGE_SIZE);
 
-  let query = supabase
-    .from("profiles")
-    .select(montarSelectDeUsuarios(Boolean(filtros.grupoUsuarios)), { count: "exact" })
-    .order("nome_completo", { ascending: true, nullsFirst: false })
-    // Homonimo e perfil sem nome preenchido empatam nesta ordenacao. Sem
-    // desempate a ordem entre eles varia de consulta para consulta, e como
-    // cada pagina e uma consulta nova, um usuario pode se repetir numa pagina
-    // e sumir da outra.
-    .order("id", { ascending: true })
-    .range(from, to);
+  const query = aplicarFiltros(
+    supabase
+      .from("profiles")
+      .select(montarSelectDeUsuarios(Boolean(filtros.grupoUsuarios)), { count: "exact" })
+      .order("nome_completo", { ascending: true, nullsFirst: false })
+      // Homonimo e perfil sem nome preenchido empatam nesta ordenacao. Sem
+      // desempate a ordem entre eles varia de consulta para consulta, e como
+      // cada pagina e uma consulta nova, um usuario pode se repetir numa pagina
+      // e sumir da outra.
+      .order("id", { ascending: true })
+      .range(from, to),
+    filtros,
+  );
 
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  const rows = await comNomeDoSuperior(supabase, (data ?? []) as unknown as PerfilSemSuperior[]);
+  return { rows, totalItems: count ?? 0 };
+}
+
+/** Colunas do "Exportar para Excel": as da tabela, sem "Ações". */
+export const COLUNAS_EXPORTACAO = [
+  "Nome",
+  "Login",
+  "Usuário Superior",
+  "E-mail",
+  "Função",
+  "Nível de Acesso",
+  "País",
+  "Situação",
+];
+
+/** O filtro inteiro, sem paginar, ate `LIMITE_EXPORTACAO`. */
+export async function getUsuariosParaExportar(
+  filtros: UsuarioFiltros,
+): Promise<{ rows: UsuarioRow[]; truncado: boolean }> {
+  const supabase = await createClient();
+  const { data, error } = await aplicarFiltros(
+    supabase
+      .from("profiles")
+      .select(montarSelectDeUsuarios(Boolean(filtros.grupoUsuarios)))
+      .order("nome_completo", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(0, LIMITE_EXPORTACAO),
+    filtros,
+  );
+  if (error) throw error;
+
+  const { rows, truncado } = resultadoExportacao((data ?? []) as unknown as PerfilSemSuperior[]);
+  return { rows: await comNomeDoSuperior(supabase, rows), truncado };
+}
+
+/**
+ * Os filtros da listagem, iguais para a tela e para a exportacao. `any` pelo
+ * mesmo motivo de `aplicarFiltros` nas outras telas: reencadear o construtor
+ * do PostgREST nao preserva o generic sem repetir cada metodo na assinatura.
+ */
+function aplicarFiltros(query: any, filtros: UsuarioFiltros) {
   if (filtros.grupoUsuarios) {
     query = query.eq("grupos_usuarios_membros.grupo_id", Number(filtros.grupoUsuarios));
   }
@@ -223,13 +306,7 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
   if (filtros.situacao === "ativos") query = query.eq("ativo", true);
   if (filtros.situacao === "inativos") query = query.eq("ativo", false);
 
-  query = comBusca(query, filtros.busca);
-
-  const { data, error, count } = await query;
-  if (error) throw error;
-
-  const rows = await comNomeDoSuperior(supabase, (data ?? []) as unknown as PerfilSemSuperior[]);
-  return { rows, totalItems: count ?? 0 };
+  return comBusca(query, filtros.busca);
 }
 
 type PerfilSemSuperior = Omit<UsuarioRow, "superior">;
