@@ -5,6 +5,7 @@ import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDe
 import { BuildingIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { SiteForm } from "../../SiteForm";
+import { valoresDoSite } from "../../constantes";
 import { getOpcoes, getSite, getSitesParaSuperior } from "../../queries";
 import { idNaUrl } from "@/lib/id-na-url";
 
@@ -65,38 +66,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           id={site.id}
           opcoes={opcoes}
           sitesSuperiores={sitesSuperiores}
-          valoresIniciais={{
-            nome: site.nome,
-            sigla: site.sigla ?? "",
-            // Os selects trabalham com string; o banco devolve number/uuid.
-            grupoSiteId: String(site.grupo_site_id),
-            tipoServicoId: site.tipo_servico_id === null ? "" : String(site.tipo_servico_id),
-            responsavelId: site.responsavel_id ?? "",
-            siteSuperiorId: site.site_superior_id === null ? "" : String(site.site_superior_id),
-            regional: site.regional ?? "",
-            cidade: site.cidade ?? "",
-            uf: site.uf ?? "",
-            latitude: site.latitude === null ? "" : String(site.latitude),
-            longitude: site.longitude === null ? "" : String(site.longitude),
-            observacao: site.observacao ?? "",
-            cep: site.cep ?? "",
-            endereco: site.endereco ?? "",
-            numero: site.numero ?? "",
-            bairro: site.bairro ?? "",
-            complemento: site.complemento ?? "",
-            pais: site.pais,
-            raioMetros: site.raio_metros === null ? "" : String(site.raio_metros),
-            codCliente: site.cod_cliente ?? "",
-            codPosto: site.cod_posto ?? "",
-            filial: site.filial ?? "",
-            infoAdicional1: site.info_adicional_1 ?? "",
-            infoAdicional2: site.info_adicional_2 ?? "",
-            emailsEventos: site.emails_eventos.join(", "),
-            recebeVisita: site.recebe_visita,
-            gerarQrcodeAutomatico: site.gerar_qrcode_automatico,
-            gerarRegistroColetas: site.gerar_registro_coletas,
-            ativo: site.ativo,
-          }}
+          valoresIniciais={valoresDoSite(site)}
         />
       </div>
     </div>
