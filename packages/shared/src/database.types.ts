@@ -398,6 +398,54 @@ export type Database = {
           },
         ]
       }
+      cliente: {
+        Row: {
+          ativo: boolean
+          cnpj: string | null
+          criado_em: string
+          legenda_nas_imagens: boolean
+          logotipo_path: string | null
+          min_caracteres_acoes: number
+          min_caracteres_descricao: number
+          nome_fantasia: string
+          nome_fantasia_no_remetente: boolean
+          ramo_atividade: string | null
+          razao_social: string | null
+          titulo_pdf: string | null
+          unica: boolean
+        }
+        Insert: {
+          ativo?: boolean
+          cnpj?: string | null
+          criado_em?: string
+          legenda_nas_imagens?: boolean
+          logotipo_path?: string | null
+          min_caracteres_acoes?: number
+          min_caracteres_descricao?: number
+          nome_fantasia: string
+          nome_fantasia_no_remetente?: boolean
+          ramo_atividade?: string | null
+          razao_social?: string | null
+          titulo_pdf?: string | null
+          unica?: boolean
+        }
+        Update: {
+          ativo?: boolean
+          cnpj?: string | null
+          criado_em?: string
+          legenda_nas_imagens?: boolean
+          logotipo_path?: string | null
+          min_caracteres_acoes?: number
+          min_caracteres_descricao?: number
+          nome_fantasia?: string
+          nome_fantasia_no_remetente?: boolean
+          ramo_atividade?: string | null
+          razao_social?: string | null
+          titulo_pdf?: string | null
+          unica?: boolean
+        }
+        Relationships: []
+      }
       coletores_dados: {
         Row: {
           ativo: boolean
