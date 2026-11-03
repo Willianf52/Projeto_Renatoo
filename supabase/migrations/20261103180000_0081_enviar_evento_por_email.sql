@@ -17,9 +17,11 @@
 --      operacao (a mesma regra de quem analisa, 0064). Envia para o e-mail de
 --      cadastro de cada pessoa ATIVA escolhida, sem repetir endereco.
 --
--- security definer porque a sessao nao escreve na fila (0065: so o
--- service_role). O portao e a checagem de `pode_ver_toda_operacao()` dentro
--- da funcao, que le o JWT de quem chama.
+-- O trabalho e `security definer` (a sessao nao escreve na fila: 0065, so o
+-- service_role) no schema `escrita`, fora do PostgREST, e `public` so tem o
+-- envelope `security invoker` -- a regra da 0050, no molde da 0067. O portao
+-- e a checagem de `pode_ver_toda_operacao()` dentro da funcao, que le o JWT
+-- de quem chama.
 -- ============================================================================
 
 -- 1) Motivo 'ENVIO' -----------------------------------------------------------
@@ -36,14 +38,14 @@ comment on column public.ocorrencia_emails.enviado_por is
   'Quem mandou o evento pelo "Enviar Evento" (motivo ENVIO). Nulo nas mensagens automaticas. Ver migration 0081.';
 
 -- 3) Enviar -------------------------------------------------------------------
-create or replace function public.enviar_ocorrencia_por_email(
+create or replace function escrita.enviar_ocorrencia_por_email(
   p_ocorrencia_id bigint,
   p_destinatarios uuid[]
 )
 returns integer
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = escrita, public, pg_temp
 as $$
 declare
   v_quem uuid := auth.uid();
@@ -85,8 +87,27 @@ begin
 end;
 $$;
 
-comment on function public.enviar_ocorrencia_por_email(bigint, uuid[]) is
+comment on function escrita.enviar_ocorrencia_por_email(bigint, uuid[]) is
   'Enfileira o evento para o e-mail de cadastro das pessoas escolhidas ("Enviar Evento" do detalhe). So quem ve toda a operacao. Devolve quantos e-mails entraram na fila. Ver migration 0081.';
+
+revoke all on function escrita.enviar_ocorrencia_por_email(bigint, uuid[]) from public, anon;
+grant execute on function escrita.enviar_ocorrencia_por_email(bigint, uuid[]) to authenticated;
+
+-- O envelope que o painel chama por RPC: mesmo nome, roda como quem chama.
+create or replace function public.enviar_ocorrencia_por_email(
+  p_ocorrencia_id bigint,
+  p_destinatarios uuid[]
+)
+returns integer
+language sql
+security invoker
+set search_path = public, pg_temp
+as $$
+  select escrita.enviar_ocorrencia_por_email(p_ocorrencia_id, p_destinatarios);
+$$;
+
+comment on function public.enviar_ocorrencia_por_email(bigint, uuid[]) is
+  '"Enviar Evento" do detalhe da ocorrencia. Envelope de escrita.enviar_ocorrencia_por_email -- migration 0081.';
 
 revoke all on function public.enviar_ocorrencia_por_email(bigint, uuid[]) from public, anon;
 grant execute on function public.enviar_ocorrencia_por_email(bigint, uuid[]) to authenticated;
