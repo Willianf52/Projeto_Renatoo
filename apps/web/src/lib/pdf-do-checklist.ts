@@ -10,6 +10,7 @@ import {
   type ChecklistDetalhe,
 } from "@/app/dashboard/checklistlab/historico-de-checklist/queries";
 import { formatarDataEHoraSeparadas, formatarEmissao } from "@/lib/data-hora";
+import { lerConfiguracaoDoCliente } from "@/lib/configuracao-do-cliente";
 import { LOGO_PARA_PAPEL_PNG_BASE64 } from "@/lib/logo-para-papel";
 
 /**
@@ -187,6 +188,8 @@ export function nomeDoArquivo(detalhe: Pick<ChecklistDetalhe, "linha">): string 
 /** Os dados do cabecalho, repetido em toda folha. */
 type Cabecalho = {
   site: string;
+  /** "Titulo do PDF" (Cadastros > Cliente, 0085): na faixa, antes do site. */
+  titulo: string;
   endereco: string;
   responsavel: string;
   idDaInspecao: string;
@@ -288,7 +291,7 @@ class Folha {
     const faixa = 20;
     const yDaFaixa = y - 18 - faixa;
     this.pagina.drawRectangle({ x: LADO, y: yDaFaixa, width: UTIL, height: faixa, color: AZUL_DA_FAIXA });
-    const nome = paraWinAnsi(c.site);
+    const nome = paraWinAnsi(c.titulo ? `${c.titulo} - ${c.site}` : c.site);
     const tamanho = 11;
     this.escrever(nome, (LARGURA - this.fontes.negrito.widthOfTextAtSize(nome, tamanho)) / 2, yDaFaixa + 6, {
       tamanho,
@@ -309,7 +312,7 @@ function desenharFoto(pagina: PDFPage, imagem: PDFImage, x: number, topo: number
 }
 
 /** "Anexos N" e as fotos em grade, cinco por fileira, com a legenda embaixo. */
-function desenharAnexos(folha: Folha, fotos: PDFImage[]) {
+function desenharAnexos(folha: Folha, fotos: PDFImage[], comLegenda = true) {
   if (fotos.length === 0) return;
   folha.espaco(ROTULO * 2 + FOTO.altura + 20);
   folha.escrever(`Anexos ${fotos.length}`, LADO + 8, folha.y - ROTULO - 4, { tamanho: ROTULO, cor: CINZA_DO_ROTULO });
@@ -322,7 +325,8 @@ function desenharAnexos(folha: Folha, fotos: PDFImage[]) {
     fotos.slice(i, i + FOTOS_POR_FILEIRA).forEach((imagem, j) => {
       const x = LADO + 8 + j * (FOTO.largura + vao);
       const altura = desenharFoto(folha.pagina, imagem, x, folha.y);
-      folha.escrever("Foto", x, folha.y - altura - 10, { tamanho: 8.5 });
+      // "Legenda nas Imagens" (Cadastros > Cliente, 0085).
+      if (comLegenda) folha.escrever("Foto", x, folha.y - altura - 10, { tamanho: 8.5 });
       maisAlta = Math.max(maisAlta, altura);
     });
     folha.y -= maisAlta + 22;
@@ -396,6 +400,7 @@ export async function gerarPdfDoChecklist(
   const inicio = leituras.find((l) => l.qr_code_id !== null)?.data_hora ?? leituras[0]?.data_hora ?? dadosDaVisita?.criado_em ?? linha.enviadoEm;
   const termino = [...leituras].reverse().find((l) => l.area_id !== null)?.data_hora ?? checklist?.criado_em ?? linha.enviadoEm;
 
+  const config = await lerConfiguracaoDoCliente(admin);
   const doc = await PDFDocument.create();
   doc.setTitle(paraWinAnsi(`${dadosDaVisita?.sites?.nome ?? linha.site} ${linha.numeroAno || linha.id}`));
   doc.setProducer("Portal Operacional Up Serviços");
@@ -425,6 +430,7 @@ export async function gerarPdfDoChecklist(
     fontes,
     {
       site,
+      titulo: config.tituloPdf,
       endereco: dadosDaVisita?.sites ? enderecoDoSite(dadosDaVisita.sites) : "",
       responsavel: linha.responsavel,
       idDaInspecao: String(detalhe.visitaId),
@@ -491,7 +497,11 @@ export async function gerarPdfDoChecklist(
     folha.separador();
     folha.y -= 2;
 
-    desenharAnexos(folha, resposta.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []));
+    desenharAnexos(
+      folha,
+      resposta.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []),
+      config.legendaNasImagens,
+    );
   }
 
   // Fotos gerais: o antigo so tem anexo por pergunta; aqui elas vem depois,
@@ -503,7 +513,7 @@ export async function gerarPdfDoChecklist(
     folha.espaco(TEXTO + 6 + ROTULO + 14 + FOTO.altura + 22);
     folha.escrever(consultoria ? "Fotos gerais" : "Fotos", LADO + 4, folha.y - TEXTO - 2, { negrito: true });
     folha.y -= TEXTO + 6;
-    desenharAnexos(folha, gerais);
+    desenharAnexos(folha, gerais, config.legendaNasImagens);
   }
 
   folha.espaco(ROTULO + 20);

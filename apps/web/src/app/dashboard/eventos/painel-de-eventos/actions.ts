@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { podeVerTodaAOperacao } from "@/lib/permissoes";
 import { createClient } from "@/lib/supabase/server";
-import { lerAndamento, lerEnvio } from "./andamentos";
+import { lerConfiguracaoDoCliente } from "@/lib/configuracao-do-cliente";
+import { erroDoMinimoDeTexto, lerAndamento, lerEnvio } from "./andamentos";
 
 const PAINEL = "/dashboard/eventos/painel-de-eventos";
 
@@ -37,6 +38,8 @@ export async function registrarAndamento(
   }
 
   const supabase = await createClient();
+  const minimo = erroDoMinimoDeTexto(dados.tipo, dados.texto, await lerConfiguracaoDoCliente(supabase));
+  if (minimo) return { erro: minimo };
   const { error } = await supabase.rpc("registrar_andamento_da_ocorrencia", {
     p_ocorrencia_id: dados.ocorrenciaId,
     p_tipo: dados.tipo,
