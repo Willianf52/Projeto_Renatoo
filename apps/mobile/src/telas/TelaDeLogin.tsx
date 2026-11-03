@@ -196,7 +196,13 @@ export function TelaDeLogin({
               })
             ).error,
           )
-        : await entrarComLogin(supabase.auth, env.urlDoPortal, digitado, senha);
+        : "recusada";
+      // Login do sistema antigo com "@" (`novo.fulano@empresa.com.br`) tem forma
+      // de e-mail sem ser o e-mail da conta -- la sao campos separados (achado
+      // de 31/10/2026). Recusado como e-mail, tenta como login, como o portal.
+      if (desfecho === "recusada") {
+        desfecho = await entrarComLogin(supabase.auth, env.urlDoPortal, digitado, senha);
+      }
     } catch {
       desfecho = "falhou";
     }
