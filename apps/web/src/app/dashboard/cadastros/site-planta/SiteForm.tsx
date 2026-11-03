@@ -4,6 +4,9 @@ import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
+import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
+import { SelecaoMultipla } from "@/components/dashboard/SelecaoMultipla";
+import { TIPOS_DE_INTERVENCAO } from "./constantes";
 import { salvarSite, type EstadoDoFormulario, type ValoresDoSite } from "./actions";
 import type { Opcao } from "./queries";
 
@@ -470,6 +473,86 @@ export function SiteForm({
             Recebem um e-mail quando uma ocorrência deste site abre e quando é finalizada. Separe por vírgula; até 20.
           </p>
         </Campo>
+
+        <Campo id="emails_checklist" rotulo="E-mails Checklist" className="sm:col-span-2">
+          <textarea
+            id="emails_checklist"
+            name="emails_checklist"
+            rows={2}
+            defaultValue={valores.emailsChecklist}
+            placeholder="contato@cliente.com.br"
+            aria-describedby="emails_checklist_ajuda"
+            className={`${getInputClasses(false)} resize-y`}
+          />
+          <p id="emails_checklist_ajuda" className="mt-1 text-xs text-brand-muted">
+            Recebem o aviso de inspeção, com o PDF, de todo checklist feito neste site. Separe por vírgula; até 20.
+          </p>
+        </Campo>
+
+        <div className="sm:col-span-2">
+          <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-brand-muted">
+            Notificações Eventos
+          </span>
+          <p className="mb-2 text-xs text-brand-muted">
+            Pessoas do portal que recebem um e-mail quando uma ocorrência deste site abre.
+          </p>
+          <SelecaoMultipla
+            name="notificar_eventos"
+            opcoes={opcoes.responsaveis}
+            iniciais={valores.notificarEventos}
+            rotuloDoItem="pessoa"
+            textoSemOpcoes="Nenhum usuário cadastrado ainda."
+          />
+        </div>
+
+        <Campo id="responsavel_perda_id" rotulo="Perda">
+          <Select
+            id="responsavel_perda_id"
+            name="responsavel_perda_id"
+            options={opcoes.responsaveis}
+            defaultValue={valores.responsavelPerdaId}
+            vazio="Nenhum"
+          />
+        </Campo>
+
+        <Campo id="responsavel_prevencao_id" rotulo="Prevenção">
+          <Select
+            id="responsavel_prevencao_id"
+            name="responsavel_prevencao_id"
+            options={opcoes.responsaveis}
+            defaultValue={valores.responsavelPrevencaoId}
+            vazio="Nenhum"
+          />
+        </Campo>
+
+        <Campo id="tipo_intervencao" rotulo="Tipo Intervenção">
+          <Select
+            id="tipo_intervencao"
+            name="tipo_intervencao"
+            options={TIPOS_DE_INTERVENCAO}
+            defaultValue={valores.tipoIntervencao}
+            vazio="Nenhum"
+          />
+        </Campo>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Campo id="data_instalacao" rotulo="Data Instalação">
+            <FilterDatePicker label="Data Instalação" name="data_instalacao" defaultValue={valores.dataInstalacao} />
+          </Campo>
+          <Texto
+            id="dias_instalacao"
+            rotulo="Dias de Instalação"
+            valor={valores.diasInstalacao}
+            inputMode="numeric"
+          />
+          <Campo id="data_desinstalacao" rotulo="Data Desinstalação">
+            <FilterDatePicker
+              label="Data Desinstalação"
+              name="data_desinstalacao"
+              defaultValue={valores.dataDesinstalacao}
+            />
+          </Campo>
+        </div>
 
         <Campo id="status" rotulo="Status">
           <Select

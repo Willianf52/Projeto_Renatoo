@@ -52,6 +52,14 @@ export type SiteRow = {
   info_adicional_1: string | null;
   info_adicional_2: string | null;
   emails_eventos: string[];
+  emails_checklist: string[];
+  notificar_eventos: string[];
+  responsavel_perda_id: string | null;
+  responsavel_prevencao_id: string | null;
+  tipo_intervencao: string | null;
+  data_instalacao: string | null;
+  dias_instalacao: number | null;
+  data_desinstalacao: string | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
@@ -73,6 +81,8 @@ const COLUNAS = `
   id, nome, sigla, regional, cidade, uf, latitude, longitude, observacao, ativo, criado_em,
   site_superior_id, cep, endereco, numero, bairro, complemento, pais, raio_metros,
   cod_cliente, cod_posto, filial, info_adicional_1, info_adicional_2, emails_eventos,
+  emails_checklist, notificar_eventos, responsavel_perda_id, responsavel_prevencao_id,
+  tipo_intervencao, data_instalacao, dias_instalacao, data_desinstalacao,
   recebe_visita, gerar_qrcode_automatico, gerar_registro_coletas,
   grupo_site_id, tipo_servico_id, responsavel_id,
   grupos_sites ( nome ),

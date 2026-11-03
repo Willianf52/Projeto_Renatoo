@@ -291,6 +291,37 @@ describe("endereço, hierarquia e códigos", () => {
     expect(chamadas).toHaveLength(0);
   });
 
+  it("grava os campos da 0082 e recusa data, dias e tipo de intervenção tortos", async () => {
+    const pessoa = "e0530000-0000-0000-0000-000000000009";
+    const fd = formulario({
+      ...MINIMO,
+      emails_checklist: "Checklist@Cliente.com.br",
+      tipo_intervencao: "CADEADO_BLUETOOTH",
+      data_instalacao: "2026-10-01",
+      dias_instalacao: "15",
+    });
+    fd.append("notificar_eventos", pessoa);
+    await salvarSite({}, fd);
+    expect(chamadas.find((c) => c.tipo === "insert")?.linha).toMatchObject({
+      emails_checklist: ["checklist@cliente.com.br"],
+      notificar_eventos: [pessoa],
+      tipo_intervencao: "CADEADO_BLUETOOTH",
+      data_instalacao: "2026-10-01",
+      dias_instalacao: 15,
+      data_desinstalacao: null,
+    });
+
+    const tortos: Record<string, string>[] = [
+      { data_instalacao: "2026-02-30" },
+      { dias_instalacao: "-1" },
+      { tipo_intervencao: "DRONE" },
+    ];
+    for (const torto of tortos) {
+      const estado = await salvarSite({}, formulario({ ...MINIMO, ...torto }));
+      expect(estado.erro, JSON.stringify(torto)).toBeTruthy();
+    }
+  });
+
   it("recusa raio negativo, que o banco aceitaria", async () => {
     const estado = await salvarSite({}, formulario({ ...MINIMO, raio_metros: "-5" }));
 

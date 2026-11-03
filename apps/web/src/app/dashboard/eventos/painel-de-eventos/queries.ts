@@ -171,6 +171,7 @@ type LinhaDoBanco = {
   pergunta_texto: string | null;
   resposta: string | null;
   observacao: string | null;
+  local_descricao: string | null;
   sites: SiteDoBanco | null;
   eventos: { nome: string } | null;
   subevento: { nome: string } | null;
@@ -182,6 +183,8 @@ export type LinhaDoPainel = {
   id: number;
   subtipo: string;
   classificacao: string;
+  /** "Local do evento" do Registrar Evento (0082). */
+  local: string;
   numeroAno: string;
   criadoEm: string;
   status: string;
@@ -191,7 +194,7 @@ export type LinhaDoPainel = {
   descricao: string[];
 };
 
-const SELECT_DA_LISTA = `id, numero, ano, criado_em, status, checklist_id, pergunta_texto, resposta, observacao,
+const SELECT_DA_LISTA = `id, numero, ano, criado_em, status, checklist_id, pergunta_texto, resposta, observacao, local_descricao,
   sites!inner ( nome, grupo_site_id, grupos_sites ( nome ) ),
   eventos!ocorrencias_evento_id_fkey ( nome ),
   subevento:eventos!ocorrencias_subevento_id_fkey ( nome ),
@@ -208,6 +211,7 @@ export function paraLinha(o: LinhaDoBanco): LinhaDoPainel {
     evento: o.eventos?.nome ?? "",
     subtipo: o.subevento?.nome ?? "",
     classificacao: o.tipos_de_classificacao?.nome ?? "",
+    local: o.local_descricao ?? "",
     usuarioAbertura: o.autor?.nome_completo ?? "",
     descricao: descricaoAutomatica({
       checklistId: o.checklist_id,

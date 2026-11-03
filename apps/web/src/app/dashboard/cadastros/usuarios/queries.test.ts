@@ -236,6 +236,7 @@ describe("toTableRow", () => {
       tipo: "PADRAO",
       ativo: true,
       pais: "Brasil",
+      lingua: "PT",
       superior_id: "def",
       superior: { nome_completo: "Gesiel" },
     });
@@ -263,6 +264,7 @@ describe("toTableRow", () => {
       tipo: "PADRAO",
       ativo: false,
       pais: "Brasil",
+      lingua: "PT",
       superior_id: null,
       superior: null,
     });

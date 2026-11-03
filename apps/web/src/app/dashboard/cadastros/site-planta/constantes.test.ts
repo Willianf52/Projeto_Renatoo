@@ -33,6 +33,14 @@ function modelo(extra: Partial<ModeloParaDuplicar> = {}): ModeloParaDuplicar {
     info_adicional_1: "i1",
     info_adicional_2: "i2",
     emails_eventos: ["a@x.test", "b@x.test"],
+    emails_checklist: ["c@x.test"],
+    notificar_eventos: ["e0530000-0000-0000-0000-000000000009"],
+    responsavel_perda_id: null,
+    responsavel_prevencao_id: "e0530000-0000-0000-0000-000000000002",
+    tipo_intervencao: "RASTREADORES",
+    data_instalacao: "2026-10-01",
+    dias_instalacao: 30,
+    data_desinstalacao: null,
     ...extra,
   };
 }
@@ -65,6 +73,13 @@ describe("valoresParaDuplicar", () => {
     expect(valores.observacao).toBe("Portaria 24h");
     expect(valores.infoAdicional2).toBe("i2");
     expect(valores.emailsEventos).toBe("a@x.test, b@x.test");
+    // Campos da 0082 tambem vao na copia completa.
+    expect(valores.emailsChecklist).toBe("c@x.test");
+    expect(valores.notificarEventos).toEqual(["e0530000-0000-0000-0000-000000000009"]);
+    expect(valores.responsavelPrevencaoId).toBe("e0530000-0000-0000-0000-000000000002");
+    expect(valores.tipoIntervencao).toBe("RASTREADORES");
+    expect(valores.dataInstalacao).toBe("2026-10-01");
+    expect(valores.diasInstalacao).toBe("30");
   });
 
   it("sem sigla na origem, a cópia continua sem sigla", () => {

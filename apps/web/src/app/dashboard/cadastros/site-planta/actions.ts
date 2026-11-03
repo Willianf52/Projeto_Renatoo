@@ -7,6 +7,7 @@ import { texto } from "@/lib/form-data";
 import { lerListaDeEmails } from "@/lib/lista-de-emails";
 import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
+import { TIPOS_DE_INTERVENCAO } from "./constantes";
 import { esquemaDeTexto, lerCoordenada, lerRaio } from "./esquema";
 
 const LISTAGEM = "/dashboard/cadastros/site-planta";
@@ -39,6 +40,16 @@ export type ValoresDoSite = {
   infoAdicional2: string;
   /** "E-mails Eventos" (0065), como digitado: separados por virgula ou linha. */
   emailsEventos: string;
+  /** "E-mails Checklist" (0082): recebem o aviso de inspecao do site. */
+  emailsChecklist: string;
+  /** "Notificacoes Eventos" (0082): ids das pessoas avisadas na abertura. */
+  notificarEventos: string[];
+  responsavelPerdaId: string;
+  responsavelPrevencaoId: string;
+  tipoIntervencao: string;
+  dataInstalacao: string;
+  diasInstalacao: string;
+  dataDesinstalacao: string;
   recebeVisita: boolean;
   gerarQrcodeAutomatico: boolean;
   gerarRegistroColetas: boolean;
@@ -78,6 +89,14 @@ function extrairValores(formData: FormData): ValoresDoSite {
     infoAdicional1: texto(formData, "info_adicional_1"),
     infoAdicional2: texto(formData, "info_adicional_2"),
     emailsEventos: texto(formData, "emails_eventos"),
+    emailsChecklist: texto(formData, "emails_checklist"),
+    notificarEventos: formData.getAll("notificar_eventos").map((v) => String(v).trim()).filter(Boolean),
+    responsavelPerdaId: texto(formData, "responsavel_perda_id"),
+    responsavelPrevencaoId: texto(formData, "responsavel_prevencao_id"),
+    tipoIntervencao: texto(formData, "tipo_intervencao"),
+    dataInstalacao: texto(formData, "data_instalacao"),
+    diasInstalacao: texto(formData, "dias_instalacao"),
+    dataDesinstalacao: texto(formData, "data_desinstalacao"),
     // Checkbox nao marcado nao e enviado pelo navegador -- ausencia e "false".
     recebeVisita: formData.get("recebe_visita") !== null,
     gerarQrcodeAutomatico: formData.get("gerar_qrcode_automatico") !== null,
@@ -114,11 +133,32 @@ type LinhaDoSite = {
   info_adicional_1: string | null;
   info_adicional_2: string | null;
   emails_eventos: string[];
+  emails_checklist: string[];
+  notificar_eventos: string[];
+  responsavel_perda_id: string | null;
+  responsavel_prevencao_id: string | null;
+  tipo_intervencao: string | null;
+  data_instalacao: string | null;
+  dias_instalacao: number | null;
+  data_desinstalacao: string | null;
   recebe_visita: boolean;
   gerar_qrcode_automatico: boolean;
   gerar_registro_coletas: boolean;
   ativo: boolean;
 };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+/** "aaaa-mm-dd" que existe no calendario, ou vazio. */
+function lerData(valor: string, rotulo: string): { ok: true; valor: string | null } | { ok: false; erro: string } {
+  if (!valor) return { ok: true, valor: null };
+  const data = new Date(`${valor}T12:00:00Z`);
+  if (!DATA.test(valor) || Number.isNaN(data.getTime()) || data.toISOString().slice(0, 10) !== valor) {
+    return { ok: false, erro: `${rotulo} inválida.` };
+  }
+  return { ok: true, valor };
+}
 
 /**
  * `id` do site em edicao, para barrar o site apontar para si mesmo como
@@ -179,6 +219,35 @@ function validar(
   const emails = lerListaDeEmails(valores.emailsEventos, 20, "e-mails de eventos");
   if (!emails.ok) return emails;
 
+  // Campos da 0082. Mesmos tetos dos CHECK de la.
+  const emailsChecklist = lerListaDeEmails(valores.emailsChecklist, 20, "e-mails de checklist");
+  if (!emailsChecklist.ok) return emailsChecklist;
+
+  const notificar = Array.from(new Set(valores.notificarEventos));
+  if (notificar.length > 50 || !notificar.every((id) => UUID.test(id))) {
+    return { ok: false, erro: "Seleção de pessoas para notificar inválida." };
+  }
+  for (const [id, rotulo] of [
+    [valores.responsavelPerdaId, "Perda"],
+    [valores.responsavelPrevencaoId, "Prevenção"],
+  ] as const) {
+    if (id && !UUID.test(id)) return { ok: false, erro: `Responsável de ${rotulo} inválido.` };
+  }
+  if (valores.tipoIntervencao && !TIPOS_DE_INTERVENCAO.some((t) => t.value === valores.tipoIntervencao)) {
+    return { ok: false, erro: "Tipo de intervenção inválido." };
+  }
+  const dataInstalacao = lerData(valores.dataInstalacao, "Data de instalação");
+  if (!dataInstalacao.ok) return dataInstalacao;
+  const dataDesinstalacao = lerData(valores.dataDesinstalacao, "Data de desinstalação");
+  if (!dataDesinstalacao.ok) return dataDesinstalacao;
+  let diasInstalacao: number | null = null;
+  if (valores.diasInstalacao) {
+    diasInstalacao = Number(valores.diasInstalacao);
+    if (!Number.isInteger(diasInstalacao) || diasInstalacao < 0 || diasInstalacao > 36500) {
+      return { ok: false, erro: "Dias de instalação deve ser um número inteiro entre 0 e 36500." };
+    }
+  }
+
   return {
     ok: true,
     linha: {
@@ -209,6 +278,14 @@ function validar(
       info_adicional_1: valores.infoAdicional1 || null,
       info_adicional_2: valores.infoAdicional2 || null,
       emails_eventos: emails.emails,
+      emails_checklist: emailsChecklist.emails,
+      notificar_eventos: notificar,
+      responsavel_perda_id: valores.responsavelPerdaId || null,
+      responsavel_prevencao_id: valores.responsavelPrevencaoId || null,
+      tipo_intervencao: valores.tipoIntervencao || null,
+      data_instalacao: dataInstalacao.valor,
+      dias_instalacao: diasInstalacao,
+      data_desinstalacao: dataDesinstalacao.valor,
       recebe_visita: valores.recebeVisita,
       gerar_qrcode_automatico: valores.gerarQrcodeAutomatico,
       gerar_registro_coletas: valores.gerarRegistroColetas,
