@@ -138,6 +138,10 @@ select 'Tipo 0083', true
 update public.ocorrencias set criado_em = now() - interval '2 hours'
  where id = (select valor from ids_teste where chave = 'vencida');
 
+-- Como o pg_cron chama: sem sessao de ninguem (o `set local` acima ainda
+-- carregava o INSPETOR, e o trigger da 0064 recusaria o andamento).
+set local "request.jwt.claims" to '';
+
 select manutencao.finalizar_ocorrencias_vencidas();
 
 select is(
