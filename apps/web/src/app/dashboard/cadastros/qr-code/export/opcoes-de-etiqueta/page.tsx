@@ -1,6 +1,7 @@
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { FORMATOS_DE_ETIQUETA } from "@/components/dashboard/FolhaDeEtiquetas";
 import { QrCodeIcon } from "@/components/dashboard/icons";
+import { SelecaoMultipla } from "@/components/dashboard/SelecaoMultipla";
 import { Button } from "@/components/Button";
 import { extrairFiltros, getQrCodesParaExportar, primeiro, type SearchParams } from "../../queries";
 
@@ -22,7 +23,14 @@ export default async function OpcoesDeEtiquetaPage({ searchParams }: { searchPar
   const { rows, truncado } = await getQrCodesParaExportar(extrairFiltros(params));
   const filtros = Object.entries(params)
     .map(([chave, valor]) => [chave, primeiro(valor)] as const)
-    .filter(([chave, valor]) => valor && !["pagina", "salvo", "formato", "logo"].includes(chave));
+    .filter(([chave, valor]) => valor && !["pagina", "salvo", "formato", "logo", "etiqueta_sites"].includes(chave));
+  // Os sites das etiquetas do filtro, para escolher dentro da caixa, como no
+  // antigo ("Selecione os QR-Codes que deseja..." com a lista de locais).
+  const sitesDasEtiquetas = [
+    ...new Map(rows.map((r) => [String(r.site_id), r.sites?.nome ?? `Site ${r.site_id}`])).entries(),
+  ]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 
   return (
     <div className="space-y-4">
@@ -70,6 +78,18 @@ export default async function OpcoesDeEtiquetaPage({ searchParams }: { searchPar
               ))}
             </div>
           </fieldset>
+
+          <div>
+            <span className="mb-2 block text-sm font-medium text-white">Sites</span>
+            <p className="mb-2 text-xs text-brand-muted">Nenhum marcado: todos os sites do filtro.</p>
+            <SelecaoMultipla
+              name="etiqueta_sites"
+              opcoes={sitesDasEtiquetas}
+              iniciais={[]}
+              rotuloDoItem="site"
+              textoSemOpcoes="Nenhum site no filtro."
+            />
+          </div>
 
           <label className="flex items-center gap-2 text-sm text-white">
             <input type="checkbox" name="logo" value="1" className="h-4 w-4 accent-brand-green" />

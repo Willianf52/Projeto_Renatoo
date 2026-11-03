@@ -26,7 +26,6 @@ import {
   CAMPO_DE_DATA_OPCOES,
   CONCLUSAO_OPCOES,
   ORIGEM_OPCOES,
-  SITUACAO_DA_LISTA,
   SITUACAO_OPCOES,
   STATUS_OPCOES,
   TABLE_COLUMNS,
@@ -373,8 +372,8 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
     </div>,
     linha.responsavel,
     <CelulaDoSite key="site" linha={linha} />,
-    "-",
-    <Selo key="situacao" texto={SITUACAO_DA_LISTA} cor="azul" />,
+    linha.agenda,
+    <Selo key="situacao" texto={linha.situacao} cor={linha.situacao === "Atrasado" ? "amarelo" : "azul"} />,
     <Selo
       key="conclusao"
       texto={conclusaoDaLista(linha)}
@@ -392,6 +391,13 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
         tom="excel"
       >
         <TabletIcon className="h-4 w-4" />
+      </Acao>
+      {/* "PDF" e "Download CSV" de cada linha, como no sistema de referencia. */}
+      <Acao titulo={`PDF do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/pdf`} tom="pdf" target="_blank">
+        <PdfIcon className="h-4 w-4" />
+      </Acao>
+      <Acao titulo={`Download CSV do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/csv`} tom="excel">
+        <ExcelIcon className="h-4 w-4" />
       </Acao>
     </div>,
   ]);
@@ -413,7 +419,13 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
         buildPageHref={buildPageHref}
         minWidth={MIN_WIDTH}
         emptyTitle="Nenhum checklist encontrado"
-        emptyDescription="Ajuste o período ou os filtros acima para localizar checklists enviados pelo app de campo."
+        emptyDescription={
+          // Agendado e Nao Realizado sao agendamentos que ainda nao viraram
+          // checklist: moram na tela Agendamentos (0084), nao aqui.
+          filtros.conclusao === "agendado" || filtros.conclusao === "nao_realizado"
+            ? "Agendamentos ainda não feitos ficam em ChecklistLab › Agendamentos (status Agendado, No prazo ou Atrasado)."
+            : "Ajuste o período ou os filtros acima para localizar checklists enviados pelo app de campo."
+        }
       />
     </>
   );

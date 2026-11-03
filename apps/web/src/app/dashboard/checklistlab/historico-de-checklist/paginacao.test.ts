@@ -112,7 +112,7 @@ describe("getHistorico sem pagina (exportacoes)", () => {
   it("nem chama o banco quando o filtro nao acha nada no sistema novo", async () => {
     estado.total = 10;
 
-    const historico = await getHistorico({ ...SEM_FILTROS, situacao: "atrasado" });
+    const historico = await getHistorico({ ...SEM_FILTROS, conclusao: "aprovado" });
 
     expect(estado.chamadas).toEqual([]);
     expect(historico).toEqual({ linhas: [], total: 0, pagina: 1, truncado: false });
