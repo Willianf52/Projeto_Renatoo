@@ -501,8 +501,15 @@ export function TelaDeChecklist({
       rolagem.current?.scrollTo({ y: 0, animated: true });
       return;
     }
+    // Modelo com foto obrigatoria (0091): a pergunta so libera o "Proximo"
+    // depois de ter ao menos uma foto, e o aviso aparece aqui, nao so no fim.
+    if (fotoObrigatoriaPorPergunta && (fotosDePergunta[perguntaAtual.id]?.length ?? 0) === 0) {
+      setErro("Anexe ao menos uma foto nesta pergunta para continuar.");
+      setDestaque(null);
+      return;
+    }
     irPara(indice + 1);
-  }, [indice, irPara, perguntaAtual, respostas]);
+  }, [fotoObrigatoriaPorPergunta, fotosDePergunta, indice, irPara, perguntaAtual, respostas]);
 
   const grupos = useMemo(() => gruposDasPerguntas(perguntas ?? []), [perguntas]);
 
