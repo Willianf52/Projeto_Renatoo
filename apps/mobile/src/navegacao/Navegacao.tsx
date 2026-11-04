@@ -12,7 +12,6 @@ import { usePisoDeVersao } from "../lib/usePisoDeVersao";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
 import { TelaDeAgendados } from "../telas/TelaDeAgendados";
 import { TelaDeRespondidos } from "../telas/TelaDeRespondidos";
-import { TelaDeLogs } from "../telas/TelaDeLogs";
 import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
 import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
@@ -54,7 +53,6 @@ export type RotasDoApp = {
   /** Com `siteId`, so os agendamentos do local (aberta de dentro da inspecao). */
   Agendados: { siteId?: number } | undefined;
   Respondidos: { siteId: number };
-  Logs: undefined;
   TipoDeVisita: AlvoDoChecklist;
   Checklist: AlvoDoChecklist & { tipo: TipoDeVisita };
 };
@@ -194,8 +192,6 @@ export function Navegacao() {
         <Pilha.Screen name="Agendados" options={{ title: "Checklists agendados" }}>
           {({ route }) => <TelaDeAgendados siteId={route.params?.siteId ?? null} />}
         </Pilha.Screen>
-
-        <Pilha.Screen name="Logs" component={TelaDeLogs} options={{ title: "Logs de envio de dados" }} />
 
         <Pilha.Screen name="Respondidos" options={{ title: "Checklists respondidos" }}>
           {({ route }) => <TelaDeRespondidos siteId={route.params.siteId} />}
