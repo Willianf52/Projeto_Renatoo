@@ -93,7 +93,10 @@ const CORRETIVA = {
   tipo: "CORRETIVA" as const,
   motivo: "Extintor vencido no corredor B.",
   fotos: ["file:///tmp/foto-1.jpg"],
-  assinatura: "iVBORw0KGgo=",
+  assinaturas: [
+    { nome: "Willian", png: "iVBORw0KGgo=" },
+    { nome: "Gesiel", png: "iVBORw0KGgp=" },
+  ],
 };
 
 /** Uma consultoria valida: sem motivo, com ao menos uma resposta. */
@@ -103,7 +106,10 @@ const CONSULTORIA = {
   modeloId: 3,
   respostas: [{ perguntaId: 1, resposta: "SIM" as const, observacao: "" }],
   fotos: ["file:///tmp/foto-1.jpg"],
-  assinatura: "iVBORw0KGgo=",
+  assinaturas: [
+    { nome: "Willian", png: "iVBORw0KGgo=" },
+    { nome: "Gesiel", png: "iVBORw0KGgp=" },
+  ],
 };
 
 beforeEach(() => {
@@ -146,11 +152,55 @@ describe("envio bem-sucedido", () => {
     expect(upload.mock.invocationCallOrder[0]).toBeLessThan(rpc.mock.invocationCallOrder[0]);
   });
 
-  it("sobe a assinatura como png e a foto como jpeg", async () => {
+  it("sobe as duas assinaturas como png e a foto como jpeg", async () => {
     await enviarChecklist(CORRETIVA);
 
     expect(upload.mock.calls[0][2]).toMatchObject({ contentType: "image/png" });
-    expect(upload.mock.calls[1][2]).toMatchObject({ contentType: "image/jpeg" });
+    expect(upload.mock.calls[1][2]).toMatchObject({ contentType: "image/png" });
+    expect(upload.mock.calls[2][2]).toMatchObject({ contentType: "image/jpeg" });
+  });
+
+  /** O nome de cada pessoa vai junto, na ordem colhida, para o PDF (0090). */
+  it("manda as duas assinaturas com o nome e o caminho de cada uma", async () => {
+    await enviarChecklist(CORRETIVA);
+
+    const args = rpc.mock.calls[0][1];
+    expect(args.p_assinaturas).toEqual([
+      { nome: "Willian", storage_path: estado.subidos[0] },
+      { nome: "Gesiel", storage_path: estado.subidos[1] },
+    ]);
+    // O caminho antigo e o da primeira.
+    expect(args.p_assinatura_path).toBe(estado.subidos[0]);
+  });
+
+  it("apara o nome antes de mandar", async () => {
+    await enviarChecklist({
+      ...CORRETIVA,
+      assinaturas: [
+        { nome: "  Willian   Souza ", png: "iVBORw0KGgo=" },
+        { nome: "Gesiel", png: "iVBORw0KGgp=" },
+      ],
+    });
+
+    expect(rpc.mock.calls[0][1].p_assinaturas[0].nome).toBe("Willian Souza");
+  });
+
+  it("com uma assinatura so, recusa sem subir nada", async () => {
+    const resultado = await enviarChecklist({ ...CORRETIVA, assinaturas: [CORRETIVA.assinaturas[0]] });
+
+    expect(resultado).toEqual({ ok: false, erro: "Colha as 2 assinaturas." });
+    expect(upload).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("com nome em branco, recusa sem subir nada", async () => {
+    const resultado = await enviarChecklist({
+      ...CORRETIVA,
+      assinaturas: [CORRETIVA.assinaturas[0], { nome: "   ", png: "iVBORw0KGgp=" }],
+    });
+
+    expect(resultado).toEqual({ ok: false, erro: "Informe o nome de quem vai assinar." });
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it("nunca sobrescreve: upsert fica desligado em todo upload", async () => {
@@ -176,7 +226,7 @@ describe("envio bem-sucedido", () => {
     // segundo upload em vez de anexar a segunda foto.
     await enviarChecklist({ ...CORRETIVA, fotos: ["a.jpg", "b.jpg"] });
 
-    const fotos = estado.subidos.slice(1);
+    const fotos = estado.subidos.slice(2);
     expect(fotos).toHaveLength(2);
     expect(new Set(fotos).size).toBe(2);
   });
@@ -185,7 +235,8 @@ describe("envio bem-sucedido", () => {
     // Sem isto, uma assinatura de cada visita fica no aparelho para sempre.
     await enviarChecklist(CORRETIVA);
 
-    expect(estado.criados).toHaveLength(1);
+    // Uma por assinatura.
+    expect(estado.criados).toHaveLength(2);
     expect(estado.apagados).toEqual(estado.criados);
   });
 });
@@ -441,20 +492,20 @@ describe("reenvio depois de falha", () => {
     upload.mockImplementation(async (caminho: string) => {
       chamadas += 1;
       estado.subidos.push(caminho);
-      // assinatura ok, foto "a" ok, foto "b" falha na primeira tentativa
-      return { error: chamadas === 3 ? { message: "rede caiu" } : null };
+      // duas assinaturas ok, foto "a" ok, foto "b" falha na primeira tentativa
+      return { error: chamadas === 4 ? { message: "rede caiu" } : null };
     });
 
     const primeira = await enviarChecklist(envio, jaEnviadas);
     expect(primeira.ok).toBe(false);
-    expect(estado.subidos).toHaveLength(3);
+    expect(estado.subidos).toHaveLength(4);
 
     const segunda = await enviarChecklist(envio, jaEnviadas);
     expect(segunda).toEqual({ ok: true, checklistId: 99 });
 
-    // Uma ida so a mais: a foto "b". Assinatura e foto "a" reaproveitadas.
-    expect(estado.subidos).toHaveLength(4);
-    expect(rpc.mock.calls[0][1].p_fotos).toEqual([estado.subidos[1], estado.subidos[3]]);
+    // Uma ida so a mais: a foto "b". As duas assinaturas e a foto "a" reaproveitadas.
+    expect(estado.subidos).toHaveLength(5);
+    expect(rpc.mock.calls[0][1].p_fotos).toEqual([estado.subidos[2], estado.subidos[4]]);
     expect(rpc.mock.calls[0][1].p_assinatura_path).toBe(estado.subidos[0]);
   });
 
@@ -462,9 +513,9 @@ describe("reenvio depois de falha", () => {
     const jaEnviadas = new Map<string, string>();
 
     await enviarChecklist(CORRETIVA, jaEnviadas);
-    await enviarChecklist({ ...CORRETIVA, assinatura: "outroTraco=" }, jaEnviadas);
+    await enviarChecklist({ ...CORRETIVA, assinaturas: [CORRETIVA.assinaturas[0], { nome: "Gesiel", png: "outroTraco=" }] }, jaEnviadas);
 
-    // 2 da primeira (assinatura + foto) + 1 da segunda (so a assinatura nova)
-    expect(upload).toHaveBeenCalledTimes(3);
+    // 3 da primeira (duas assinaturas + foto) + 1 da segunda (so a assinatura nova)
+    expect(upload).toHaveBeenCalledTimes(4);
   });
 });

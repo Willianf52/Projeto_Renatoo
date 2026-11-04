@@ -143,9 +143,11 @@ async function Detalhe({ params, searchParams }: Props) {
         </Cartao>
       )}
 
-      <Cartao titulo="Assinatura do responsável no local" atraso="240ms">
+      <Cartao titulo={detalhe.assinaturas.length > 1 ? "Assinaturas" : "Assinatura do responsável no local"} atraso="240ms">
         {detalhe.temAssinatura ? (
-          <div className="p-4">
+          <div className="flex flex-wrap gap-4 p-4">
+            {detalhe.assinaturas.map((assinatura) => (
+              <figure key={assinatura.ordem} className="space-y-1">
             {/* O app grava o traco em BRANCO (`cores.texto`, sobre o navy do
                 quadro) num PNG de fundo transparente. Sobre `bg-white` a
                 assinatura ficava invisivel; sobre o navy fixo (`bg-tinta`, que
@@ -156,10 +158,15 @@ async function Detalhe({ params, searchParams }: Props) {
                 (ver midia.ts); next/image faria a otimizacao ir buscar a
                 mesma URL de novo, sem cookie, e receber 404. */}
             <img
-              src={`${LISTAGEM}/${linha.id}/assinatura`}
-              alt={`Assinatura do checklist ${linha.id}`}
+              src={`${LISTAGEM}/${linha.id}/assinatura/${assinatura.ordem}`}
+              alt={`Assinatura ${assinatura.ordem} do checklist ${linha.id}`}
               className="max-h-48 rounded-md border border-slate-700 bg-tinta p-2 print:border-0 print:bg-transparent print:invert"
             />
+            {assinatura.nome ? (
+              <figcaption className="text-xs text-slate-400 print:text-black">Assinado por {assinatura.nome}</figcaption>
+            ) : null}
+              </figure>
+            ))}
           </div>
         ) : (
           <Vazio titulo="Sem assinatura" descricao="Este checklist não tem imagem de assinatura no acervo." />

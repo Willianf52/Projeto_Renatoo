@@ -1,5 +1,7 @@
 import type { TipoDeVisita } from "@projeto-renatoo/shared";
 
+import { mensagemDaPendenciaDeAssinaturas } from "./assinaturas";
+
 /**
  * O que ainda falta para fechar o checklist, na ordem em que aparece na tela.
  *
@@ -27,7 +29,8 @@ export type EstadoDoChecklist = {
   escolhaDeModeloPendente?: boolean;
   /** Gerais e de pergunta, somadas: qualquer uma comprova a visita. */
   quantidadeDeFotos: number;
-  temAssinatura: boolean;
+  /** Quantas assinaturas ja foram colhidas; o checklist exige `QUANTIDADE_DE_ASSINATURAS` (04/11/2026). */
+  assinaturasColhidas: number;
   /** Observacao de cada pergunta, como digitada. */
   observacoes?: Readonly<Record<number, string>>;
   /**
@@ -70,8 +73,9 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
     pendencias.push({ alvo: "fotos", mensagem: "Anexe ao menos uma foto." });
   }
 
-  if (!estado.temAssinatura) {
-    pendencias.push({ alvo: "assinatura", mensagem: "Colha a assinatura do responsável." });
+  const faltaAssinar = mensagemDaPendenciaDeAssinaturas(estado.assinaturasColhidas);
+  if (faltaAssinar) {
+    pendencias.push({ alvo: "assinatura", mensagem: faltaAssinar });
   }
 
   return pendencias;
@@ -177,6 +181,6 @@ function pecaDoResumo(pendencia: Pendencia): string {
     case "fotos":
       return "uma foto";
     case "assinatura":
-      return "a assinatura";
+      return "as assinaturas";
   }
 }

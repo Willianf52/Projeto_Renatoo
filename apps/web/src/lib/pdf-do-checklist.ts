@@ -155,6 +155,25 @@ export function pintarPng(png: Uint8Array, cor: { r: number; g: number; b: numbe
   return new Uint8Array(UPNG.encode([rgba.buffer], imagem.width, imagem.height, 0));
 }
 
+/**
+ * Quais assinaturas desenhar e com que nome: as da tabela nova na ordem, ou, se
+ * ela nao tem nenhuma, a do caminho antigo do checklist (sem nome).
+ */
+export function assinaturasParaDesenhar(
+  linhas: readonly { ordem: number; nome: string | null; storage_path: string }[] | null | undefined,
+  caminhoAntigo: string | null,
+): { nome: string | null; caminho: string }[] {
+  const lista = [...(linhas ?? [])].sort((a, b) => a.ordem - b.ordem).map((l) => ({ nome: l.nome, caminho: l.storage_path }));
+  if (lista.length === 0 && caminhoAntigo) return [{ nome: null, caminho: caminhoAntigo }];
+  return lista;
+}
+
+/** O texto embaixo da assinatura: "Assinado por Willian", ou o de sempre sem nome. */
+export function legendaDaAssinatura(nome: string | null): string {
+  const limpo = (nome ?? "").trim();
+  return limpo ? `Assinado por ${limpo}` : "Assinatura do responsável no local";
+}
+
 /** "100,00": a nota como o antigo escreve. */
 export function notaComVirgula(nota: number): string {
   return nota.toFixed(2).replace(".", ",");
@@ -381,7 +400,7 @@ export async function gerarPdfDoChecklist(
 
   // Caminhos dos arquivos, endereco do site e horarios da inspecao: o que o
   // cabecalho do antigo mostra e o detalhe da tela nao traz.
-  const [{ data: fotos }, { data: checklist }, { data: visita }] = await Promise.all([
+  const [{ data: fotos }, { data: checklist }, { data: visita }, { data: linhasDeAssinatura }] = await Promise.all([
     admin.from("checklist_fotos").select("id, storage_path, pergunta_id").eq("checklist_id", id).order("id"),
     admin.from("checklists_visita").select("assinatura_path, criado_em").eq("id", id).maybeSingle(),
     admin
@@ -389,6 +408,7 @@ export async function gerarPdfDoChecklist(
       .select("id, criado_em, sites ( nome, endereco, numero, bairro, cidade, uf ), leituras ( data_hora, qr_code_id, area_id )")
       .eq("id", detalhe.visitaId)
       .maybeSingle(),
+    admin.from("checklist_assinaturas").select("ordem, nome, storage_path").eq("checklist_id", id).order("ordem"),
   ]);
 
   const { linha } = detalhe;
@@ -416,10 +436,17 @@ export async function gerarPdfDoChecklist(
       if (imagem) imagemPorFoto.set(foto.id, imagem);
     }),
   );
-  const [assinatura, logo] = await Promise.all([
-    checklist?.assinatura_path
-      ? baixar(admin, checklist.assinatura_path).then((b) => embutir(doc, b, (png) => pintarPng(png, AZUL_DA_ASSINATURA)))
-      : null,
+  // As assinaturas na ordem colhida, cada uma com o nome de quem assinou
+  // (0090). Sem linha na tabela nova, o checklist que so tem `assinatura_path`
+  // sai com UMA, sem nome.
+  const origensDasAssinaturas = assinaturasParaDesenhar(linhasDeAssinatura, checklist?.assinatura_path ?? null);
+  const [assinaturas, logo] = await Promise.all([
+    Promise.all(
+      origensDasAssinaturas.map(async (origem) => ({
+        nome: origem.nome,
+        imagem: await baixar(admin, origem.caminho).then((b) => embutir(doc, b, (png) => pintarPng(png, AZUL_DA_ASSINATURA))),
+      })),
+    ),
     embutir(doc, Uint8Array.from(Buffer.from(LOGO_PARA_PAPEL_PNG_BASE64, "base64"))),
   ]);
 
@@ -520,16 +547,28 @@ export async function gerarPdfDoChecklist(
   folha.escrever("Observações", LADO + 4, folha.y - TEXTO - 2);
   folha.y -= TEXTO + 14;
 
-  if (assinatura) {
-    const ajuste = assinatura.scaleToFit(UTIL / 2 - 20, 110);
-    folha.espaco(ajuste.height + 40);
-    const x = LADO + (UTIL / 2 - ajuste.width) / 2;
-    folha.pagina.drawImage(assinatura, { x, y: folha.y - ajuste.height, width: ajuste.width, height: ajuste.height });
-    const legenda = "Assinatura do responsável no local";
-    folha.escrever(legenda, LADO + (UTIL / 2 - fontes.normal.widthOfTextAtSize(paraWinAnsi(legenda), 8.5)) / 2, folha.y - ajuste.height - 18, {
-      tamanho: 8.5,
+  // Lado a lado, duas por fileira: a imagem e, embaixo, "Assinado por <nome>".
+  const desenhaveis = assinaturas.flatMap((a) => (a.imagem ? [{ nome: a.nome, imagem: a.imagem }] : []));
+  for (let inicio = 0; inicio < desenhaveis.length; inicio += 2) {
+    const fileira = desenhaveis.slice(inicio, inicio + 2);
+    const ajustes = fileira.map((a) => a.imagem.scaleToFit(UTIL / 2 - 20, 110));
+    const altura = Math.max(...ajustes.map((ajuste) => ajuste.height));
+    folha.espaco(altura + 40);
+    fileira.forEach((assinatura, coluna) => {
+      const ajuste = ajustes[coluna];
+      const esquerda = LADO + coluna * (UTIL / 2);
+      folha.pagina.drawImage(assinatura.imagem, {
+        x: esquerda + (UTIL / 2 - ajuste.width) / 2,
+        y: folha.y - ajuste.height,
+        width: ajuste.width,
+        height: ajuste.height,
+      });
+      const legenda = legendaDaAssinatura(assinatura.nome);
+      folha.escrever(legenda, esquerda + (UTIL / 2 - fontes.normal.widthOfTextAtSize(paraWinAnsi(legenda), 8.5)) / 2, folha.y - altura - 18, {
+        tamanho: 8.5,
+      });
     });
-    folha.y -= ajuste.height + 26;
+    folha.y -= altura + 26;
   }
 
   // Rodape do antigo em toda folha: linha, emissao a esquerda, "N de M" no centro.

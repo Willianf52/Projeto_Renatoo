@@ -215,6 +215,41 @@ export type Database = {
           },
         ]
       }
+      checklist_assinaturas: {
+        Row: {
+          checklist_id: number
+          criado_em: string
+          id: number
+          nome: string | null
+          ordem: number
+          storage_path: string
+        }
+        Insert: {
+          checklist_id: number
+          criado_em?: string
+          id?: never
+          nome?: string | null
+          ordem: number
+          storage_path: string
+        }
+        Update: {
+          checklist_id?: number
+          criado_em?: string
+          id?: never
+          nome?: string | null
+          ordem?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assinaturas_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_emails: {
         Row: {
           checklist_id: number
@@ -2262,6 +2297,7 @@ export type Database = {
       registrar_checklist: {
         Args: {
           p_assinatura_path: string
+          p_assinaturas?: Json
           p_fotos: string[]
           p_fotos_de_pergunta?: Json
           p_modelo_id?: number

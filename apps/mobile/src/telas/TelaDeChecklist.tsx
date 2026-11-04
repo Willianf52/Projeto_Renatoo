@@ -42,7 +42,8 @@ import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascun
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
-import { AreaDeAssinatura, type ControleDaAssinatura } from "../componentes/AreaDeAssinatura";
+import { SecaoDeAssinaturas } from "../componentes/SecaoDeAssinaturas";
+import type { AssinaturaColhida } from "../campo/assinaturas";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
@@ -187,14 +188,10 @@ export function TelaDeChecklist({
    * rascunho recuperado deve reabrir.
    */
   const [posicao, setPosicao] = useState<{ modeloId: number; indice: number } | null>(null);
-  const [temAssinatura, setTemAssinatura] = useState(false);
+  // As duas assinaturas, cada uma com o nome de quem assinou (04/11/2026).
+  const [assinaturas, setAssinaturas] = useState<AssinaturaColhida[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  // Rolagem do formulario travada enquanto o dedo esta no quadro de
-  // assinatura -- sem isso, no iPhone, a pagina subia no meio do traco.
-  const [assinando, setAssinando] = useState(false);
-
-  const assinatura = useRef<ControleDaAssinatura>(null);
   const bordas = useSafeAreaInsets();
 
   /**
@@ -422,7 +419,7 @@ export function TelaDeChecklist({
       escolhaDeModeloPendente,
       // Gerais e de pergunta, somadas: qualquer uma comprova a visita.
       quantidadeDeFotos: fotos.length + (tipo === "CONSULTORIA" ? fotosDasPerguntas.length : 0),
-      temAssinatura,
+      assinaturasColhidas: assinaturas.length,
       observacoes,
       minimoDaObservacao,
     }),
@@ -434,7 +431,7 @@ export function TelaDeChecklist({
       escolhaDeModeloPendente,
       fotos.length,
       fotosDasPerguntas.length,
-      temAssinatura,
+      assinaturas.length,
       observacoes,
       minimoDaObservacao,
     ],
@@ -656,16 +653,6 @@ export function TelaDeChecklist({
       }
 
       const lista = perguntas ?? [];
-      const traco = await assinatura.current?.capturar();
-
-      if (!traco) {
-        // Com `temAssinatura` verdadeiro (senao a pendencia acima teria
-        // parado), o `null` e falha de rasterizacao, nao traco faltando:
-        // mandar o inspetor "colher a assinatura" seria pedir o que ele ja fez.
-        setErro("Não foi possível gerar a assinatura. Toque em Finalizar de novo.");
-        return;
-      }
-
       setEnviando(true);
 
       // Depois das checagens locais e antes da primeira foto: o caminho da
@@ -699,7 +686,7 @@ export function TelaDeChecklist({
               }))
             : undefined,
         fotos,
-        assinatura: traco,
+        assinaturas,
       }, midiaJaEnviada.current);
 
       if (!resultado.ok) {
@@ -728,7 +715,7 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, observacoes, pendencias, perguntas, respostas, rolarAte, site, tipo]);
+  }, [aoConcluir, assinaturas, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, observacoes, pendencias, perguntas, respostas, rolarAte, site, tipo]);
 
   // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
   // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
@@ -757,7 +744,6 @@ export function TelaDeChecklist({
         ref={rolagem}
         style={estilos.rolagem}
         contentContainerStyle={estilos.conteudo}
-        scrollEnabled={!assinando}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -1054,11 +1040,10 @@ export function TelaDeChecklist({
             ) : null}
 
             <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
-              <AreaDeAssinatura
-                rotulo="Assinatura do responsável"
-                aoMudar={setTemAssinatura}
-                aoAssinar={setAssinando}
-                ref={assinatura}
+              <SecaoDeAssinaturas
+                assinaturas={assinaturas}
+                aoMudar={setAssinaturas}
+                destacada={destacar("assinatura")}
               />
             </View>
           </>
