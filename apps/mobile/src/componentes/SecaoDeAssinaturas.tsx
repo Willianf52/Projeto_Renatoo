@@ -33,18 +33,21 @@ export function SecaoDeAssinaturas({
   assinaturas,
   aoMudar,
   destacada = false,
+  exigidas = QUANTIDADE_DE_ASSINATURAS,
 }: {
   assinaturas: readonly AssinaturaColhida[];
   aoMudar: (assinaturas: AssinaturaColhida[]) => void;
   /** Pinta a borda de erro: a tela chama quando a pendencia do envio e esta. */
   destacada?: boolean;
+  /** Quantas o modelo exige (0092): 1 nos carros, 2 nos demais. */
+  exigidas?: number;
 }) {
   const [etapa, setEtapa] = useState<Etapa>(null);
   const [nome, setNome] = useState("");
   const [erroDoNome, setErroDoNome] = useState<string | null>(null);
 
-  const completas = assinaturas.length >= QUANTIDADE_DE_ASSINATURAS;
-  const pendencia = mensagemDaPendenciaDeAssinaturas(assinaturas.length);
+  const completas = assinaturas.length >= exigidas;
+  const pendencia = mensagemDaPendenciaDeAssinaturas(assinaturas.length, exigidas);
 
   const abrirNome = useCallback((posicao: number, nomeInicial = "") => {
     setNome(nomeInicial);
@@ -81,7 +84,7 @@ export function SecaoDeAssinaturas({
         {assinaturas.map((assinatura, indice) => (
           <View key={indice} style={estilos.cartao}>
             <View style={estilos.cartaoTexto}>
-              <Text style={estilos.cartaoTitulo}>{tituloDaAssinatura(indice + 1)}</Text>
+              <Text style={estilos.cartaoTitulo}>{tituloDaAssinatura(indice + 1, exigidas)}</Text>
               <Text style={estilos.cartaoNome} numberOfLines={1}>
                 {assinatura.nome}
               </Text>
@@ -109,8 +112,12 @@ export function SecaoDeAssinaturas({
 
       <Text style={[estilos.contagem, destacada && !completas && estilos.contagemComErro]} accessibilityLiveRegion="polite">
         {completas
-          ? `${QUANTIDADE_DE_ASSINATURAS} de ${QUANTIDADE_DE_ASSINATURAS} assinaturas colhidas.`
-          : `${assinaturas.length} de ${QUANTIDADE_DE_ASSINATURAS} assinaturas. ${pendencia ?? ""}`}
+          ? exigidas === 1
+            ? "Assinatura colhida."
+            : `${exigidas} de ${exigidas} assinaturas colhidas.`
+          : exigidas === 1
+            ? (pendencia ?? "")
+            : `${assinaturas.length} de ${exigidas} assinaturas. ${pendencia ?? ""}`}
       </Text>
 
       <Modal
@@ -122,7 +129,7 @@ export function SecaoDeAssinaturas({
       >
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={estilos.fundoDaCaixa}>
           <View style={estilos.caixa}>
-            <Text style={estilos.caixaTitulo}>{tituloDaAssinatura(etapa?.posicao ?? 1)}</Text>
+            <Text style={estilos.caixaTitulo}>{tituloDaAssinatura(etapa?.posicao ?? 1, exigidas)}</Text>
             <Text style={estilos.caixaApoio}>Informe o nome de quem vai assinar</Text>
 
             <Campo
@@ -156,7 +163,7 @@ export function SecaoDeAssinaturas({
 
       <PranchetaDeAssinatura
         visivel={etapa?.passo === "assinar"}
-        titulo={etapa?.passo === "assinar" ? `${tituloDaAssinatura(etapa.posicao)} (${etapa.nome})` : ""}
+        titulo={etapa?.passo === "assinar" ? `${tituloDaAssinatura(etapa.posicao, exigidas)} (${etapa.nome})` : ""}
         aoVoltar={() => setEtapa((atual) => (atual?.passo === "assinar" ? { passo: "nome", posicao: atual.posicao, nomeInicial: atual.nome } : null))}
         aoSalvar={salvar}
       />

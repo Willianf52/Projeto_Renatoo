@@ -41,6 +41,10 @@ export type ValoresDoModelo = {
   grupos: string[];
   /** "Exige aprovacao" (0089): o checklist nasce Aguardando Autorizacao. */
   exigeAprovacao: boolean;
+  /** "Foto obrigatoria" (0091): o app exige foto em todas as perguntas. */
+  fotoObrigatoria: boolean;
+  /** "Assinaturas" (0092): quantas o app exige, 1 ou 2. */
+  quantidadeDeAssinaturas: 1 | 2;
 };
 
 export type EstadoDoFormulario = {
@@ -56,6 +60,9 @@ function extrairValores(formData: FormData): ValoresDoModelo {
     // cadastro novo -- mesmo select de duas opcoes de `perguntas`.
     ativo: String(formData.get("status") ?? "") !== "inativo",
     exigeAprovacao: formData.get("exige_aprovacao") === "on",
+    fotoObrigatoria: formData.get("foto_obrigatoria") === "on",
+    // Qualquer coisa diferente de "1" cai em 2, o padrao.
+    quantidadeDeAssinaturas: String(formData.get("quantidade_de_assinaturas") ?? "") === "1" ? 1 : 2,
     // `getAll`: um checkbox escondido por grupo marcado (`SelecaoMultipla`).
     grupos: formData
       .getAll("grupos")
@@ -99,7 +106,13 @@ export async function salvarModelo(
   if (!validacao.ok) return { erro: validacao.erro, valores };
 
   const supabase = await createClient();
-  const linha = { nome: valores.nome, ativo: valores.ativo, exige_aprovacao: valores.exigeAprovacao };
+  const linha = {
+    nome: valores.nome,
+    ativo: valores.ativo,
+    exige_aprovacao: valores.exigeAprovacao,
+    foto_obrigatoria: valores.fotoObrigatoria,
+    quantidade_de_assinaturas: valores.quantidadeDeAssinaturas,
+  };
 
   let modeloId: number;
   let padrao = false;

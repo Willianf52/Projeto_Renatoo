@@ -2,6 +2,7 @@ import { modelosDoGrupo, tipoDeResposta, type LigacaoDeModelo, type ModeloResumi
 
 import { abrirFila } from "../campo/fila";
 import { supabase } from "./supabase";
+import { assinaturasExigidasPeloModelo } from "../campo/assinaturas";
 import type { PerguntaDoModelo } from "./modelos-do-checklist";
 
 /**
@@ -89,12 +90,34 @@ async function todasAsPaginas<T>(
   }
 }
 
+/**
+ * Uma linha de `modelos_checklist` no formato do app. `foto_obrigatoria` (0091)
+ * ausente ou nula vale como falso; `quantidade_de_assinaturas` (0092), 2.
+ */
+export function modeloDaLinha(linha: {
+  id: number;
+  nome: string;
+  padrao: boolean;
+  ativo: boolean;
+  foto_obrigatoria?: boolean | null;
+  quantidade_de_assinaturas?: number | null;
+}): ModeloResumido {
+  return {
+    id: linha.id,
+    nome: linha.nome,
+    padrao: linha.padrao,
+    ativo: linha.ativo,
+    fotoObrigatoria: linha.foto_obrigatoria === true,
+    quantidadeDeAssinaturas: assinaturasExigidasPeloModelo(linha.quantidade_de_assinaturas),
+  };
+}
+
 /** Baixa tudo e troca a copia de uma vez. Rejeita sem sinal; a anterior fica. */
 export async function atualizarCopiaDoChecklist(): Promise<void> {
   const [sites, modelos, ligacoes, perguntas] = await Promise.all([
     todasAsPaginas((de, ate) => supabase.from("sites").select("id, grupo_site_id").order("id").range(de, ate)),
     todasAsPaginas((de, ate) =>
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo").order("id").range(de, ate),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas").order("id").range(de, ate),
     ),
     todasAsPaginas((de, ate) =>
       supabase
@@ -116,7 +139,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
 
   const copia: CopiaDoChecklist = {
     gruposDosSites: Object.fromEntries(sites.map((site) => [String(site.id), site.grupo_site_id])),
-    modelos,
+    modelos: modelos.map(modeloDaLinha),
     ligacoes,
     perguntas: agruparPerguntas(perguntas),
   };

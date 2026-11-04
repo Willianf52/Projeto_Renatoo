@@ -56,7 +56,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
         <ModeloForm
           id={modelo.id}
           padrao={modelo.padrao}
-          valoresIniciais={{ nome: modelo.nome, ativo: modelo.ativo, grupos: modelo.grupos, exigeAprovacao: modelo.exigeAprovacao }}
+          valoresIniciais={{ nome: modelo.nome, ativo: modelo.ativo, grupos: modelo.grupos, exigeAprovacao: modelo.exigeAprovacao, fotoObrigatoria: modelo.fotoObrigatoria, quantidadeDeAssinaturas: modelo.quantidadeDeAssinaturas }}
           grupos={grupos}
         />
       </div>

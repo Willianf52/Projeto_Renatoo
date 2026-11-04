@@ -46,6 +46,63 @@ describe("pendenciasDoChecklist", () => {
     ]);
   });
 
+  /** Checklist dos carros: uma assinatura so (0092, 04/11/2026). */
+  describe("modelo que exige uma assinatura", () => {
+    it("sem assinatura, falta a assinatura (no singular)", () => {
+      const pendencias = pendenciasDoChecklist(estado({ assinaturasColhidas: 0, assinaturasExigidas: 1 }));
+
+      expect(pendencias).toEqual([{ alvo: "assinatura", mensagem: "Colha a assinatura.", umaSo: true }]);
+      expect(textoDoResumo(pendencias)).toBe("Falta: a assinatura.");
+    });
+
+    it("com uma assinatura, nao falta nada", () => {
+      expect(pendenciasDoChecklist(estado({ assinaturasColhidas: 1, assinaturasExigidas: 1 }))).toEqual([]);
+    });
+  });
+
+  /** Checklist dos carros: foto em TODAS as perguntas (0091, 04/11/2026). */
+  describe("modelo com foto obrigatoria em todas as perguntas", () => {
+    const respondidas = { 11: "SIM", 12: "SIM", 13: "SIM" } as const;
+    const base = () =>
+      estado({
+        tipo: "CONSULTORIA",
+        perguntas,
+        respostas: respondidas,
+        quantidadeDeFotos: 0,
+        fotoObrigatoriaPorPergunta: true,
+      });
+
+    it("pergunta sem foto fica pendente, apontando a primeira", () => {
+      const [pendencia] = pendenciasDoChecklist({ ...base(), fotosPorPergunta: { 11: 1 } });
+
+      expect(pendencia).toMatchObject({ alvo: "perguntas", perguntaId: 12, faltam: 2, foto: true });
+      expect(pendencia.mensagem).toContain("Anexe foto em todas as perguntas");
+    });
+
+    it("com foto em todas, nao ha pendencia", () => {
+      expect(pendenciasDoChecklist({ ...base(), fotosPorPergunta: { 11: 1, 12: 3, 13: 1 } })).toEqual([]);
+    });
+
+    it("sem a opcao ligada, a foto continua opcional", () => {
+      expect(
+        pendenciasDoChecklist({ ...base(), fotoObrigatoriaPorPergunta: false, fotosPorPergunta: {} }),
+      ).toEqual([]);
+    });
+
+    it("primeiro as respostas: foto so e cobrada de quem ja respondeu tudo", () => {
+      const [pendencia] = pendenciasDoChecklist({ ...base(), respostas: { 11: "SIM" }, fotosPorPergunta: {} });
+
+      expect(pendencia).toMatchObject({ alvo: "perguntas", perguntaId: 12 });
+      expect(pendencia).not.toHaveProperty("foto");
+    });
+
+    it("o resumo do rodape diz que faltam fotos", () => {
+      expect(textoDoResumo(pendenciasDoChecklist({ ...base(), fotosPorPergunta: { 11: 1 } }))).toBe(
+        "Falta: foto em 2 perguntas.",
+      );
+    });
+  });
+
   /** O checklist exige as DUAS assinaturas, cada uma com nome (04/11/2026). */
   it("com uma so assinatura, ainda falta a segunda", () => {
     const pendencias = pendenciasDoChecklist(estado({ assinaturasColhidas: 1 }));

@@ -1148,25 +1148,31 @@ export type Database = {
           ativo: boolean
           criado_em: string
           exige_aprovacao: boolean
+          foto_obrigatoria: boolean
           id: number
           nome: string
           padrao: boolean
+          quantidade_de_assinaturas: number
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
           exige_aprovacao?: boolean
+          foto_obrigatoria?: boolean
           id?: never
           nome: string
           padrao?: boolean
+          quantidade_de_assinaturas?: number
         }
         Update: {
           ativo?: boolean
           criado_em?: string
           exige_aprovacao?: boolean
+          foto_obrigatoria?: boolean
           id?: never
           nome?: string
           padrao?: boolean
+          quantidade_de_assinaturas?: number
         }
         Relationships: []
       }
