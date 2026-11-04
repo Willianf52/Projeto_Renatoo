@@ -164,9 +164,9 @@ export const SITUACAO_OPCOES = [
 
 export const SITUACAO_DA_LISTA = "No prazo";
 
-/** As oito do sistema de referencia. So "Incompleto" e "Finalizado" existem no
- * sistema novo (nao ha agenda, autorizacao nem aprovacao); as demais ficam na
- * lista para a tela ser a mesma, e nao acham nada. */
+/** As oito do sistema de referencia. "Agendado" e "Nao Realizado" ficam na
+ * tela Agendamentos (ainda nao viraram checklist); a aprovacao veio na 0089.
+ * "Cancelado" fica na lista para a tela ser a mesma, e nao acha nada. */
 export const CONCLUSAO_OPCOES = [
   { value: "agendado", label: "Agendado" },
   { value: "incompleto", label: "Incompleto" },
@@ -357,6 +357,8 @@ export type HistoricoLinha = {
   dataPlanejada: string | null;
   /** "No prazo" | "Atrasado" | "Antecipado", pela agenda (0087). */
   situacao: string;
+  /** "AGUARDANDO" | "APROVADO" | "REPROVADO" quando o modelo exige aprovacao (0089); `null` nos demais. */
+  aprovacao: string | null;
 };
 
 
@@ -411,6 +413,7 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
     // A agenda vem da funcao do banco (0087); a linha montada aqui (detalhe)
     // nao a consulta.
     agenda: "",
+    aprovacao: null,
     dataPlanejada: null,
     situacao: SITUACAO_DA_LISTA,
   };
@@ -461,7 +464,7 @@ export function textoDaSituacao(linha: HistoricoLinha): string {
  * tivesse achado.
  */
 export function filtrosSemResultado(filtros: Filtros): boolean {
-  if (filtros.conclusao && filtros.conclusao !== "finalizado" && filtros.conclusao !== "incompleto") return true;
+  if (filtros.conclusao && !CONCLUSOES_DO_BANCO.has(filtros.conclusao)) return true;
   if (filtros.atividade || filtros.status === "inativos") return true;
   if (filtros.numeroAno && !interpretarNumeroAno(filtros.numeroAno)) return true;
   return false;
@@ -625,6 +628,7 @@ export type LinhaDoBanco = {
   agenda_nome?: string | null;
   data_planejada?: string | null;
   situacao?: string | null;
+  aprovacao?: string | null;
 };
 
 /** A linha da tela, a partir da do banco -- as mesmas colunas de `montarLinha`. */
@@ -652,6 +656,7 @@ export function paraLinhaDoHistorico(linha: LinhaDoBanco): HistoricoLinha {
     agenda: linha.agenda_nome ?? "",
     dataPlanejada: linha.data_planejada ?? null,
     situacao: rotuloDaSituacao(linha.situacao),
+    aprovacao: linha.aprovacao ?? null,
   };
 }
 
@@ -772,9 +777,20 @@ export function formatarDataHoraComSegundos(valor: string): string {
   return Number.isNaN(data.getTime()) ? "" : FORMATO_COM_SEGUNDOS.format(data).replace(",", "");
 }
 
-/** "Finalizado" ou "Incompleto", o selo da coluna Conclusao. */
+/** As conclusoes que o banco filtra (0079 e 0089). */
+const CONCLUSOES_DO_BANCO = new Set(["finalizado", "incompleto", "aguardando_autorizacao", "aprovado", "reprovado"]);
+
+/** O rotulo da aprovacao (0089), ou `null` quando o modelo nao exige. */
+export function rotuloDaAprovacao(aprovacao: string | null): string | null {
+  if (aprovacao === "AGUARDANDO") return "Aguardando Autorização";
+  if (aprovacao === "APROVADO") return "Aprovado";
+  if (aprovacao === "REPROVADO") return "Reprovado";
+  return null;
+}
+
+/** O selo da coluna Conclusao: a aprovacao, quando ha; senao Finalizado ou Incompleto. */
 export function conclusaoDaLista(linha: HistoricoLinha): string {
-  return estaConcluido(linha) ? "Finalizado" : "Incompleto";
+  return rotuloDaAprovacao(linha.aprovacao) ?? (estaConcluido(linha) ? "Finalizado" : "Incompleto");
 }
 
 /**

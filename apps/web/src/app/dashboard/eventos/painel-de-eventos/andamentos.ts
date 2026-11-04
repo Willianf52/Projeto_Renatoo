@@ -208,8 +208,11 @@ export function lerAndamento(formData: FormData): { ok: true; dados: DadosDoAnda
 }
 
 /** Status que ainda aceitam analise e finalizacao (o trigger da 0064 recusa os outros). */
+/** Os status de encerramento (0064 e 0089): nao recebem mais andamento. */
+export const STATUS_ENCERRADOS = ["ATENDIDO", "CANCELADO", "CONCLUIDO", "NAO_REALIZADO"] as const;
+
 export function aceitaAndamento(status: string): boolean {
-  return status !== "ATENDIDO" && status !== "CANCELADO";
+  return !(STATUS_ENCERRADOS as readonly string[]).includes(status);
 }
 
 /** Teto do "Enviar Evento", o mesmo da funcao do banco (0081). */

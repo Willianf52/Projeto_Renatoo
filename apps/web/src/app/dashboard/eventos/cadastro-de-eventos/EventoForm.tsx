@@ -111,6 +111,7 @@ export function EventoForm({
   classificacoes,
   gruposDeUsuarios,
   setores,
+  gruposDeLocais,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
@@ -122,6 +123,7 @@ export function EventoForm({
   classificacoes: Opcao[];
   gruposDeUsuarios: Opcao[];
   setores: Opcao[];
+  gruposDeLocais: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(salvarEvento, {});
   const valores = estado.valores ?? valoresIniciais;
@@ -232,6 +234,38 @@ export function EventoForm({
         />
         <p className="mt-1.5 text-xs text-brand-muted">Nenhum marcado: o evento vale para todos os sites.</p>
       </div>
+
+      {/* "Permissoes de visualizacao" do sistema de referencia (0089). */}
+      <fieldset className="space-y-4 rounded-md border border-slate-800 p-4">
+        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-brand-muted">
+          Permissões de visualização
+        </legend>
+        <p className="text-xs text-brand-muted">
+          Nenhum grupo marcado: o evento aparece para todos. Com Grupo de Locais, só nos sites desses grupos; com Grupo
+          de Usuários, só para quem é de um deles.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {(
+            [
+              ["perm_web_locais", "Web: Grupos de Locais", gruposDeLocais, valores.permWebLocais],
+              ["perm_web_usuarios", "Web: Grupos de Usuários", gruposDeUsuarios, valores.permWebUsuarios],
+              ["perm_app_locais", "App: Grupos de Locais", gruposDeLocais, valores.permAppLocais],
+              ["perm_app_usuarios", "App: Grupos de Usuários", gruposDeUsuarios, valores.permAppUsuarios],
+            ] as const
+          ).map(([nome, rotulo, opcoes, iniciais]) => (
+            <div key={nome}>
+              <span className={rotuloClasses}>{rotulo}</span>
+              <SelecaoMultipla
+                name={nome}
+                opcoes={[...opcoes]}
+                iniciais={[...iniciais]}
+                rotuloDoItem="grupo"
+                textoSemOpcoes="Nenhum grupo cadastrado ainda."
+              />
+            </div>
+          ))}
+        </div>
+      </fieldset>
 
       <fieldset className="space-y-4 rounded-md border border-slate-800 p-4">
         <legend className="px-1 text-xs font-medium uppercase tracking-wide text-brand-muted">

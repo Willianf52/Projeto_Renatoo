@@ -273,13 +273,15 @@ describe("textoDaSituacao", () => {
 describe("filtrosSemResultado", () => {
   // Os filtros da referencia que nao acham nada no sistema novo: a tela nem
   // chama o banco.
-  it("Conclusao que depende de aprovacao, Atividade e Inativos nao acham nada; Situacao e Origem vao ao banco (0087)", () => {
+  it("Cancelado, Atividade e Inativos nao acham nada; Situacao, Origem e aprovacao vao ao banco (0087, 0089)", () => {
     expect(filtrosSemResultado(SEM_FILTROS)).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "no_prazo" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, situacao: "atrasado" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "finalizado" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "incompleto" })).toBe(false);
-    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "aprovado" })).toBe(true);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "aprovado" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "aguardando_autorizacao" })).toBe(false);
+    expect(filtrosSemResultado({ ...SEM_FILTROS, conclusao: "cancelado" })).toBe(true);
     expect(filtrosSemResultado({ ...SEM_FILTROS, origem: "agenda" })).toBe(false);
     expect(filtrosSemResultado({ ...SEM_FILTROS, atividade: "1" })).toBe(true);
     expect(filtrosSemResultado({ ...SEM_FILTROS, status: "inativos" })).toBe(true);

@@ -8,7 +8,18 @@ import { EventoForm } from "./EventoForm";
 import { getDadosDoFormulario, type EventoDaLista } from "./queries";
 import { deMinutos, LISTAGEM } from "./regras";
 
-function valoresDe(evento: EventoDaLista | null): ValoresDoEvento {
+type Permissao = { canal: string; grupoSiteId: number | null; grupoUsuarioId: number | null };
+
+/** Os ids de grupo de um canal/tipo, para os selects de permissao (0089). */
+function idsDe(permissoes: Permissao[], canal: string, tipo: "locais" | "usuarios"): string[] {
+  return permissoes
+    .filter((p) => p.canal === canal)
+    .map((p) => (tipo === "locais" ? p.grupoSiteId : p.grupoUsuarioId))
+    .filter((v): v is number => v !== null)
+    .map(String);
+}
+
+function valoresDe(evento: EventoDaLista | null, permissoes: Permissao[] = []): ValoresDoEvento {
   const tempo = deMinutos(evento?.tempoAtendimentoMinutos ?? null);
   const bloqueio = deMinutos(evento?.bloqueioRepeticaoMinutos ?? null);
   const finalizacao = deMinutos(evento?.extras.tempoFinalizacaoMinutos ?? null);
@@ -41,6 +52,10 @@ function valoresDe(evento: EventoDaLista | null): ValoresDoEvento {
     tipoClassificacaoId: x?.tipoClassificacaoId ?? "",
     grupoResponsavelId: x?.grupoResponsavelId ?? "",
     setorResponsavelId: x?.setorResponsavelId ?? "",
+    permWebLocais: idsDe(permissoes, "WEB", "locais"),
+    permWebUsuarios: idsDe(permissoes, "WEB", "usuarios"),
+    permAppLocais: idsDe(permissoes, "APP", "locais"),
+    permAppUsuarios: idsDe(permissoes, "APP", "usuarios"),
   };
 }
 
@@ -80,7 +95,7 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
         </div>
         <EventoForm
           id={dados.evento?.id}
-          valoresIniciais={valoresDe(dados.evento)}
+          valoresIniciais={valoresDe(dados.evento, dados.permissoes)}
           superiores={dados.superiores}
           temSubtipos={dados.temSubtipos}
           sites={dados.sites}
@@ -88,6 +103,7 @@ export async function ConteudoDoFormulario({ params }: { params?: Promise<{ id: 
           classificacoes={dados.classificacoes}
           gruposDeUsuarios={dados.gruposDeUsuarios}
           setores={dados.setores}
+          gruposDeLocais={dados.gruposDeLocais}
         />
       </div>
     </div>

@@ -28,28 +28,8 @@ export const PAGE_SIZE = 15;
  * abre preenchido. */
 export const DIAS_PADRAO = 60;
 
-export type Status = "AGUARDANDO" | "EM_ANALISE" | "ATENDIDO" | "CANCELADO" | "CRITICO";
-
-/** Os status que o banco aceita (0063), na ordem do sistema de referencia. */
-export const STATUS: { value: Status; label: string; cor: string; anel: string }[] = [
-  { value: "AGUARDANDO", label: "Aguardando", cor: "bg-red-600", anel: "#dc2626" },
-  { value: "EM_ANALISE", label: "Em Análise", cor: "bg-amber-500", anel: "#f59e0b" },
-  { value: "ATENDIDO", label: "Atendido", cor: "bg-emerald-600", anel: "#059669" },
-  { value: "CANCELADO", label: "Cancelado", cor: "bg-slate-500", anel: "#64748b" },
-  { value: "CRITICO", label: "Crítico", cor: "bg-fuchsia-700", anel: "#a21caf" },
-];
-
-export function rotuloDoStatus(status: string): string {
-  return STATUS.find((s) => s.value === status)?.label ?? status;
-}
-
-export function anelDoStatus(status: string): string {
-  return STATUS.find((s) => s.value === status)?.anel ?? "#475569";
-}
-
-export function corDoStatus(status: string): string {
-  return STATUS.find((s) => s.value === status)?.cor ?? "bg-slate-600";
-}
+export { STATUS, rotuloDoStatus, anelDoStatus, corDoStatus, type Status } from "./status";
+import { rotuloDoStatus, STATUS, type Status } from "./status";
 
 export type Filtros = {
   dataInicial: string;

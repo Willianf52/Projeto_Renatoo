@@ -37,7 +37,19 @@ export type ValoresDoEvento = {
   grupoResponsavelId: string;
   /** "Setor Responsavel" (0086): id da lista, ou vazio. */
   setorResponsavelId: string;
+  /** Permissoes de visualizacao (0089): ids de grupos, por canal. */
+  permWebLocais: string[];
+  permWebUsuarios: string[];
+  permAppLocais: string[];
+  permAppUsuarios: string[];
 };
+
+const CAMPOS_DE_PERMISSAO = [
+  ["permWebLocais", "WEB", "grupo_site_id"],
+  ["permWebUsuarios", "WEB", "grupo_usuario_id"],
+  ["permAppLocais", "APP", "grupo_site_id"],
+  ["permAppUsuarios", "APP", "grupo_usuario_id"],
+] as const;
 
 export type EstadoDoFormulario = { erro?: string; valores?: ValoresDoEvento };
 
@@ -47,6 +59,10 @@ function extrairValores(formData: FormData): ValoresDoEvento {
     descricao: texto(formData, "descricao"),
     superiorId: texto(formData, "superior_id"),
     sites: formData.getAll("sites").map(String).filter(Boolean),
+    permWebLocais: formData.getAll("perm_web_locais").map(String).filter(Boolean),
+    permWebUsuarios: formData.getAll("perm_web_usuarios").map(String).filter(Boolean),
+    permAppLocais: formData.getAll("perm_app_locais").map(String).filter(Boolean),
+    permAppUsuarios: formData.getAll("perm_app_usuarios").map(String).filter(Boolean),
     emails: texto(formData, "emails"),
     tempoQuantidade: texto(formData, "tempo_quantidade"),
     tempoUnidade: texto(formData, "tempo_unidade"),
@@ -97,6 +113,9 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
     return { erro: "Um evento não pode ser superior de si mesmo.", valores };
   }
   if (valores.sites.some((s) => !ID.test(s))) return { erro: "Site inválido.", valores };
+  if (CAMPOS_DE_PERMISSAO.some(([campo]) => valores[campo].some((g) => !ID.test(g)))) {
+    return { erro: "Grupo inválido nas permissões.", valores };
+  }
 
   const emails = lerEmailsDoEvento(valores.emails);
   if (!emails.ok) return { erro: emails.erro, valores };
@@ -136,7 +155,7 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
   const supabase = await createClient();
   // Evento, sites e e-mails numa transacao so (`salvar_evento`, 0072). As
   // policies sao o portao: quem nao e GESTOR recebe 42501.
-  const { error } = await supabase.rpc("salvar_evento", {
+  const { data: eventoId, error } = await supabase.rpc("salvar_evento", {
     // O tipo gerado nao marca os parametros que aceitam nulo; a funcao aceita.
     p_id: id as number,
     p_nome: valores.nome,
@@ -175,6 +194,27 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
       registrarErro(gerarIdDeRequisicao(), "Cadastro de Eventos: falha ao salvar:", error);
     }
     return { erro: traduzirErroPostgres(error.code, MENSAGENS_DE_ERRO), valores };
+  }
+
+  // Permissoes de visualizacao (0089): troca o conjunto do evento. Se a
+  // segunda escrita falhar, o evento fica sem permissao -- o mesmo que "vale
+  // para todos", que era o comportamento antes da 0089 -- e a tela avisa.
+  const idDoEvento = typeof eventoId === "number" ? eventoId : id;
+  if (idDoEvento !== null) {
+    const linhas = CAMPOS_DE_PERMISSAO.flatMap(([campo, canal, coluna]) =>
+      valores[campo].map((g) => ({
+        evento_id: idDoEvento,
+        canal,
+        grupo_site_id: coluna === "grupo_site_id" ? Number(g) : null,
+        grupo_usuario_id: coluna === "grupo_usuario_id" ? Number(g) : null,
+      })),
+    );
+    const removidas = await supabase.from("evento_permissoes").delete().eq("evento_id", idDoEvento);
+    const gravadas = linhas.length > 0 ? await supabase.from("evento_permissoes").insert(linhas) : { error: null };
+    if (removidas.error || gravadas.error) {
+      registrarErro(gerarIdDeRequisicao(), "Cadastro de Eventos: falha nas permissões:", removidas.error ?? gravadas.error);
+      return { erro: "O evento foi salvo, mas as permissões de visualização não. Tente salvar de novo.", valores };
+    }
   }
 
   revalidatePath(LISTAGEM);

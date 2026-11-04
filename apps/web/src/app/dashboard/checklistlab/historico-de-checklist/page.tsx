@@ -19,6 +19,7 @@ import {
   EyeIcon,
   FilterIcon,
   PdfIcon,
+  CheckIcon,
   TabletIcon,
 } from "@/components/dashboard/icons";
 import {
@@ -377,7 +378,7 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
     <Selo
       key="conclusao"
       texto={conclusaoDaLista(linha)}
-      cor={conclusaoDaLista(linha) === "Finalizado" ? "verde" : "amarelo"}
+      cor={["Finalizado", "Aprovado"].includes(conclusaoDaLista(linha)) ? "verde" : "amarelo"}
     />,
     linha.nota === null ? "" : String(linha.nota),
     <ChaveDeStatus key="status" />,
@@ -399,6 +400,12 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
       <Acao titulo={`Download CSV do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/csv`} tom="excel">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
+      {/* "Aguardando Autorizacao" (0089): aprovar ou reprovar. */}
+      {linha.aprovacao === "AGUARDANDO" && (
+        <Acao titulo={`Aprovar ou reprovar o checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/aprovacao`} tom="novo">
+          <CheckIcon className="h-4 w-4" />
+        </Acao>
+      )}
     </div>,
   ]);
 

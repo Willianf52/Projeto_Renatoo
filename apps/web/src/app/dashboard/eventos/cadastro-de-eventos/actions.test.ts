@@ -12,6 +12,11 @@ vi.mock("@/lib/supabase/server", () => ({
       rpc(nome, args);
       return { data: 1, error: resultado.error };
     },
+    // Permissoes de visualizacao (0089): troca o conjunto depois do evento.
+    from: () => ({
+      delete: () => ({ eq: async () => ({ error: null }) }),
+      insert: async () => ({ error: null }),
+    }),
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));

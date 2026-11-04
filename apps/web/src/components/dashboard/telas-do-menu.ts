@@ -265,6 +265,12 @@ export const NAV_ITEMS: NavItem[] = [
         href: "/dashboard/checklistlab/historico-de-checklist",
         icon: ClipboardListIcon,
       },
+      // "Novo Checklist" respondido pelo portal (0089), como no sistema de referencia.
+      {
+        label: "Novo Checklist",
+        href: "/dashboard/checklistlab/novo-checklist",
+        icon: ClipboardListIcon,
+      },
       // Agendas de checklist (0084), na posicao do sistema de referencia.
       {
         label: "Agendamentos",

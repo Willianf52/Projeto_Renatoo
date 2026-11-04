@@ -46,7 +46,7 @@ async function Conteudo() {
           </h1>
         </div>
 
-        <ModeloForm valoresIniciais={{ nome: "", ativo: true, grupos: [] }} grupos={grupos} />
+        <ModeloForm valoresIniciais={{ nome: "", ativo: true, grupos: [], exigeAprovacao: false }} grupos={grupos} />
       </div>
     </div>
   );
