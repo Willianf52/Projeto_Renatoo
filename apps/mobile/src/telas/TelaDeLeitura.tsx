@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { Localizacao } from "../campo/fila";
+import { lerLocalizacao } from "../lib/localizacao";
 import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, Vibration, View } from "react-native";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 
@@ -81,6 +83,16 @@ export function TelaDeLeitura() {
 
   const idDoUsuario = sessao?.user.id ?? null;
 
+  /**
+   * O ponto do GPS e buscado ANTES da leitura, ao abrir a camera, para a
+   * leitura do QR nunca esperar satelite (ver `lib/localizacao.ts`). Depois da
+   * permissao da camera, para os dois pedidos do sistema nao se atropelarem.
+   */
+  const localAntecipado = useRef<Promise<Localizacao | null> | null>(null);
+  useEffect(() => {
+    if (focada && permissao?.granted) localAntecipado.current = lerLocalizacao();
+  }, [focada, permissao?.granted]);
+
   // Pede a permissao sozinho na primeira vez: a pessoa tocou em "Inspecao"
   // para ler um QR, e um botao "Permitir camera" no meio seria um toque a mais
   // para chegar ao mesmo dialogo do sistema.
@@ -161,7 +173,12 @@ export function TelaDeLeitura() {
   const gravar = useCallback(
     async (qr: QrDoCatalogo, rondaAtual: RondaAberta | null) => {
       if (!idDoUsuario) return;
-      const resultado = await registrarLeituraDeQr({ funcionarioId: idDoUsuario, qr, aberta: rondaAtual });
+      const local = await Promise.race([
+        localAntecipado.current ?? lerLocalizacao(),
+        new Promise<null>((resolver) => setTimeout(() => resolver(null), 1500)),
+      ]);
+      localAntecipado.current = lerLocalizacao();
+      const resultado = await registrarLeituraDeQr({ funcionarioId: idDoUsuario, qr, aberta: rondaAtual, local });
 
       if (resultado.repetida) {
         setAviso({ mensagem: `${qr.codigo} já foi registrado agora há pouco.`, tom: "erro" });

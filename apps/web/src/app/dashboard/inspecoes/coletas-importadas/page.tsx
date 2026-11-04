@@ -14,7 +14,7 @@ import {
   FiltrosEmGradeEsqueleto,
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
-import { ExcelIcon, FilterIcon, PdfIcon, TrashIcon } from "@/components/dashboard/icons";
+import { ExcelIcon, FilterIcon, MapPinIcon, PdfIcon, TrashIcon } from "@/components/dashboard/icons";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { avisoDePeriodo } from "@/lib/relatorios";
 import { BotaoCadastroManual } from "./BotaoCadastroManual";
@@ -24,6 +24,7 @@ import {
   getColetas,
   getFilterOptions,
   getOpcoesDoCadastro,
+  linkDoMapa,
   temChecklist,
   toTableRow,
   extrairFiltros,
@@ -311,13 +312,23 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
   // "Acoes" so para GESTOR, como a lixeira por linha (0067). Fica fora de
   // `TABLE_COLUMNS` pelo mesmo motivo de Historico de Checklist: a lista das
   // colunas de texto e a das exportacoes, e botao nao vira celula.
-  const columns = podeExcluir ? [...TABLE_COLUMNS, "Ações"] : TABLE_COLUMNS;
+  // Desde a 0088 a coluna existe para todos: o "Mostrar mapa" da leitura com
+  // GPS e de quem ve a coleta; a lixeira continua so do GESTOR.
+  const columns = [...TABLE_COLUMNS, "Ações"];
   const rows = resultado.rows.map((leitura) => {
     const linha: React.ReactNode[] = toTableRow(leitura);
-    if (!podeExcluir) return linha;
+    const mapa = linkDoMapa(leitura);
+    const botaoDoMapa = mapa ? (
+      <Acao key={`mapa-${leitura.id}`} titulo={`Mostrar mapa da coleta ${linha[0]}`} href={mapa} target="_blank">
+        <MapPinIcon className="h-4 w-4" />
+      </Acao>
+    ) : null;
+    if (!podeExcluir) return [...linha, <div key={leitura.id} className="flex gap-1">{botaoDoMapa}</div>];
     return [
       ...linha,
-      temChecklist(leitura) ? (
+      <div key={leitura.id} className="flex gap-1">
+        {botaoDoMapa}
+        {temChecklist(leitura) ? (
         <AcaoDesabilitada
           key={leitura.id}
           titulo={`Excluir coleta ${linha[0]}`}
@@ -332,7 +343,8 @@ async function TabelaDeColetas({ searchParams }: { searchParams: SearchParamsPro
           coleta={String(linha[0])}
           filtros={filtrosAtuais.toString()}
         />
-      ),
+      )}
+      </div>,
     ];
   });
 

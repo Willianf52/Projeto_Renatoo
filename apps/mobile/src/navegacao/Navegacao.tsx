@@ -5,11 +5,13 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ROTULO_DO_TIPO, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { useSessao } from "../auth/SessaoProvider";
+import { ConfirmacaoDeInatividade } from "../componentes/ConfirmacaoDeInatividade";
 import type { SiteParaVisita } from "../campo/visita-pelo-site";
 import { useFaixa } from "../componentes/Faixa";
 import { usePisoDeVersao } from "../lib/usePisoDeVersao";
 import { TelaDeAbertura } from "../telas/TelaDeAbertura";
 import { TelaDeAgendados } from "../telas/TelaDeAgendados";
+import { TelaDeRespondidos } from "../telas/TelaDeRespondidos";
 import { TelaDeAcessoBloqueado } from "../telas/TelaDeAcessoBloqueado";
 import { TelaDeChecklist } from "../telas/TelaDeChecklist";
 import { TelaDeInspecoes } from "../telas/TelaDeInspecoes";
@@ -48,7 +50,9 @@ export type RotasDoApp = {
   Leitura: undefined;
   Sites: undefined;
   Inspecoes: undefined;
-  Agendados: undefined;
+  /** Com `siteId`, so os agendamentos do local (aberta de dentro da inspecao). */
+  Agendados: { siteId?: number } | undefined;
+  Respondidos: { siteId: number };
   TipoDeVisita: AlvoDoChecklist;
   Checklist: AlvoDoChecklist & { tipo: TipoDeVisita };
 };
@@ -145,7 +149,10 @@ export function Navegacao() {
   // fonte de verdade para desencontrar da primeira.
 
   return (
-    <NavigationContainer theme={TEMA}>
+    <>
+      {/* "Sessao em inatividade", como no app de referencia (auth/inatividade.ts). */}
+      <ConfirmacaoDeInatividade nome={perfil.nome_completo ?? perfil.email ?? ""} aoSair={sair} />
+      <NavigationContainer theme={TEMA}>
       <Pilha.Navigator
         screenOptions={{
           headerStyle: { backgroundColor: cores.superficie },
@@ -182,11 +189,13 @@ export function Navegacao() {
         {/* "Ver sites", embaixo da camera da ronda (28/09/2026). */}
         <Pilha.Screen name="Sites" component={TelaDeSites} options={{ title: "Sites" }} />
 
-        <Pilha.Screen
-          name="Agendados"
-          component={TelaDeAgendados}
-          options={{ title: "Agendados" }}
-        />
+        <Pilha.Screen name="Agendados" options={{ title: "Checklists agendados" }}>
+          {({ route }) => <TelaDeAgendados siteId={route.params?.siteId ?? null} />}
+        </Pilha.Screen>
+
+        <Pilha.Screen name="Respondidos" options={{ title: "Checklists respondidos" }}>
+          {({ route }) => <TelaDeRespondidos siteId={route.params.siteId} />}
+        </Pilha.Screen>
 
         {/* A escolha do tipo e tela propria, e nao um seletor no topo do
             formulario: e a forma do material que a supervisao distribuiu para
@@ -196,10 +205,15 @@ export function Navegacao() {
           {({ route, navigation }) => (
             <TelaDeTipoDeVisita
               visitaId={route.params.visitaId}
+              numeroColeta={route.params.numeroColeta}
+              siteId={route.params.site?.id ?? null}
               retomado={route.params.retomado === true}
               aoEscolher={(tipo) =>
                 navigation.navigate("Checklist", { ...route.params, tipo })
               }
+              aoVerAgendados={(siteId) => navigation.navigate("Agendados", { siteId })}
+              aoVerRespondidos={(siteId) => navigation.navigate("Respondidos", { siteId })}
+              aoConcluir={() => navigation.popToTop()}
             />
           )}
         </Pilha.Screen>
@@ -245,7 +259,8 @@ export function Navegacao() {
           )}
         </Pilha.Screen>
       </Pilha.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+    </>
   );
 }
 

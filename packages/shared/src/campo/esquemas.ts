@@ -72,12 +72,18 @@ const instanteObrigatorio = (rotulo: string) =>
     });
 
 /**
- * Coordenada aceita como qualquer coisa de proposito: o valor nao e guardado
- * desde a migration 0022, so a presenca dele vira `tem_localizacao` (0023).
- * Validar formato aqui recusaria um envio por causa de um campo que o
- * sistema declarou nao usar.
+ * Coordenada aceita como qualquer coisa de proposito: um valor estranho nao
+ * recusa a leitura inteira, so nao vira ponto. Desde a 0088 o valor volta a
+ * ser guardado (latitude/longitude da leitura, como no app do sistema de
+ * referencia); de 0022 a 0087 so a presenca virava `tem_localizacao`.
  */
 const coordenada = z.unknown().optional();
+
+/** O numero dentro da faixa, ou `null`. */
+function coordenadaValida(valor: unknown, limite: number): number | null {
+  const numero = typeof valor === "string" && valor.trim() !== "" ? Number(valor) : valor;
+  return typeof numero === "number" && Number.isFinite(numero) && Math.abs(numero) <= limite ? numero : null;
+}
 
 export const esquemaDeLeituraDeCampo = z
   .object({
@@ -90,14 +96,24 @@ export const esquemaDeLeituraDeCampo = z
     observacao: textoOpcional("A observação", LIMITE_OBSERVACAO),
     latitude: coordenada,
     longitude: coordenada,
+    precisaoMetros: coordenada,
   })
-  .transform(({ latitude, longitude, ...leitura }) => ({
-    ...leitura,
+  .transform(({ latitude, longitude, precisaoMetros, ...leitura }) => {
     // Exige as duas: uma coordenada sozinha nao localiza nada, e tratar isso
     // como "tem localizacao" faria o filtro Com/Sem Localizacao da tela
     // mentir sobre uma leitura que nunca teve ponto.
-    temLocalizacao: temCoordenada(latitude) && temCoordenada(longitude),
-  }));
+    const temLocalizacao = temCoordenada(latitude) && temCoordenada(longitude);
+    const lat = temLocalizacao ? coordenadaValida(latitude, 90) : null;
+    const lon = temLocalizacao ? coordenadaValida(longitude, 180) : null;
+    const ponto = lat !== null && lon !== null;
+    return {
+      ...leitura,
+      temLocalizacao,
+      latitude: ponto ? lat : null,
+      longitude: ponto ? lon : null,
+      precisaoMetros: ponto ? coordenadaValida(precisaoMetros, 1_000_000) : null,
+    };
+  });
 
 export const esquemaDeVisitaDeCampo = z.object({
   /**
@@ -159,5 +175,8 @@ export function linhaDeLeitura(leitura: LeituraDeCampo, visitaId: number): Table
     qualificador_id: leitura.qualificadorId,
     observacao: leitura.observacao,
     tem_localizacao: leitura.temLocalizacao,
+    latitude: leitura.latitude,
+    longitude: leitura.longitude,
+    precisao_metros: leitura.precisaoMetros,
   };
 }

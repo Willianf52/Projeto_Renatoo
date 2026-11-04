@@ -111,10 +111,10 @@ select is(
 -- ---------------------------------------------------------------------------
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000842", "role": "authenticated"}';
 
-select is(
-  (select count(*)::int from public.agendamentos_do_periodo(current_date - 30, current_date + 30)),
-  0,
-  'o INSPETOR nao ve agendamentos'
+-- Desde a 0088 o campo le as agendas ("Checklists agendados" do app).
+select ok(
+  (select count(*) from public.agendamentos_do_periodo(current_date - 30, current_date + 30)) > 0,
+  'o INSPETOR ve os agendamentos (0088)'
 );
 
 select throws_ok(

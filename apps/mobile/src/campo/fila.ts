@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 7;
+const VERSAO_DO_SCHEMA = 8;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -49,7 +49,11 @@ export type LeituraNaFila = {
   /** A leitura "Termino" do "Encerrar ronda" (0077): sem QR, e a area
    * "Termino" so e resolvida na sincronizacao, que conhece o id dela. */
   termino: boolean;
+  /** Ponto do aparelho na leitura (0088), ou `null`. */
+  local: Localizacao | null;
 };
+
+export type Localizacao = { latitude: number; longitude: number; precisao: number | null };
 
 /**
  * A ABERTURA EM VOO, NAO O BANCO JA ABERTO.
@@ -227,6 +231,19 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
     `);
   }
 
+  if (versao < 8) {
+    /**
+     * Localizacao (migration 0088 do banco): o ponto do aparelho na leitura,
+     * como no app do sistema de referencia. Nulo quando o inspetor nao deu
+     * permissao ou o GPS nao respondeu a tempo -- a leitura nunca espera.
+     */
+    await banco.execAsync(`
+      alter table leituras_na_fila add column latitude real;
+      alter table leituras_na_fila add column longitude real;
+      alter table leituras_na_fila add column precisao real;
+    `);
+  }
+
   if (versao < VERSAO_DO_SCHEMA) {
     await banco.execAsync(`pragma user_version = ${VERSAO_DO_SCHEMA}`);
   }
@@ -280,20 +297,26 @@ export async function registrarLeitura(entrada: {
   observacao?: string | null;
   temLocalizacao?: boolean;
   termino?: boolean;
+  local?: Localizacao | null;
 }): Promise<boolean> {
   const banco = await abrirFila();
+  const local = entrada.local ?? null;
 
   const resultado = await banco.runAsync(
     `insert or ignore into leituras_na_fila
-       (chave_da_visita, data_hora, area_id, qr_code_id, observacao, tem_localizacao, termino)
-     values (?, ?, ?, ?, ?, ?, ?)`,
+       (chave_da_visita, data_hora, area_id, qr_code_id, observacao, tem_localizacao, termino,
+        latitude, longitude, precisao)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     entrada.chaveDaVisita,
     entrada.dataHora,
     entrada.areaId ?? null,
     entrada.qrCodeId ?? null,
     entrada.observacao ?? null,
-    entrada.temLocalizacao ? 1 : 0,
+    entrada.temLocalizacao || local ? 1 : 0,
     entrada.termino ? 1 : 0,
+    local?.latitude ?? null,
+    local?.longitude ?? null,
+    local?.precisao ?? null,
   );
 
   return resultado.changes > 0;
@@ -361,9 +384,12 @@ export async function leiturasPendentes(chaveDaVisita: string): Promise<LeituraN
     tem_localizacao: number;
     enviada: number;
     termino: number;
+    latitude: number | null;
+    longitude: number | null;
+    precisao: number | null;
   }>(
     `select id, chave_da_visita, data_hora, area_id, qr_code_id, observacao,
-            tem_localizacao, enviada, termino
+            tem_localizacao, enviada, termino, latitude, longitude, precisao
        from leituras_na_fila
       where chave_da_visita = ? and enviada = 0
       order by data_hora`,
@@ -380,6 +406,10 @@ export async function leiturasPendentes(chaveDaVisita: string): Promise<LeituraN
     temLocalizacao: l.tem_localizacao === 1,
     enviada: l.enviada === 1,
     termino: l.termino === 1,
+    local:
+      l.latitude !== null && l.longitude !== null
+        ? { latitude: l.latitude, longitude: l.longitude, precisao: l.precisao }
+        : null,
   }));
 }
 

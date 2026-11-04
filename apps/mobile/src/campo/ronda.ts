@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { abrirFila, iniciarVisita, registrarLeitura } from "./fila";
+import { abrirFila, iniciarVisita, registrarLeitura, type Localizacao } from "./fila";
 
 /**
  * A ronda com leitor de QR: o que liga o codigo lido pela camera a fila
@@ -304,6 +304,8 @@ export async function registrarLeituraDeQr(entrada: {
   qr: QrDoCatalogo;
   aberta: RondaAberta | null;
   agora?: Date;
+  /** Ponto do GPS (0088), quando veio a tempo. */
+  local?: Localizacao | null;
 }): Promise<{ chave: string; nova: boolean; repetida: boolean }> {
   const agora = entrada.agora ?? new Date();
   const dataHora = agora.toISOString();
@@ -325,6 +327,7 @@ export async function registrarLeituraDeQr(entrada: {
     chaveDaVisita: chave,
     dataHora,
     qrCodeId: entrada.qr.id,
+    local: entrada.local ?? null,
   });
 
   return { chave, nova: chave !== entrada.aberta?.chave, repetida: !gravou };
@@ -361,7 +364,11 @@ export async function fecharRondaSemTermino(chave: string): Promise<void> {
  * Coletas Importadas e os relatorios de horas mostrarem o fim da inspecao.
  * Hoje so serve a ronda que ficou aberta de uma versao anterior do app.
  */
-export async function encerrarRonda(chave: string, agora: Date = new Date()): Promise<void> {
+export async function encerrarRonda(
+  chave: string,
+  agora: Date = new Date(),
+  local: Localizacao | null = null,
+): Promise<void> {
   await fecharRondaSemTermino(chave);
-  await registrarLeitura({ chaveDaVisita: chave, dataHora: agora.toISOString(), termino: true });
+  await registrarLeitura({ chaveDaVisita: chave, dataHora: agora.toISOString(), termino: true, local });
 }

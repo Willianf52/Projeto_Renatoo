@@ -91,6 +91,9 @@ export type ColetaRow = {
   data_hora: string;
   observacao: string | null;
   data_integracao: string | null;
+  /** Ponto do GPS do aparelho (0088); nulo nas leituras antigas e sem permissao. */
+  latitude?: number | null;
+  longitude?: number | null;
   areas: { nome: string } | null;
   eventos: { nome: string } | null;
   acoes: { nome: string } | null;
@@ -277,6 +280,8 @@ export function montarSelectDeColetas(precisaVisita: boolean, precisaSite: boole
       data_hora,
       observacao,
       data_integracao,
+      latitude,
+      longitude,
       areas ( nome ),
       eventos ( nome ),
       acoes ( nome ),
@@ -573,4 +578,14 @@ export function toLinhaDoPdf(leitura: ColetaRow): string[] {
   const [, , coletor, funcionario, local, , evento, observacao] = toTableRow(leitura);
   const { data, hora } = formatarDataEHoraSeparadas(leitura.data_hora);
   return [coletor, funcionario, local, evento, observacao, data, hora];
+}
+
+/**
+ * "Mostrar Mapa" do sistema de referencia: o ponto da leitura no Google Maps,
+ * em aba nova. `null` quando a leitura nao tem as duas coordenadas.
+ */
+export function linkDoMapa(leitura: Pick<ColetaRow, "latitude" | "longitude">): string | null {
+  const { latitude, longitude } = leitura;
+  if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+  return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
