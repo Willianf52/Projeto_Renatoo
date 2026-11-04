@@ -49,6 +49,14 @@
       ],
       "expo-font",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O app registra onde a visita começou e terminou, como no sistema anterior. A leitura do QR funciona mesmo sem permitir.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "cameraPermission": "O app usa a câmera para ler o QR code do site e anexar as fotos da visita ao checklist.",

@@ -34,6 +34,10 @@ export async function visitaDoDiaSemChecklist(
       where site_id = ?
         and funcionario_id = ?
         and capturado_em >= ?
+        -- Convertida para visita (Termino gravado): concluida, nao reabre.
+        and not exists (
+          select 1 from leituras_na_fila l where l.chave_da_visita = visitas_na_fila.chave and l.termino = 1
+        )
       order by capturado_em desc
       limit 1`,
     siteId,

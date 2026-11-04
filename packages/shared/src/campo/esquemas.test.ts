@@ -30,7 +30,28 @@ describe("esquemaDeLeituraDeCampo", () => {
       qualificadorId: null,
       observacao: null,
       temLocalizacao: false,
+      latitude: null,
+      longitude: null,
+      precisaoMetros: null,
     });
+  });
+
+  it("guarda o ponto quando as duas coordenadas sao validas (0088)", () => {
+    const resultado = esquemaDeLeituraDeCampo.safeParse({
+      ...LEITURA_MINIMA,
+      latitude: -23.286333,
+      longitude: "-47.678374",
+      precisaoMetros: 12,
+    });
+    expect(resultado.success && resultado.data).toMatchObject({
+      temLocalizacao: true,
+      latitude: -23.286333,
+      longitude: -47.678374,
+      precisaoMetros: 12,
+    });
+
+    const foraDaFaixa = esquemaDeLeituraDeCampo.safeParse({ ...LEITURA_MINIMA, latitude: 95, longitude: 10 });
+    expect(foraDaFaixa.success && foraDaFaixa.data.latitude).toBeNull();
   });
 
   it("trata observacao vazia e so-espaco como null, e apara as bordas", () => {
@@ -59,16 +80,14 @@ describe("esquemaDeLeituraDeCampo", () => {
     expect(soUma.success && soUma.data.temLocalizacao).toBe(false);
   });
 
-  it("nao guarda a coordenada, so a presenca dela", () => {
-    // A migration 0022 removeu as colunas; a 0023 deixou so `tem_localizacao`.
+  it("guarda a coordenada de novo desde a 0088 (antes, so a presenca)", () => {
     const resultado = esquemaDeLeituraDeCampo.safeParse({
       ...LEITURA_MINIMA,
       latitude: -23.55,
       longitude: -46.63,
     });
 
-    expect(resultado.success && resultado.data).not.toHaveProperty("latitude");
-    expect(resultado.success && resultado.data).not.toHaveProperty("longitude");
+    expect(resultado.success && resultado.data).toMatchObject({ latitude: -23.55, longitude: -46.63 });
   });
 
   it("recusa data/hora sem fuso com mensagem de tela", () => {
@@ -185,6 +204,9 @@ describe("ponte com o schema do banco", () => {
       qualificador_id: null,
       observacao: "porta destrancada",
       tem_localizacao: true,
+      latitude: -23.55,
+      longitude: -46.63,
+      precisao_metros: null,
     });
   });
 });

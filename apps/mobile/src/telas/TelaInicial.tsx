@@ -261,6 +261,15 @@ export function TelaInicial() {
             Sincronizado: {sincronizadoEm ? formatarData(sincronizadoEm) : "nunca neste aparelho"}
           </Text>
           <Text style={estilos.rodapeLinha}>Versão: {app.expo.version}</Text>
+          {/* "Logs" e "Compartilhar dados", do menu do app de referencia. */}
+          <Pressable
+            onPress={() => navegacao.navigate("Logs")}
+            accessibilityRole="button"
+            hitSlop={8}
+            style={({ pressed }) => [estilos.sair, pressed && estilos.sairPressionado]}
+          >
+            <Text style={estilos.sairTexto}>Logs de envio e compartilhar dados</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>

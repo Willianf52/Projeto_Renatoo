@@ -137,6 +137,9 @@ async function drenar(funcionarioId: string): Promise<ResultadoDaSincronizacao> 
         areaId: l.termino ? (areaDoTermino ?? null) : l.areaId,
         qrCodeId: l.qrCodeId,
         observacao: l.observacao,
+        latitude: l.local?.latitude,
+        longitude: l.local?.longitude,
+        precisaoMetros: l.local?.precisao,
       })),
     } satisfies Record<string, unknown>);
 

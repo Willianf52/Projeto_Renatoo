@@ -37,6 +37,7 @@ import {
   textoDoResumo,
   type Pendencia,
 } from "../campo/pendencias-do-checklist";
+import { gruposDasPerguntas, indiceAnterior, proximoIndice } from "../campo/navegacao-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
@@ -186,6 +187,8 @@ export function TelaDeChecklist({
    * rascunho recuperado deve reabrir.
    */
   const [posicao, setPosicao] = useState<{ modeloId: number; indice: number } | null>(null);
+  /** "Exibir apenas questoes em branco" do app de referencia: Anterior/Proximo pulam as respondidas. */
+  const [soEmBranco, setSoEmBranco] = useState(false);
   const [temAssinatura, setTemAssinatura] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -479,8 +482,16 @@ export function TelaDeChecklist({
       rolagem.current?.scrollTo({ y: 0, animated: true });
       return;
     }
-    irPara(indice + 1);
-  }, [indice, irPara, perguntaAtual, respostas]);
+    irPara(proximoIndice(perguntas ?? [], respostas, indice, soEmBranco));
+  }, [indice, irPara, perguntaAtual, perguntas, respostas, soEmBranco]);
+
+  const voltar = useCallback(() => {
+    const destino = indiceAnterior(perguntas ?? [], respostas, indice, soEmBranco);
+    if (destino !== null) irPara(destino);
+  }, [indice, irPara, perguntas, respostas, soEmBranco]);
+
+  const grupos = useMemo(() => gruposDasPerguntas(perguntas ?? []), [perguntas]);
+  const semAnterior = indiceAnterior(perguntas ?? [], respostas, indice, soEmBranco) === null;
 
   const rolarAte = useCallback((pendencia: Pendencia) => {
     // Pergunta sem resposta nao se alcanca rolando: cada uma tem a sua tela.
@@ -825,6 +836,56 @@ export function TelaDeChecklist({
               </View>
             ) : null}
 
+            {/* "Grupo de perguntas" e "Exibir apenas questoes em branco", como
+                no app de referencia: pular para um grupo, ou andar so pelo que
+                falta responder. O seletor so aparece se o checklist tem grupo. */}
+            {perguntaAtual && !carregandoPerguntas ? (
+              <View style={estilos.escolhaDoModelo}>
+                {grupos.length > 0 ? (
+                  <>
+                    <Text style={estilos.rotulo}>Grupo de perguntas</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.grupos}>
+                      {grupos.map((grupo) => {
+                        const atual = perguntaAtual.grupo?.trim() === grupo.nome;
+                        return (
+                          <Pressable
+                            key={grupo.nome}
+                            onPress={() => irPara(grupo.primeiro)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: atual }}
+                            accessibilityLabel={`Ir para o grupo ${grupo.nome}, ${grupo.quantidade} perguntas`}
+                            style={({ pressed }) => [
+                              estilos.resposta,
+                              estilos.modelo,
+                              atual && ESTILO_DA_ESCOLHA.SIM.opcao,
+                              pressed && estilos.opcaoPressionada,
+                            ]}
+                          >
+                            <Text style={[estilos.respostaTexto, atual && ESTILO_DA_ESCOLHA.SIM.texto]}>{grupo.nome}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                ) : null}
+                <Pressable
+                  onPress={() => setSoEmBranco((atual) => !atual)}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: soEmBranco }}
+                  style={({ pressed }) => [
+                    estilos.resposta,
+                    estilos.modelo,
+                    soEmBranco && ESTILO_DA_ESCOLHA.SIM.opcao,
+                    pressed && estilos.opcaoPressionada,
+                  ]}
+                >
+                  <Text style={[estilos.respostaTexto, soEmBranco && ESTILO_DA_ESCOLHA.SIM.texto]}>
+                    {soEmBranco ? "✓ " : ""}Exibir apenas questões em branco
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             {carregandoPerguntas ? (
               <EsqueletoDaLista />
             ) : perguntaAtual ? (
@@ -835,6 +896,7 @@ export function TelaDeChecklist({
                   destacar("perguntas") && !respostas[perguntaAtual.id] && estilos.perguntaPendente,
                 ]}
               >
+                {perguntaAtual.grupo ? <Text style={estilos.rotulo}>{perguntaAtual.grupo}</Text> : null}
                 <Text style={estilos.perguntaTexto}>
                   {perguntaAtual.ordem}. {perguntaAtual.texto}
                 </Text>
@@ -1105,13 +1167,13 @@ export function TelaDeChecklist({
                   titulo="Anterior"
                   variante="secundaria"
                   larguraTotal
-                  desabilitado={indice === 0}
-                  aoPressionar={() => irPara(indice - 1)}
+                  desabilitado={semAnterior}
+                  aoPressionar={voltar}
                 />
               </View>
               <View style={estilos.botaoDaNavegacao}>
                 <Botao
-                  titulo={indice === total - 1 ? "Ver resumo" : "Próximo"}
+                  titulo={proximoIndice(perguntas ?? [], respostas, indice, soEmBranco) === total ? "Ver resumo" : "Próximo"}
                   larguraTotal
                   aoPressionar={avancar}
                 />
@@ -1353,6 +1415,7 @@ const estilos = StyleSheet.create({
   escolhaDoModelo: { gap: espaco.entreItens, marginBottom: espaco.entreItens },
   modelos: { gap: espaco.minimo },
   modelo: { flex: 0, paddingHorizontal: espaco.interno },
+  grupos: { gap: espaco.minimo },
 
   fotosDaPergunta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: espaco.minimo },
   // 72, e nao 56: com o "✕" de 28 no canto, a miniatura menor ficava quase

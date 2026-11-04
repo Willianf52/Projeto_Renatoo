@@ -55,7 +55,14 @@ export function copiaValida(valor: unknown): CopiaDoChecklist | null {
 
 /** Junta as linhas da tabela em perguntas por modelo, ja na ordem. */
 export function agruparPerguntas(
-  linhas: readonly { id: number; modelo_id: number; ordem: number; texto: string; tipo_resposta: string }[],
+  linhas: readonly {
+    id: number;
+    modelo_id: number;
+    ordem: number;
+    texto: string;
+    tipo_resposta: string;
+    grupos_perguntas?: { nome: string } | null;
+  }[],
 ): Record<string, PerguntaDoModelo[]> {
   const porModelo: Record<string, PerguntaDoModelo[]> = {};
   for (const linha of [...linhas].sort((a, b) => a.ordem - b.ordem)) {
@@ -64,6 +71,7 @@ export function agruparPerguntas(
       ordem: linha.ordem,
       texto: linha.texto,
       tipoResposta: tipoDeResposta(linha.tipo_resposta),
+      grupo: linha.grupos_perguntas?.nome ?? null,
     });
   }
   return porModelo;
@@ -99,7 +107,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
     todasAsPaginas((de, ate) =>
       supabase
         .from("perguntas_checklist")
-        .select("id, modelo_id, ordem, texto, tipo_resposta")
+        .select("id, modelo_id, ordem, texto, tipo_resposta, grupos_perguntas ( nome )")
         .eq("ativo", true)
         .order("id")
         .range(de, ate),

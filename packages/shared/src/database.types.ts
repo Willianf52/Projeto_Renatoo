@@ -905,7 +905,10 @@ export type Database = {
           data_integracao: string | null
           evento_id: number | null
           id: number
+          latitude: number | null
+          longitude: number | null
           observacao: string | null
+          precisao_metros: number | null
           qr_code_id: number | null
           qualificador_id: number | null
           tem_localizacao: boolean
@@ -919,7 +922,10 @@ export type Database = {
           data_integracao?: string | null
           evento_id?: number | null
           id?: never
+          latitude?: number | null
+          longitude?: number | null
           observacao?: string | null
+          precisao_metros?: number | null
           qr_code_id?: number | null
           qualificador_id?: number | null
           tem_localizacao?: boolean
@@ -933,7 +939,10 @@ export type Database = {
           data_integracao?: string | null
           evento_id?: number | null
           id?: never
+          latitude?: number | null
+          longitude?: number | null
           observacao?: string | null
+          precisao_metros?: number | null
           qr_code_id?: number | null
           qualificador_id?: number | null
           tem_localizacao?: boolean
@@ -2031,6 +2040,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      abandonar_visita: { Args: { p_visita_id: number }; Returns: undefined }
       agendamentos_do_periodo: {
         Args: { p_fim: string; p_inicio: string }
         Returns: {

@@ -226,7 +226,7 @@ describe("encerrarRonda", () => {
     await encerrarRonda("chave-aberta", agora);
 
     expect(estado.leituras).toEqual([
-      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-20T13:45:00.000Z", termino: true },
+      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-20T13:45:00.000Z", termino: true, local: null },
     ]);
   });
 });
@@ -249,7 +249,7 @@ describe("fecharRondaSemTermino", () => {
 
     expect(estado.atualizacoes).toHaveLength(1);
     expect(estado.leituras).toEqual([
-      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-21T13:00:00.000Z", termino: true },
+      { chaveDaVisita: "chave-aberta", dataHora: "2026-10-21T13:00:00.000Z", termino: true, local: null },
     ]);
   });
 });

@@ -27,6 +27,8 @@ export type PerguntaDoModelo = {
   ordem: number;
   texto: string;
   tipoResposta: TipoDeResposta;
+  /** Nome do grupo de perguntas (0073), para o seletor da tela; opcional porque copias antigas nao o tem. */
+  grupo?: string | null;
 };
 
 export type ResultadoDosModelos = { ok: true; modelos: ModeloResumido[] } | { ok: false; erro: string };
@@ -141,11 +143,16 @@ export async function lerPerguntasDoModelo(modeloId: number): Promise<PerguntasL
 
 async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas> {
   const erro = "Não foi possível carregar as perguntas do checklist.";
-  let resposta: { data: { id: number; ordem: number; texto: string; tipo_resposta: string }[] | null; error: unknown };
+  let resposta: {
+    data:
+      | { id: number; ordem: number; texto: string; tipo_resposta: string; grupos_perguntas: { nome: string } | null }[]
+      | null;
+    error: unknown;
+  };
   try {
     resposta = await supabase
       .from("perguntas_checklist")
-      .select("id, ordem, texto, tipo_resposta")
+      .select("id, ordem, texto, tipo_resposta, grupos_perguntas ( nome )")
       .eq("modelo_id", modeloId)
       .eq("ativo", true)
       .order("ordem", { ascending: true });
@@ -164,6 +171,7 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
       ordem: pergunta.ordem,
       texto: pergunta.texto,
       tipoResposta: tipoDeResposta(pergunta.tipo_resposta),
+      grupo: pergunta.grupos_perguntas?.nome ?? null,
     })),
     erro: null,
   };

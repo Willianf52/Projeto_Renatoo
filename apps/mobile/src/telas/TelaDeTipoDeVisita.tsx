@@ -1,7 +1,11 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ROTULO_DO_TIPO, TIPOS_DE_VISITA, type TipoDeVisita } from "@projeto-renatoo/shared";
 
 import { Aviso } from "../componentes/Aviso";
+import { Botao } from "../componentes/Botao";
+import { abandonarInspecao, converterParaVisita } from "../campo/acoes-da-visita";
+import { supabase } from "../lib/supabase";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { IconeDeFerramenta, IconeDePessoa, IconeDeSeta } from "../componentes/icones";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
@@ -33,13 +37,91 @@ const ICONE: Record<TipoDeVisita, (props: { cor: string }) => React.ReactElement
 
 export function TelaDeTipoDeVisita({
   visitaId,
+  numeroColeta,
+  siteId: siteDaRota,
   retomado = false,
   aoEscolher,
+  aoVerAgendados,
+  aoVerRespondidos,
+  aoConcluir,
 }: {
   visitaId: number | null;
+  numeroColeta: string;
+  siteId: number | null;
   retomado?: boolean;
   aoEscolher: (tipo: TipoDeVisita) => void;
+  aoVerAgendados: (siteId: number) => void;
+  aoVerRespondidos: (siteId: number) => void;
+  /** Depois de converter ou abandonar: volta ao menu. */
+  aoConcluir: () => void;
 }) {
+  // O local da visita: o da rota (QR, "Ver sites") ou, vindo da lista de
+  // Inspecao, o da propria visita no servidor.
+  const [siteBuscado, setSiteBuscado] = useState<number | null>(null);
+  const siteId = siteDaRota ?? siteBuscado;
+  useEffect(() => {
+    if (siteDaRota !== null || visitaId === null) return;
+    let ativo = true;
+    void supabase
+      .from("visitas")
+      .select("site_id")
+      .eq("id", visitaId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (ativo && data) setSiteBuscado(data.site_id);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [siteDaRota, visitaId]);
+
+  const [ocupado, setOcupado] = useState<"converter" | "abandonar" | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  // "Converter para Visita" e "Abandonar Inspecao", o menu da inspecao aberta
+  // do app de referencia (regras em `campo/acoes-da-visita.ts`).
+  const converter = () => {
+    if (visitaId === null) return;
+    Alert.alert(
+      "Converter para Visita",
+      "A inspeção vira uma visita simples: fica registrada a presença, com o término agora, sem checklist.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Converter",
+          onPress: async () => {
+            setOcupado("converter");
+            const resultado = await converterParaVisita({ visitaId, numeroColeta });
+            setOcupado(null);
+            if (resultado.ok) aoConcluir();
+            else setErro(resultado.erro);
+          },
+        },
+      ],
+    );
+  };
+
+  const abandonar = () => {
+    Alert.alert(
+      "Abandonar Inspeção",
+      "A inspeção aberta e o checklist começado serão descartados. Não dá para desfazer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Abandonar",
+          style: "destructive",
+          onPress: async () => {
+            setOcupado("abandonar");
+            const resultado = await abandonarInspecao({ visitaId, numeroColeta, siteId });
+            setOcupado(null);
+            if (resultado.ok) aoConcluir();
+            else setErro(resultado.erro);
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={estilos.raiz} contentContainerStyle={estilos.conteudo}>
       <Text style={estilos.titulo}>{tituloDaColeta(visitaId)}</Text>
@@ -80,6 +162,41 @@ export function TelaDeTipoDeVisita({
           </Pressable>
         );
       })}
+
+      {siteId !== null ? (
+        <View style={estilos.acoes}>
+          <Botao titulo="Checklists agendados" variante="secundaria" larguraTotal aoPressionar={() => aoVerAgendados(siteId)} />
+          <Botao
+            titulo="Checklists respondidos"
+            variante="secundaria"
+            larguraTotal
+            aoPressionar={() => aoVerRespondidos(siteId)}
+          />
+        </View>
+      ) : null}
+
+      {erro ? <Aviso mensagem={erro} /> : null}
+
+      <View style={estilos.acoes}>
+        {visitaId !== null ? (
+          <Botao
+            titulo="Converter para Visita"
+            variante="secundaria"
+            larguraTotal
+            carregando={ocupado === "converter"}
+            desabilitado={ocupado !== null}
+            aoPressionar={converter}
+          />
+        ) : null}
+        <Botao
+          titulo="Abandonar Inspeção"
+          variante="perigo"
+          larguraTotal
+          carregando={ocupado === "abandonar"}
+          desabilitado={ocupado !== null}
+          aoPressionar={abandonar}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -113,4 +230,6 @@ const estilos = StyleSheet.create({
   textos: { flex: 1, gap: 2 },
   rotulo: texto(tipografia.destaque, { cor: cores.texto }),
   descricao: texto(tipografia.nota, { cor: cores.textoFraco }),
+
+  acoes: { gap: espaco.minimo, marginTop: espaco.entreItens },
 });
