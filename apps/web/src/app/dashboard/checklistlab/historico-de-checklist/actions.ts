@@ -40,7 +40,7 @@ export async function excluirChecklist(
   const supabase = await createClient();
   const { data: midia, error: erroDeLeitura } = await supabase
     .from("checklists_visita")
-    .select("assinatura_path, checklist_fotos ( storage_path )")
+    .select("assinatura_path, checklist_fotos ( storage_path ), checklist_assinaturas ( storage_path )")
     .eq("id", id)
     .maybeSingle();
 
@@ -66,9 +66,15 @@ export async function excluirChecklist(
   // Sem erro e sem linha: a policy nao deixou alcancar o checklist.
   if (!excluidos?.length) return { erro: "Sua conta não pode excluir este checklist." };
 
-  const caminhos = [midia.assinatura_path, ...(midia.checklist_fotos ?? []).map((foto) => foto.storage_path)].filter(
-    (caminho): caminho is string => Boolean(caminho),
-  );
+  // A primeira assinatura e `assinatura_path` e tambem a linha 1 da tabela
+  // nova (0090): o `Set` evita pedir ao Storage o mesmo arquivo duas vezes.
+  const caminhos = [
+    ...new Set([
+      midia.assinatura_path,
+      ...(midia.checklist_assinaturas ?? []).map((assinatura) => assinatura.storage_path),
+      ...(midia.checklist_fotos ?? []).map((foto) => foto.storage_path),
+    ]),
+  ].filter((caminho): caminho is string => Boolean(caminho));
   if (caminhos.length > 0) {
     try {
       const { error: erroNoStorage } = await createAdminClient().storage.from("checklists").remove(caminhos);

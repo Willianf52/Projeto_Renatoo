@@ -16,7 +16,7 @@ function estado(parcial: Partial<EstadoDoChecklist>): EstadoDoChecklist {
     perguntas: null,
     respostas: {},
     quantidadeDeFotos: 1,
-    temAssinatura: true,
+    assinaturasColhidas: 2,
     ...parcial,
   };
 }
@@ -28,7 +28,7 @@ describe("pendenciasDoChecklist", () => {
 
   it("lista tudo o que falta na ordem da tela", () => {
     const pendencias = pendenciasDoChecklist(
-      estado({ motivo: "   ", quantidadeDeFotos: 0, temAssinatura: false }),
+      estado({ motivo: "   ", quantidadeDeFotos: 0, assinaturasColhidas: 0 }),
     );
 
     expect(pendencias.map((p) => p.alvo)).toEqual(["motivo", "fotos", "assinatura"]);
@@ -36,14 +36,26 @@ describe("pendenciasDoChecklist", () => {
 
   it("mantem as mensagens que o envio ja mostrava", () => {
     const pendencias = pendenciasDoChecklist(
-      estado({ motivo: "", quantidadeDeFotos: 0, temAssinatura: false }),
+      estado({ motivo: "", quantidadeDeFotos: 0, assinaturasColhidas: 0 }),
     );
 
     expect(pendencias.map((p) => p.mensagem)).toEqual([
       "Informe o motivo da visita.",
       "Anexe ao menos uma foto.",
-      "Colha a assinatura do responsável.",
+      "Colha as 2 assinaturas.",
     ]);
+  });
+
+  /** O checklist exige as DUAS assinaturas, cada uma com nome (04/11/2026). */
+  it("com uma so assinatura, ainda falta a segunda", () => {
+    const pendencias = pendenciasDoChecklist(estado({ assinaturasColhidas: 1 }));
+
+    expect(pendencias.map((p) => p.alvo)).toEqual(["assinatura"]);
+    expect(pendencias[0].mensagem).toBe("Falta 1 assinatura.");
+  });
+
+  it("com as duas assinaturas, nao ha pendencia de assinatura", () => {
+    expect(pendenciasDoChecklist(estado({ assinaturasColhidas: 2 }))).toEqual([]);
   });
 
   it("corretiva ignora perguntas; consultoria ignora motivo", () => {
@@ -111,18 +123,18 @@ describe("textoDoResumo", () => {
 
   it("junta as pecas com virgula e 'e' no fim", () => {
     const pendencias = pendenciasDoChecklist(
-      estado({ tipo: "CORRETIVA", motivo: "", quantidadeDeFotos: 0, temAssinatura: false }),
+      estado({ tipo: "CORRETIVA", motivo: "", quantidadeDeFotos: 0, assinaturasColhidas: 0 }),
     );
 
-    expect(textoDoResumo(pendencias)).toBe("Falta: o motivo, uma foto e a assinatura.");
+    expect(textoDoResumo(pendencias)).toBe("Falta: o motivo, uma foto e as assinaturas.");
   });
 
   it("consultoria nao exige foto: so as perguntas e a assinatura (03/11/2026)", () => {
     const pendencias = pendenciasDoChecklist(
-      estado({ tipo: "CONSULTORIA", perguntas, respostas: {}, quantidadeDeFotos: 0, temAssinatura: false }),
+      estado({ tipo: "CONSULTORIA", perguntas, respostas: {}, quantidadeDeFotos: 0, assinaturasColhidas: 0 }),
     );
 
-    expect(textoDoResumo(pendencias)).toBe("Falta: 3 perguntas e a assinatura.");
+    expect(textoDoResumo(pendencias)).toBe("Falta: 3 perguntas e as assinaturas.");
   });
 
   it("singular para uma pergunta, e uma peca so sem 'e'", () => {
@@ -149,7 +161,7 @@ describe("escolha do modelo (0061)", () => {
       respostas: {},
       escolhaDeModeloPendente: true,
       quantidadeDeFotos: 1,
-      temAssinatura: true,
+      assinaturasColhidas: 2,
     });
 
     expect(pendencia).toMatchObject({ alvo: "perguntas", mensagem: "Escolha qual checklist responder." });
@@ -164,7 +176,7 @@ describe("escolha do modelo (0061)", () => {
         respostas: {},
         escolhaDeModeloPendente: true,
         quantidadeDeFotos: 1,
-        temAssinatura: true,
+        assinaturasColhidas: 2,
       }),
     ).toEqual([]);
   });

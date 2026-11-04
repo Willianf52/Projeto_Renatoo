@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   COLUNAS_DO_EXCEL,
   COLUNAS_DO_PDF,
+  assinaturasDoDetalhe,
   camposDoResumo,
   comPadroesDaTela,
   conclusaoDaLista,
@@ -700,6 +701,32 @@ describe("exportacoes no formato do antigo", () => {
   });
 });
 
+describe("assinaturasDoDetalhe (0090)", () => {
+  it("na ordem colhida, com o nome de cada uma", () => {
+    expect(
+      assinaturasDoDetalhe(
+        [
+          { ordem: 2, nome: "Gesiel" },
+          { ordem: 1, nome: "Willian" },
+        ],
+        "1/a.png",
+      ),
+    ).toEqual([
+      { ordem: 1, nome: "Willian" },
+      { ordem: 2, nome: "Gesiel" },
+    ]);
+  });
+
+  it("checklist antigo, sem a linha nova: uma assinatura sem nome", () => {
+    expect(assinaturasDoDetalhe([], "1/assinatura.png")).toEqual([{ ordem: 1, nome: null }]);
+    expect(assinaturasDoDetalhe(null, "1/assinatura.png")).toEqual([{ ordem: 1, nome: null }]);
+  });
+
+  it("sem linha e sem caminho, nenhuma", () => {
+    expect(assinaturasDoDetalhe([], null)).toEqual([]);
+  });
+});
+
 describe("camposDoResumo", () => {
   it("o mesmo cabecalho para a tela de detalhe e o PDF unificado", () => {
     const detalhe: ChecklistDetalhe = {
@@ -710,6 +737,7 @@ describe("camposDoResumo", () => {
       motivoDaVisita: "Visita programada",
       respostas: [],
       fotos: [],
+      assinaturas: [],
       temAssinatura: false,
       enviadoPor: null,
     };

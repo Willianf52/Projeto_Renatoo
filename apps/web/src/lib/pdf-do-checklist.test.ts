@@ -9,7 +9,17 @@ vi.mock("@/app/dashboard/checklistlab/historico-de-checklist/queries", () => ({
   TIPO_CONSULTORIA: "CONSULTORIA",
 }));
 
-const { enderecoDoSite, gerarPdfDoChecklist, nomeDoArquivo, notaComVirgula, paraWinAnsi, pintarPng, quebrarEmLinhas } =
+const {
+  assinaturasParaDesenhar,
+  enderecoDoSite,
+  gerarPdfDoChecklist,
+  legendaDaAssinatura,
+  nomeDoArquivo,
+  notaComVirgula,
+  paraWinAnsi,
+  pintarPng,
+  quebrarEmLinhas,
+} =
   await import("./pdf-do-checklist");
 const UPNGTipos = await import("@pdf-lib/upng");
 const UPNG = (UPNGTipos as unknown as { default?: typeof UPNGTipos }).default ?? UPNGTipos;
@@ -52,12 +62,22 @@ const DETALHE = {
 };
 
 /** Banco falso: so as duas consultas e o download que o gerador usa. */
-function bancoFalso(arquivos: Record<string, Uint8Array>) {
+function bancoFalso(arquivos: Record<string, Uint8Array>, baixados: string[] = []) {
   return {
     from: (tabela: string) => ({
       select: () => ({
         eq: () =>
-          tabela === "checklist_fotos"
+          tabela === "checklist_assinaturas"
+            ? {
+                // Fora de ordem de proposito: o gerador tem que ordenar.
+                order: async () => ({
+                  data: [
+                    { ordem: 2, nome: "Gesiel", storage_path: "113/assinatura-b.png" },
+                    { ordem: 1, nome: "Willian", storage_path: "113/assinatura-a.png" },
+                  ],
+                }),
+              }
+            : tabela === "checklist_fotos"
             ? {
                 order: async () => ({
                   data: [
@@ -84,8 +104,10 @@ function bancoFalso(arquivos: Record<string, Uint8Array>) {
     }),
     storage: {
       from: () => ({
-        download: async (caminho: string) =>
-          caminho in arquivos ? { data: new Blob([arquivos[caminho] as BlobPart]), error: null } : { data: null, error: new Error("404") },
+        download: async (caminho: string) => {
+          baixados.push(caminho);
+          return caminho in arquivos ? { data: new Blob([arquivos[caminho] as BlobPart]), error: null } : { data: null, error: new Error("404") };
+        },
       }),
     },
   } as never;
@@ -109,16 +131,22 @@ describe("quebrarEmLinhas", () => {
 });
 
 describe("gerarPdfDoChecklist", () => {
-  it("gera um PDF valido com as fotos que sao imagem e a assinatura", async () => {
+  it("gera um PDF valido com as fotos que sao imagem e as duas assinaturas", async () => {
     getChecklist.mockResolvedValue(DETALHE);
+    const baixados: string[] = [];
     const admin = bancoFalso({
       "113/foto-1.jpg": PNG,
       "113/foto-2.jpg": PNG,
       "113/foto-3.jpg": new TextEncoder().encode("<html>nao e foto</html>"),
-      "113/assinatura.png": PNG,
-    });
+      "113/assinatura-a.png": PNG,
+      "113/assinatura-b.png": PNG,
+    }, baixados);
 
     const pdf = await gerarPdfDoChecklist(admin, 46);
+
+    // As duas assinaturas da tabela nova foram buscadas, e nao a do caminho antigo.
+    expect(baixados).toEqual(expect.arrayContaining(["113/assinatura-a.png", "113/assinatura-b.png"]));
+    expect(baixados).not.toContain("113/assinatura.png");
 
     expect(pdf?.nome).toBe("checklist-00029-2026.pdf");
     const lido = await PDFDocument.load(pdf!.arquivo);
@@ -129,6 +157,42 @@ describe("gerarPdfDoChecklist", () => {
   it("checklist que nao existe devolve null", async () => {
     getChecklist.mockResolvedValue(null);
     expect(await gerarPdfDoChecklist(bancoFalso({}), 999)).toBeNull();
+  });
+});
+
+describe("assinaturas do checklist (0090)", () => {
+  it("a legenda leva o nome de quem assinou", () => {
+    expect(legendaDaAssinatura("Willian")).toBe("Assinado por Willian");
+    expect(legendaDaAssinatura("  Willian  ")).toBe("Assinado por Willian");
+  });
+
+  it("sem nome, a legenda de sempre", () => {
+    expect(legendaDaAssinatura(null)).toBe("Assinatura do responsável no local");
+    expect(legendaDaAssinatura("   ")).toBe("Assinatura do responsável no local");
+  });
+
+  it("desenha as da tabela na ordem colhida", () => {
+    expect(
+      assinaturasParaDesenhar(
+        [
+          { ordem: 2, nome: "Gesiel", storage_path: "1/b.png" },
+          { ordem: 1, nome: "Willian", storage_path: "1/a.png" },
+        ],
+        "1/a.png",
+      ),
+    ).toEqual([
+      { nome: "Willian", caminho: "1/a.png" },
+      { nome: "Gesiel", caminho: "1/b.png" },
+    ]);
+  });
+
+  it("sem a tabela nova, cai na assinatura antiga, sem nome", () => {
+    expect(assinaturasParaDesenhar([], "1/assinatura.png")).toEqual([{ nome: null, caminho: "1/assinatura.png" }]);
+    expect(assinaturasParaDesenhar(null, "1/assinatura.png")).toEqual([{ nome: null, caminho: "1/assinatura.png" }]);
+  });
+
+  it("sem nenhuma, nao desenha nada", () => {
+    expect(assinaturasParaDesenhar([], null)).toEqual([]);
   });
 });
 

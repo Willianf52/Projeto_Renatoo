@@ -6,6 +6,7 @@ import {
   type TipoDeVisita,
 } from "@projeto-renatoo/shared";
 
+import { QUANTIDADE_DE_ASSINATURAS, normalizarNome, problemaNoNome, type AssinaturaColhida } from "../campo/assinaturas";
 import { capturarErro, capturarFalhaDeCampo } from "./observabilidade";
 import { supabase } from "./supabase";
 
@@ -45,8 +46,12 @@ export type EnvioDeChecklist = {
   fotos: string[];
   /** Fotos de cada pergunta, URIs locais. So na CONSULTORIA. */
   fotosDePergunta?: { perguntaId: number; uri: string }[];
-  /** PNG em base64, sem o prefixo `data:`. */
-  assinatura: string;
+  /**
+   * As assinaturas, na ordem em que foram colhidas: o nome de quem assinou e o
+   * PNG em base64, sem o prefixo `data:`. O app exige `QUANTIDADE_DE_ASSINATURAS`
+   * (0090); a primeira tambem vai em `assinatura_path`, que o banco mantem.
+   */
+  assinaturas: AssinaturaColhida[];
 };
 
 export type ResultadoDoEnvio =
@@ -74,19 +79,38 @@ export async function enviarChecklist(
   jaEnviadas: MidiaJaEnviada = new Map(),
 ): Promise<ResultadoDoEnvio> {
   try {
-    // A chave da assinatura e o proprio traco: colhida de novo, e outra
-    // imagem e sobe outra vez; a mesma, reaproveita.
-    const origemDaAssinatura = `assinatura:${envio.assinatura}`;
-    let assinaturaPath = jaEnviadas.get(origemDaAssinatura);
-
-    if (assinaturaPath === undefined) {
-      const caminho = caminhoDeMidiaDaVisita(envio.visitaId, `assinatura-${sufixo()}`, "png");
-      const bytesDaAssinatura = await bytesDoBase64(envio.assinatura);
-      const falhaNaAssinatura = await subir(caminho, bytesDaAssinatura, "image/png");
-      if (falhaNaAssinatura) return { ok: false, erro: falhaNaAssinatura };
-      jaEnviadas.set(origemDaAssinatura, caminho);
-      assinaturaPath = caminho;
+    // Antes de gastar rede: sao as duas, e cada uma com nome.
+    if (envio.assinaturas.length !== QUANTIDADE_DE_ASSINATURAS) {
+      return { ok: false, erro: `Colha as ${QUANTIDADE_DE_ASSINATURAS} assinaturas.` };
     }
+    for (const assinatura of envio.assinaturas) {
+      const problema = problemaNoNome(assinatura.nome);
+      if (problema) return { ok: false, erro: problema };
+    }
+
+    // A chave de cada assinatura e o proprio traco: colhida de novo, e outra
+    // imagem e sobe outra vez; a mesma, reaproveita.
+    const assinaturasEnviadas: { nome: string; storage_path: string }[] = [];
+
+    for (const assinatura of envio.assinaturas) {
+      const origemDaAssinatura = `assinatura:${assinatura.png}`;
+      let caminhoDaAssinatura = jaEnviadas.get(origemDaAssinatura);
+
+      if (caminhoDaAssinatura === undefined) {
+        const caminho = caminhoDeMidiaDaVisita(envio.visitaId, `assinatura-${sufixo()}`, "png");
+        const bytesDaAssinatura = await bytesDoBase64(assinatura.png);
+        const falhaNaAssinatura = await subir(caminho, bytesDaAssinatura, "image/png");
+        if (falhaNaAssinatura) return { ok: false, erro: falhaNaAssinatura };
+        jaEnviadas.set(origemDaAssinatura, caminho);
+        caminhoDaAssinatura = caminho;
+      }
+
+      assinaturasEnviadas.push({ nome: normalizarNome(assinatura.nome), storage_path: caminhoDaAssinatura });
+    }
+
+    // `assinatura_path` do checklist e a primeira: `not null` e lido por tudo
+    // que ainda pergunta "a assinatura".
+    const assinaturaPath = assinaturasEnviadas[0].storage_path;
 
     const fotos: string[] = [];
 
@@ -163,6 +187,7 @@ export async function enviarChecklist(
       // quem recusa uma CONSULTORIA que chegar com motivo de verdade.
       p_motivo: dados.tipo === "CORRETIVA" ? dados.motivo : "",
       p_assinatura_path: dados.assinaturaPath,
+      p_assinaturas: assinaturasEnviadas,
       p_fotos: dados.fotos,
       p_respostas:
         dados.tipo === "CONSULTORIA"

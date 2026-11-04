@@ -852,6 +852,8 @@ export type RespostaDoChecklist = {
 
 export type FotoDoChecklist = { id: number; criadoEm: string };
 
+export type AssinaturaDoChecklist = { ordem: number; nome: string | null };
+
 export type ChecklistDetalhe = {
   linha: HistoricoLinha;
   visitaId: number;
@@ -864,6 +866,10 @@ export type ChecklistDetalhe = {
   respostas: RespostaDoChecklist[];
   /** So as gerais: as de pergunta vao em `respostas[].fotos`. */
   fotos: FotoDoChecklist[];
+  /** As assinaturas na ordem em que foram colhidas, cada uma com o nome de
+   * quem assinou (0090). `nome` e nulo nos checklists antigos e nos do portal,
+   * que nunca o pediram. */
+  assinaturas: AssinaturaDoChecklist[];
   temAssinatura: boolean;
   /** Quem de fato enviou (0059): o inspetor dono da visita ou um GESTOR que a
    * fechou por ele. `null` quando a conta foi apagada depois do envio. */
@@ -879,6 +885,7 @@ export type ChecklistDetalhe = {
 type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
   visita_id: number;
   assinatura_path: string | null;
+  checklist_assinaturas: { ordem: number; nome: string | null }[] | null;
   checklist_respostas: {
     resposta: string;
     observacao: string | null;
@@ -897,6 +904,7 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
 const SELECT_DO_DETALHE = `
   id, numero, ano, tipo, motivo, criado_em, visita_id, assinatura_path, modelo_id,
   modelos_checklist ( nome ),
+  checklist_assinaturas ( ordem, nome ),
   visitas (
     criado_em,
     motivos_visita ( nome ),
@@ -991,6 +999,8 @@ function montarDetalhe(bruto: ChecklistDetalheBruto, perguntasPorModelo: Map<num
   const respostas = ordenarRespostas(bruto.checklist_respostas ?? [], bruto.checklist_fotos ?? []);
   const comResposta = new Set(respostas.map((resposta) => resposta.perguntaId));
 
+  const assinaturas = assinaturasDoDetalhe(bruto.checklist_assinaturas, bruto.assinatura_path);
+
   return {
     linha: montarLinha(bruto, totalDoModelo(perguntasPorModelo, bruto.modelo_id)),
     visitaId: bruto.visita_id,
@@ -1004,7 +1014,8 @@ function montarDetalhe(bruto: ChecklistDetalheBruto, perguntasPorModelo: Map<num
     fotos: (bruto.checklist_fotos ?? [])
       .filter((foto) => foto.pergunta_id === null || !comResposta.has(foto.pergunta_id))
       .map(paraFoto),
-    temAssinatura: Boolean(bruto.assinatura_path),
+    assinaturas,
+    temAssinatura: assinaturas.length > 0,
     enviadoPor: bruto.enviado_por_perfil?.nome_completo ?? null,
   };
 }
@@ -1357,17 +1368,40 @@ function paraFoto(foto: { id: number; criado_em: string }): FotoDoChecklist {
  * bytes e a rota `[id]/assinatura`, na propria origem. Ver o cabecalho de
  * `midia.ts` para o porque de nao usar `createSignedUrl`.
  */
-export async function getCaminhoDaAssinatura(id: number): Promise<string | null> {
+export async function getCaminhoDaAssinatura(id: number, ordem = 1): Promise<string | null> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("checklists_visita")
-    .select("assinatura_path")
-    .eq("id", id)
+    .from("checklist_assinaturas")
+    .select("storage_path")
+    .eq("checklist_id", id)
+    .eq("ordem", ordem)
     .maybeSingle();
 
   if (error) throw error;
-  return data?.assinatura_path ?? null;
+  if (data) return data.storage_path;
+
+  // Sem a linha da tabela nova: so a primeira cai no caminho antigo do
+  // checklist, que a 0090 mantem igual a ela.
+  if (ordem !== 1) return null;
+  const antigo = await supabase.from("checklists_visita").select("assinatura_path").eq("id", id).maybeSingle();
+  if (antigo.error) throw antigo.error;
+  return antigo.data?.assinatura_path ?? null;
+}
+
+/**
+ * As assinaturas de um checklist, na ordem colhida. Sem nenhuma linha na
+ * tabela nova, o checklist que ainda tem `assinatura_path` aparece com UMA,
+ * sem nome -- a 0090 ja cria essa linha, entao isto cobre so o intervalo entre
+ * publicar o portal e aplicar a migration.
+ */
+export function assinaturasDoDetalhe(
+  linhas: readonly { ordem: number; nome: string | null }[] | null | undefined,
+  assinaturaPath: string | null,
+): AssinaturaDoChecklist[] {
+  const lista = [...(linhas ?? [])].sort((a, b) => a.ordem - b.ordem).map((a) => ({ ordem: a.ordem, nome: a.nome }));
+  if (lista.length === 0 && assinaturaPath) return [{ ordem: 1, nome: null }];
+  return lista;
 }
 
 /**

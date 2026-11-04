@@ -138,17 +138,28 @@ function ChecklistImpresso({ detalhe, novaPagina }: { detalhe: ChecklistDetalhe;
 
       {detalhe.temAssinatura && (
         <div className="break-inside-avoid">
-          <h3 className="mb-1 text-xs font-semibold">Assinatura do responsável no local</h3>
+          <h3 className="mb-1 text-xs font-semibold">
+            {detalhe.assinaturas.length > 1 ? "Assinaturas" : "Assinatura do responsável no local"}
+          </h3>
           {/* O traco e BRANCO sobre fundo transparente (ver a tela de
               detalhe): `invert` o deixa preto sobre o papel. */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- a rota
-              devolve bytes do bucket privado sob a sessao de quem pede (ver
-              midia.ts); next/image buscaria sem cookie. */}
-          <img
-            src={`${LISTAGEM}/${linha.id}/assinatura`}
-            alt={`Assinatura do checklist ${linha.id}`}
-            className="max-h-32 invert"
-          />
+          <div className="flex flex-wrap gap-8">
+            {detalhe.assinaturas.map((assinatura) => (
+              <figure key={assinatura.ordem} className="break-inside-avoid">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a rota
+                    devolve bytes do bucket privado sob a sessao de quem pede
+                    (ver midia.ts); next/image buscaria sem cookie. */}
+                <img
+                  src={`${LISTAGEM}/${linha.id}/assinatura/${assinatura.ordem}`}
+                  alt={`Assinatura ${assinatura.ordem} do checklist ${linha.id}`}
+                  className="max-h-32 invert"
+                />
+                {assinatura.nome ? (
+                  <figcaption className="mt-1 text-xs">Assinado por {assinatura.nome}</figcaption>
+                ) : null}
+              </figure>
+            ))}
+          </div>
         </div>
       )}
     </section>
