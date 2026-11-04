@@ -79,7 +79,23 @@ export function notaDoChecklist(
   return medidas === 0 ? null : Math.round((conformes / medidas) * 100);
 }
 
-export type ModeloResumido = { id: number; nome: string; padrao: boolean; ativo: boolean };
+export type ModeloResumido = {
+  id: number;
+  nome: string;
+  padrao: boolean;
+  ativo: boolean;
+  /**
+   * Exige foto em TODAS as perguntas (0091), como os checklists dos carros no
+   * antigo. Opcional: a copia do checklist guardada no aparelho antes da 0091
+   * nao a tem, e ausente vale como falso.
+   */
+  fotoObrigatoria?: boolean;
+  /**
+   * Quantas assinaturas o checklist deste modelo exige (0092): 1 nos carros, 2
+   * nos demais. Opcional pelo mesmo motivo; ausente vale 2.
+   */
+  quantidadeDeAssinaturas?: number;
+};
 export type LigacaoDeModelo = { modelo_id: number; grupo_site_id: number };
 
 /**

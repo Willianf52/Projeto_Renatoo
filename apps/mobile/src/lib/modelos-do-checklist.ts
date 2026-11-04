@@ -5,7 +5,7 @@ import {
   type TipoDeResposta,
 } from "@projeto-renatoo/shared";
 
-import { lerCopiaDoChecklist, modelosNaCopia, perguntasNaCopia } from "./checklist-guardado";
+import { lerCopiaDoChecklist, modeloDaLinha, modelosNaCopia, perguntasNaCopia } from "./checklist-guardado";
 import { comPrazo, ESGOTADO, PRAZO_ANTES_DA_COPIA_MS } from "./com-prazo";
 import { supabase } from "./supabase";
 
@@ -79,13 +79,13 @@ async function lerModelosDoServidor(alvo: {
   try {
     const [grupo, modelos, ligacoes] = await Promise.all([
       lerGrupoDoSite(alvo),
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo"),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas"),
       supabase.from("modelos_checklist_grupos").select("modelo_id, grupo_site_id"),
     ]);
 
     if (grupo === null || modelos.error || ligacoes.error) return { ok: false, erro: ERRO_DE_MODELOS };
 
-    const doSite = modelosDoGrupo(grupo, modelos.data ?? [], ligacoes.data ?? []);
+    const doSite = modelosDoGrupo(grupo, (modelos.data ?? []).map(modeloDaLinha), ligacoes.data ?? []);
 
     // Nem o padrao veio: nao e "site sem checklist" (o padrao existe sempre,
     // 0061), e leitura que nao trouxe o que devia.

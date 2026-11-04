@@ -6,7 +6,13 @@ import {
   type TipoDeVisita,
 } from "@projeto-renatoo/shared";
 
-import { QUANTIDADE_DE_ASSINATURAS, normalizarNome, problemaNoNome, type AssinaturaColhida } from "../campo/assinaturas";
+import {
+  QUANTIDADE_DE_ASSINATURAS,
+  mensagemDaPendenciaDeAssinaturas,
+  normalizarNome,
+  problemaNoNome,
+  type AssinaturaColhida,
+} from "../campo/assinaturas";
 import { capturarErro, capturarFalhaDeCampo } from "./observabilidade";
 import { supabase } from "./supabase";
 
@@ -52,6 +58,8 @@ export type EnvioDeChecklist = {
    * (0090); a primeira tambem vai em `assinatura_path`, que o banco mantem.
    */
   assinaturas: AssinaturaColhida[];
+  /** Quantas o modelo exige (0092). Ausente: `QUANTIDADE_DE_ASSINATURAS`. */
+  assinaturasExigidas?: number;
 };
 
 export type ResultadoDoEnvio =
@@ -79,9 +87,10 @@ export async function enviarChecklist(
   jaEnviadas: MidiaJaEnviada = new Map(),
 ): Promise<ResultadoDoEnvio> {
   try {
-    // Antes de gastar rede: sao as duas, e cada uma com nome.
-    if (envio.assinaturas.length !== QUANTIDADE_DE_ASSINATURAS) {
-      return { ok: false, erro: `Colha as ${QUANTIDADE_DE_ASSINATURAS} assinaturas.` };
+    // Antes de gastar rede: sao as que o modelo exige, e cada uma com nome.
+    const exigidas = envio.assinaturasExigidas ?? QUANTIDADE_DE_ASSINATURAS;
+    if (envio.assinaturas.length !== exigidas) {
+      return { ok: false, erro: mensagemDaPendenciaDeAssinaturas(0, exigidas) ?? "Colha as assinaturas." };
     }
     for (const assinatura of envio.assinaturas) {
       const problema = problemaNoNome(assinatura.nome);

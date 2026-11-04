@@ -44,15 +44,24 @@ vi.mock("./supabase", () => {
 
 const { lerModelosDoSite, lerPerguntasDoModelo } = await import("./modelos-do-checklist");
 
-const PADRAO = { id: 1, nome: "Padrão", padrao: true, ativo: true };
-const GERAL = { id: 2, nome: "Geral", padrao: false, ativo: true };
-const LIMPEZA = { id: 3, nome: "Limpeza", padrao: false, ativo: true };
+const PADRAO = { id: 1, nome: "Padrão", padrao: true, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
+const GERAL = { id: 2, nome: "Geral", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
+const LIMPEZA = { id: 3, nome: "Limpeza", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
+const FROTA = { id: 4, nome: "Frota", padrao: false, ativo: true, fotoObrigatoria: true, quantidadeDeAssinaturas: 1 };
 
 beforeEach(() => {
   for (const chave of Object.keys(respostas)) delete respostas[chave];
   filtros.length = 0;
   guardada.copia = null;
-  respostas.modelos_checklist = { data: [PADRAO, GERAL, LIMPEZA], error: null };
+  // O servidor devolve a coluna `foto_obrigatoria` (0091); o app a traduz.
+  respostas.modelos_checklist = {
+    data: [PADRAO, GERAL, LIMPEZA, FROTA].map(({ fotoObrigatoria, quantidadeDeAssinaturas, ...linha }) => ({
+      ...linha,
+      foto_obrigatoria: fotoObrigatoria,
+      quantidade_de_assinaturas: quantidadeDeAssinaturas,
+    })),
+    error: null,
+  };
   respostas.modelos_checklist_grupos = {
     data: [
       { modelo_id: 2, grupo_site_id: 10 },
@@ -64,6 +73,13 @@ beforeEach(() => {
 });
 
 describe("lerModelosDoSite", () => {
+  it("traz se o modelo exige foto em todas as perguntas (0091) e quantas assinaturas (0092)", async () => {
+    respostas.modelos_checklist_grupos = { data: [{ modelo_id: 4, grupo_site_id: 10 }], error: null };
+    respostas.sites = { data: { grupo_site_id: 10 }, error: null };
+
+    expect(await lerModelosDoSite({ visitaId: null, siteId: 5 })).toEqual({ ok: true, modelos: [FROTA] });
+  });
+
   it("pelo site (\"Ver sites\"), devolve os modelos do grupo dele", async () => {
     respostas.sites = { data: { grupo_site_id: 10 }, error: null };
 

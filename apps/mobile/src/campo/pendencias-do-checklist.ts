@@ -31,6 +31,15 @@ export type EstadoDoChecklist = {
   quantidadeDeFotos: number;
   /** Quantas assinaturas ja foram colhidas; o checklist exige `QUANTIDADE_DE_ASSINATURAS` (04/11/2026). */
   assinaturasColhidas: number;
+  /** Quantas o modelo exige (0092): 1 nos carros. Ausente: `QUANTIDADE_DE_ASSINATURAS`. */
+  assinaturasExigidas?: number;
+  /**
+   * O modelo escolhido exige foto em TODAS as perguntas (0091), como os
+   * checklists dos carros no antigo. Ausente ou falso: foto opcional.
+   */
+  fotoObrigatoriaPorPergunta?: boolean;
+  /** Quantas fotos cada pergunta ja tem, por id; pergunta ausente tem zero. */
+  fotosPorPergunta?: Readonly<Record<number, number>>;
   /** Observacao de cada pergunta, como digitada. */
   observacoes?: Readonly<Record<number, string>>;
   /**
@@ -50,9 +59,11 @@ export type Pendencia =
       /** `null` quando nao ha lista para contar (carregando ou vazia). */
       faltam: number | null;
       mensagem: string;
+      /** A falta e de FOTO na pergunta, e nao de resposta (0091): o resumo diz isso. */
+      foto?: true;
     }
   | { alvo: "fotos"; mensagem: string }
-  | { alvo: "assinatura"; mensagem: string };
+  | { alvo: "assinatura"; mensagem: string; umaSo?: true };
 
 export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
   const pendencias: Pendencia[] = [];
@@ -62,7 +73,8 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
   }
 
   if (estado.tipo === "CONSULTORIA") {
-    const pendenciaDePerguntas = pendenciaDasPerguntas(estado) ?? pendenciaDaDescricao(estado);
+    const pendenciaDePerguntas =
+      pendenciaDasPerguntas(estado) ?? pendenciaDaFotoDasPerguntas(estado) ?? pendenciaDaDescricao(estado);
     if (pendenciaDePerguntas) pendencias.push(pendenciaDePerguntas);
   }
 
@@ -73,9 +85,13 @@ export function pendenciasDoChecklist(estado: EstadoDoChecklist): Pendencia[] {
     pendencias.push({ alvo: "fotos", mensagem: "Anexe ao menos uma foto." });
   }
 
-  const faltaAssinar = mensagemDaPendenciaDeAssinaturas(estado.assinaturasColhidas);
+  const faltaAssinar = mensagemDaPendenciaDeAssinaturas(estado.assinaturasColhidas, estado.assinaturasExigidas);
   if (faltaAssinar) {
-    pendencias.push({ alvo: "assinatura", mensagem: faltaAssinar });
+    pendencias.push({
+      alvo: "assinatura",
+      mensagem: faltaAssinar,
+      ...(estado.assinaturasExigidas === 1 ? { umaSo: true as const } : {}),
+    });
   }
 
   return pendencias;
@@ -122,6 +138,27 @@ function pendenciaDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
     perguntaId: semResposta[0].id,
     faltam: semResposta.length,
     mensagem: `Responda todas as perguntas (faltam ${semResposta.length}).`,
+  };
+}
+
+/**
+ * Modelo com foto obrigatoria (0091): a primeira pergunta ainda sem foto. Vem
+ * depois das respostas, para o inspetor nao ser mandado de volta a uma
+ * pergunta que ainda nem respondeu.
+ */
+function pendenciaDaFotoDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
+  if (!estado.fotoObrigatoriaPorPergunta || !estado.perguntas) return null;
+
+  const semFoto = estado.perguntas.filter((pergunta) => (estado.fotosPorPergunta?.[pergunta.id] ?? 0) === 0);
+  if (semFoto.length === 0) return null;
+
+  const primeira = semFoto[0];
+  return {
+    alvo: "perguntas",
+    perguntaId: primeira.id,
+    faltam: semFoto.length,
+    foto: true,
+    mensagem: `Anexe foto em todas as perguntas${primeira.ordem ? ` (começa na ${primeira.ordem})` : ""}: faltam ${semFoto.length}.`,
   };
 }
 
@@ -177,10 +214,11 @@ function pecaDoResumo(pendencia: Pendencia): string {
       return "o motivo";
     case "perguntas":
       if (pendencia.faltam === null) return "as perguntas";
+      if (pendencia.foto) return pendencia.faltam === 1 ? "foto em 1 pergunta" : `foto em ${pendencia.faltam} perguntas`;
       return pendencia.faltam === 1 ? "1 pergunta" : `${pendencia.faltam} perguntas`;
     case "fotos":
       return "uma foto";
     case "assinatura":
-      return "as assinaturas";
+      return pendencia.umaSo ? "a assinatura" : "as assinaturas";
   }
 }

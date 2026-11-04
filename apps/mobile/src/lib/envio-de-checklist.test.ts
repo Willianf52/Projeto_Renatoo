@@ -193,6 +193,26 @@ describe("envio bem-sucedido", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("modelo que exige uma assinatura so (carros): aceita uma e manda uma", async () => {
+    const resultado = await enviarChecklist({
+      ...CORRETIVA,
+      assinaturas: [CORRETIVA.assinaturas[0]],
+      assinaturasExigidas: 1,
+    });
+
+    expect(resultado.ok).toBe(true);
+    const args = rpc.mock.calls[0][1];
+    expect(args.p_assinaturas).toHaveLength(1);
+    expect(args.p_assinaturas[0].nome).toBe(CORRETIVA.assinaturas[0].nome.trim());
+  });
+
+  it("modelo que exige uma so: duas assinaturas tambem sao recusadas", async () => {
+    const resultado = await enviarChecklist({ ...CORRETIVA, assinaturasExigidas: 1 });
+
+    expect(resultado).toEqual({ ok: false, erro: "Colha a assinatura." });
+    expect(upload).not.toHaveBeenCalled();
+  });
+
   it("com nome em branco, recusa sem subir nada", async () => {
     const resultado = await enviarChecklist({
       ...CORRETIVA,

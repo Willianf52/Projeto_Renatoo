@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LIMITE_DO_NOME,
   QUANTIDADE_DE_ASSINATURAS,
+  assinaturasExigidasPeloModelo,
   assinaturasQueFaltam,
   geometriaDaPrancheta,
   mensagemDaPendenciaDeAssinaturas,
@@ -48,6 +49,25 @@ describe("quantas assinaturas", () => {
     expect(mensagemDaPendenciaDeAssinaturas(0)).toBe("Colha as 2 assinaturas.");
     expect(mensagemDaPendenciaDeAssinaturas(1)).toBe("Falta 1 assinatura.");
     expect(mensagemDaPendenciaDeAssinaturas(2)).toBeNull();
+  });
+
+  it("o modelo manda: 1 nos carros, 2 nos demais, e o que for estranho vale 2", () => {
+    expect(assinaturasExigidasPeloModelo(1)).toBe(1);
+    expect(assinaturasExigidasPeloModelo(2)).toBe(2);
+    expect(assinaturasExigidasPeloModelo(null)).toBe(2);
+    expect(assinaturasExigidasPeloModelo(undefined)).toBe(2);
+    expect(assinaturasExigidasPeloModelo(5)).toBe(2);
+  });
+
+  it("com uma exigida, falta ou nao falta uma so", () => {
+    expect(assinaturasQueFaltam(0, 1)).toBe(1);
+    expect(assinaturasQueFaltam(1, 1)).toBe(0);
+    expect(mensagemDaPendenciaDeAssinaturas(0, 1)).toBe("Colha a assinatura.");
+    expect(mensagemDaPendenciaDeAssinaturas(1, 1)).toBeNull();
+  });
+
+  it("com uma exigida, o titulo e so Assinatura", () => {
+    expect(tituloDaAssinatura(1, 1)).toBe("Assinatura");
   });
 
   it("titulos: Assinatura 1 e Assinatura 2", () => {

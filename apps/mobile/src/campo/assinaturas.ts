@@ -8,8 +8,16 @@
  * assinatura espelhada ou de cabeca para baixo.
  */
 
-/** Quantas assinaturas o app de campo exige em cada checklist. */
+/**
+ * Quantas assinaturas o app de campo exige quando o modelo nao diz outra
+ * coisa. O modelo manda (0092): os checklists dos carros pedem uma so.
+ */
 export const QUANTIDADE_DE_ASSINATURAS = 2;
+
+/** A quantidade que o modelo exige: 1 ou 2; ausente ou estranha vale o padrao. */
+export function assinaturasExigidasPeloModelo(quantidade: number | null | undefined): number {
+  return quantidade === 1 || quantidade === 2 ? quantidade : QUANTIDADE_DE_ASSINATURAS;
+}
 
 /** Mesmo teto da coluna `checklist_assinaturas.nome` (0090). */
 export const LIMITE_DO_NOME = 120;
@@ -30,21 +38,25 @@ export function problemaNoNome(nome: string): string | null {
   return null;
 }
 
-/** "Assinatura 1", "Assinatura 2": o titulo da caixa e da tela de assinar. */
-export function tituloDaAssinatura(posicao: number): string {
-  return `Assinatura ${posicao}`;
+/** "Assinatura 1", "Assinatura 2": o titulo da caixa e da tela de assinar. Com uma so, "Assinatura". */
+export function tituloDaAssinatura(posicao: number, exigidas = QUANTIDADE_DE_ASSINATURAS): string {
+  return exigidas === 1 ? "Assinatura" : `Assinatura ${posicao}`;
 }
 
-/** Quantas faltam para as duas exigidas, nunca negativo. */
-export function assinaturasQueFaltam(colhidas: number): number {
-  return Math.max(0, QUANTIDADE_DE_ASSINATURAS - colhidas);
+/** Quantas faltam para as exigidas, nunca negativo. */
+export function assinaturasQueFaltam(colhidas: number, exigidas = QUANTIDADE_DE_ASSINATURAS): number {
+  return Math.max(0, exigidas - colhidas);
 }
 
 /** A mensagem da pendencia, ou `null` com todas colhidas. */
-export function mensagemDaPendenciaDeAssinaturas(colhidas: number): string | null {
-  const faltam = assinaturasQueFaltam(colhidas);
+export function mensagemDaPendenciaDeAssinaturas(
+  colhidas: number,
+  exigidas = QUANTIDADE_DE_ASSINATURAS,
+): string | null {
+  const faltam = assinaturasQueFaltam(colhidas, exigidas);
   if (faltam === 0) return null;
-  if (colhidas === 0) return `Colha as ${QUANTIDADE_DE_ASSINATURAS} assinaturas.`;
+  if (exigidas === 1) return "Colha a assinatura.";
+  if (colhidas === 0) return `Colha as ${exigidas} assinaturas.`;
   return faltam === 1 ? "Falta 1 assinatura." : `Faltam ${faltam} assinaturas.`;
 }
 

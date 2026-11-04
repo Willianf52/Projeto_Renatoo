@@ -118,6 +118,40 @@ export function ModeloForm({
         </span>
       </label>
 
+      {/* "Foto obrigatoria" (0091): como o checklist dos carros no sistema de referencia. */}
+      <label className="flex items-start gap-2 text-sm text-white">
+        <input type="checkbox" name="foto_obrigatoria" defaultChecked={valores.fotoObrigatoria} className="mt-1" />
+        <span>
+          Foto obrigatória em todas as perguntas
+          <span className="block text-xs text-brand-muted">
+            O app só deixa finalizar o checklist depois que cada pergunta tiver ao menos uma foto. Desmarcado, a foto
+            é opcional.
+          </span>
+        </span>
+      </label>
+
+      {/* "Assinaturas" (0092): os checklists dos carros pedem uma so, como no sistema de referencia. */}
+      <div>
+        <label htmlFor="quantidade_de_assinaturas" className={rotuloClasses}>
+          Assinaturas exigidas
+        </label>
+        <div className="relative">
+          <select
+            id="quantidade_de_assinaturas"
+            name="quantidade_de_assinaturas"
+            defaultValue={String(valores.quantidadeDeAssinaturas)}
+            className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+          >
+            <option value="2">2 assinaturas</option>
+            <option value="1">1 assinatura</option>
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+        </div>
+        <p className="mt-1.5 text-xs text-brand-muted">
+          Quantas assinaturas, cada uma com o nome de quem assinou, o app exige para finalizar o checklist.
+        </p>
+      </div>
+
       <div className="flex items-center gap-3 pt-2">
         <Button type="submit" loading={enviando} disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar"}

@@ -43,7 +43,7 @@ import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { SecaoDeAssinaturas } from "../componentes/SecaoDeAssinaturas";
-import type { AssinaturaColhida } from "../campo/assinaturas";
+import { assinaturasExigidasPeloModelo, type AssinaturaColhida } from "../campo/assinaturas";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
@@ -410,6 +410,22 @@ export function TelaDeChecklist({
     [perguntas, fotosDePergunta],
   );
 
+  // O modelo escolhido exige foto em todas as perguntas (0091)? Os carros da empresa, sim.
+  const fotoObrigatoriaPorPergunta =
+    tipo === "CONSULTORIA" && (modelos?.find((modelo) => modelo.id === modeloEfetivo)?.fotoObrigatoria ?? false);
+
+  // Quantas assinaturas o modelo exige (0092): uma nos carros, duas nos demais e na corretiva.
+  const assinaturasExigidas =
+    tipo === "CONSULTORIA"
+      ? assinaturasExigidasPeloModelo(modelos?.find((modelo) => modelo.id === modeloEfetivo)?.quantidadeDeAssinaturas)
+      : assinaturasExigidasPeloModelo(null);
+
+  // Trocou para um modelo que pede menos: vale so o que ele exige, na ordem colhida.
+  const assinaturasValidas = useMemo(
+    () => assinaturas.slice(0, assinaturasExigidas),
+    [assinaturas, assinaturasExigidas],
+  );
+
   const estadoDoChecklist = useMemo(
     () => ({
       tipo,
@@ -419,7 +435,12 @@ export function TelaDeChecklist({
       escolhaDeModeloPendente,
       // Gerais e de pergunta, somadas: qualquer uma comprova a visita.
       quantidadeDeFotos: fotos.length + (tipo === "CONSULTORIA" ? fotosDasPerguntas.length : 0),
-      assinaturasColhidas: assinaturas.length,
+      assinaturasColhidas: assinaturasValidas.length,
+      assinaturasExigidas,
+      fotoObrigatoriaPorPergunta,
+      fotosPorPergunta: Object.fromEntries(
+        Object.entries(fotosDePergunta).map(([id, lista]) => [id, lista.length]),
+      ) as Record<number, number>,
       observacoes,
       minimoDaObservacao,
     }),
@@ -431,7 +452,10 @@ export function TelaDeChecklist({
       escolhaDeModeloPendente,
       fotos.length,
       fotosDasPerguntas.length,
-      assinaturas.length,
+      assinaturasValidas.length,
+      assinaturasExigidas,
+      fotoObrigatoriaPorPergunta,
+      fotosDePergunta,
       observacoes,
       minimoDaObservacao,
     ],
@@ -686,7 +710,8 @@ export function TelaDeChecklist({
               }))
             : undefined,
         fotos,
-        assinaturas,
+        assinaturas: assinaturasValidas,
+        assinaturasExigidas,
       }, midiaJaEnviada.current);
 
       if (!resultado.ok) {
@@ -715,7 +740,7 @@ export function TelaDeChecklist({
       setEnviando(false);
       envioEmVoo.current = false;
     }
-  }, [aoConcluir, assinaturas, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, observacoes, pendencias, perguntas, respostas, rolarAte, site, tipo]);
+  }, [aoConcluir, assinaturasValidas, assinaturasExigidas, chave, fotos, fotosDasPerguntas, funcionarioId, modeloEfetivo, motivo, numeroColeta, observacoes, pendencias, perguntas, respostas, rolarAte, site, tipo]);
 
   // Chamada de dentro de uma arrow no `onLayout`, e nao devolvendo o handler
   // pronto: uma fabrica chamada no render "passa a ref" durante o render, que
@@ -1041,7 +1066,8 @@ export function TelaDeChecklist({
 
             <View style={estilos.secao} onLayout={(evento) => medirSecao("assinatura", evento)}>
               <SecaoDeAssinaturas
-                assinaturas={assinaturas}
+                assinaturas={assinaturasValidas}
+                exigidas={assinaturasExigidas}
                 aoMudar={setAssinaturas}
                 destacada={destacar("assinatura")}
               />

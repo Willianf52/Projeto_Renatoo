@@ -116,8 +116,9 @@ export const MAXIMO_DE_FOTOS = 20;
 /**
  * Fotos de UMA pergunta (0061). O minimo continua sendo do checklist inteiro:
  * uma foto de pergunta ja comprova a visita. Era 3; o dono subiu para 20 em
- * 20/10/2026 porque tres nao bastava para registrar um item em campo. O teto
- * multiplica pelo numero de perguntas, e cada foto sobe pela rede movel: um
- * checklist cheio demora mais para enviar.
+ * 20/10/2026 porque tres nao bastava para registrar um item em campo, e para
+ * 50 em 04/11/2026 ("tira o limite ou coloca umas 50"). O teto multiplica
+ * pelo numero de perguntas, e cada foto sobe pela rede movel: um checklist
+ * cheio demora mais para enviar.
  */
-export const MAXIMO_DE_FOTOS_POR_PERGUNTA = 20;
+export const MAXIMO_DE_FOTOS_POR_PERGUNTA = 50;
