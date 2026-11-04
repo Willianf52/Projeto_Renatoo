@@ -107,6 +107,17 @@ export function ModeloForm({
         </>
       )}
 
+      {/* "Exige aprovacao" (0089): como o "Aguardando Autorizacao" do sistema de referencia. */}
+      <label className="flex items-start gap-2 text-sm text-white">
+        <input type="checkbox" name="exige_aprovacao" defaultChecked={valores.exigeAprovacao} className="mt-1" />
+        <span>
+          Exige aprovação
+          <span className="block text-xs text-brand-muted">
+            O checklist enviado fica &quot;Aguardando Autorização&quot; até a gestão aprovar ou reprovar no Histórico.
+          </span>
+        </span>
+      </label>
+
       <div className="flex items-center gap-3 pt-2">
         <Button type="submit" loading={enviando} disabled={enviando}>
           {enviando ? "Salvando..." : "Salvar"}

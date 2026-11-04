@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eventosDoSite, lerAnexos, lerRegistro, subtiposDe } from "./regras";
+import { aplicarPermissoesWeb, eventosDoSite, lerAnexos, lerRegistro, subtiposDe } from "./regras";
 
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
 
@@ -55,5 +55,40 @@ describe("eventos do site e subtipos", () => {
   it("subtipos sao os filhos do evento escolhido", () => {
     expect(subtiposDe(eventos, 1).map((e) => e.id)).toEqual([2]);
     expect(subtiposDe(eventos, null)).toEqual([]);
+  });
+});
+
+describe("aplicarPermissoesWeb (0089)", () => {
+  const eventos = [
+    { id: 1, nome: "Livre", superiorId: null, sites: [] },
+    { id: 2, nome: "Só do grupo A de usuários", superiorId: null, sites: [] },
+    { id: 3, nome: "Só nos locais do grupo 10", superiorId: null, sites: [] },
+    { id: 4, nome: "Site 101 fora do grupo 20", superiorId: null, sites: [101] },
+  ];
+  const grupoDoSite = new Map([
+    [100, 10],
+    [101, 10],
+    [200, 20],
+  ]);
+  const permissoes = [
+    { eventoId: 2, grupoSiteId: null, grupoUsuarioId: 7 },
+    { eventoId: 3, grupoSiteId: 10, grupoUsuarioId: null },
+    { eventoId: 4, grupoSiteId: 20, grupoUsuarioId: null },
+  ];
+
+  it("sem ser do grupo de usuarios, o evento some", () => {
+    const vistos = aplicarPermissoesWeb(eventos, permissoes, new Set([9]), grupoDoSite).map((e) => e.id);
+    expect(vistos).toEqual([1, 3, 4]);
+  });
+
+  it("do grupo de usuarios, o evento aparece", () => {
+    const vistos = aplicarPermissoesWeb(eventos, permissoes, new Set([7]), grupoDoSite).map((e) => e.id);
+    expect(vistos).toContain(2);
+  });
+
+  it("grupo de locais vira os sites do grupo; sem intersecao, nenhum site", () => {
+    const resultado = aplicarPermissoesWeb(eventos, permissoes, new Set(), grupoDoSite);
+    expect(resultado.find((e) => e.id === 3)?.sites).toEqual([100, 101]);
+    expect(resultado.find((e) => e.id === 4)?.sites).toEqual([-1]);
   });
 });

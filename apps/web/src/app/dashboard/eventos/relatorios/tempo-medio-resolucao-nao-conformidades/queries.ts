@@ -32,13 +32,18 @@ export type { Opcao, OpcoesFiltros, SearchParams };
 
 export type Formato = "dias" | "horas";
 
-/** Os cinco status da referencia, na ordem do select de la. */
+/** Os status da referencia (com os cinco da 0089), na ordem do select de la. */
 export const OPCOES_DE_STATUS: Opcao[] = [
   { value: "AGUARDANDO", label: "Aguardando" },
   { value: "EM_ANALISE", label: "Em Análise" },
   { value: "ATENDIDO", label: "Atendido" },
+  { value: "CONCLUIDO", label: "Concluído" },
+  { value: "NAO_REALIZADO", label: "Não Realizado" },
   { value: "CANCELADO", label: "Cancelado" },
+  { value: "PRE_CRITICO", label: "Pré-crítico" },
   { value: "CRITICO", label: "Crítico" },
+  { value: "ALERTA", label: "Alerta" },
+  { value: "PANICO", label: "Pânico" },
 ];
 
 export const OPCOES_DE_FORMATO: Opcao[] = [

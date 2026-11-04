@@ -1,5 +1,6 @@
 "use client";
 
+import { EditorDeTextoFormatado } from "@/components/dashboard/TextoFormatado";
 import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
@@ -297,7 +298,8 @@ export function SiteForm({
         </Campo>
 
         <Campo id="observacao" rotulo="Observação" className="sm:col-span-2">
-          <textarea
+          {/* Negrito, italico e lista, como o editor do sistema de referencia. */}
+          <EditorDeTextoFormatado
             id="observacao"
             name="observacao"
             rows={3}

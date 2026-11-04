@@ -86,3 +86,37 @@ export async function excluirChecklist(
   revalidatePath(LISTAGEM);
   redirect(`${LISTAGEM}?${filtros.toString()}`);
 }
+
+export type EstadoDaAprovacao = { erro?: string };
+
+/**
+ * "Aguardando Autorizacao" -> Aprovado ou Reprovado (0089). Quem pode e o
+ * banco que decide (`decidir_aprovacao_do_checklist`); reprovar exige motivo.
+ */
+export async function decidirAprovacao(_estado: EstadoDaAprovacao, formData: FormData): Promise<EstadoDaAprovacao> {
+  const id = Number(formData.get("id"));
+  const decisao = String(formData.get("decisao") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+  if (!Number.isSafeInteger(id) || id <= 0) return { erro: "Checklist inválido." };
+  if (decisao !== "APROVADO" && decisao !== "REPROVADO") return { erro: "Escolha aprovar ou reprovar." };
+  if (decisao === "REPROVADO" && motivo.length === 0) return { erro: "Informe o motivo da reprovação." };
+  if (motivo.length > 2000) return { erro: "O motivo deve ter no máximo 2000 caracteres." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("decidir_aprovacao_do_checklist", {
+    p_checklist_id: id,
+    p_decisao: decisao,
+    p_motivo: motivo || undefined,
+  });
+  if (error) {
+    if (error.code === "42501") return { erro: "Sua conta não pode aprovar checklists." };
+    if (error.code === "P0002") return { erro: "Este checklist não está mais aguardando autorização." };
+    erro(gerarIdDeRequisicao(), "Histórico: falha ao decidir a aprovação:", error.message);
+    return { erro: "Não foi possível salvar. Tente de novo." };
+  }
+
+  revalidatePath(LISTAGEM_DO_HISTORICO);
+  redirect(`${LISTAGEM_DO_HISTORICO}?salvo=1`);
+}
+
+const LISTAGEM_DO_HISTORICO = "/dashboard/checklistlab/historico-de-checklist";

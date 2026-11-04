@@ -22,6 +22,7 @@ import { FUSO_DO_PROJETO } from "@/lib/data-hora";
 import { podeVerTodaAOperacao } from "@/lib/permissoes";
 import { aceitaAndamento } from "./andamentos";
 import { DescricaoDoEvento } from "./DescricaoDoEvento";
+import { QuadroArrastavel, type CartaoArrastavel } from "./QuadroArrastavel";
 import {
   anelDoStatus,
   corDoStatus,
@@ -136,7 +137,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
         <ModoDeVisualizacao params={params} visao={filtros.visao} />
 
         {todas ? (
-          <Quadro linhas={todas.linhas} cortado={todas.cortado} agora={agora} />
+          <Quadro linhas={todas.linhas} cortado={todas.cortado} agora={agora} podeMover={podeAgir} />
         ) : (
           <DataTable
             columns={COLUNAS}
@@ -194,74 +195,45 @@ function ModoDeVisualizacao({ params, visao }: { params: SearchParams; visao: "l
 
 /**
  * "Quadro": uma coluna por status, com um cartao por evento, como no sistema
- * de referencia. Clicar no cartao abre o detalhe. Arrastar o cartao para
- * mudar o status (que o antigo permite) fica de fora: aqui o status so muda
- * por analise ou finalizacao registrada, com texto e autor (0064).
+ * de referencia. Clicar no cartao abre o detalhe; arrastar para outra coluna
+ * muda o status (0089), registrado como andamento com autor.
  */
-function Quadro({ linhas, cortado, agora }: { linhas: LinhaDoPainel[]; cortado: boolean; agora: Date }) {
+function Quadro({
+  linhas,
+  cortado,
+  agora,
+  podeMover,
+}: {
+  linhas: LinhaDoPainel[];
+  cortado: boolean;
+  agora: Date;
+  podeMover: boolean;
+}) {
+  // Os cartoes ja montados no servidor (datas no fuso do projeto); o cliente
+  // so arrasta e chama `moverNoQuadro`.
+  const cartoes: CartaoArrastavel[] = linhas.map((linha) => {
+    const criado = new Date(linha.criadoEm);
+    const { dias, horas } = tempoEmAberto(linha.criadoEm, agora);
+    return {
+      id: linha.id,
+      status: linha.status,
+      numero: linha.numeroAno.replace(" / ", "/"),
+      evento: linha.evento,
+      local: linha.siteNiveis.at(-1) ?? "",
+      quando: `${DATA.format(criado)} ${HORA.format(criado).slice(0, 5)}`,
+      usuario: linha.usuarioAbertura ?? "",
+      aberto: aceitaAndamento(linha.status) ? `Aberto há ${dias}d ${horas}h` : null,
+    };
+  });
   return (
     <div className="space-y-3 p-4">
       <p className="text-sm text-brand-muted">
         <span className="font-semibold text-white">{linhas.length} evento(s)</span> com os filtros atuais.
         {cortado && ` Mostrando os ${TETO_SEM_PAGINACAO} mais recentes; ajuste os filtros para ver o restante.`} Clique
-        no cartão para ver os detalhes.
+        no cartão para ver os detalhes{podeMover ? "; arraste para outra coluna para mudar o status" : ""}.
       </p>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {STATUS.map((status) => {
-          const daColuna = linhas.filter((linha) => linha.status === status.value);
-          return (
-            <section
-              key={status.value}
-              aria-label={`${status.label}: ${daColuna.length}`}
-              className="flex w-64 shrink-0 flex-col rounded-lg border border-slate-800 bg-brand-bg/40"
-              style={{ borderTopColor: status.anel, borderTopWidth: 3 }}
-            >
-              <h2 className="flex items-center justify-between px-3 py-2 text-sm font-semibold text-white">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full" style={{ background: status.anel }} aria-hidden />
-                  {status.label}
-                </span>
-                <span className="rounded-full border border-slate-700 px-2 text-xs text-brand-muted">{daColuna.length}</span>
-              </h2>
-              <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto px-2 pb-2">
-                {daColuna.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-slate-700 px-3 py-4 text-center text-xs text-brand-muted">
-                    Nenhum evento
-                  </p>
-                ) : (
-                  daColuna.map((linha) => <CartaoDoQuadro key={linha.id} linha={linha} agora={agora} cor={status.anel} />)
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      <QuadroArrastavel cartoes={cartoes} podeMover={podeMover} />
     </div>
-  );
-}
-
-function CartaoDoQuadro({ linha, agora, cor }: { linha: LinhaDoPainel; agora: Date; cor: string }) {
-  const criado = new Date(linha.criadoEm);
-  const { dias, horas } = tempoEmAberto(linha.criadoEm, agora);
-  return (
-    <Link
-      href={`${BASE}/${linha.id}`}
-      className="block rounded-md border border-slate-800 bg-brand-surface px-3 py-2 text-xs transition-colors hover:border-slate-600"
-      style={{ borderLeftColor: cor, borderLeftWidth: 3 }}
-    >
-      <p className="text-brand-muted">Nº {linha.numeroAno.replace(" / ", "/")}</p>
-      <p className="font-semibold text-brand-green">{linha.evento}</p>
-      <p className="mt-1 text-slate-300">{linha.siteNiveis.at(-1)}</p>
-      <p className="text-slate-300">
-        {DATA.format(criado)} {HORA.format(criado).slice(0, 5)}
-      </p>
-      {linha.usuarioAbertura && <p className="text-slate-300">{linha.usuarioAbertura}</p>}
-      {aceitaAndamento(linha.status) && (
-        <p className="mt-1 font-semibold text-white">
-          Aberto há {dias}d {horas}h
-        </p>
-      )}
-    </Link>
   );
 }
 

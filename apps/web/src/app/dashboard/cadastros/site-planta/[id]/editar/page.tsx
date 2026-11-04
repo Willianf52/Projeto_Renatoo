@@ -8,6 +8,8 @@ import { SiteForm } from "../../SiteForm";
 import { valoresDoSite } from "../../constantes";
 import { getOpcoes, getSite, getSitesParaSuperior } from "../../queries";
 import { idNaUrl } from "@/lib/id-na-url";
+import { createClient } from "@/lib/supabase/server";
+import { AnexosDoSite } from "../../AnexosDoSite";
 
 const LISTAGEM = "/dashboard/cadastros/site-planta";
 
@@ -36,10 +38,17 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     redirect(LISTAGEM);
   }
 
-  const [site, opcoes, sitesSuperiores] = await Promise.all([
+  const supabase = await createClient();
+  const [site, opcoes, sitesSuperiores, anexos] = await Promise.all([
     getSite(idNumerico),
     getOpcoes(),
     getSitesParaSuperior(idNumerico),
+    // "Anexos" do sistema de referencia (0089).
+    supabase
+      .from("site_anexos")
+      .select("id, nome_original, criado_em")
+      .eq("site_id", idNumerico)
+      .order("criado_em", { ascending: false }),
   ]);
   if (!site) notFound();
 
@@ -67,6 +76,16 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           opcoes={opcoes}
           sitesSuperiores={sitesSuperiores}
           valoresIniciais={valoresDoSite(site)}
+        />
+      </div>
+
+      <div className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up">
+        <div className="border-b border-slate-800 px-4 py-3">
+          <h2 className="text-sm font-semibold text-white">Anexos</h2>
+        </div>
+        <AnexosDoSite
+          siteId={site.id}
+          anexos={(anexos.data ?? []).map((a) => ({ id: a.id, nome: a.nome_original, criadoEm: a.criado_em }))}
         />
       </div>
     </div>

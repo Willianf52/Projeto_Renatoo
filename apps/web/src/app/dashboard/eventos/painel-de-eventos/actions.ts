@@ -6,7 +6,8 @@ import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { podeVerTodaAOperacao } from "@/lib/permissoes";
 import { createClient } from "@/lib/supabase/server";
 import { lerConfiguracaoDoCliente } from "@/lib/configuracao-do-cliente";
-import { erroDoMinimoDeTexto, lerAndamento, lerEnvio } from "./andamentos";
+import { erroDoMinimoDeTexto, lerAndamento, lerEnvio, STATUS_ENCERRADOS } from "./andamentos";
+import { STATUS } from "./status";
 
 const PAINEL = "/dashboard/eventos/painel-de-eventos";
 
@@ -107,4 +108,46 @@ export async function enviarEventoPorEmail(_estado: EstadoDoEnvio, formData: For
 
   revalidatePath(`${PAINEL}/${ocorrenciaId}`);
   redirect(`${PAINEL}/${ocorrenciaId}?enviado=1`);
+}
+
+/**
+ * Arrastar o cartao no Quadro, como no sistema de referencia (0089). A troca
+ * vira um andamento com autor e o texto "Status alterado no Quadro", e o
+ * trigger aplica `status_novo`: o historico continua mostrando quem mudou e
+ * quando. Encerrar (Atendido, Concluido, Nao Realizado, Cancelado) registra
+ * como finalizacao.
+ */
+export async function moverNoQuadro(ocorrenciaId: number, status: string): Promise<{ erro?: string }> {
+  const destino = STATUS.find((s) => s.value === status);
+  if (!Number.isInteger(ocorrenciaId) || ocorrenciaId <= 0 || !destino) return { erro: "Movimento inválido." };
+  if (!(await podeVerTodaAOperacao())) return { erro: "Sua conta não pode mudar o status de ocorrências." };
+
+  const supabase = await createClient();
+  const { data: tipo } = await supabase
+    .from("tipos_de_analise")
+    .select("id")
+    .eq("ativo", true)
+    .order("id")
+    .limit(1)
+    .maybeSingle();
+  if (!tipo) return { erro: "Cadastre um Tipo de Análise antes de mover os eventos." };
+
+  const encerra = (STATUS_ENCERRADOS as readonly string[]).includes(destino.value);
+  const { error } = await supabase.from("ocorrencia_andamentos").insert({
+    ocorrencia_id: ocorrenciaId,
+    tipo: encerra ? "FINALIZACAO" : "ANALISE",
+    tipo_analise_id: tipo.id,
+    texto: `Status alterado no Quadro para ${destino.label}.`,
+    status_novo: destino.value,
+  });
+  if (error) {
+    if (error.code === "23514") return { erro: "Esta ocorrência já foi encerrada. Atualize a página." };
+    if (error.code === "42501") return { erro: "Sem permissão para mudar esta ocorrência." };
+    erro(gerarIdDeRequisicao(), "Falha ao mover ocorrência no Quadro:", error.message);
+    return { erro: "Não foi possível mudar o status. Tente de novo." };
+  }
+
+  revalidatePath(PAINEL);
+  revalidatePath(`${PAINEL}/${ocorrenciaId}`);
+  return {};
 }

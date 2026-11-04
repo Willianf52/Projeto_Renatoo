@@ -39,6 +39,8 @@ export type ValoresDoModelo = {
   nome: string;
   ativo: boolean;
   grupos: string[];
+  /** "Exige aprovacao" (0089): o checklist nasce Aguardando Autorizacao. */
+  exigeAprovacao: boolean;
 };
 
 export type EstadoDoFormulario = {
@@ -53,6 +55,7 @@ function extrairValores(formData: FormData): ValoresDoModelo {
     // Qualquer coisa diferente de "inativo" cai no lado seguro para um
     // cadastro novo -- mesmo select de duas opcoes de `perguntas`.
     ativo: String(formData.get("status") ?? "") !== "inativo",
+    exigeAprovacao: formData.get("exige_aprovacao") === "on",
     // `getAll`: um checkbox escondido por grupo marcado (`SelecaoMultipla`).
     grupos: formData
       .getAll("grupos")
@@ -96,7 +99,7 @@ export async function salvarModelo(
   if (!validacao.ok) return { erro: validacao.erro, valores };
 
   const supabase = await createClient();
-  const linha = { nome: valores.nome, ativo: valores.ativo };
+  const linha = { nome: valores.nome, ativo: valores.ativo, exige_aprovacao: valores.exigeAprovacao };
 
   let modeloId: number;
   let padrao = false;

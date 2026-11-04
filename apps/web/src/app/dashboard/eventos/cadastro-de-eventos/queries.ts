@@ -202,16 +202,23 @@ export type DadosDoFormulario = {
   classificacoes: Opcao[];
   gruposDeUsuarios: Opcao[];
   setores: Opcao[];
+  /** Para as permissoes de visualizacao (0089). */
+  gruposDeLocais: Opcao[];
+  permissoes: { canal: string; grupoSiteId: number | null; grupoUsuarioId: number | null }[];
 };
 
 export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFormulario | null> {
   const supabase = await createClient();
-  const [dados, usuarios, classificacoes, grupos, setores] = await Promise.all([
+  const [dados, usuarios, classificacoes, grupos, setores, gruposDeLocais, permissoes] = await Promise.all([
     carregarTudo(),
     supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("tipos_de_classificacao").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("grupos_usuarios").select("id, nome").order("nome"),
     supabase.from("setores").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("grupos_sites").select("id, nome").order("nome"),
+    id === null
+      ? Promise.resolve({ data: [] as { canal: string; grupo_site_id: number | null; grupo_usuario_id: number | null }[] })
+      : supabase.from("evento_permissoes").select("canal, grupo_site_id, grupo_usuario_id").eq("evento_id", id),
   ]);
   const eventos = montarEventos(dados);
   const evento = id === null ? null : (eventos.find((e) => e.id === id) ?? null);
@@ -231,6 +238,12 @@ export async function getDadosDoFormulario(id: number | null): Promise<DadosDoFo
     classificacoes: (classificacoes.data ?? []).map((c) => ({ value: String(c.id), label: c.nome })),
     gruposDeUsuarios: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
     setores: (setores.data ?? []).map((s) => ({ value: String(s.id), label: s.nome })),
+    gruposDeLocais: (gruposDeLocais.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
+    permissoes: (permissoes.data ?? []).map((p) => ({
+      canal: p.canal,
+      grupoSiteId: p.grupo_site_id,
+      grupoUsuarioId: p.grupo_usuario_id,
+    })),
   };
 }
 

@@ -340,6 +340,10 @@ export type Database = {
       checklists_visita: {
         Row: {
           ano: number
+          aprovacao: string | null
+          aprovacao_em: string | null
+          aprovacao_motivo: string | null
+          aprovacao_por: string | null
           assinatura_path: string
           criado_em: string
           enviado_por: string | null
@@ -352,6 +356,10 @@ export type Database = {
         }
         Insert: {
           ano: number
+          aprovacao?: string | null
+          aprovacao_em?: string | null
+          aprovacao_motivo?: string | null
+          aprovacao_por?: string | null
           assinatura_path: string
           criado_em?: string
           enviado_por?: string | null
@@ -364,6 +372,10 @@ export type Database = {
         }
         Update: {
           ano?: number
+          aprovacao?: string | null
+          aprovacao_em?: string | null
+          aprovacao_motivo?: string | null
+          aprovacao_por?: string | null
           assinatura_path?: string
           criado_em?: string
           enviado_por?: string | null
@@ -375,6 +387,13 @@ export type Database = {
           visita_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "checklists_visita_aprovacao_por_fkey"
+            columns: ["aprovacao_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "checklists_visita_enviado_por_fkey"
             columns: ["enviado_por"]
@@ -498,6 +517,52 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evento_permissoes: {
+        Row: {
+          canal: string
+          evento_id: number
+          grupo_site_id: number | null
+          grupo_usuario_id: number | null
+          id: number
+        }
+        Insert: {
+          canal: string
+          evento_id: number
+          grupo_site_id?: number | null
+          grupo_usuario_id?: number | null
+          id?: never
+        }
+        Update: {
+          canal?: string
+          evento_id?: number
+          grupo_site_id?: number | null
+          grupo_usuario_id?: number | null
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evento_permissoes_evento_id_fkey"
+            columns: ["evento_id"]
+            isOneToOne: false
+            referencedRelation: "eventos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_permissoes_grupo_site_id_fkey"
+            columns: ["grupo_site_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evento_permissoes_grupo_usuario_id_fkey"
+            columns: ["grupo_usuario_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_usuarios"
             referencedColumns: ["id"]
           },
         ]
@@ -1047,6 +1112,7 @@ export type Database = {
         Row: {
           ativo: boolean
           criado_em: string
+          exige_aprovacao: boolean
           id: number
           nome: string
           padrao: boolean
@@ -1054,6 +1120,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           criado_em?: string
+          exige_aprovacao?: boolean
           id?: never
           nome: string
           padrao?: boolean
@@ -1061,6 +1128,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           criado_em?: string
+          exige_aprovacao?: boolean
           id?: never
           nome?: string
           padrao?: boolean
@@ -1133,6 +1201,7 @@ export type Database = {
           id: number
           ocorrencia_id: number
           responsavel_id: string | null
+          status_novo: string | null
           texto: string
           tipo: string
           tipo_analise_id: number
@@ -1148,6 +1217,7 @@ export type Database = {
           id?: never
           ocorrencia_id: number
           responsavel_id?: string | null
+          status_novo?: string | null
           texto: string
           tipo: string
           tipo_analise_id: number
@@ -1163,6 +1233,7 @@ export type Database = {
           id?: never
           ocorrencia_id?: number
           responsavel_id?: string | null
+          status_novo?: string | null
           texto?: string
           tipo?: string
           tipo_analise_id?: number
@@ -1667,6 +1738,48 @@ export type Database = {
         }
         Relationships: []
       }
+      site_anexos: {
+        Row: {
+          criado_em: string
+          criado_por: string | null
+          id: number
+          nome_original: string
+          site_id: number
+          storage_path: string
+        }
+        Insert: {
+          criado_em?: string
+          criado_por?: string | null
+          id?: never
+          nome_original: string
+          site_id: number
+          storage_path: string
+        }
+        Update: {
+          criado_em?: string
+          criado_por?: string | null
+          id?: never
+          nome_original?: string
+          site_id?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_anexos_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_anexos_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           ativo: boolean
@@ -2084,6 +2197,10 @@ export type Database = {
       consumir_limite_de_taxa: {
         Args: { p_chave: string; p_janela_ms: number; p_limite: number }
         Returns: number
+      }
+      decidir_aprovacao_do_checklist: {
+        Args: { p_checklist_id: number; p_decisao: string; p_motivo?: string }
+        Returns: undefined
       }
       duplicar_modelo: {
         Args: { p_modelo_id: number; p_nome: string }

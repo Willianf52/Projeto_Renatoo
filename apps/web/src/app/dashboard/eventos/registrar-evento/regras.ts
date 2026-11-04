@@ -84,3 +84,47 @@ export function eventosDoSite(eventos: EventoParaRegistro[], siteId: number | nu
 export function subtiposDe(eventos: EventoParaRegistro[], eventoId: number | null): EventoParaRegistro[] {
   return eventoId === null ? [] : eventos.filter((e) => e.superiorId === eventoId);
 }
+
+export type PermissaoDoEvento = { eventoId: number; grupoSiteId: number | null; grupoUsuarioId: number | null };
+
+/**
+ * Pura: aplica as permissoes de visualizacao do canal WEB (0089), como no
+ * sistema de referencia.
+ *   - Com Grupo de Usuarios no evento, so quem e de um deles ve o evento.
+ *   - Com Grupo de Locais, o evento so vale para os sites desses grupos
+ *     (somados aos "Sites" do cadastro, se houver: fica a intersecao).
+ * Sem permissao nenhuma, o evento continua como era. Evento que nao vale para
+ * site nenhum leva `sites: [-1]` (nunca bate), porque lista vazia quer dizer
+ * "todos".
+ */
+export function aplicarPermissoesWeb(
+  eventos: EventoParaRegistro[],
+  permissoes: readonly PermissaoDoEvento[],
+  meusGrupos: ReadonlySet<number>,
+  grupoDoSite: ReadonlyMap<number, number>,
+): EventoParaRegistro[] {
+  const porEvento = new Map<number, { locais: Set<number>; usuarios: Set<number> }>();
+  for (const p of permissoes) {
+    const e = porEvento.get(p.eventoId) ?? { locais: new Set<number>(), usuarios: new Set<number>() };
+    if (p.grupoSiteId !== null) e.locais.add(p.grupoSiteId);
+    if (p.grupoUsuarioId !== null) e.usuarios.add(p.grupoUsuarioId);
+    porEvento.set(p.eventoId, e);
+  }
+  const saida: EventoParaRegistro[] = [];
+  for (const evento of eventos) {
+    const regra = porEvento.get(evento.id);
+    if (!regra) {
+      saida.push(evento);
+      continue;
+    }
+    if (regra.usuarios.size > 0 && ![...regra.usuarios].some((g) => meusGrupos.has(g))) continue;
+    if (regra.locais.size === 0) {
+      saida.push(evento);
+      continue;
+    }
+    const dosGrupos = [...grupoDoSite.entries()].filter(([, grupo]) => regra.locais.has(grupo)).map(([site]) => site);
+    const permitidos = evento.sites.length === 0 ? dosGrupos : evento.sites.filter((s) => dosGrupos.includes(s));
+    saida.push({ ...evento, sites: permitidos.length > 0 ? permitidos : [-1] });
+  }
+  return saida;
+}
