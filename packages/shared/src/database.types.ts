@@ -215,6 +215,41 @@ export type Database = {
           },
         ]
       }
+      checklist_assinaturas: {
+        Row: {
+          checklist_id: number
+          criado_em: string
+          id: number
+          nome: string | null
+          ordem: number
+          storage_path: string
+        }
+        Insert: {
+          checklist_id: number
+          criado_em?: string
+          id?: never
+          nome?: string | null
+          ordem: number
+          storage_path: string
+        }
+        Update: {
+          checklist_id?: number
+          criado_em?: string
+          id?: never
+          nome?: string | null
+          ordem?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assinaturas_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists_visita"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_emails: {
         Row: {
           checklist_id: number
@@ -255,41 +290,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "checklist_emails_checklist_id_fkey"
-            columns: ["checklist_id"]
-            isOneToOne: false
-            referencedRelation: "checklists_visita"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      checklist_assinaturas: {
-        Row: {
-          checklist_id: number
-          criado_em: string
-          id: number
-          nome: string | null
-          ordem: number
-          storage_path: string
-        }
-        Insert: {
-          checklist_id: number
-          criado_em?: string
-          id?: never
-          nome?: string | null
-          ordem: number
-          storage_path: string
-        }
-        Update: {
-          checklist_id?: number
-          criado_em?: string
-          id?: never
-          nome?: string | null
-          ordem?: number
-          storage_path?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "checklist_assinaturas_checklist_id_fkey"
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists_visita"

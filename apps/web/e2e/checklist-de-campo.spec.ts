@@ -73,7 +73,7 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     // A assinatura vem do bucket privado pela rota do painel, com a sessao do
     // gestor. `naturalWidth` > 0 prova que chegaram bytes de imagem, e nao so
     // que a tag existe -- um 404 renderiza o mesmo <img> quebrado.
-    const assinatura = page.getByRole("img", { name: `Assinatura do checklist ${checklistId}` });
+    const assinatura = page.getByRole("img", { name: `Assinatura 1 do checklist ${checklistId}` });
     await expect(assinatura).toBeVisible();
     //
     // Sempre numero (0 enquanto carrega): `complete && naturalWidth` devolvia

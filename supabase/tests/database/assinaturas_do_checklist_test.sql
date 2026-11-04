@@ -7,7 +7,7 @@
 
 begin;
 
-select plan(7);
+select plan(6);
 
 create temporary table ids_assin (chave text primary key, valor bigint);
 grant select, insert on ids_assin to public;
