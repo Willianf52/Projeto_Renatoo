@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { CabecalhoDaImpressao } from "@/components/dashboard/CabecalhoDaImpressao";
 import { formatarEmissao } from "@/lib/data-hora";
 import { ImprimirAoAbrir } from "./ImprimirAoAbrir";
 
@@ -67,22 +68,7 @@ export async function TabelaImpressao({
       {/* Espera o logo carregar: imprimir antes deixaria o canto em branco. */}
       <ImprimirAoAbrir esperarImagens />
 
-      <header className="relative mb-4 flex min-h-12 flex-col items-center justify-center text-center">
-        {/* `img` e nao `next/image`: na impressao o que importa e o arquivo
-            pronto quando o dialogo abre, e o `ImprimirAoAbrir` espera por ele. */}
-        {/* O arquivo do logo e branco, feito para o fundo escuro do portal, e
-            no papel sumia (conferido no PDF de 30/10/2026). Inverter e girar o
-            matiz deixa as letras pretas e as faixas na cor original. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo-up-servicos.png"
-          alt="Up Serviços"
-          className="absolute left-0 top-0 h-10 w-auto"
-          style={{ filter: "invert(1) hue-rotate(180deg)" }}
-        />
-        <h1 className={`text-base font-bold ${zebrado ? "uppercase" : ""}`}>{titulo}</h1>
-        {textoPeriodo && <p className="text-xs font-bold">{textoPeriodo}</p>}
-      </header>
+      <CabecalhoDaImpressao titulo={titulo} apoio={textoPeriodo} maiusculas={zebrado} />
 
       {truncado && (
         <p className="mb-2 text-center text-xs text-slate-600">

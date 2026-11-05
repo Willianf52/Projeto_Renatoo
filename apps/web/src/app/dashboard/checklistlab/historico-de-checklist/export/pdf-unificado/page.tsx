@@ -1,4 +1,5 @@
 import { ImprimirAoAbrir } from "@/components/dashboard/ImprimirAoAbrir";
+import { CabecalhoDaImpressao } from "@/components/dashboard/CabecalhoDaImpressao";
 import { formatarDataHora } from "@/lib/data-hora";
 import {
   TETO_DO_PDF_UNIFICADO,
@@ -41,29 +42,47 @@ export default async function ExportarPdfUnificadoPage({
     <div data-paleta="original" className="bg-white p-6 text-black">
       <ImprimirAoAbrir esperarImagens />
 
-      <h1 className="mb-1 text-lg font-semibold">Histórico de Checklist (PDF unificado)</h1>
-      <p className="mb-4 text-xs text-slate-600">
-        {detalhes.length} {detalhes.length === 1 ? "checklist" : "checklists"}
-        {cortado &&
-          `, limitado aos primeiros ${TETO_DO_PDF_UNIFICADO}. Ajuste os filtros para reduzir o total`}
-      </p>
+      {detalhes.length === 0 && (
+        <>
+          <CabecalhoDaImpressao titulo="Histórico de Checklist" />
+          <p className="text-sm">Nenhum checklist encontrado com os filtros escolhidos.</p>
+        </>
+      )}
 
       {detalhes.map((detalhe, indice) => (
-        <ChecklistImpresso key={detalhe.linha.id} detalhe={detalhe} novaPagina={indice > 0} />
+        <ChecklistImpresso
+          key={detalhe.linha.id}
+          detalhe={detalhe}
+          novaPagina={indice > 0}
+          apoio={
+            indice === 0
+              ? `Histórico de Checklist: ${detalhes.length} ${detalhes.length === 1 ? "checklist" : "checklists"}${
+                  cortado ? `, limitado aos primeiros ${TETO_DO_PDF_UNIFICADO}` : ""
+                }`
+              : undefined
+          }
+        />
       ))}
     </div>
   );
 }
 
-function ChecklistImpresso({ detalhe, novaPagina }: { detalhe: ChecklistDetalhe; novaPagina: boolean }) {
+function ChecklistImpresso({
+  detalhe,
+  novaPagina,
+  apoio,
+}: {
+  detalhe: ChecklistDetalhe;
+  novaPagina: boolean;
+  apoio?: string;
+}) {
   const { linha } = detalhe;
   const consultoria = linha.tipo === TIPO_CONSULTORIA;
 
   return (
     <section className={`${novaPagina ? "mt-8 break-before-page print:mt-0" : ""} space-y-4`}>
-      <h2 className="border-b border-slate-400 pb-1 text-base font-semibold">
-        Checklist de {linha.checklist} ({linha.numeroAno || `#${linha.id}`})
-      </h2>
+      {/* O cabecalho padrao (logo e titulo) em cada folha: cada checklist comeca uma. */}
+      <CabecalhoDaImpressao titulo={`Checklist de ${linha.checklist} (${linha.numeroAno || `#${linha.id}`})`} apoio={apoio} />
 
       <dl className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
         {camposDoResumo(detalhe).map((campo) => (

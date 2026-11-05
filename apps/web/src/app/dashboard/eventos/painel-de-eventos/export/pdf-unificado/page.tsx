@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CabecalhoDaImpressao } from "@/components/dashboard/CabecalhoDaImpressao";
 import { ImprimirAoAbrir } from "@/components/dashboard/ImprimirAoAbrir";
 import { OcorrenciaImpressa } from "../../OcorrenciaImpressa";
 import { extrairFiltros, getOcorrencia, getTodasAsLinhas, type OcorrenciaDetalhe, type SearchParams } from "../../queries";
@@ -36,16 +37,28 @@ export default async function PdfUnificadoDosEventosPage({ searchParams }: { sea
     <div data-paleta="original" className="bg-white p-6 text-black">
       <ImprimirAoAbrir esperarImagens />
 
-      <h1 className="mb-1 text-lg font-semibold">Painel de Eventos (PDF unificado)</h1>
-      <p className="mb-4 text-xs text-slate-600">
-        {detalhes.length} {detalhes.length === 1 ? "evento" : "eventos"}
-        {limitado && `, limitado aos ${TETO_DO_PDF_UNIFICADO} mais recentes. Ajuste os filtros para reduzir o total`}
-      </p>
+      {detalhes.length === 0 && (
+        <>
+          <CabecalhoDaImpressao titulo="Painel de Eventos" />
+          <p className="text-sm">Nenhum evento encontrado com os filtros escolhidos.</p>
+        </>
+      )}
 
-      {detalhes.length === 0 && <p className="text-sm">Nenhum evento encontrado com os filtros escolhidos.</p>}
-
+      {/* A quantidade vai sob o titulo da primeira folha, e nao num titulo
+          proprio acima dela: o logo fica no topo, como nos outros PDFs. */}
       {detalhes.map((detalhe, indice) => (
-        <OcorrenciaImpressa key={detalhe.id} ocorrencia={detalhe} novaPagina={indice > 0} />
+        <OcorrenciaImpressa
+          key={detalhe.id}
+          ocorrencia={detalhe}
+          novaPagina={indice > 0}
+          apoio={
+            indice === 0
+              ? `Painel de Eventos: ${detalhes.length} ${detalhes.length === 1 ? "evento" : "eventos"}${
+                  limitado ? `, limitado aos ${TETO_DO_PDF_UNIFICADO} mais recentes` : ""
+                }`
+              : undefined
+          }
+        />
       ))}
     </div>
   );
