@@ -13,6 +13,7 @@ export function Acao({
   tom,
   className = "",
   target,
+  baixar = false,
   children,
 }: {
   titulo: string;
@@ -22,9 +23,22 @@ export function Acao({
   tom?: Tom;
   className?: string;
   target?: "_blank";
+  /**
+   * Arquivo para baixar (o PDF gerado no servidor, 05/11/2026): `<a download>`
+   * simples, sem navegacao do Next nem aba nova -- a tela fica onde esta.
+   */
+  baixar?: boolean;
   children: React.ReactNode;
 }) {
   const cores = tom ? `${CLASSES_DO_TOM[tom]} ${HOVER_DO_TOM[tom]}` : "text-white hover:brightness-125";
+  const classes = `flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97] ${cores} ${className}`;
+  if (baixar) {
+    return (
+      <a href={href} title={titulo} aria-label={titulo} download className={classes}>
+        {children}
+      </a>
+    );
+  }
   return (
     <Link
       href={href}
@@ -44,7 +58,7 @@ export function Acao({
       // escreve uma vez aqui, no unico ponto por onde todo `target="_blank"`
       // do painel passa, para o dia em que um `href` receber valor de fora.
       rel={target === "_blank" ? "noopener noreferrer" : undefined}
-      className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface active:scale-[0.97] ${cores} ${className}`}
+      className={classes}
     >
       {children}
     </Link>

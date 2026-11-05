@@ -165,7 +165,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       <Acao
         titulo="Exportar para PDF"
         href={`/dashboard/inspecoes/coletas-importadas/export/pdf${queryExportacao}`} tom="pdf"
-        target="_blank"
+        baixar
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
