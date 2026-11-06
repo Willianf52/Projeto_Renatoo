@@ -149,7 +149,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
-      <Acao titulo="Exportar para PDF" href={`${LISTAGEM}/export/pdf${query}`} tom="pdf" target="_blank">
+      <Acao titulo="Exportar para PDF" href={`${LISTAGEM}/export/pdf${query}`} tom="pdf" baixar>
         <PdfIcon className="h-4 w-4" />
       </Acao>
     </div>
@@ -394,7 +394,7 @@ async function TabelaDoHistorico({ searchParams }: { searchParams: SearchParamsP
         <TabletIcon className="h-4 w-4" />
       </Acao>
       {/* "PDF" e "Download CSV" de cada linha, como no sistema de referencia. */}
-      <Acao titulo={`PDF do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/pdf`} tom="pdf" target="_blank">
+      <Acao titulo={`PDF do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/pdf`} tom="pdf" baixar>
         <PdfIcon className="h-4 w-4" />
       </Acao>
       <Acao titulo={`Download CSV do checklist ${linha.numeroAno}`} href={`${LISTAGEM}/${linha.id}/csv`} tom="excel">

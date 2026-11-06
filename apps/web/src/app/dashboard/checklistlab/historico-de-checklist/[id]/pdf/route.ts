@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response(Buffer.from(pdf.arquivo), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${pdf.nome}"`,
+        "Content-Disposition": `attachment; filename="${pdf.nome}"`,
         "Cache-Control": "private, no-store",
       },
     });

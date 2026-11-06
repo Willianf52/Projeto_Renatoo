@@ -86,7 +86,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       <Acao titulo="Exportar para Excel" href={`${ROTA}/export/excel${queryExportacao}`} tom="excel" target="_blank">
         <ExcelIcon className="h-4 w-4" />
       </Acao>
-      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${queryExportacao}`} tom="pdf" target="_blank">
+      <Acao titulo="Exportar para PDF" href={`${ROTA}/export/pdf${queryExportacao}`} tom="pdf" baixar>
         <PdfIcon className="h-4 w-4" />
       </Acao>
     </div>
