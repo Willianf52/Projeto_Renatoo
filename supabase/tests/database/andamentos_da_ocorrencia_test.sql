@@ -4,9 +4,9 @@
 --   1) GESTOR analisa: a ocorrencia vai de AGUARDANDO a EM_ANALISE e o andamento
 --      guarda o autor.
 --   2) Uma segunda analise nao muda o status, e o historico tem as duas.
---   3) GESTOR finaliza: ATENDIDO, com `finalizada_em` gravada.
+--   3) GESTOR finaliza: CONCLUIDO, com `finalizada_em` gravada.
 --   4) Ocorrencia ATENDIDA nao recebe mais nada -- 23514.
---   5) Finalizar direto, sem analise, tambem vale (AGUARDANDO -> ATENDIDO).
+--   5) Finalizar direto, sem analise, tambem vale (AGUARDANDO -> CONCLUIDO).
 --   6) INSPETOR le o andamento da propria ocorrencia, mas nao registra -- 42501.
 --   7) Outro INSPETOR nao ve o andamento.
 --   8) Ninguem altera nem apaga andamento, nem muda o status direto -- 42501.
@@ -138,8 +138,8 @@ select is(
   (select format('%s|%s', status, finalizada_em is not null) from public.ocorrencias
     where id = (select valor from ids_teste where chave = 'oc_1')),
   -- `format('%s', <boolean>)` escreve `t`/`f`, nao `true`/`false`.
-  'ATENDIDO|t',
-  'a finalizacao leva a ATENDIDO e grava finalizada_em'
+  'CONCLUIDO|t',
+  'a finalizacao leva a CONCLUIDO e grava finalizada_em'
 );
 
 select is(

@@ -31,7 +31,7 @@ const TEXTOS = {
   FINALIZACAO: {
     campo: "Ações Realizadas",
     botao: "Finalizar ocorrência",
-    ajuda: "Finalizar encerra a ocorrência: o status passa para Atendido e ela não recebe mais análises.",
+    ajuda: "Finalizar encerra a ocorrência: o status passa para Concluído e ela não recebe mais análises.",
   },
 } as const;
 

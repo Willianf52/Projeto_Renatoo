@@ -38,13 +38,13 @@ async function Conteudo() {
   return (
     <div className="space-y-4">
       <div className="animate-fade-in">
-        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Novo Checklist" }]} />
+        <Breadcrumbs items={[{ label: "ChecklistLab" }, { label: "Responder Novo Checklist" }]} />
       </div>
       <div className="max-w-4xl overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up">
         <div className="border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <ClipboardListIcon className="h-4 w-4" />
-            Novo Checklist
+            Responder Novo Checklist
           </h1>
         </div>
         <FormularioDoChecklist

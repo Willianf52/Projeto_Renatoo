@@ -1,3 +1,4 @@
+import { OPCOES_DE_STATUS_DOS_RELATORIOS, statusDaConsulta } from "../status-dos-relatorios";
 import { periodoEntreDatas } from "@/lib/data-hora";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
@@ -32,19 +33,8 @@ export type { Opcao, OpcoesFiltros, SearchParams };
 
 export type Formato = "dias" | "horas";
 
-/** Os status da referencia (com os cinco da 0089), na ordem do select de la. */
-export const OPCOES_DE_STATUS: Opcao[] = [
-  { value: "AGUARDANDO", label: "Aguardando" },
-  { value: "EM_ANALISE", label: "Em Análise" },
-  { value: "ATENDIDO", label: "Atendido" },
-  { value: "CONCLUIDO", label: "Concluído" },
-  { value: "NAO_REALIZADO", label: "Não Realizado" },
-  { value: "CANCELADO", label: "Cancelado" },
-  { value: "PRE_CRITICO", label: "Pré-crítico" },
-  { value: "CRITICO", label: "Crítico" },
-  { value: "ALERTA", label: "Alerta" },
-  { value: "PANICO", label: "Pânico" },
-];
+/** Os cinco status do filtro da referencia (com "Atendido"): ver `status-dos-relatorios.ts`. */
+export const OPCOES_DE_STATUS: Opcao[] = OPCOES_DE_STATUS_DOS_RELATORIOS;
 
 export const OPCOES_DE_FORMATO: Opcao[] = [
   { value: "dias", label: "Dias" },
@@ -169,7 +159,7 @@ export async function getTempoMedio(filtros: Filtros): Promise<ItemDoTempoMedio[
     if (filtros.evento) consulta = consulta.eq("evento_id", Number(filtros.evento));
     if (filtros.sites) consulta = consulta.eq("site_id", Number(filtros.sites));
     if (filtros.usuario) consulta = consulta.eq("aberta_por", filtros.usuario);
-    if (filtros.status) consulta = consulta.eq("status", filtros.status);
+    if (filtros.status) consulta = consulta.in("status", statusDaConsulta(filtros.status));
     if (filtros.grupoSite) consulta = consulta.eq("sites.grupo_site_id", Number(filtros.grupoSite));
     if (membros) consulta = consulta.in("aberta_por", membros);
 

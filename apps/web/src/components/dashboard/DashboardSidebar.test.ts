@@ -102,7 +102,7 @@ describe("telas so do GESTOR (issue #209)", () => {
 
   it("subgrupo que fica vazio some (a Administracao do ChecklistLab), a secao nao", () => {
     const checklistlab = itensDoMenu(NAV_ITEMS, false).find((item) => item.label === "ChecklistLab");
-    expect(checklistlab?.children.map((child) => child.label)).toEqual(["Histórico de Checklist", "Novo Checklist"]);
+    expect(checklistlab?.children.map((child) => child.label)).toEqual(["Responder Novo Checklist", "Histórico de Checklist"]);
   });
 
   // Esconder do menu e so vitrine. O portao e o `layout.tsx` da pasta.

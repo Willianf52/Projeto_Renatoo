@@ -2251,6 +2251,7 @@ export type Database = {
         Args: { p_destinatarios: string[]; p_ocorrencia_id: number }
         Returns: number
       }
+      excluir_evento: { Args: { p_evento_id: number }; Returns: undefined }
       historico_de_checklist: {
         Args: { p_deslocamento?: number; p_filtros: Json; p_limite?: number }
         Returns: Json
