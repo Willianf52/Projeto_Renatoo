@@ -254,11 +254,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: ClipboardListIcon,
     children: [
       // "Responder Novo Checklist" pelo portal (0089), antes do Historico, com o
-      // nome e a posicao do sistema de referencia.
+      // nome e a posicao do sistema de referencia. So do GESTOR desde 06/11/2026,
+      // a pedido do dono: o Supervisor responde pelo app.
       {
         label: "Responder Novo Checklist",
         href: "/dashboard/checklistlab/novo-checklist",
         icon: ClipboardListIcon,
+        somenteGestor: true,
       },
       {
         label: "Histórico de Checklist",
