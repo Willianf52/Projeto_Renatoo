@@ -2,6 +2,7 @@ import "server-only";
 
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import { formatarEmissao } from "@/lib/data-hora";
+import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { LOGO_PARA_PAPEL_PNG_BASE64 } from "@/lib/logo-para-papel";
 import { paraWinAnsi, quebrarEmLinhas } from "@/lib/pdf-do-checklist";
 
@@ -141,4 +142,26 @@ export function respostaDePdf(bytes: Uint8Array, nome: string): Response {
       "Cache-Control": "private, no-store",
     },
   });
+}
+
+/** O aviso do topo quando a consulta bateu no limite; nulo quando nao. */
+export function avisoDeCorte(truncado: boolean, limite: number): string | null {
+  return truncado ? `Limitado aos primeiros ${limite} registros. Ajuste os filtros para reduzir o total.` : null;
+}
+
+/**
+ * O download de PDF de uma tela de tabela: monta as opcoes, gera e responde
+ * como arquivo. Erro vira 500 com texto, e o detalhe vai para o log.
+ */
+export async function baixarPdfDeTabela(
+  nomeDoArquivo: string,
+  tela: string,
+  montar: () => Promise<OpcoesDaTabela>,
+): Promise<Response> {
+  try {
+    return respostaDePdf(await gerarPdfDeTabela(await montar()), nomeDoArquivo);
+  } catch (falha) {
+    erro(gerarIdDeRequisicao(), `${tela}: falha ao gerar o PDF:`, falha);
+    return new Response("Não foi possível gerar o PDF. Tente de novo.", { status: 500 });
+  }
 }

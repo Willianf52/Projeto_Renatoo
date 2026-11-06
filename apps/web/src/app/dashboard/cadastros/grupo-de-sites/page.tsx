@@ -133,7 +133,7 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       <Acao
         titulo="Exportar para PDF"
         href={`/dashboard/cadastros/grupo-de-sites/export/pdf${queryExportacao}`} tom="pdf"
-        target="_blank"
+        baixar
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
