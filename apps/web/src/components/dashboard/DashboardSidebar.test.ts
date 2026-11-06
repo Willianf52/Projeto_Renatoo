@@ -66,10 +66,6 @@ const DO_GESTOR = TELAS_DO_MENU.filter((tela) => tela.somenteGestor).map((tela) 
 describe("telas so do GESTOR (issue #209)", () => {
   it("sao as telas do menu do GESTOR na referencia", () => {
     expect(DO_GESTOR).toEqual([
-      "/dashboard/cadastros/cliente",
-      "/dashboard/cadastros/setores",
-      "/dashboard/cadastros/tipos-de-alerta-de-panico",
-      "/dashboard/cadastros/tipos-de-curva",
       "/dashboard/eventos/painel-de-eventos",
       "/dashboard/eventos/cadastro-de-eventos",
       "/dashboard/eventos/registrar-evento",
