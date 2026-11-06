@@ -73,6 +73,8 @@ describe("telas so do GESTOR (issue #209)", () => {
       "/dashboard/eventos/tipos-de-classificacao",
       "/dashboard/eventos/relatorios/analitico-de-eventos",
       "/dashboard/eventos/relatorios/graficos-por-classificacao",
+      // So do GESTOR desde 06/11/2026, a pedido do dono.
+      "/dashboard/checklistlab/novo-checklist",
       "/dashboard/checklistlab/agendamentos",
       "/dashboard/checklistlab/relatorios/analitico-por-checklist",
       "/dashboard/checklistlab/relatorios/indicadores-por-site",
@@ -102,7 +104,7 @@ describe("telas so do GESTOR (issue #209)", () => {
 
   it("subgrupo que fica vazio some (a Administracao do ChecklistLab), a secao nao", () => {
     const checklistlab = itensDoMenu(NAV_ITEMS, false).find((item) => item.label === "ChecklistLab");
-    expect(checklistlab?.children.map((child) => child.label)).toEqual(["Responder Novo Checklist", "Histórico de Checklist"]);
+    expect(checklistlab?.children.map((child) => child.label)).toEqual(["Histórico de Checklist"]);
   });
 
   // Esconder do menu e so vitrine. O portao e o `layout.tsx` da pasta.

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { tipoDeResposta, respostasDoTipo, type TipoDeResposta } from "@projeto-renatoo/shared";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
+import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -17,6 +18,12 @@ import { createClient } from "@/lib/supabase/server";
  * Se o 2 ou o 3 falham, `desistirDaVisita` apaga a visita vazia
  * (`abandonar_visita`, 0088) para nao sobrar visita sem checklist.
  */
+
+/**
+ * Tela so do GESTOR (06/11/2026). O `layout.tsx` barra a pagina, mas Server
+ * Action aceita POST direto: as duas acoes que gravam conferem de novo aqui.
+ */
+const SO_DO_GESTOR = "Só o Gestor responde checklist pelo portal. Use o app de campo.";
 
 export type PerguntaDoPortal = { id: number; ordem: number; texto: string; tipo: TipoDeResposta; grupo: string | null };
 
@@ -41,6 +48,7 @@ export async function lerPerguntasDoModelo(modeloId: number): Promise<PerguntaDo
 
 export async function abrirVisitaDoPortal(siteId: number): Promise<{ visitaId: number } | { erro: string }> {
   if (!Number.isSafeInteger(siteId) || siteId <= 0) return { erro: "Escolha o site." };
+  if (!(await podeAdministrarUsuarios())) return { erro: SO_DO_GESTOR };
   const supabase = await createClient();
   const {
     data: { user },
@@ -71,6 +79,7 @@ export async function enviarChecklistDoPortal(entrada: {
   const { visitaId, modeloId, assinaturaPath, respostas, perguntas } = entrada;
   if (!Number.isSafeInteger(visitaId) || !Number.isSafeInteger(modeloId)) return { erro: "Checklist inválido." };
   if (assinaturaPath !== `${visitaId}/assinatura.png`) return { erro: "Assinatura inválida." };
+  if (!(await podeAdministrarUsuarios())) return { erro: SO_DO_GESTOR };
 
   // Toda pergunta respondida, com uma resposta do tipo dela -- a mesma regra
   // da tela do app (`pendencias-do-checklist.ts`).
