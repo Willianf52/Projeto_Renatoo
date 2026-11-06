@@ -136,7 +136,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       <Acao
         titulo="Exportar Respostas para Excel"
         href={`${LISTAGEM}/export/escolher-modelo${query}`}
-        tom="excel"
+        tom="amarelo"
         target="_blank"
       >
         <ExcelIcon className="h-4 w-4" />
@@ -144,7 +144,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
       <Acao
         titulo="Exportar para PDF Unificado"
         href={`${LISTAGEM}/export/pdf-unificado${query}`}
-        tom="pdf"
+        tom="azul"
         target="_blank"
       >
         <PdfIcon className="h-4 w-4" />
