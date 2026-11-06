@@ -13,10 +13,13 @@ export function DashboardNavbar({
   identidade,
   organization,
   onToggleSidebar,
+  menuRecolhido = false,
 }: {
   identidade: React.ReactNode;
   organization: string;
   onToggleSidebar: () => void;
+  /** Tela grande com o menu lateral recolhido: muda so o texto do botao. */
+  menuRecolhido?: boolean;
 }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -63,8 +66,9 @@ export function DashboardNavbar({
       <button
         type="button"
         onClick={onToggleSidebar}
-        aria-label="Alternar menu"
-        className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white lg:hidden"
+        aria-label={menuRecolhido ? "Mostrar menu" : "Alternar menu"}
+        title={menuRecolhido ? "Mostrar menu" : "Recolher menu"}
+        className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white"
       >
         <MenuIcon className="h-5 w-5" />
       </button>
