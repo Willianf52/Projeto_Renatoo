@@ -21,7 +21,16 @@ import {
   UploadIcon,
 } from "@/components/dashboard/icons";
 import { podeConfigurarEventos } from "@/lib/permissoes";
-import { COLUNAS, extrairFiltros, getEventos, primeiro, SITUACOES, type SearchParams } from "./queries";
+import { BotaoExcluirEvento } from "./BotaoExcluirEvento";
+import {
+  COLUNAS,
+  extrairFiltros,
+  getEventos,
+  getOpcoesDosGrupos,
+  primeiro,
+  SITUACOES,
+  type SearchParams,
+} from "./queries";
 import { formatarMinutos, LISTAGEM } from "./regras";
 
 const TABLE_COLUMNS = [...COLUNAS, "Ações"];
@@ -44,6 +53,14 @@ export default function CadastroDeEventosPage({ searchParams }: { searchParams: 
 
       <Suspense fallback={null}>
         <AvisoDePermissao />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AvisoDeSalvo
+          searchParams={searchParams}
+          listagem={LISTAGEM}
+          mensagem="Evento excluído com sucesso."
+          parametro="excluido"
+        />
       </Suspense>
 
       <div
@@ -85,7 +102,7 @@ async function AvisoDePermissao() {
 
 function queryDosFiltros(params: SearchParams): string {
   const query = new URLSearchParams();
-  for (const chave of ["busca", "situacao"]) {
+  for (const chave of ["busca", "situacao", "grupo_usuario", "grupo_local"]) {
     const v = primeiro(params[chave]);
     if (v) query.set(chave, v);
   }
@@ -137,11 +154,20 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
 async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParamsPromise }) {
   const filtros = extrairFiltros(await searchParams);
+  const grupos = await getOpcoesDosGrupos();
 
   return (
     <form method="get" className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end">
       <div className="min-w-0 flex-1">
         <FilterInput label="Filtre por descrição ou código..." name="busca" defaultValue={filtros.busca} />
+      </div>
+      {/* Grupo de Usuarios e Grupo de Locais, como os filtros da lista do antigo
+          (olham as permissoes de visualizacao do evento, 0089). */}
+      <div className="w-full xl:w-48">
+        <FilterSelect label="Grupo de Usuários" name="grupo_usuario" defaultValue={filtros.grupoUsuario} options={grupos.usuarios} />
+      </div>
+      <div className="w-full xl:w-48">
+        <FilterSelect label="Grupo de Locais" name="grupo_local" defaultValue={filtros.grupoLocal} options={grupos.locais} />
       </div>
       <div className="w-full xl:w-48">
         <FilterSelect label="Status" name="situacao" defaultValue={filtros.situacao} options={SITUACOES} semOpcaoVazia />
@@ -164,8 +190,11 @@ function resumoDosSites(sites: { nome: string }[]): string {
 }
 
 async function TabelaDeEventos({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const filtros = extrairFiltros(await searchParams);
+  const params = await searchParams;
+  const filtros = extrairFiltros(params);
   const [eventos, podeEditar] = await Promise.all([getEventos(filtros), podeConfigurarEventos()]);
+  // Os filtros atuais, para a exclusao voltar a mesma lista filtrada.
+  const filtrosAtuais = queryDosFiltros(params).replace(/^\?/, "");
 
   const linhas = eventos.map((e) => [
     String(e.id),
@@ -178,9 +207,13 @@ async function TabelaDeEventos({ searchParams }: { searchParams: SearchParamsPro
     formatarMinutos(e.bloqueioRepeticaoMinutos),
     e.ativo ? "ATIVO" : "INATIVO",
     podeEditar ? (
-      <Acao key="acoes" titulo={`Editar ${e.nome}`} href={`${LISTAGEM}/${e.id}/editar`} tom="neutro">
-        <PencilIcon className="h-4 w-4" />
-      </Acao>
+      <div key="acoes" className="flex items-center gap-1.5">
+        <Acao titulo={`Editar ${e.nome}`} href={`${LISTAGEM}/${e.id}/editar`} tom="neutro">
+          <PencilIcon className="h-4 w-4" />
+        </Acao>
+        {/* A lixeira do antigo: o banco recusa o que tem historico (0094). */}
+        <BotaoExcluirEvento eventoId={e.id} nome={e.nome} filtros={filtrosAtuais} />
+      </div>
     ) : (
       <AcaoDesabilitada key="acoes" titulo={`Editar ${e.nome}`} motivo="você não tem permissão" tom="neutro">
         <PencilIcon className="h-4 w-4" />

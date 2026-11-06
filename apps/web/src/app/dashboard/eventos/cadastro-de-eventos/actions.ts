@@ -53,6 +53,34 @@ const CAMPOS_DE_PERMISSAO = [
 
 export type EstadoDoFormulario = { erro?: string; valores?: ValoresDoEvento };
 
+export type EstadoDaExclusao = { erro?: string };
+
+/**
+ * A lixeira da lista (0094): `excluir_evento` so apaga o que nao tem historico
+ * (ocorrencia, SubTipo, coleta ou pergunta de checklist ligados); senao a
+ * mensagem do banco, que ja esta em portugues, diz o que fazer.
+ */
+export async function excluirEvento(_estado: EstadoDaExclusao, formData: FormData): Promise<EstadoDaExclusao> {
+  const id = Number(formData.get("evento_id"));
+  if (!Number.isSafeInteger(id) || id <= 0) return { erro: "Evento inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("excluir_evento", { p_evento_id: id });
+  if (error) {
+    if (error.code === "23503") return { erro: error.message };
+    if (error.code === "42501") return { erro: "Sua conta não pode excluir eventos." };
+    if (error.code === "P0002") return { erro: "Evento não encontrado. Ele pode já ter sido excluído." };
+    registrarErro(gerarIdDeRequisicao(), "Cadastro de Eventos: falha ao excluir:", error);
+    return { erro: "Não foi possível excluir o evento. Tente de novo." };
+  }
+
+  const filtros = new URLSearchParams(String(formData.get("filtros") ?? ""));
+  filtros.delete("salvo");
+  filtros.set("excluido", "1");
+  revalidatePath(LISTAGEM);
+  redirect(`${LISTAGEM}?${filtros.toString()}`);
+}
+
 function extrairValores(formData: FormData): ValoresDoEvento {
   return {
     nome: texto(formData, "nome"),
@@ -137,7 +165,7 @@ export async function salvarEvento(_estado: EstadoDoFormulario, formData: FormDa
   if (valores.finalizacaoAutomatica && finalizacao.minutos === null) {
     return { erro: "Para a finalização automática, informe o Tempo para Finalização.", valores };
   }
-  if (valores.statusFinal && !["ATENDIDO", "CANCELADO"].includes(valores.statusFinal)) {
+  if (valores.statusFinal && !["CONCLUIDO", "CANCELADO", "NAO_REALIZADO"].includes(valores.statusFinal)) {
     return { erro: "Status final inválido.", valores };
   }
   if (valores.nps && !["POSITIVO", "NEUTRO", "NEGATIVO"].includes(valores.nps)) {

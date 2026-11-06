@@ -253,15 +253,16 @@ export const NAV_ITEMS: NavItem[] = [
     label: "ChecklistLab",
     icon: ClipboardListIcon,
     children: [
+      // "Responder Novo Checklist" pelo portal (0089), antes do Historico, com o
+      // nome e a posicao do sistema de referencia.
+      {
+        label: "Responder Novo Checklist",
+        href: "/dashboard/checklistlab/novo-checklist",
+        icon: ClipboardListIcon,
+      },
       {
         label: "Histórico de Checklist",
         href: "/dashboard/checklistlab/historico-de-checklist",
-        icon: ClipboardListIcon,
-      },
-      // "Novo Checklist" respondido pelo portal (0089), como no sistema de referencia.
-      {
-        label: "Novo Checklist",
-        href: "/dashboard/checklistlab/novo-checklist",
         icon: ClipboardListIcon,
       },
       // Agendas de checklist (0084), na posicao do sistema de referencia.

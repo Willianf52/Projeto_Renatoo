@@ -60,9 +60,14 @@ const ROTULO_DO_ANDAMENTO: Record<Motivo, string | null> = {
 const STATUS_LEGIVEL: Record<string, string> = {
   AGUARDANDO: "Aguardando",
   EM_ANALISE: "Em Análise",
-  ATENDIDO: "Atendido",
+  ATENDIDO: "Concluído",
+  CONCLUIDO: "Concluído",
+  NAO_REALIZADO: "Não Realizado",
   CANCELADO: "Cancelado",
   CRITICO: "Crítico",
+  PRE_CRITICO: "Pré-crítico",
+  ALERTA: "Alerta",
+  PANICO: "Pânico",
 };
 
 /** Mesmo rotulo do detalhe (`painel-de-eventos/queries.ts`). */

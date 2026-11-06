@@ -17,11 +17,23 @@ export const SITUACOES: { value: Situacao; label: string }[] = [
   { value: "todos", label: "Todos" },
 ];
 
-export type Filtros = { busca?: string; situacao: Situacao };
+export type Filtros = {
+  busca?: string;
+  situacao: Situacao;
+  /** Grupo de Usuarios / de Locais nas permissoes do evento (0089), como os filtros do antigo. */
+  grupoUsuario?: string;
+  grupoLocal?: string;
+};
+
+const SO_NUMERO = /^\d{1,12}$/;
 
 export function extrairFiltros(params: SearchParams): Filtros {
   const situacao = primeiro(params.situacao);
+  const grupoUsuario = primeiro(params.grupo_usuario);
+  const grupoLocal = primeiro(params.grupo_local);
   return {
+    grupoUsuario: grupoUsuario && SO_NUMERO.test(grupoUsuario) ? grupoUsuario : undefined,
+    grupoLocal: grupoLocal && SO_NUMERO.test(grupoLocal) ? grupoLocal : undefined,
     busca: primeiro(params.busca)?.trim().slice(0, 100) || undefined,
     situacao: situacao === "inativos" || situacao === "todos" ? situacao : "ativos",
   };
@@ -186,8 +198,52 @@ export function filtrarEventos(eventos: EventoDaLista[], filtros: Filtros): Even
   });
 }
 
+/** Pura: ficam so os eventos com permissao (qualquer canal) para os grupos escolhidos. */
+export function filtrarPorGrupos(
+  eventos: EventoDaLista[],
+  permissoes: { evento_id: number; grupo_site_id: number | null; grupo_usuario_id: number | null }[],
+  filtros: Pick<Filtros, "grupoUsuario" | "grupoLocal">,
+): EventoDaLista[] {
+  const permitidos = (coluna: "grupo_site_id" | "grupo_usuario_id", grupo: string | undefined) =>
+    grupo === undefined
+      ? null
+      : new Set(permissoes.filter((p) => String(p[coluna]) === grupo).map((p) => p.evento_id));
+  const dosLocais = permitidos("grupo_site_id", filtros.grupoLocal);
+  const dosUsuarios = permitidos("grupo_usuario_id", filtros.grupoUsuario);
+  return eventos.filter((e) => (!dosLocais || dosLocais.has(e.id)) && (!dosUsuarios || dosUsuarios.has(e.id)));
+}
+
 export async function getEventos(filtros: Filtros): Promise<EventoDaLista[]> {
-  return filtrarEventos(montarEventos(await carregarTudo()), filtros);
+  let eventos = filtrarEventos(montarEventos(await carregarTudo()), filtros);
+  if (filtros.grupoUsuario || filtros.grupoLocal) {
+    const supabase = await createClient();
+    const { linhas } = await buscarEmPaginas<{
+      evento_id: number;
+      grupo_site_id: number | null;
+      grupo_usuario_id: number | null;
+    }>((de, ate) =>
+      supabase
+        .from("evento_permissoes")
+        .select("evento_id, grupo_site_id, grupo_usuario_id")
+        .order("id")
+        .range(de, ate),
+    );
+    eventos = filtrarPorGrupos(eventos, linhas, filtros);
+  }
+  return eventos;
+}
+
+/** As listas dos filtros Grupo de Usuarios e Grupo de Locais. */
+export async function getOpcoesDosGrupos(): Promise<{ usuarios: Opcao[]; locais: Opcao[] }> {
+  const supabase = await createClient();
+  const [usuarios, locais] = await Promise.all([
+    supabase.from("grupos_usuarios").select("id, nome").order("nome"),
+    supabase.from("grupos_sites").select("id, nome").order("nome"),
+  ]);
+  return {
+    usuarios: (usuarios.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
+    locais: (locais.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
+  };
 }
 
 export type DadosDoFormulario = {

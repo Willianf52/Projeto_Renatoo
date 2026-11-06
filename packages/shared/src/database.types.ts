@@ -2247,6 +2247,7 @@ export type Database = {
         Args: { p_modelo_id: number; p_nome: string }
         Returns: number
       }
+      excluir_evento: { Args: { p_evento_id: number }; Returns: undefined }
       enviar_ocorrencia_por_email: {
         Args: { p_destinatarios: string[]; p_ocorrencia_id: number }
         Returns: number

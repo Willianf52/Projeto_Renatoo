@@ -296,7 +296,8 @@ export function EventoForm({
             </label>
             <Selecao id="status_final" name="status_final" defaultValue={valores.statusFinal}>
               <option value="">Nenhum</option>
-              <option value="ATENDIDO">Atendido</option>
+              <option value="CONCLUIDO">Concluído</option>
+              <option value="NAO_REALIZADO">Não Realizado</option>
               <option value="CANCELADO">Cancelado</option>
             </Selecao>
           </div>

@@ -34,6 +34,7 @@ import {
   primeiro,
   rotuloDoStatus,
   STATUS,
+  TAREFAS_EM_ABERTO,
   tempoEmAberto,
   TETO_SEM_PAGINACAO,
   type Filtros,
@@ -287,7 +288,11 @@ async function FormularioDeFiltros({ filtros }: { filtros: Filtros }) {
         label="Status"
         name="status"
         defaultValue={filtros.status}
-        options={STATUS.map((s) => ({ value: s.value, label: s.label }))}
+        options={[
+          ...STATUS.map((s) => ({ value: s.value, label: s.label })),
+          // "Tarefas em Aberto", como a ultima opcao do filtro do antigo.
+          { value: TAREFAS_EM_ABERTO, label: "Tarefas em Aberto" },
+        ]}
       />
       <FilterInput label="Número" name="numero" defaultValue={filtros.numero} />
       <FilterInput label="Ano" name="ano" defaultValue={filtros.ano} />

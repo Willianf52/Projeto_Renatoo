@@ -3,7 +3,7 @@ import { filtroDeId, filtroDeUuid } from "@/lib/id-na-url";
 import { erro, gerarIdDeRequisicao } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 import { buscarEmPaginas } from "@/lib/supabase/query-helpers";
-import { STATUS, type Status } from "../../painel-de-eventos/queries";
+import { OPCOES_DE_STATUS_DOS_RELATORIOS, statusDaConsulta } from "../status-dos-relatorios";
 import { CORES_DOS_EVENTOS } from "../graficos-de-eventos/queries";
 
 /**
@@ -31,7 +31,7 @@ export type Filtros = {
   sites?: string;
   evento?: string;
   usuario?: string;
-  status?: Status;
+  status?: string;
 };
 
 export function extrairFiltros(params: SearchParams): Filtros {
@@ -42,7 +42,7 @@ export function extrairFiltros(params: SearchParams): Filtros {
     sites: filtroDeId(primeiro(params.sites)),
     evento: filtroDeId(primeiro(params.evento)),
     usuario: filtroDeUuid(primeiro(params.usuario)),
-    status: STATUS.some((s) => s.value === status) ? (status as Status) : undefined,
+    status: OPCOES_DE_STATUS_DOS_RELATORIOS.some((s) => s.value === status) ? status : undefined,
   };
 }
 
@@ -64,7 +64,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
     ),
     eventos: (eventos.data ?? []).map((e) => ({ value: String(e.id), label: e.nome })),
     usuarios: (usuarios.data ?? []).map((u) => ({ value: String(u.id), label: u.nome_completo ?? "" })),
-    status: STATUS.map((s) => ({ value: s.value, label: s.label })),
+    status: OPCOES_DE_STATUS_DOS_RELATORIOS,
   };
 }
 
@@ -185,7 +185,7 @@ export async function getGraficosPorClassificacao(filtros: Filtros): Promise<Gra
     if (filtros.sites) q = q.eq("site_id", Number(filtros.sites));
     if (filtros.evento) q = q.eq("evento_id", Number(filtros.evento));
     if (filtros.usuario) q = q.eq("aberta_por", filtros.usuario);
-    if (filtros.status) q = q.eq("status", filtros.status);
+    if (filtros.status) q = q.in("status", statusDaConsulta(filtros.status));
     return q.order("id", { ascending: true }).range(de, ate);
   });
 

@@ -28,15 +28,16 @@ export const PAGE_SIZE = 15;
  * abre preenchido. */
 export const DIAS_PADRAO = 60;
 
-export { STATUS, rotuloDoStatus, anelDoStatus, corDoStatus, type Status } from "./status";
-import { rotuloDoStatus, STATUS, type Status } from "./status";
+export { STATUS, rotuloDoStatus, anelDoStatus, corDoStatus, TAREFAS_EM_ABERTO, type Status } from "./status";
+import { rotuloDoStatus, STATUS, STATUS_EM_ABERTO, TAREFAS_EM_ABERTO, type Status } from "./status";
 
 export type Filtros = {
   dataInicial: string;
   dataFinal: string;
   busca?: string;
   sites?: string;
-  status?: Status;
+  /** Um status, ou `TAREFAS_EM_ABERTO` (todo evento nao encerrado). */
+  status?: Status | typeof TAREFAS_EM_ABERTO;
   numero?: string;
   ano?: string;
   evento?: string;
@@ -83,7 +84,12 @@ export function extrairFiltros(params: SearchParams, agora: Date): Filtros {
     dataFinal: dataValida(primeiro(params.data_final)) ?? padrao.dataFinal,
     busca: primeiro(params.busca)?.trim().slice(0, 100) || undefined,
     sites: filtroDeId(primeiro(params.sites)),
-    status: STATUS.some((s) => s.value === status) ? (status as Status) : undefined,
+    status:
+      status === TAREFAS_EM_ABERTO
+        ? TAREFAS_EM_ABERTO
+        : STATUS.some((s) => s.value === status)
+          ? (status as Status)
+          : undefined,
     numero: numero && /^\d{1,7}$/.test(numero) ? numero : undefined,
     ano: ano && /^\d{4}$/.test(ano) ? ano : undefined,
     evento: filtroDeId(primeiro(params.evento)),
@@ -353,7 +359,8 @@ function aplicarFiltros(consulta: any, filtros: Filtros, comStatus: boolean, res
   const { inicio, fim } = periodoEntreDatas(filtros.dataInicial, filtros.dataFinal);
   let q = consulta.gte("criado_em", inicio).lt("criado_em", fim);
   if (filtros.sites) q = q.eq("site_id", filtros.sites);
-  if (comStatus && filtros.status) q = q.eq("status", filtros.status);
+  if (comStatus && filtros.status === TAREFAS_EM_ABERTO) q = q.in("status", STATUS_EM_ABERTO);
+  else if (comStatus && filtros.status) q = q.eq("status", filtros.status);
   if (filtros.numero) q = q.eq("numero", filtros.numero);
   if (filtros.ano) q = q.eq("ano", filtros.ano);
   if (filtros.evento) q = q.eq("evento_id", filtros.evento);
