@@ -194,9 +194,27 @@ export async function guardarFoto(visitaId: number, uriDaCamera: string): Promis
 
     const destino = new File(pasta, `foto-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.jpg`);
     await new File(uriDaCamera).copy(destino);
+    // Copiada: a origem no cache ja nao serve a ninguem (ver `apagarDoCache`).
+    apagarDoCache(uriDaCamera);
     return destino.uri;
   } catch {
     return uriDaCamera;
+  }
+}
+
+/**
+ * Apaga um arquivo da area temporaria do app (o cache), e so de la: o original
+ * da camera e a versao reduzida, depois que a copia do rascunho existe. Antes
+ * ficavam ate o sistema limpar o cache sozinho (auditoria de 06/11/2026).
+ * Falha aqui nao interessa ao inspetor: a foto ja esta guardada.
+ */
+export function apagarDoCache(uri: string): void {
+  try {
+    if (!uri.startsWith(Paths.cache.uri)) return;
+    const arquivo = new File(uri);
+    if (arquivo.exists) arquivo.delete();
+  } catch {
+    // Arquivo preso ou ja apagado: o sistema limpa o cache depois.
   }
 }
 
