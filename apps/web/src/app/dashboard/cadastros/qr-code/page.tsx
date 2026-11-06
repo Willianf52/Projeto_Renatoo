@@ -132,12 +132,7 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
-      <Acao
-        titulo="Imprimir Etiquetas"
-        href={`/dashboard/cadastros/qr-code/export/opcoes-de-etiqueta${queryExportacao}`} tom="neutro"
-      >
-        <QrCodeIcon className="h-4 w-4" />
-      </Acao>
+      {/* "Imprimir Etiquetas" saiu da tela a pedido do dono (06/11/2026). */}
       {podeAdministrar ? (
         <Acao
           titulo="Novo QR-Code"
