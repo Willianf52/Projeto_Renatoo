@@ -38,7 +38,14 @@ import {
   type Pendencia,
 } from "../campo/pendencias-do-checklist";
 import { gruposDasPerguntas } from "../campo/navegacao-do-checklist";
-import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
+import {
+  apagarDoCache,
+  descartarRascunho,
+  esquecerFoto,
+  guardarFoto,
+  lerRascunho,
+  salvarRascunho,
+} from "../campo/rascunho";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
@@ -640,7 +647,13 @@ export function TelaDeChecklist({
       // na tela -- ver `guardarFoto`. Nessa ordem: o rascunho guarda a versao
       // que vai ser enviada, e nao a de 12 MP.
       const guardadas = await Promise.all(
-        resultado.assets.map(async (a) => guardarFoto(chave, await reduzirFoto(a.uri))),
+        resultado.assets.map(async (a) => {
+          const reduzida = await reduzirFoto(a.uri);
+          const guardada = await guardarFoto(chave, reduzida);
+          // Reduzida virou outro arquivo: o original de 12 MP fica sobrando no cache.
+          if (reduzida !== a.uri) apagarDoCache(a.uri);
+          return guardada;
+        }),
       );
 
       setErro(null);
