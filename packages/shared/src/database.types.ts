@@ -1632,6 +1632,7 @@ export type Database = {
           lingua: string
           login: string | null
           nome_completo: string | null
+          numero: number
           pais: string
           setor_id: number | null
           superior_id: string | null
@@ -1651,6 +1652,7 @@ export type Database = {
           lingua?: string
           login?: string | null
           nome_completo?: string | null
+          numero?: number
           pais?: string
           setor_id?: number | null
           superior_id?: string | null
@@ -1670,6 +1672,7 @@ export type Database = {
           lingua?: string
           login?: string | null
           nome_completo?: string | null
+          numero?: number
           pais?: string
           setor_id?: number | null
           superior_id?: string | null
