@@ -1,4 +1,5 @@
 import { FUSO_DO_PROJETO } from "@/lib/data-hora";
+import { CabecalhoDaImpressao } from "@/components/dashboard/CabecalhoDaImpressao";
 import { rotuloDaSituacaoDoEmail, rotuloDoMotivoDoEmail, rotuloDoStatus, type OcorrenciaDetalhe } from "./queries";
 
 const PAINEL = "/dashboard/eventos/painel-de-eventos";
@@ -27,7 +28,16 @@ function dataHora(iso: string): string {
  * Server Component sem estado: o dialogo de impressao e do `ImprimirAoAbrir`
  * na pagina que usa este componente.
  */
-export function OcorrenciaImpressa({ ocorrencia, novaPagina = false }: { ocorrencia: OcorrenciaDetalhe; novaPagina?: boolean }) {
+export function OcorrenciaImpressa({
+  ocorrencia,
+  novaPagina = false,
+  apoio,
+}: {
+  ocorrencia: OcorrenciaDetalhe;
+  novaPagina?: boolean;
+  /** Linha sob o titulo da primeira folha do PDF unificado (quantos eventos). */
+  apoio?: string;
+}) {
   const quando = dataHora(ocorrencia.criadoEm);
   const campos: { rotulo: string; valor: string }[] = [
     { rotulo: "Número / Ano", valor: ocorrencia.numeroAno },
@@ -43,9 +53,8 @@ export function OcorrenciaImpressa({ ocorrencia, novaPagina = false }: { ocorren
 
   return (
     <section className={`${novaPagina ? "mt-8 break-before-page print:mt-0" : ""} space-y-4 text-xs`}>
-      <h2 className="border-b border-slate-400 pb-1 text-base font-semibold">
-        Registro de Evento {ocorrencia.numeroAno}: {ocorrencia.evento}
-      </h2>
+      {/* O cabecalho padrao (logo e titulo) em cada folha: cada evento comeca uma. */}
+      <CabecalhoDaImpressao titulo={`Registro de Evento ${ocorrencia.numeroAno}: ${ocorrencia.evento}`} apoio={apoio} />
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2">
         {campos.map((campo) => (
