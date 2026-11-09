@@ -12,15 +12,23 @@ export default function Home() {
       <HeroPanel />
 
       {/* Sidebar de login: superficie levemente elevada sobre o fundo. */}
-      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[25%] lg:min-w-[320px] lg:max-w-md">
-        <div className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-10 lg:px-8 xl:px-10">
-          <div className="mb-10 flex justify-center animate-fade-in-up lg:mb-12">
-            <BrandLogo size="sm" />
-          </div>
+      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[38%] lg:min-w-[380px] lg:max-w-xl">
+        <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-10">
+          {/* O formulario vira um cartao assentado no painel: mais respiro e
+              uma saudacao, em vez do formulario solto na lateral. */}
+          <div className="mx-auto w-full max-w-sm rounded-2xl border border-slate-800 bg-brand-navy/50 px-7 py-9 shadow-md animate-fade-in-up sm:px-9">
+            <div className="mb-8 flex flex-col items-center gap-5 text-center">
+              <BrandLogo size="sm" />
+              <div className="space-y-1.5">
+                <h2 className="text-xl font-bold tracking-tight text-white">Bem-vindo de volta</h2>
+                <p className="text-sm text-brand-muted">Acesse o portal com o seu login e a sua senha.</p>
+              </div>
+            </div>
 
-          <Suspense>
-            <LoginForm />
-          </Suspense>
+            <Suspense>
+              <LoginForm />
+            </Suspense>
+          </div>
         </div>
       </section>
     </div>
