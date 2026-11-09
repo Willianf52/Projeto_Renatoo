@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { BrandLogo, HeroPanel } from "@/components/HeroPanel";
+import { BrandLogo, FundoDaEntrada, HeroPanel } from "@/components/HeroPanel";
 import { LoginForm } from "@/components/LoginForm";
 
 // Server Component: HeroPanel e a logo sao estaticos e nao precisam ir para o
@@ -7,28 +7,30 @@ import { LoginForm } from "@/components/LoginForm";
 // no navegador -- por isso e a unica peca com "use client".
 export default function Home() {
   return (
-    <div data-tema="escuro" className="flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
-      {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css). */}
+    <div data-tema="escuro" className="relative isolate flex min-h-screen flex-col text-white lg:flex-row">
+      {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css).
+          Uma cena so, de borda a borda, com o cartao de login flutuando. */}
+      <FundoDaEntrada />
       <HeroPanel />
 
-      {/* Sidebar de login: superficie levemente elevada sobre o fundo. */}
-      <section className="flex min-h-screen w-full flex-col border-l border-slate-800 bg-brand-surface lg:w-[38%] lg:min-w-[380px] lg:max-w-xl">
-        <div className="flex flex-1 flex-col justify-center px-6 py-12 sm:px-10">
-          {/* O formulario vira um cartao assentado no painel: mais respiro e
-              uma saudacao, em vez do formulario solto na lateral. */}
-          <div className="mx-auto w-full max-w-sm rounded-2xl border border-slate-800 bg-brand-navy/50 px-7 py-9 shadow-md animate-fade-in-up sm:px-9">
-            <div className="mb-8 flex flex-col items-center gap-5 text-center">
-              <BrandLogo size="sm" />
-              <div className="space-y-1.5">
-                <h2 className="text-xl font-bold tracking-tight text-white">Bem-vindo de volta</h2>
-                <p className="text-sm text-brand-muted">Acesse o portal com o seu login e a sua senha.</p>
-              </div>
+      <section className="flex min-h-screen w-full items-center justify-center px-6 py-12 lg:w-[460px] lg:shrink-0 lg:pl-0 lg:pr-14 xl:w-[520px] xl:pr-20">
+        <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-brand-surface/75 px-7 py-9 shadow-2xl shadow-black/40 backdrop-blur-md animate-fade-in-up sm:px-9">
+          <div className="mb-8 space-y-5">
+            <BrandLogo size="sm" />
+            <div className="space-y-1.5">
+              <h2 className="text-xl font-bold tracking-tight text-white">Seja bem-vindo</h2>
+              <p className="text-sm text-brand-muted">Entre com o seu login e a sua senha para continuar.</p>
             </div>
-
-            <Suspense>
-              <LoginForm />
-            </Suspense>
           </div>
+
+          <Suspense>
+            <LoginForm />
+          </Suspense>
+
+          <p className="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-5 text-xs text-brand-muted">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand-green" />
+            Conexão segura · Up Serviços
+          </p>
         </div>
       </section>
     </div>
