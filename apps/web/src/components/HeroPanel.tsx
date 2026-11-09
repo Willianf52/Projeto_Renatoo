@@ -77,29 +77,82 @@ function AbstractSwoosh() {
   );
 }
 
-export function HeroPanel() {
+/**
+ * A rota de uma ronda: pontos de inspecao ligados na ordem da visita, os ja
+ * lidos cheios em verde, o atual pulsando e os que faltam vazados. E o
+ * equivalente, no mundo da Up, do globo com conexoes do login do sistema de
+ * referencia (09/11/2026): mesma ideia de "rede viva", com o que este sistema
+ * faz de verdade -- inspetores passando de ponto em ponto.
+ */
+function RotaDeRonda() {
+  const pontos: [number, number][] = [
+    [70, 420], [190, 330], [330, 380], [450, 250], [600, 300], [720, 170], [860, 220],
+  ];
+  const feitos = 4;
+  const linha = (de: number, ate: number) => pontos.slice(de, ate).map(([x, y]) => `${x},${y}`).join(" ");
   return (
-    <section className="relative hidden overflow-hidden bg-brand-navy lg:flex lg:min-h-screen lg:w-[75%] lg:flex-col">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(0,230,118,0.14),transparent_55%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(30,136,229,0.12),transparent_45%)]" />
+    <svg
+      aria-hidden="true"
+      className="pointer-events-none absolute bottom-[6%] left-[4%] hidden h-auto w-[62%] max-w-5xl opacity-70 lg:block"
+      viewBox="0 0 930 480"
+      fill="none"
+    >
+      {/* Trecho ja percorrido e trecho que falta. */}
+      <polyline points={linha(0, feitos + 1)} stroke="#00e676" strokeWidth="2" strokeOpacity="0.55" />
+      <polyline points={linha(feitos, pontos.length)} stroke="#a0aec0" strokeWidth="2" strokeOpacity="0.3" strokeDasharray="6 8" />
+      {pontos.map(([x, y], i) =>
+        i < feitos ? (
+          <g key={i}>
+            <circle cx={x} cy={y} r="13" fill="#00e676" fillOpacity="0.12" />
+            <circle cx={x} cy={y} r="5" fill="#00e676" />
+          </g>
+        ) : i === feitos ? (
+          <g key={i}>
+            <circle cx={x} cy={y} r="20" fill="#00e676" fillOpacity="0.15"
+              // Animacao propria, e nao `animate-pulse`: os testes de tela usam
+              // essa classe para saber se algo ainda esta carregando.
+              className="animate-[pulse_2.4s_ease-in-out_infinite]"
+            />
+            <circle cx={x} cy={y} r="7" fill="#00e676" />
+            <circle cx={x} cy={y} r="11" stroke="#00e676" strokeWidth="1.5" strokeOpacity="0.7" />
+          </g>
+        ) : (
+          <circle key={i} cx={x} cy={y} r="5" stroke="#a0aec0" strokeWidth="1.5" strokeOpacity="0.5" />
+        ),
+      )}
+    </svg>
+  );
+}
+
+/**
+ * O fundo da entrada, de borda a borda (09/11/2026): antes a tela era dividida
+ * em dois paineis de cores diferentes; agora e uma cena so, como no login do
+ * sistema de referencia, e o cartao de login flutua sobre ela.
+ */
+export function FundoDaEntrada() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-brand-navy">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_25%,rgba(0,230,118,0.14),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_70%,rgba(30,136,229,0.14),transparent_50%)]" />
       <div
         className="absolute inset-0 opacity-10"
         style={{
-          backgroundImage:
-            "radial-gradient(circle, rgba(160,174,192,0.35) 1px, transparent 1px)",
+          backgroundImage: "radial-gradient(circle, rgba(160,174,192,0.35) 1px, transparent 1px)",
           backgroundSize: "28px 28px",
         }}
       />
       <AbstractSwoosh />
+      <RotaDeRonda />
+    </div>
+  );
+}
 
+export function HeroPanel() {
+  return (
+    <section className="relative hidden lg:flex lg:min-h-screen lg:flex-1 lg:flex-col">
       <div className="relative z-10 flex flex-1 flex-col p-10 xl:p-16">
-        <div className="animate-fade-in-up">
-          <BrandLogo />
-        </div>
-
-        {/* Conteudo centralizado na vertical: sem a ilustracao que ocupava a
-            metade inferior, ancorar no topo deixaria o painel desequilibrado. */}
-        <div className="flex flex-1 items-center">
+        {/* Texto no terco de cima: a rota da ronda ocupa a parte de baixo. */}
+        <div className="flex flex-1 items-start pt-[10vh]">
           <div className="max-w-2xl space-y-5">
             <p
               className="text-xs font-bold uppercase tracking-[0.25em] text-brand-green animate-fade-in-up sm:text-sm"
