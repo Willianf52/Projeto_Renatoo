@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
     },
   }),
 }));
-vi.mock("@/components/HeroPanel", () => ({ HeroPanel: () => null }));
+vi.mock("@/components/HeroPanel", () => ({ HeroPanel: () => null, FundoDaEntrada: () => null }));
 
 const { default: RecuperarSenhaPage } = await import("./page");
 const { INTERVALO_DE_REENVIO_EM_SEGUNDOS: INTERVALO_DE_REENVIO } = await import(
