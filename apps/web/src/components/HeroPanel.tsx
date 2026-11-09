@@ -79,7 +79,7 @@ function AbstractSwoosh() {
 
 export function HeroPanel() {
   return (
-    <section className="relative hidden overflow-hidden bg-brand-navy lg:flex lg:min-h-screen lg:w-[62%] lg:flex-col">
+    <section className="relative hidden overflow-hidden bg-brand-navy lg:flex lg:min-h-screen lg:w-[75%] lg:flex-col">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,rgba(0,230,118,0.14),transparent_55%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,rgba(30,136,229,0.12),transparent_45%)]" />
       <div

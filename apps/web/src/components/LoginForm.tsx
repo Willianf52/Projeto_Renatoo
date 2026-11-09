@@ -241,7 +241,7 @@ export function LoginForm() {
 
   return (
     <form
-      className={`mx-auto w-full space-y-6 ${shaking ? "animate-shake" : ""}`}
+      className={`mx-auto w-full max-w-xs space-y-8 ${shaking ? "animate-shake" : ""}`}
       onSubmit={handleSubmit}
       // Filtra pelo nome: sem isso, o fim das animacoes dos campos
       // (fade-in-up) e do banner de erro (slide-down) borbulha ate aqui e
