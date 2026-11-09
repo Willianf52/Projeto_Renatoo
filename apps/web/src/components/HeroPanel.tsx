@@ -108,7 +108,11 @@ function RotaDeRonda() {
           </g>
         ) : i === feitos ? (
           <g key={i}>
-            <circle cx={x} cy={y} r="20" fill="#00e676" fillOpacity="0.15" className="animate-pulse" />
+            <circle cx={x} cy={y} r="20" fill="#00e676" fillOpacity="0.15"
+              // Animacao propria, e nao `animate-pulse`: os testes de tela usam
+              // essa classe para saber se algo ainda esta carregando.
+              className="animate-[pulse_2.4s_ease-in-out_infinite]"
+            />
             <circle cx={x} cy={y} r="7" fill="#00e676" />
             <circle cx={x} cy={y} r="11" stroke="#00e676" strokeWidth="1.5" strokeOpacity="0.7" />
           </g>
