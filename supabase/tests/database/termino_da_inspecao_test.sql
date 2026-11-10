@@ -6,13 +6,15 @@
 --   3) ... e o existente fica no horario mais tarde.
 --   4) Um Termino mais cedo nao cria linha nem volta o horario.
 --   5) O envio do checklist leva o Termino para a hora do checklist.
---   6) Checklist em visita sem leitura nao cria Termino.
+--   6) Checklist em visita sem leitura cria o Inicio e o Termino (0096): todo
+--      checklist gera coleta, como no sistema antigo.
 --   7) `visitas_do_periodo` acha o Inicio na leitura sem area e o Termino.
+--   8) ... e, na visita sem QR, o Inicio pela area "Inicio" (0096).
 -- ============================================================================
 
 begin;
 
-select plan(7);
+select plan(8);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('f0770000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 't77.inspetor@teste.local');
@@ -27,6 +29,7 @@ insert into public.sites (grupo_site_id, nome)
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select on ids_teste to public;
 insert into ids_teste select 'termino', id from public.areas where nome = 'Término';
+insert into ids_teste select 'inicio', id from public.areas where nome = 'Início';
 
 -- Duas visitas do inspetor: uma com leitura de QR, outra sem leitura nenhuma.
 set local role authenticated;
@@ -103,18 +106,27 @@ select ok(
 );
 
 select is(
-  (select count(*)::int from public.leituras l join public.visitas v on v.id = l.visita_id
+  (select array_agg(l.area_id order by l.area_id) from public.leituras l join public.visitas v on v.id = l.visita_id
     where v.numero_coleta = '0077-b'),
-  0,
-  'Checklist em visita sem leitura nao cria Termino'
+  (select array_agg(valor order by valor) from ids_teste where chave in ('inicio', 'termino')),
+  'Checklist em visita sem leitura cria o Inicio e o Termino (0096)'
 );
 
 -- 7) Relatorios
 select ok(
   (select p.inicio is not null and p.termino is not null and p.termino > p.inicio
      from public.visitas_do_periodo(now() - interval '1 day', now() + interval '1 day',
-                                    jsonb_build_object('site', (select id from public.sites where nome = 'Site 0077'))) p),
+                                    jsonb_build_object('site', (select id from public.sites where nome = 'Site 0077'))) p
+    where p.visita_id = (select id from public.visitas where numero_coleta = '0077-a')),
   'visitas_do_periodo acha o Inicio na leitura sem area e o Termino'
+);
+
+select ok(
+  (select p.inicio is not null and p.termino is not null and p.termino >= p.inicio
+     from public.visitas_do_periodo(now() - interval '1 day', now() + interval '1 day',
+                                    jsonb_build_object('site', (select id from public.sites where nome = 'Site 0077'))) p
+    where p.visita_id = (select id from public.visitas where numero_coleta = '0077-b')),
+  'Na visita sem QR, visitas_do_periodo acha o Inicio pela area Inicio (0096)'
 );
 
 select * from finish();
