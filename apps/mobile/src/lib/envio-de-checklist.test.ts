@@ -262,6 +262,14 @@ describe("envio bem-sucedido", () => {
 });
 
 describe("consultoria", () => {
+  it("sem nenhuma foto, envia: no checklist a foto e opcional (10/11/2026)", async () => {
+    const resultado = await enviarChecklist({ ...CONSULTORIA, fotos: [], fotosDePergunta: [] });
+
+    expect(resultado.ok).toBe(true);
+    const argumentos = rpc.mock.calls[0][1];
+    expect(argumentos).toMatchObject({ p_modelo_id: 3, p_fotos: [] });
+  });
+
   it("manda o modelo respondido e sobe as fotos de cada pergunta (0061)", async () => {
     await enviarChecklist({
       ...CONSULTORIA,
