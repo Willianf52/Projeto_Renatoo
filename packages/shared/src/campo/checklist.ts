@@ -150,7 +150,10 @@ const uniaoDoChecklist = z.discriminatedUnion("tipo", [
 
 /**
  * Regras que cruzam campos, e por isso nao cabem em cada campo:
- *   - ao menos uma foto no checklist, somando as gerais e as de pergunta;
+ *   - ao menos uma foto so na CORRETIVA, que nao tem perguntas. No checklist
+ *     (consultoria) a foto e opcional, como no sistema de referencia (decisao
+ *     do dono de 03/11/2026, reafirmada em 10/11): quem exige foto e o modelo
+ *     (`foto_obrigatoria`, 0091), e isso o app confere pergunta a pergunta;
  *   - foto de pergunta so de pergunta respondida, e no maximo
  *     `MAXIMO_DE_FOTOS_POR_PERGUNTA` por pergunta.
  * O banco confere de novo que a pergunta e do modelo (trigger da 0061).
@@ -158,7 +161,7 @@ const uniaoDoChecklist = z.discriminatedUnion("tipo", [
 export const esquemaDeChecklistDeVisita = uniaoDoChecklist.superRefine((checklist, contexto) => {
   const fotosDePergunta = checklist.tipo === "CONSULTORIA" ? checklist.fotosDePergunta : [];
 
-  if (checklist.fotos.length + fotosDePergunta.length < MINIMO_DE_FOTOS) {
+  if (checklist.tipo === "CORRETIVA" && checklist.fotos.length < MINIMO_DE_FOTOS) {
     contexto.addIssue({ code: "custom", path: ["fotos"], message: "Anexe ao menos uma foto." });
   }
 
