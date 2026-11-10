@@ -145,7 +145,7 @@ async function AcoesDeExportacao({ searchParams }: { searchParams: SearchParamsP
         titulo="Exportar para PDF Unificado"
         href={`${LISTAGEM}/export/pdf-unificado${query}`}
         tom="azul"
-        target="_blank"
+        baixar
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
