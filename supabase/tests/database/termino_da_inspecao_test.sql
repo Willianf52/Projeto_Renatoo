@@ -10,11 +10,13 @@
 --      checklist gera coleta, como no sistema antigo.
 --   7) `visitas_do_periodo` acha o Inicio na leitura sem area e o Termino.
 --   8) ... e, na visita sem QR, o Inicio pela area "Inicio" (0096).
+--   9) Checklist preenchido ha mais de 30 dias, enviado agora pelo inspetor, e
+--      aceito: a trava de 30 dias nao vale para o par que o banco grava (0097).
 -- ============================================================================
 
 begin;
 
-select plan(8);
+select plan(9);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values ('f0770000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 't77.inspetor@teste.local');
@@ -128,6 +130,20 @@ select ok(
     where p.visita_id = (select id from public.visitas where numero_coleta = '0077-b')),
   'Na visita sem QR, visitas_do_periodo acha o Inicio pela area Inicio (0096)'
 );
+
+-- 9) Checklist antigo, com a sessao do inspetor (a trava so roda nela).
+insert into public.visitas (numero_coleta, site_id, funcionario_id)
+  select '0077-c', s.id, 'f0770000-0000-0000-0000-000000000001' from public.sites s where s.nome = 'Site 0077';
+
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0770000-0000-0000-0000-000000000001", "role": "authenticated"}';
+select lives_ok(
+  $$insert into public.checklists_visita (visita_id, tipo, motivo, assinatura_path, criado_em)
+      select v.id, 'CORRETIVA', 'Teste 0097', v.id || '/assinatura.png', now() - interval '40 days'
+        from public.visitas v where v.numero_coleta = '0077-c'$$,
+  'Checklist de mais de 30 dias numa visita sem leitura e aceito (0097)'
+);
+reset role;
 
 select * from finish();
 
