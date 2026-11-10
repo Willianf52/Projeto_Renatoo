@@ -72,6 +72,25 @@ const COLUNA_RESPOSTA = { x: LADO + 316, largura: UTIL - 320 };
 const FOTOS_POR_FILEIRA = 5;
 const FOTO = { largura: 92, altura: 124 };
 
+/**
+ * Desenho do PDF UNIFICADO do Historico (10/11/2026), copiado do arquivo que o
+ * antigo exporta (`pdf_unificado_*.pdf`): cada pergunta numa linha, com
+ * Pergunta | Resposta | Observacao | Fotos lado a lado, e as fotos em
+ * miniatura, duas por fileira, na propria linha.
+ */
+const COLUNAS_DO_UNIFICADO = {
+  pergunta: { x: LADO + 2, largura: 104 },
+  resposta: { x: LADO + 112, largura: 100 },
+  observacao: { x: LADO + 216, largura: 112 },
+  fotos: { x: LADO + 334, largura: UTIL - 336 },
+};
+const FOTO_DO_UNIFICADO = { largura: 84, altura: 112, vao: 10, porFileira: 2 };
+/** Fileiras de miniaturas que cabem numa folha, contando cabecalho e rodape. */
+const FILEIRAS_POR_FOLHA = 4;
+
+/** Qual desenho: o do e-mail aos gestores (0080) ou o do PDF Unificado do Historico. */
+export type LayoutDoPdf = "email" | "unificado";
+
 type Admin = SupabaseClient<Database>;
 type Fontes = { normal: PDFFont; negrito: PDFFont };
 
@@ -217,6 +236,8 @@ type Cabecalho = {
   numeroAno: string;
   finalizacao: string;
   nota: string | null;
+  /** O que vai na faixa azul: o site (e-mail) ou o nome do checklist (unificado). */
+  faixa: string;
 };
 
 /** Folha com cursor: abre pagina com o cabecalho e escreve de cima para baixo. */
@@ -306,11 +327,11 @@ class Folha {
       this.escrever(c.nota, LARGURA - LADO - largura(c.nota, this.fontes.normal), topo - TEXTO - passo);
     }
 
-    // Faixa azul com o nome do site.
+    // Faixa azul: o site no e-mail, o nome do checklist no unificado.
     const faixa = 20;
     const yDaFaixa = y - 18 - faixa;
     this.pagina.drawRectangle({ x: LADO, y: yDaFaixa, width: UTIL, height: faixa, color: AZUL_DA_FAIXA });
-    const nome = paraWinAnsi(c.titulo ? `${c.titulo} - ${c.site}` : c.site);
+    const nome = paraWinAnsi(c.faixa);
     const tamanho = 11;
     this.escrever(nome, (LARGURA - this.fontes.negrito.widthOfTextAtSize(nome, tamanho)) / 2, yDaFaixa + 6, {
       tamanho,
@@ -361,6 +382,69 @@ function desenharOpcao(pagina: PDFPage, x: number, y: number, escolhida: boolean
   if (escolhida) pagina.drawCircle({ x, y, size: 1.8, color: PRETO });
 }
 
+/**
+ * Uma pergunta no desenho do unificado: Pergunta | Resposta | Observacao |
+ * Fotos na mesma linha. Miniaturas que nao cabem numa folha (pergunta com
+ * muitas fotos) seguem embaixo, na grade de "Anexos" do e-mail.
+ */
+function desenharRespostaEmColunas(
+  folha: Folha,
+  fontes: Fontes,
+  resposta: ChecklistDetalhe["respostas"][number],
+  fotos: PDFImage[],
+  comLegenda: boolean,
+) {
+  const c = COLUNAS_DO_UNIFICADO;
+  const f = FOTO_DO_UNIFICADO;
+  const opcoes = OPCOES[resposta.tipo] ?? OPCOES.CNA;
+  const observacao = resposta.observacao?.trim() ?? "";
+  const linhasDaPergunta = quebrarEmLinhas(resposta.pergunta, fontes.normal, TEXTO, c.pergunta.largura);
+  const linhasDaObservacao = observacao ? quebrarEmLinhas(observacao, fontes.normal, TEXTO, c.observacao.largura) : [];
+
+  const naLinha = fotos.slice(0, f.porFileira * FILEIRAS_POR_FOLHA);
+  const depois = fotos.slice(naLinha.length);
+  const fileiras = Math.ceil(naLinha.length / f.porFileira);
+
+  const alturaDoTexto = Math.max(linhasDaPergunta.length, opcoes.length, linhasDaObservacao.length) * TEXTO * ENTRELINHA;
+  const alturaDasFotos = fileiras > 0 ? fileiras * (f.altura + 6) : 0;
+  const altura = ROTULO + 6 + Math.max(alturaDoTexto, alturaDasFotos) + 8;
+
+  folha.espaco(altura);
+  const topo = folha.y - 2;
+  const rotulo = (texto: string, x: number) =>
+    folha.escrever(texto, x, topo - ROTULO, { tamanho: ROTULO, cor: CINZA_DO_ROTULO });
+  rotulo("Pergunta", c.pergunta.x);
+  rotulo("Resposta", c.resposta.x);
+  rotulo("Observação", c.observacao.x);
+  rotulo("Fotos", c.fotos.x);
+
+  folha.paragrafo(resposta.pergunta, c.pergunta.x, topo - ROTULO - 2, c.pergunta.largura);
+  opcoes.forEach((opcao, i) => {
+    const y = topo - ROTULO - 2 - TEXTO - i * TEXTO * ENTRELINHA;
+    desenharOpcao(folha.pagina, c.resposta.x + 4, y + 3, resposta.valor === opcao.valor);
+    folha.escrever(opcao.rotulo, c.resposta.x + 12, y);
+  });
+  if (observacao) folha.paragrafo(observacao, c.observacao.x, topo - ROTULO - 2, c.observacao.largura);
+
+  naLinha.forEach((imagem, i) => {
+    const coluna = i % f.porFileira;
+    const fileira = Math.floor(i / f.porFileira);
+    const ajuste = imagem.scaleToFit(f.largura, f.altura);
+    folha.pagina.drawImage(imagem, {
+      x: c.fotos.x + coluna * (f.largura + f.vao) + (f.largura - ajuste.width) / 2,
+      y: topo - ROTULO - 4 - fileira * (f.altura + 6) - ajuste.height,
+      width: ajuste.width,
+      height: ajuste.height,
+    });
+  });
+
+  folha.y -= altura;
+  folha.separador();
+  folha.y -= 2;
+
+  desenharAnexos(folha, depois, comLegenda);
+}
+
 async function baixar(admin: Admin, caminho: string): Promise<Uint8Array | null> {
   const { data, error } = await admin.storage.from(BUCKET).download(caminho);
   if (error || !data) return null;
@@ -382,7 +466,15 @@ async function embutir(doc: PDFDocument, bytes: Uint8Array | null, tratar?: (png
 type DadosDaVisita = {
   id: number;
   criado_em: string;
-  sites: { nome: string; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; uf: string | null } | null;
+  sites: {
+    nome: string;
+    endereco: string | null;
+    numero: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    uf: string | null;
+    grupos_sites: { nome: string } | null;
+  } | null;
   leituras: { data_hora: string; qr_code_id: number | null; area_id: number | null }[];
 };
 
@@ -394,6 +486,7 @@ export async function gerarPdfDoChecklist(
   admin: Admin,
   id: number,
   agora: Date = new Date(),
+  layout: LayoutDoPdf = "email",
 ): Promise<{ arquivo: Uint8Array; nome: string } | null> {
   const detalhe = await getChecklistPeloCliente(admin, id);
   if (!detalhe) return null;
@@ -405,7 +498,9 @@ export async function gerarPdfDoChecklist(
     admin.from("checklists_visita").select("assinatura_path, criado_em").eq("id", id).maybeSingle(),
     admin
       .from("visitas")
-      .select("id, criado_em, sites ( nome, endereco, numero, bairro, cidade, uf ), leituras ( data_hora, qr_code_id, area_id )")
+      .select(
+          "id, criado_em, sites ( nome, endereco, numero, bairro, cidade, uf, grupos_sites ( nome ) ), leituras ( data_hora, qr_code_id, area_id )",
+        )
       .eq("id", detalhe.visitaId)
       .maybeSingle(),
     admin.from("checklist_assinaturas").select("ordem, nome, storage_path").eq("checklist_id", id).order("ordem"),
@@ -452,6 +547,8 @@ export async function gerarPdfDoChecklist(
 
   const nota = linha.nota === null ? null : notaComVirgula(linha.nota);
   const site = dadosDaVisita?.sites?.nome ?? linha.site;
+  const unificado = layout === "unificado";
+  const nomeDoChecklist = consultoria ? linha.modelo || "Consultoria" : "Corretiva";
   const folha = new Folha(
     doc,
     fontes,
@@ -466,6 +563,7 @@ export async function gerarPdfDoChecklist(
       numeroAno: linha.numeroAno,
       finalizacao: dataHoraComSegundos(checklist?.criado_em ?? linha.enviadoEm),
       nota,
+      faixa: unificado ? nomeDoChecklist : config.tituloPdf ? `${config.tituloPdf} - ${site}` : site,
     },
     logo,
   );
@@ -474,7 +572,10 @@ export async function gerarPdfDoChecklist(
   const barra = 14;
   folha.espaco(barra + 40);
   folha.pagina.drawRectangle({ x: LADO, y: folha.y - barra, width: UTIL, height: barra, color: CINZA_DA_BARRA });
-  folha.escrever(consultoria ? linha.modelo || "Consultoria" : "Corretiva", LADO + 2, folha.y - barra + 4, { cor: BRANCO });
+  // No unificado a barra leva o grupo (como "UP Servicos - Frota" no antigo),
+  // porque a faixa azul ja tem o nome do checklist.
+  const textoDaBarra = unificado ? dadosDaVisita?.sites?.grupos_sites?.nome || nomeDoChecklist : nomeDoChecklist;
+  folha.escrever(textoDaBarra, LADO + 2, folha.y - barra + 4, { cor: BRANCO });
   if (nota !== null) {
     const texto = `Nota: ${nota}`;
     folha.escrever(texto, LARGURA - LADO - 2 - fontes.normal.widthOfTextAtSize(texto, TEXTO), folha.y - barra + 4, { cor: BRANCO });
@@ -491,6 +592,16 @@ export async function gerarPdfDoChecklist(
   }
 
   for (const resposta of detalhe.respostas) {
+    if (unificado) {
+      desenharRespostaEmColunas(
+        folha,
+        fontes,
+        resposta,
+        resposta.fotos.flatMap((foto) => imagemPorFoto.get(foto.id) ?? []),
+        config.legendaNasImagens,
+      );
+      continue;
+    }
     const opcoes = OPCOES[resposta.tipo] ?? OPCOES.CNA;
     const alturaDaPergunta = quebrarEmLinhas(resposta.pergunta, fontes.normal, TEXTO, COLUNA_PERGUNTA.largura).length * TEXTO * ENTRELINHA;
     const alturaDasOpcoes = opcoes.length * TEXTO * ENTRELINHA;
@@ -551,20 +662,23 @@ export async function gerarPdfDoChecklist(
   const desenhaveis = assinaturas.flatMap((a) => (a.imagem ? [{ nome: a.nome, imagem: a.imagem }] : []));
   for (let inicio = 0; inicio < desenhaveis.length; inicio += 2) {
     const fileira = desenhaveis.slice(inicio, inicio + 2);
-    const ajustes = fileira.map((a) => a.imagem.scaleToFit(UTIL / 2 - 20, 110));
+    // No unificado, a assinatura sozinha vai no centro da folha, como no antigo.
+    const largura = unificado && fileira.length === 1 ? UTIL : UTIL / 2;
+    const ajustes = fileira.map((a) => a.imagem.scaleToFit(largura - 20, 110));
     const altura = Math.max(...ajustes.map((ajuste) => ajuste.height));
     folha.espaco(altura + 40);
     fileira.forEach((assinatura, coluna) => {
       const ajuste = ajustes[coluna];
-      const esquerda = LADO + coluna * (UTIL / 2);
+      const esquerda = LADO + coluna * largura;
       folha.pagina.drawImage(assinatura.imagem, {
-        x: esquerda + (UTIL / 2 - ajuste.width) / 2,
+        x: esquerda + (largura - ajuste.width) / 2,
         y: folha.y - ajuste.height,
         width: ajuste.width,
         height: ajuste.height,
       });
-      const legenda = legendaDaAssinatura(assinatura.nome);
-      folha.escrever(legenda, esquerda + (UTIL / 2 - fontes.normal.widthOfTextAtSize(paraWinAnsi(legenda), 8.5)) / 2, folha.y - altura - 18, {
+      // "Assinado por: Odair" no unificado, com os dois-pontos do arquivo do antigo.
+      const legenda = unificado && assinatura.nome ? `Assinado por: ${assinatura.nome}` : legendaDaAssinatura(assinatura.nome);
+      folha.escrever(legenda, esquerda + (largura - fontes.normal.widthOfTextAtSize(paraWinAnsi(legenda), 8.5)) / 2, folha.y - altura - 18, {
         tamanho: 8.5,
       });
     });
@@ -584,3 +698,53 @@ export async function gerarPdfDoChecklist(
 
   return { arquivo: await doc.save(), nome: nomeDoArquivo(detalhe) };
 }
+
+/**
+ * "Exportar para PDF Unificado" do Historico (10/11/2026): o PDF de cada
+ * checklist no desenho do unificado, um depois do outro, num arquivo so --
+ * como o `pdf_unificado_*.pdf` do antigo. Cada checklist comeca numa folha e
+ * conta as suas ("1 de 2"), porque cada um e gerado inteiro antes de entrar.
+ *
+ * Tres de cada vez: cada um baixa as proprias fotos, e todos juntos estouravam
+ * a memoria da funcao com 100 checklists.
+ */
+export async function gerarPdfUnificado(
+  admin: Admin,
+  ids: number[],
+  agora: Date = new Date(),
+): Promise<Uint8Array> {
+  const unificado = await PDFDocument.create();
+  unificado.setTitle("PDF Unificado - Histórico de Checklist");
+  unificado.setProducer("Portal Operacional Up Serviços");
+
+  const arquivos: (Uint8Array | null)[] = new Array(ids.length).fill(null);
+  for (let i = 0; i < ids.length; i += 3) {
+    const lote = ids.slice(i, i + 3);
+    const gerados = await Promise.all(lote.map((id) => gerarPdfDoChecklist(admin, id, agora, "unificado")));
+    gerados.forEach((pdf, j) => {
+      arquivos[i + j] = pdf?.arquivo ?? null;
+    });
+  }
+
+  for (const arquivo of arquivos) {
+    if (!arquivo) continue;
+    const doc = await PDFDocument.load(arquivo);
+    const paginas = await unificado.copyPages(doc, doc.getPageIndices());
+    paginas.forEach((pagina) => unificado.addPage(pagina));
+  }
+
+  if (unificado.getPageCount() === 0) {
+    const pagina = unificado.addPage([LARGURA, ALTURA]);
+    const fonte = await unificado.embedFont(StandardFonts.Helvetica);
+    pagina.drawText(paraWinAnsi("Nenhum checklist encontrado com os filtros escolhidos."), {
+      x: LADO + 4,
+      y: ALTURA - TOPO - TEXTO,
+      size: TEXTO,
+      font: fonte,
+      color: PRETO,
+    });
+  }
+
+  return unificado.save();
+}
+
