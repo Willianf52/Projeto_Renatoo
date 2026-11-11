@@ -11,6 +11,7 @@ const {
   linhasDoAnalitico,
   mediaDasNotas,
   percentualConforme,
+  recortarPorAtividade,
 } = await import("./dados");
 
 type Checklist = Parameters<typeof mediaDasNotas>[0][number];
@@ -112,7 +113,26 @@ describe("filtros", () => {
     expect([f.dataInicial, f.dataFinal, f.situacao]).toEqual(["2026-10-08", "2026-10-15", "ativos"]);
   });
 
+  it("le a atividade (Grupo de Perguntas) e ignora valor invalido", () => {
+    expect(extrairFiltros({ atividade: "2" }, new Date()).atividade).toBe("2");
+    expect(extrairFiltros({ atividade: "abc" }, new Date()).atividade).toBeUndefined();
+  });
+
   it("dia do envio em Brasilia", () => {
     expect(diaEmBrasilia("2026-10-16T01:30:00Z")).toBe("2026-10-15");
+  });
+});
+
+describe("recortarPorAtividade", () => {
+  it("sem atividade, nada muda", () => {
+    expect(recortarPorAtividade(dados, undefined)).toBe(dados);
+  });
+
+  it("so as respostas do grupo, e some o checklist sem nenhuma", () => {
+    const soPortaria = recortarPorAtividade(dados, "2");
+    expect(soPortaria.map((c) => c.id)).toEqual([1, 2]);
+    expect(soPortaria.every((c) => c.respostas.every((r) => r.pergunta.grupoId === 2))).toBe(true);
+    // A nota passa a ser a da atividade: Nao conforme no 1, Conforme no 2.
+    expect(mediaDasNotas(soPortaria)).toBe(50);
   });
 });

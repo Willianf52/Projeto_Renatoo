@@ -47,6 +47,8 @@ export type Filtros = {
   site?: string;
   grupoSite?: string;
   modelo?: string;
+  /** "Atividades" do sistema de referencia: o Grupo de Perguntas (11/11/2026). */
+  atividade?: string;
   situacao: SituacaoDoModelo;
 };
 
@@ -67,21 +69,29 @@ export function extrairFiltros(params: SearchParams, agora: Date): Filtros {
     site: filtroDeId(primeiro(params.site)),
     grupoSite: filtroDeId(primeiro(params.grupo_site)),
     modelo: filtroDeId(primeiro(params.modelo)),
+    atividade: filtroDeId(primeiro(params.atividade)),
     situacao: situacao === "inativos" || situacao === "todos" ? situacao : "ativos",
   };
 }
 
 export type Opcao = { value: string; label: string };
-export type OpcoesFiltros = { usuarios: Opcao[]; sites: Opcao[]; gruposSites: Opcao[]; modelos: Opcao[] };
+export type OpcoesFiltros = {
+  usuarios: Opcao[];
+  sites: Opcao[];
+  gruposSites: Opcao[];
+  modelos: Opcao[];
+  atividades: Opcao[];
+};
 
 /** Sem cache: `sites` e `profiles` sao recortados por RLS conforme quem pede. */
 export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   const supabase = await createClient();
-  const [usuarios, sites, grupos, modelos] = await Promise.all([
+  const [usuarios, sites, grupos, modelos, atividades] = await Promise.all([
     supabase.from("profiles").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("sites").select("id, nome, grupos_sites ( nome )").eq("ativo", true).order("nome"),
     supabase.from("grupos_sites").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("modelos_checklist").select("id, nome, ativo").order("nome"),
+    supabase.from("grupos_perguntas").select("id, nome").eq("ativo", true).order("ordem").order("nome"),
   ]);
   return {
     usuarios: (usuarios.data ?? []).map((u) => ({ value: u.id, label: u.nome_completo ?? "" })),
@@ -90,6 +100,7 @@ export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
     ),
     gruposSites: (grupos.data ?? []).map((g) => ({ value: String(g.id), label: g.nome })),
     modelos: (modelos.data ?? []).map((m) => ({ value: String(m.id), label: m.ativo ? m.nome : `${m.nome} (inativo)` })),
+    atividades: (atividades.data ?? []).map((a) => ({ value: String(a.id), label: a.nome })),
   };
 }
 
@@ -197,7 +208,21 @@ export async function getChecklists(filtros: Filtros): Promise<ChecklistLido[]> 
   if (atingiuTeto) {
     erro(gerarIdDeRequisicao(), "Relatórios do ChecklistLab: teto de leitura atingido; o período está incompleto.");
   }
-  return linhas.map(paraChecklist);
+  return recortarPorAtividade(linhas.map(paraChecklist), filtros.atividade);
+}
+
+/**
+ * Filtro "Atividades" (11/11/2026): so as respostas das perguntas daquele
+ * Grupo de Perguntas, e so os checklists que tem alguma. A nota e o % de
+ * Conforme passam a ser os da atividade, como na referencia. Pura, para
+ * testar.
+ */
+export function recortarPorAtividade(checklists: ChecklistLido[], atividade: string | undefined): ChecklistLido[] {
+  if (!atividade) return checklists;
+  const grupo = Number(atividade);
+  return checklists
+    .map((c) => ({ ...c, respostas: c.respostas.filter((r) => r.pergunta.grupoId === grupo) }))
+    .filter((c) => c.respostas.length > 0);
 }
 
 // --- Contas ----------------------------------------------------------------------------
