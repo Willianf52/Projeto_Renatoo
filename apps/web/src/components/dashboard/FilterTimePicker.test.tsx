@@ -17,7 +17,7 @@ describe("FilterTimePicker", () => {
   it("mostra o rotulo enquanto nenhum horario foi escolhido", () => {
     render(<FilterTimePicker label="Hora Inicial" name="hora_inicial" />);
 
-    expect(screen.getByRole("button", { name: "Hora Inicial" })).toHaveTextContent("Hora Inicial");
+    expect(screen.getByRole("button", { name: /^Hora Inicial/ })).toHaveTextContent("Hora Inicial");
   });
 
   it("hidden input comeca vazio sem defaultValue", () => {
@@ -31,7 +31,7 @@ describe("FilterTimePicker", () => {
       <FilterTimePicker label="Hora Inicial" name="hora_inicial" defaultValue="07:30" />,
     );
 
-    expect(screen.getByRole("button", { name: "Hora Inicial" })).toHaveTextContent("07:30");
+    expect(screen.getByRole("button", { name: /^Hora Inicial/ })).toHaveTextContent("07:30");
     expect(hiddenInput(container, "hora_inicial")).toHaveValue("07:30");
   });
 
@@ -39,7 +39,7 @@ describe("FilterTimePicker", () => {
     const user = userEvent.setup();
     render(<FilterTimePicker label="Hora Final" name="hora_final" />);
 
-    await user.click(screen.getByRole("button", { name: "Hora Final" }));
+    await user.click(screen.getByRole("button", { name: /^Hora Final/ }));
 
     expect(screen.getByRole("dialog", { name: "Horário: Hora Final" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Hora" })).toBeInTheDocument();
@@ -50,13 +50,13 @@ describe("FilterTimePicker", () => {
     const user = userEvent.setup();
     const { container } = render(<FilterTimePicker label="Hora Inicial" name="hora_inicial" />);
 
-    await user.click(screen.getByRole("button", { name: "Hora Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Hora Inicial/ }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Hora" }), "14");
     await user.selectOptions(screen.getByRole("combobox", { name: "Minuto" }), "45");
     await user.click(screen.getByRole("button", { name: "Aplicar" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hora Inicial" })).toHaveTextContent("14:45");
+    expect(screen.getByRole("button", { name: /^Hora Inicial/ })).toHaveTextContent("14:45");
     expect(hiddenInput(container, "hora_inicial")).toHaveValue("14:45");
   });
 
@@ -64,7 +64,7 @@ describe("FilterTimePicker", () => {
     const user = userEvent.setup();
     render(<FilterTimePicker label="Hora Inicial" name="hora_inicial" defaultValue="09:15" />);
 
-    await user.click(screen.getByRole("button", { name: "Hora Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Hora Inicial/ }));
 
     expect(screen.getByRole("combobox", { name: "Hora" })).toHaveValue("09");
     expect(screen.getByRole("combobox", { name: "Minuto" })).toHaveValue("15");
@@ -78,7 +78,7 @@ describe("FilterTimePicker", () => {
 
     await user.click(screen.getByRole("button", { name: "Limpar Hora Inicial" }));
 
-    expect(screen.getByRole("button", { name: "Hora Inicial" })).toHaveTextContent("Hora Inicial");
+    expect(screen.getByRole("button", { name: /^Hora Inicial/ })).toHaveTextContent("Hora Inicial");
     expect(hiddenInput(container, "hora_inicial")).toHaveValue("");
   });
 
@@ -97,13 +97,13 @@ describe("FilterTimePicker", () => {
       </div>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Hora Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Hora Inicial/ }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Hora" }), "23");
     await user.click(screen.getByRole("button", { name: "Fora" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     // O valor pendente (23h) nunca foi confirmado com "Aplicar" -- o horario
     // exibido continua sendo o original.
-    expect(screen.getByRole("button", { name: "Hora Inicial" })).toHaveTextContent("07:30");
+    expect(screen.getByRole("button", { name: /^Hora Inicial/ })).toHaveTextContent("07:30");
   });
 });
