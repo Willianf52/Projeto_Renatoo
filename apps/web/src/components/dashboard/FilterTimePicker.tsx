@@ -85,12 +85,19 @@ export function FilterTimePicker({
         onClick={abrir}
         aria-haspopup="dialog"
         aria-expanded={aberto}
-        aria-label={label}
         className={`h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-left text-sm shadow-sm outline-none transition-all duration-200 hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green ${
           selecionado ? "pr-8 text-white" : "text-brand-muted"
         }`}
       >
-        {selecionado ? valorFormulario : label}
+        {/* Mesmo cuidado do FilterDatePicker: "Hora Inicial: 07:30" para o leitor de tela. */}
+        {selecionado ? (
+          <>
+            <span className="sr-only">{label}: </span>
+            {valorFormulario}
+          </>
+        ) : (
+          label
+        )}
       </button>
 
       {/* Irmao do botao, nao filho: <button> dentro de <button> e invalido. */}

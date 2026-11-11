@@ -34,6 +34,13 @@ updates:
     groups:
       vitest:
         patterns: ["vitest", "@vitest/*"]
+      # BIBLIOTECAS NATIVAS DO APP (11/11/2026): tem codigo nativo, entao so
+      # podem entrar junto de um APK novo. Atualizacao delas que chega por OTA
+      # num APK antigo quebra o app no celular (achado na #267 em 06/11). Num
+      # grupo proprio, e o auto-merge (dependabot-auto-merge.yml) nao liga
+      # neste grupo: espera revisao e o proximo build.
+      app-nativo:
+        patterns: ["@sentry/react-native", "react-native-screens", "react-native-safe-area-context"]
       npm-patch-e-minor:
         update-types: ["patch", "minor"]
     # QUEM MANDA NESSES PACOTES E O EXPO SDK, nao o Dependabot. O SDK 57 fixa

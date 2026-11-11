@@ -26,6 +26,16 @@ async function conferirAcessibilidade(page: Page, nome: string) {
   // disso conferiria a silhueta, nao a tela.
   await expect(page.locator(".animate-pulse")).toHaveCount(0, { timeout: 30_000 });
 
+  // E as animacoes de entrada (os atalhos da Pagina Principal aparecem em
+  // sequencia): medido no meio do fade, o texto ainda meio transparente
+  // reprovava o contraste sem ter cor errada nenhuma (11/11/2026). So as
+  // finitas: uma animacao em loop nunca termina.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animacao) => animacao.playState !== "running" || animacao.effect?.getTiming().iterations === Infinity),
+  );
+
   const resultado = await new AxeBuilder({ page }).withTags(TAGS_WCAG).analyze();
 
   await test.info().attach(`axe-${nome}.json`, {
