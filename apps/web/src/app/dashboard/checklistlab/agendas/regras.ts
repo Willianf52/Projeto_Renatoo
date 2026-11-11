@@ -20,6 +20,48 @@ export const RECORRENCIAS = [
 
 export type Recorrencia = (typeof RECORRENCIAS)[number]["value"];
 
+/**
+ * Filtros da lista "Criar Agenda", os do sistema de referencia (11/11/2026):
+ * periodo, checklists, site, responsavel e padrao de recorrencia. O Status
+ * fica no banco; estes, na lista ja lida (sao poucas agendas).
+ */
+export type FiltrosDaListaDeAgendas = {
+  /** Periodo: a agenda entra se o intervalo dela cruza o filtro. AAAA-MM-DD. */
+  dataInicial?: string;
+  dataFinal?: string;
+  modelos?: string[];
+  site?: string;
+  responsavel?: string;
+  recorrencia?: string;
+  busca?: string;
+};
+
+export function filtrarAgendas<
+  T extends {
+    nome: string;
+    checklist: string;
+    dataInicial: string;
+    dataFinal: string;
+    modeloId: number;
+    responsavelId: string | null;
+    recorrencia: string;
+    sites: { id: number }[];
+  },
+>(agendas: T[], filtros: FiltrosDaListaDeAgendas): T[] {
+  const termo = filtros.busca?.trim().toLowerCase();
+  const modelos = new Set(filtros.modelos ?? []);
+  return agendas.filter(
+    (a) =>
+      (!filtros.dataInicial || a.dataFinal >= filtros.dataInicial) &&
+      (!filtros.dataFinal || a.dataInicial <= filtros.dataFinal) &&
+      (modelos.size === 0 || modelos.has(String(a.modeloId))) &&
+      (!filtros.site || a.sites.some((s) => String(s.id) === filtros.site)) &&
+      (!filtros.responsavel || a.responsavelId === filtros.responsavel) &&
+      (!filtros.recorrencia || a.recorrencia === filtros.recorrencia) &&
+      (!termo || a.nome.toLowerCase().includes(termo) || a.checklist.toLowerCase().includes(termo)),
+  );
+}
+
 export function rotuloDaRecorrencia(valor: string): string {
   return RECORRENCIAS.find((r) => r.value === valor)?.label ?? valor;
 }
