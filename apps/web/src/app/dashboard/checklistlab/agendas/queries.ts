@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { quantidadeDeDatas } from "./regras";
+import { filtrarAgendas, quantidadeDeDatas, type FiltrosDaListaDeAgendas } from "./regras";
 
 /**
  * Leitura da "Criar Agenda" (0084). O RLS so deixa a gestao ler; quem nao
@@ -45,7 +45,9 @@ type AgendaDoBanco = {
 
 export type Situacao = "ativos" | "inativos" | "todos";
 
-export async function listarAgendas(filtros: { situacao: Situacao; busca?: string }): Promise<AgendaDaLista[]> {
+export async function listarAgendas(
+  filtros: { situacao: Situacao } & FiltrosDaListaDeAgendas,
+): Promise<AgendaDaLista[]> {
   const supabase = await createClient();
   let consulta = supabase
     .from("agendas")
@@ -68,8 +70,7 @@ export async function listarAgendas(filtros: { situacao: Situacao; busca?: strin
     for (const p of perfis ?? []) nomes.set(p.id, p.nome_completo ?? "");
   }
 
-  const termo = filtros.busca?.toLowerCase();
-  return linhas
+  const agendas = linhas
     .map((a) => ({
       id: a.id,
       nome: a.nome,
@@ -88,8 +89,8 @@ export async function listarAgendas(filtros: { situacao: Situacao; busca?: strin
         .map((s) => ({ id: s.site_id, nome: s.sites?.nome ?? `Site ${s.site_id}` }))
         .sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR")),
       agendamentos: quantidadeDeDatas(a.data_inicial, a.data_final, a.recorrencia) * a.agenda_sites.length,
-    }))
-    .filter((a) => !termo || a.nome.toLowerCase().includes(termo) || a.checklist.toLowerCase().includes(termo));
+    }));
+  return filtrarAgendas(agendas, filtros);
 }
 
 export async function buscarAgenda(id: number): Promise<AgendaDaLista | null> {

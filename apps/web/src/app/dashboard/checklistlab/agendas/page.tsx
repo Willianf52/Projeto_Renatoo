@@ -10,7 +10,9 @@ import {
   FiltrosEmLinhaEsqueleto,
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
+import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
+import { FilterMultiSelect } from "@/components/dashboard/FilterMultiSelect";
 import {
   ClipboardListIcon,
   FilterIcon,
@@ -21,8 +23,8 @@ import {
 } from "@/components/dashboard/icons";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { excluirAgenda } from "./actions";
-import { listarAgendas, type Situacao } from "./queries";
-import { AGENDAMENTOS, LISTAGEM, rotuloDaRecorrencia } from "./regras";
+import { getOpcoesDaAgenda, listarAgendas, type Situacao } from "./queries";
+import { AGENDAMENTOS, LISTAGEM, RECORRENCIAS, rotuloDaRecorrencia, type FiltrosDaListaDeAgendas } from "./regras";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 type SearchParamsPromise = Promise<SearchParams>;
@@ -56,13 +58,29 @@ function primeiro(valor: string | string[] | undefined): string | undefined {
   return (Array.isArray(valor) ? valor[0] : valor) || undefined;
 }
 
-function filtrosDe(params: SearchParams): { situacao: Situacao; busca?: string } {
+const DIA = /^\d{4}-\d{2}-\d{2}$/;
+const dia = (valor: string | undefined) => (valor && DIA.test(valor) ? valor : undefined);
+
+function todos(valor: string | string[] | undefined): string[] {
+  return (Array.isArray(valor) ? valor : valor ? [valor] : []).filter((v) => v.length > 0);
+}
+
+/** Os filtros do sistema de referencia (11/11/2026): ver `filtrarAgendas`. */
+function filtrosDe(params: SearchParams): { situacao: Situacao } & FiltrosDaListaDeAgendas {
   const s = primeiro(params.situacao);
   return {
     situacao: s === "todos" || s === "inativos" ? s : "ativos",
     busca: primeiro(params.busca)?.slice(0, 100),
+    dataInicial: dia(primeiro(params.data_inicial)),
+    dataFinal: dia(primeiro(params.data_final)),
+    modelos: todos(params.modelo),
+    site: primeiro(params.site),
+    responsavel: primeiro(params.responsavel),
+    recorrencia: primeiro(params.recorrencia),
   };
 }
+
+const OPCOES_DE_RECORRENCIA = RECORRENCIAS.map((r) => ({ value: r.value, label: r.label }));
 
 /** "Criar Agenda" do ChecklistLab (0084). Pagina sem `async` (Cache Components). */
 export default function AgendasPage({ searchParams }: { searchParams: SearchParamsPromise }) {
@@ -132,16 +150,40 @@ async function Acoes() {
 }
 
 async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParamsPromise }) {
-  const filtros = filtrosDe(await searchParams);
+  const [filtros, opcoes] = await Promise.all([searchParams.then(filtrosDe), getOpcoesDaAgenda()]);
   return (
-    <form method="get" className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end">
-      <div className="min-w-0 flex-1">
-        <FilterInput label="Busca Livre (agenda ou checklist)" name="busca" defaultValue={filtros.busca} />
+    <form method="get" className="grid grid-cols-1 gap-3 border-b border-slate-800 p-4 sm:grid-cols-2 xl:grid-cols-12 xl:items-end">
+      {/* Os filtros do sistema de referencia, na ordem de la (11/11/2026). */}
+      <div className="xl:col-span-2">
+        <FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue={filtros.dataInicial} />
       </div>
-      <div className="w-full xl:w-48">
+      <div className="xl:col-span-2">
+        <FilterDatePicker label="Data Final" name="data_final" defaultValue={filtros.dataFinal} />
+      </div>
+      <div className="xl:col-span-4">
+        <FilterMultiSelect label="Checklists" name="modelo" options={opcoes.modelos} defaultValues={filtros.modelos} />
+      </div>
+      <div className="xl:col-span-4">
+        <FilterSelect label="Sites" name="site" defaultValue={filtros.site} options={opcoes.sites} />
+      </div>
+      <div className="xl:col-span-3">
+        <FilterSelect label="Responsável" name="responsavel" defaultValue={filtros.responsavel} options={opcoes.usuarios} />
+      </div>
+      <div className="xl:col-span-2">
+        <FilterSelect
+          label="Padrões de Recorrência"
+          name="recorrencia"
+          defaultValue={filtros.recorrencia}
+          options={OPCOES_DE_RECORRENCIA}
+        />
+      </div>
+      <div className="xl:col-span-2">
         <FilterSelect label="Status" name="situacao" defaultValue={filtros.situacao} options={SITUACOES} semOpcaoVazia />
       </div>
-      <Button type="submit" className="group shrink-0 xl:w-52">
+      <div className="xl:col-span-3">
+        <FilterInput label="Busca Livre (agenda ou checklist)" name="busca" defaultValue={filtros.busca} />
+      </div>
+      <Button type="submit" className="group shrink-0 xl:col-span-2">
         <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />
         Filtrar
       </Button>
