@@ -67,11 +67,17 @@ export function rotuloDaRecorrencia(valor: string): string {
 }
 
 /** Os status do "Agendamentos" do sistema de referencia. */
+/**
+ * Os 6 status da legenda do calendario do sistema de referencia, na ordem e
+ * nas cores de la (0098, 11/11/2026). A regra de cada um esta na 0098.
+ */
 export const STATUS_DO_AGENDAMENTO = [
   { value: "AGENDADO", label: "Agendado", cor: "bg-slate-500" },
-  { value: "NO_PRAZO", label: "No prazo", cor: "bg-amber-500" },
+  { value: "NO_PRAZO", label: "No prazo", cor: "bg-blue-600" },
   { value: "ATRASADO", label: "Atrasado", cor: "bg-red-600" },
-  { value: "FINALIZADO", label: "Finalizado", cor: "bg-emerald-600" },
+  { value: "FINALIZADO", label: "Finalizado", cor: "bg-emerald-700" },
+  { value: "FINALIZADO_COM_ATRASO", label: "Finalizado com Atraso", cor: "bg-cyan-700" },
+  { value: "NAO_REALIZADO", label: "Não Realizado", cor: "bg-rose-800" },
 ] as const;
 
 export function rotuloDoStatus(valor: string): string {

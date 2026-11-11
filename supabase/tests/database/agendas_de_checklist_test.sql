@@ -3,15 +3,19 @@
 --
 --   1) salvar_agenda grava a agenda e os sites; sem site, recusa (22023).
 --   2) agendamentos_do_periodo: uma agenda SEMANAL de 14 dias atras ate 7 dias
---      a frente, tolerancia de 2 dias, gera 4 datas com os 4 status --
---      FINALIZADO (checklist do modelo no site dentro da tolerancia),
---      ATRASADO, NO_PRAZO e AGENDADO.
+--      a frente, tolerancia de 2 dias, gera 4 datas -- FINALIZADO (checklist do
+--      modelo no site dentro da tolerancia), NAO_REALIZADO (a proxima data, hoje,
+--      chegou sem checklist; ATRASADO ate a 0098), NO_PRAZO e AGENDADO.
+--   2b) (0098) outra agenda SEMANAL, tolerancia de 1 dia: a data de 10 dias
+--      atras com checklist feito 5 dias atras (depois do prazo, antes da
+--      proxima) e FINALIZADO_COM_ATRASO; a de 3 dias atras, sem checklist e com
+--      a proxima ainda por vir, e ATRASADO.
 --   3) O INSPETOR nao le agendas nem escreve (RLS).
 -- ============================================================================
 
 begin;
 
-select plan(6);
+select plan(7);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -84,6 +88,44 @@ reset role;
 update public.checklists_visita set criado_em = now() - interval '14 days'
  where visita_id = (select valor from ids_teste where chave = 'visita');
 
+-- 2b) Segunda agenda (0098): modelo e site proprios, para a janela do
+-- checklist nao cruzar com a primeira.
+insert into public.grupos_sites (nome) values ('Grupo Agenda 0098');
+insert into public.sites (grupo_site_id, nome)
+  select id, 'Site Agenda 0098' from public.grupos_sites where nome = 'Grupo Agenda 0098';
+insert into ids_teste (chave, valor) select 'site_b', id from public.sites where nome = 'Site Agenda 0098';
+insert into public.modelos_checklist (nome) values ('Modelo Agenda 0098');
+insert into ids_teste (chave, valor) select 'modelo_b', id from public.modelos_checklist where nome = 'Modelo Agenda 0098';
+insert into public.perguntas_checklist (modelo_id, ordem, texto, tipo_resposta)
+  select m.id, 1, 'Pergunta 1 0098', 'CNA' from public.modelos_checklist m where m.nome = 'Modelo Agenda 0098';
+insert into ids_teste (chave, valor) select 'p1_b', id from public.perguntas_checklist where texto = 'Pergunta 1 0098';
+insert into public.visitas (numero_coleta, site_id, funcionario_id) values
+  ('98402', (select valor from ids_teste where chave = 'site_b'), 'f0000000-0000-0000-0000-000000000842');
+insert into ids_teste (chave, valor) select 'visita_b', id from public.visitas where numero_coleta = '98402';
+
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000841", "role": "authenticated"}';
+insert into ids_teste (chave, valor)
+select 'agenda_b', public.salvar_agenda(
+  null, 'Agenda 0098', (select valor from ids_teste where chave = 'modelo_b'), null, null,
+  ((now() at time zone 'America/Sao_Paulo')::date - 10),
+  ((now() at time zone 'America/Sao_Paulo')::date),
+  'SEMANAL', 1, true, array[(select valor from ids_teste where chave = 'site_b')]);
+reset role;
+
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000842", "role": "authenticated"}';
+select public.registrar_checklist(
+  (select valor from ids_teste where chave = 'visita_b'), 'CONSULTORIA', '',
+  format('%s/assinatura.png', (select valor from ids_teste where chave = 'visita_b')),
+  array[]::text[],
+  jsonb_build_array(jsonb_build_object('pergunta_id', (select valor from ids_teste where chave = 'p1_b'), 'resposta', 'SIM')),
+  (select valor from ids_teste where chave = 'modelo_b'));
+reset role;
+
+update public.checklists_visita set criado_em = now() - interval '5 days'
+ where visita_id = (select valor from ids_teste where chave = 'visita_b');
+
 -- ---------------------------------------------------------------------------
 -- 2) Os quatro status
 -- ---------------------------------------------------------------------------
@@ -94,8 +136,16 @@ select is(
   (select array_agg(status order by data_planejada)
      from public.agendamentos_do_periodo(current_date - 30, current_date + 30)
     where agenda_id = (select valor from ids_teste where chave = 'agenda')),
-  array['FINALIZADO', 'ATRASADO', 'NO_PRAZO', 'AGENDADO'],
-  'semanal com tolerancia de 2 dias: finalizado, atrasado, no prazo e agendado'
+  array['FINALIZADO', 'NAO_REALIZADO', 'NO_PRAZO', 'AGENDADO'],
+  'semanal com tolerancia de 2 dias: finalizado, nao realizado, no prazo e agendado'
+);
+
+select is(
+  (select array_agg(status order by data_planejada)
+     from public.agendamentos_do_periodo(current_date - 30, current_date + 30)
+    where agenda_id = (select valor from ids_teste where chave = 'agenda_b')),
+  array['FINALIZADO_COM_ATRASO', 'ATRASADO'],
+  'checklist depois do prazo e finalizado com atraso; sem checklist e antes da proxima, atrasado (0098)'
 );
 
 select is(

@@ -31,6 +31,9 @@ export const COR_DO_STATUS: Record<StatusDoAgendamento, { fundo: string; texto: 
   AGENDADO: { fundo: "#eab308", texto: "#1f2937" },
   NO_PRAZO: { fundo: "#2563eb", texto: "#ffffff" },
   ATRASADO: { fundo: "#dc2626", texto: "#ffffff" },
+  // Os dois do portal desde a 0098 (11/11/2026), nas cores da legenda de la.
+  FINALIZADO_COM_ATRASO: { fundo: "#0e7490", texto: "#ffffff" },
+  NAO_REALIZADO: { fundo: "#9f1239", texto: "#ffffff" },
 };
 
 export function SeloDoStatus({ status }: { status: StatusDoAgendamento }) {
