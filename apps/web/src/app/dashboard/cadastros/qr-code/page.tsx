@@ -50,7 +50,7 @@ const MIN_WIDTH = "min-w-[740px]";
 /** Miniatura: o suficiente para a camera de um celular ler da tela, e 1/6 do
  * peso da imagem da etiqueta impressa (240px). */
 const LARGURA_DA_MINIATURA = 96;
-const GRADE_DE_FILTROS = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4";
+const GRADE_DE_FILTROS = "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
@@ -85,7 +85,7 @@ export default function QrCodePage({ searchParams }: { searchParams: SearchParam
           </Suspense>
         </div>
 
-        <Suspense fallback={<FiltrosEmLinhaEsqueleto campos={4} gradeInterna={GRADE_DE_FILTROS} />}>
+        <Suspense fallback={<FiltrosEmLinhaEsqueleto campos={5} gradeInterna={GRADE_DE_FILTROS} />}>
           <FormularioDeFiltros searchParams={searchParams} />
         </Suspense>
 
@@ -176,6 +176,8 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
           defaultValue={filtros.tipoServico}
           options={opcoes.tiposServico}
         />
+        {/* "Site", como no antigo (13/11/2026): os QR-Codes de um lugar so. */}
+        <FilterSelect label="Site" name="site" defaultValue={filtros.site} options={opcoes.sites} />
         <FilterSelect
           label="Grupo de Sites"
           name="grupo_site"
