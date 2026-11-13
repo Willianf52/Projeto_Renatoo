@@ -30,7 +30,7 @@ describe("extrairFiltros", () => {
         checkpoint: "3",
         funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
         grupo_usuario: "2",
-        tipo: "1",
+        tipo: "INSPECAO",
       }),
     ).toEqual({
       dataInicial: "2026-08-11",
@@ -38,8 +38,13 @@ describe("extrairFiltros", () => {
       checkpoint: "3",
       funcionario: "e75fb18e-35e4-4a7f-82ec-7ec3b2fed0a3",
       grupoUsuario: "2",
-      tipo: "1",
+      tipo: "INSPECAO",
     });
+  });
+
+  it("tipo fora de Visita/Inspecao e ignorado (0100)", () => {
+    expect(extrairFiltros({ tipo: "1" }).tipo).toBeUndefined();
+    expect(extrairFiltros({ tipo: "VISITA" }).tipo).toBe("VISITA");
   });
 
   it("filtros ausentes ficam undefined, sem mes/data padrao", () => {
@@ -89,13 +94,13 @@ describe("getRankingDeInspecoes", () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("manda o periodo meio-aberto e traduz Tipo para `tipo_servico`", async () => {
-    await getRankingDeInspecoes({ dataInicial: "2026-08-01", dataFinal: "2026-08-31", tipo: "1", checkpoint: "" });
+  it("manda o periodo meio-aberto e o Tipo (Visita/Inspecao, 0100)", async () => {
+    await getRankingDeInspecoes({ dataInicial: "2026-08-01", dataFinal: "2026-08-31", tipo: "VISITA", checkpoint: "" });
 
     expect(rpcMock).toHaveBeenCalledWith("relatorio_ranking_de_inspecoes", {
       p_inicio: "2026-08-01T00:00:00-03:00",
       p_fim: "2026-09-01T00:00:00-03:00",
-      p_filtros: { tipo_servico: "1" },
+      p_filtros: { tipo: "VISITA" },
     });
   });
 
