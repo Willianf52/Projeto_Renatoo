@@ -8,6 +8,8 @@ export const PAGE_SIZE = 25;
 
 export type GrupoSiteFiltros = {
   busca?: string;
+  /** "Status: todos/Ativo/Inativo" do antigo (13/11/2026): "ativo" | "inativo" | vazio. */
+  status?: string;
   pagina: number;
 };
 
@@ -38,13 +40,17 @@ export type GrupoSiteDetalhe = GrupoSiteRow & { grupo_pai_id: number | null };
  * do `.or()` e o preco de aceitar o builder de qualquer uma das duas
  * consultas nesta funcao so.
  */
-function comBusca<Q extends { or(filtro: string): unknown }>(
+function comBusca<Q extends { or(filtro: string): unknown; eq(coluna: string, valor: unknown): unknown }>(
   query: Q,
   busca: string | undefined,
+  status?: string,
 ): Q {
-  if (!busca) return query;
+  // Status (13/11/2026), como o filtro do antigo: so os ativos ou so os inativos.
+  let filtrada = query;
+  if (status === "ativo" || status === "inativo") filtrada = filtrada.eq("ativo", status === "ativo") as Q;
+  if (!busca) return filtrada;
   const termo = termoParaOr(busca);
-  return query.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`) as Q;
+  return filtrada.or(`nome.ilike."%${termo}%",descricao.ilike."%${termo}%"`) as Q;
 }
 
 /** Linha da listagem: o grupo mais as colunas "Grupo de Site Pai" e "Sites"
@@ -97,6 +103,7 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
       .order("nome", { ascending: true })
       .range(from, to),
     filtros.busca,
+    filtros.status,
   );
 
   const { data, error, count } = await query;
@@ -138,6 +145,7 @@ export async function getGruposSites(filtros: GrupoSiteFiltros): Promise<{
  */
 export async function getGruposSitesParaExportar(
   busca: string | undefined,
+  status?: string,
 ): Promise<{ rows: GrupoSiteParaExportar[]; truncado: boolean }> {
   const supabase = await createClient();
 
@@ -149,6 +157,7 @@ export async function getGruposSitesParaExportar(
       .order("nome", { ascending: true })
       .range(0, LIMITE_EXPORTACAO),
     busca,
+    status,
   );
 
   const { data, error } = await query;

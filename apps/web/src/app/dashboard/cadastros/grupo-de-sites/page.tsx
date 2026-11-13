@@ -10,7 +10,7 @@ import {
   FiltrosEmLinhaEsqueleto,
   TabelaEsqueleto,
 } from "@/components/dashboard/EsqueletosDeListagem";
-import { FilterInput } from "@/components/dashboard/FilterField";
+import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import {
   ExcelIcon,
   FilterIcon,
@@ -37,8 +37,24 @@ function primeiro(valor: string | string[] | undefined): string | undefined {
 function extrairFiltros(params: SearchParams): GrupoSiteFiltros {
   return {
     busca: primeiro(params.busca),
+    status: primeiro(params.status),
     pagina: Math.max(1, Number(primeiro(params.pagina)) || 1),
   };
+}
+
+/** "Status: todos/Ativo/Inativo" do antigo; vazio e "todos". */
+const STATUS_OPCOES = [
+  { value: "ativo", label: "Ativo" },
+  { value: "inativo", label: "Inativo" },
+];
+
+/** A query das exportacoes: os mesmos filtros da lista, sem a pagina. */
+function consultaDeExportacao(filtros: GrupoSiteFiltros): string {
+  const query = new URLSearchParams();
+  if (filtros.busca) query.set("busca", filtros.busca);
+  if (filtros.status) query.set("status", filtros.status);
+  const texto = query.toString();
+  return texto ? `?${texto}` : "";
 }
 
 /**
@@ -103,7 +119,7 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   // Mesmo filtro de busca da listagem, sem a paginacao --
   // getGruposSitesParaExportar ignora pagina de proposito (ver queries.ts).
-  const queryExportacao = filtros.busca ? `?busca=${encodeURIComponent(filtros.busca)}` : "";
+  const queryExportacao = consultaDeExportacao(filtros);
 
   return (
     <div className="flex items-center gap-2">
@@ -168,6 +184,15 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
     >
       <div className="min-w-0 flex-1">
         <FilterInput label="Busca Livre..." name="busca" defaultValue={filtros.busca} />
+      </div>
+      <div className="w-full xl:w-52">
+        <FilterSelect
+          label="Status"
+          name="status"
+          placeholder="Status: todos"
+          defaultValue={filtros.status}
+          options={STATUS_OPCOES}
+        />
       </div>
 
       <Button type="submit" className="group shrink-0 xl:w-52">
