@@ -61,6 +61,21 @@ export function ModeloForm({
         />
       </div>
 
+      {/* "Descricao" (0099), como no sistema de referencia: opcional. */}
+      <div>
+        <label htmlFor="descricao" className={rotuloClasses}>
+          Descrição
+        </label>
+        <textarea
+          id="descricao"
+          name="descricao"
+          rows={3}
+          maxLength={500}
+          defaultValue={valores.descricao}
+          className={getInputClasses(false)}
+        />
+      </div>
+
       {padrao ? (
         <p className="rounded-md border border-slate-800 bg-brand-navy px-4 py-3 text-sm text-brand-muted">
           Este é o modelo padrão: vale para todo grupo de sites que não tem modelo próprio. Por isso

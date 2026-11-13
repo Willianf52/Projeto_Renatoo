@@ -14,6 +14,7 @@ export type ModeloFiltros = {
 export type ModeloRow = {
   id: number;
   nome: string;
+  descricao: string;
   padrao: boolean;
   ativo: boolean;
   /** Os NOMES dos grupos, como a coluna "Usuários" de Grupo de Usuários: o que
@@ -25,6 +26,7 @@ export type ModeloRow = {
 type LinhaBruta = {
   id: number;
   nome: string;
+  descricao: string | null;
   padrao: boolean;
   ativo: boolean;
   modelos_checklist_grupos: { grupos_sites: { nome: string } | null }[];
@@ -32,12 +34,13 @@ type LinhaBruta = {
 };
 
 const COLUNAS =
-  "id, nome, padrao, ativo, modelos_checklist_grupos ( grupos_sites ( nome ) ), perguntas_checklist ( count )";
+  "id, nome, descricao, padrao, ativo, modelos_checklist_grupos ( grupos_sites ( nome ) ), perguntas_checklist ( count )";
 
 function paraLinha(bruta: LinhaBruta): ModeloRow {
   return {
     id: bruta.id,
     nome: bruta.nome,
+    descricao: bruta.descricao ?? "",
     padrao: bruta.padrao,
     ativo: bruta.ativo,
     grupos: bruta.modelos_checklist_grupos
@@ -81,6 +84,7 @@ export async function getModelos(filtros: ModeloFiltros): Promise<{
 export type ModeloEmEdicao = {
   id: number;
   nome: string;
+  descricao: string;
   padrao: boolean;
   ativo: boolean;
   grupos: string[];
@@ -94,7 +98,7 @@ export async function getModelo(id: number): Promise<ModeloEmEdicao | null> {
 
   const { data, error } = await supabase
     .from("modelos_checklist")
-    .select("id, nome, padrao, ativo, exige_aprovacao, foto_obrigatoria, quantidade_de_assinaturas, modelos_checklist_grupos ( grupo_site_id )")
+    .select("id, nome, descricao, padrao, ativo, exige_aprovacao, foto_obrigatoria, quantidade_de_assinaturas, modelos_checklist_grupos ( grupo_site_id )")
     .eq("id", id)
     // `maybeSingle`: id que nao existe e 404 da tela, nao erro do Postgres.
     .maybeSingle();
@@ -105,6 +109,7 @@ export async function getModelo(id: number): Promise<ModeloEmEdicao | null> {
   return {
     id: data.id,
     nome: data.nome,
+    descricao: data.descricao ?? "",
     padrao: data.padrao,
     ativo: data.ativo,
     grupos: data.modelos_checklist_grupos.map((ligacao) => String(ligacao.grupo_site_id)),
@@ -167,7 +172,9 @@ export const GRUPOS_DO_PADRAO = "Todo grupo sem modelo próprio";
 /** Colunas de texto da linha; a coluna "Ações" e montada na pagina. */
 export function toTableRow(modelo: ModeloRow): string[] {
   return [
+    String(modelo.id),
     modelo.padrao ? `${modelo.nome} (padrão)` : modelo.nome,
+    modelo.descricao,
     modelo.padrao ? GRUPOS_DO_PADRAO : modelo.grupos.join(", "),
     String(modelo.perguntas),
     modelo.ativo ? "Ativo" : "Inativo",

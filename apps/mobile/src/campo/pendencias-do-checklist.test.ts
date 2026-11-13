@@ -60,6 +60,40 @@ describe("pendenciasDoChecklist", () => {
     });
   });
 
+  /** "Obrigatorio" do sistema antigo (0099, 13/11/2026): a nao obrigatoria pode ficar em branco. */
+  describe("pergunta nao obrigatoria", () => {
+    const comOpcional = [{ id: 11 }, { id: 12, obrigatoria: false }, { id: 13 }];
+
+    it("em branco nao e pendencia", () => {
+      expect(
+        pendenciasDoChecklist(
+          estado({ tipo: "CONSULTORIA", perguntas: comOpcional, respostas: { 11: "SIM", 13: "NAO" } }),
+        ),
+      ).toEqual([]);
+    });
+
+    it("as obrigatorias continuam cobradas, e a contagem ignora a opcional", () => {
+      const [pendencia] = pendenciasDoChecklist(
+        estado({ tipo: "CONSULTORIA", perguntas: comOpcional, respostas: { 11: "SIM" } }),
+      );
+      expect(pendencia).toMatchObject({ alvo: "perguntas", perguntaId: 13, faltam: 1 });
+    });
+
+    it("com foto obrigatoria no modelo, a opcional em branco nao pede foto", () => {
+      expect(
+        pendenciasDoChecklist(
+          estado({
+            tipo: "CONSULTORIA",
+            perguntas: comOpcional,
+            respostas: { 11: "SIM", 13: "SIM" },
+            fotoObrigatoriaPorPergunta: true,
+            fotosPorPergunta: { 11: 1, 13: 1 },
+          }),
+        ),
+      ).toEqual([]);
+    });
+  });
+
   /** Checklist dos carros: foto em TODAS as perguntas (0091, 04/11/2026). */
   describe("modelo com foto obrigatoria em todas as perguntas", () => {
     const respondidas = { 11: "SIM", 12: "SIM", 13: "SIM" } as const;

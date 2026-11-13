@@ -466,7 +466,11 @@ export function TelaDeChecklist({
   // Paginacao da consultoria. `indice === total` e o resumo.
   const total = perguntas?.length ?? 0;
   const paginado = tipo === "CONSULTORIA" && total > 0;
-  const primeiraSemResposta = perguntas ? perguntas.findIndex((pergunta) => !respostas[pergunta.id]) : -1;
+  // A tela abre na primeira obrigatoria sem resposta: a nao obrigatoria (0099)
+  // em branco nao e pendencia.
+  const primeiraSemResposta = perguntas
+    ? perguntas.findIndex((pergunta) => pergunta.obrigatoria !== false && !respostas[pergunta.id])
+    : -1;
   const indice = !paginado
     ? 0
     : posicao !== null && posicao.modeloId === modeloEfetivo
@@ -493,6 +497,12 @@ export function TelaDeChecklist({
 
   const avancar = useCallback(() => {
     if (perguntaAtual === null) return;
+    // Pergunta nao obrigatoria (0099) pode passar em branco, como no antigo.
+    const emBrancoPermitido = perguntaAtual.obrigatoria === false && !respostas[perguntaAtual.id];
+    if (emBrancoPermitido) {
+      irPara(indice + 1);
+      return;
+    }
     if (!respostas[perguntaAtual.id]) {
       setErro("Responda esta pergunta para continuar.");
       setDestaque("perguntas");
@@ -710,7 +720,11 @@ export function TelaDeChecklist({
         fotosDePergunta: tipo === "CONSULTORIA" ? fotosDasPerguntas : undefined,
         respostas:
           tipo === "CONSULTORIA"
-            ? lista.map((pergunta) => ({
+            ? lista
+                // A nao obrigatoria deixada em branco (0099) nao vai: o banco so
+                // guarda resposta dada.
+                .filter((pergunta) => respostas[pergunta.id])
+                .map((pergunta) => ({
                 perguntaId: pergunta.id,
                 resposta: respostas[pergunta.id],
                 observacao: observacoes[pergunta.id]?.trim() || null,
@@ -895,6 +909,9 @@ export function TelaDeChecklist({
                 <Text style={estilos.perguntaTexto}>
                   {perguntaAtual.ordem}. {perguntaAtual.texto}
                 </Text>
+                {perguntaAtual.obrigatoria === false ? (
+                  <Text style={estilos.rotulo}>Opcional: pode passar sem responder.</Text>
+                ) : null}
 
                 {/* Uma opcao por linha, como na referencia: com a pergunta
                     sozinha na tela ha espaco, e o alvo de toque fica do tamanho
@@ -996,10 +1013,16 @@ export function TelaDeChecklist({
                       <Text
                         style={[
                           estilos.linhaDoResumoResposta,
-                          (!resposta || (resposta === "NAO" && pergunta.tipoResposta !== "SN")) && estilos.rotuloPendente,
+                          ((!resposta && pergunta.obrigatoria !== false) ||
+                            (resposta === "NAO" && pergunta.tipoResposta !== "SN")) &&
+                            estilos.rotuloPendente,
                         ]}
                       >
-                        {resposta ? rotuloDaResposta(pergunta.tipoResposta, resposta) : "Sem resposta"}
+                        {resposta
+                          ? rotuloDaResposta(pergunta.tipoResposta, resposta)
+                          : pergunta.obrigatoria === false
+                            ? "Sem resposta (opcional)"
+                            : "Sem resposta"}
                         {extras.length > 0 ? ` · ${extras.join(" · ")}` : ""}
                       </Text>
                     </Pressable>

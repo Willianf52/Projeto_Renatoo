@@ -62,6 +62,7 @@ export function agruparPerguntas(
     ordem: number;
     texto: string;
     tipo_resposta: string;
+    obrigatoria?: boolean;
     grupos_perguntas?: { nome: string } | null;
   }[],
 ): Record<string, PerguntaDoModelo[]> {
@@ -73,6 +74,7 @@ export function agruparPerguntas(
       texto: linha.texto,
       tipoResposta: tipoDeResposta(linha.tipo_resposta),
       grupo: linha.grupos_perguntas?.nome ?? null,
+      obrigatoria: linha.obrigatoria ?? true,
     });
   }
   return porModelo;
@@ -130,7 +132,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
     todasAsPaginas((de, ate) =>
       supabase
         .from("perguntas_checklist")
-        .select("id, modelo_id, ordem, texto, tipo_resposta, grupos_perguntas ( nome )")
+        .select("id, modelo_id, ordem, texto, tipo_resposta, obrigatoria, grupos_perguntas ( nome )")
         .eq("ativo", true)
         .order("id")
         .range(de, ate),

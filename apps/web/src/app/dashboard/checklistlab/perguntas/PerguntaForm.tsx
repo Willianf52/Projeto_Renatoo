@@ -209,6 +209,28 @@ export function PerguntaForm({
         </div>
       </div>
 
+      {/* "Obrigatorio" (0099), como no sistema de referencia. */}
+      <div>
+        <label htmlFor="obrigatoria" className={rotuloClasses}>
+          Obrigatória
+        </label>
+        <div className="relative">
+          <select
+            id="obrigatoria"
+            name="obrigatoria"
+            defaultValue={valores.obrigatoria ? "sim" : "nao"}
+            className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+          >
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+        </div>
+        <p className="mt-1.5 text-xs text-brand-muted">
+          Não: o inspetor pode passar sem responder esta pergunta no app.
+        </p>
+      </div>
+
       <div>
         <label htmlFor="status" className={rotuloClasses}>
           Status

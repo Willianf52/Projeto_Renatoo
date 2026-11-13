@@ -33,10 +33,13 @@ const esquemaDoModelo = z.object({
     .string()
     .min(1, "Informe o nome do modelo.")
     .max(200, "O nome deve ter no máximo 200 caracteres."),
+  descricao: z.string().max(500, "A descrição deve ter no máximo 500 caracteres.").optional(),
 });
 
 export type ValoresDoModelo = {
   nome: string;
+  /** "Descricao" do sistema de referencia (0099): opcional, ate 500. */
+  descricao: string;
   ativo: boolean;
   grupos: string[];
   /** "Exige aprovacao" (0089): o checklist nasce Aguardando Autorizacao. */
@@ -56,6 +59,7 @@ export type EstadoDoFormulario = {
 function extrairValores(formData: FormData): ValoresDoModelo {
   return {
     nome: texto(formData, "nome"),
+    descricao: texto(formData, "descricao"),
     // Qualquer coisa diferente de "inativo" cai no lado seguro para um
     // cadastro novo -- mesmo select de duas opcoes de `perguntas`.
     ativo: String(formData.get("status") ?? "") !== "inativo",
@@ -108,6 +112,7 @@ export async function salvarModelo(
   const supabase = await createClient();
   const linha = {
     nome: valores.nome,
+    descricao: valores.descricao || null,
     ativo: valores.ativo,
     exige_aprovacao: valores.exigeAprovacao,
     foto_obrigatoria: valores.fotoObrigatoria,
