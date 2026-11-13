@@ -50,7 +50,10 @@ overrides:
   # @expo/code-signing-certificates: a CLI de build e a assinatura de OTA
   # (que este projeto nao liga). Todos declaram `^1.x`, entao a 1.4.2 (27/10,
   # patch compativel) ja cabia -- o lockfile e que estava parado na 1.4.0.
-  node-forge: ^1.4.2
+  # 13/11/2026: mais quatro (alertas #26 a #29 do Dependabot: travamento de TLS,
+  # ReDoS nos cabecalhos HTTP, Ed25519 aceitando chave de ordem pequena) ate a
+  # 1.4.2; a 1.4.3 corrige, patch compativel.
+  node-forge: ^1.4.3
   # GHSA-w5hq-g745-h8pq (moderate): uuid < 11.1.1 nao confere o limite do
   # buffer em v3/v5/v6 quando `buf` e passado. Entra so por
   # apps/mobile > expo > @expo/config-plugins > xcode, que declara `^7.0.3` e
