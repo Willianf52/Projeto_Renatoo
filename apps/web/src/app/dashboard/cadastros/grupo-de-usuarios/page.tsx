@@ -129,6 +129,16 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   return (
     <div className="flex items-center gap-2">
+      {/* "Importar grupos de usuarios", como no sistema de referencia (13/11/2026): primeiro, como no Grupo de Sites. */}
+      {podeAdministrar ? (
+        <Acao titulo="Importar grupos de usuários" href="/dashboard/cadastros/grupo-de-usuarios/importar" tom="importar">
+          <UploadIcon className="h-4 w-4" />
+        </Acao>
+      ) : (
+        <AcaoDesabilitada titulo="Importar grupos de usuários" motivo="você não tem permissão" tom="importar">
+          <UploadIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      )}
       <Acao
         titulo="Exportar para Excel"
         href={`/dashboard/cadastros/grupo-de-usuarios/export/excel${queryExportacao}`} tom="excel"
@@ -143,16 +153,6 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       >
         <PdfIcon className="h-4 w-4" />
       </Acao>
-      {/* "Importar grupos de usuarios", como no sistema de referencia (13/11/2026). */}
-      {podeAdministrar ? (
-        <Acao titulo="Importar grupos de usuários" href="/dashboard/cadastros/grupo-de-usuarios/importar" tom="importar">
-          <UploadIcon className="h-4 w-4" />
-        </Acao>
-      ) : (
-        <AcaoDesabilitada titulo="Importar grupos de usuários" motivo="você não tem permissão" tom="importar">
-          <UploadIcon className="h-4 w-4" />
-        </AcaoDesabilitada>
-      )}
       {podeAdministrar ? (
         <Acao
           titulo="Novo grupo"
