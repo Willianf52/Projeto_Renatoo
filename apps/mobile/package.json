@@ -47,8 +47,8 @@
   "devDependencies": {
     "@sentry/cli": "2.58.6",
     "@types/react": "~19.3.0",
-    "@vitest/coverage-v8": "^5.0.3",
+    "@vitest/coverage-v8": "^5.1.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
