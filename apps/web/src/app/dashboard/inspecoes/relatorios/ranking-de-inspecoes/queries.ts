@@ -18,14 +18,24 @@ export type Filtros = {
   tipo?: string;
 };
 
+/**
+ * O "Tipo" do sistema de referencia (0100): Visita conta cada inspecao feita
+ * no app de campo; Inspecao, cada QR-Code lido. Sem tipo, a soma.
+ */
+export const TIPOS_DO_RANKING: Opcao[] = [
+  { value: "VISITA", label: "Visita" },
+  { value: "INSPECAO", label: "Inspeção" },
+];
+
 export function extrairFiltros(params: SearchParams): Filtros {
+  const tipo = primeiro(params.tipo);
   return {
     dataInicial: dataValida(primeiro(params.data_inicial)),
     dataFinal: dataValida(primeiro(params.data_final)),
     checkpoint: filtroDeId(primeiro(params.checkpoint)),
     funcionario: filtroDeUuid(primeiro(params.funcionario)),
     grupoUsuario: filtroDeId(primeiro(params.grupo_usuario)),
-    tipo: filtroDeId(primeiro(params.tipo)),
+    tipo: TIPOS_DO_RANKING.some((t) => t.value === tipo) ? tipo : undefined,
   };
 }
 
@@ -55,18 +65,17 @@ function toOptions<T extends Record<string, unknown>>(
 export async function getOpcoesFiltros(): Promise<OpcoesFiltros> {
   const supabase = await createClient();
 
-  const [checkpoints, funcionarios, gruposUsuarios, tipos] = await Promise.all([
+  const [checkpoints, funcionarios, gruposUsuarios] = await Promise.all([
     supabase.from("qr_codes").select("id, codigo").eq("ativo", true).order("codigo"),
     supabase.rpc("usuarios_visiveis").select("id, nome_completo").eq("ativo", true).order("nome_completo"),
     supabase.from("grupos_usuarios").select("id, nome").order("nome"),
-    supabase.from("tipos_servico").select("id, nome").eq("ativo", true).order("nome"),
   ]);
 
   return {
     checkpoints: toOptions(checkpoints.data, "id", "codigo"),
     funcionarios: toOptions(funcionarios.data, "id", "nome_completo"),
     gruposUsuarios: toOptions(gruposUsuarios.data, "id", "nome"),
-    tipos: toOptions(tipos.data, "id", "nome"),
+    tipos: TIPOS_DO_RANKING,
   };
 }
 
@@ -123,7 +132,7 @@ export async function getRankingDeInspecoes(filtros: Filtros): Promise<RankingDe
     p_filtros: filtrosParaRpc({
       checkpoint: filtros.checkpoint,
       funcionario: filtros.funcionario,
-      tipo_servico: filtros.tipo,
+      tipo: filtros.tipo,
       grupo_usuario: filtros.grupoUsuario,
     }),
   });

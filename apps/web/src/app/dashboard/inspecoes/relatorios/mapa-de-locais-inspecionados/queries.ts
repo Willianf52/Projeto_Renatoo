@@ -252,5 +252,5 @@ export function paraLinhaDeExportacao(linha: LinhaMapa, dias: string[]): string[
 }
 
 export function colunasDeExportacao(dias: string[]): string[] {
-  return ["Local", ...dias.map(formatarDiaCurto), "Total"];
+  return ["Local", ...dias.map(formatarDiaCurto), "TOTAL"];
 }

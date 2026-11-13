@@ -267,7 +267,7 @@ async function CorpoDoMapa({ searchParams }: { searchParams: SearchParamsPromise
                     {formatarDiaCurto(dia)}
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center font-semibold">Total</th>
+                <th className="px-3 py-2 text-center font-semibold">TOTAL</th>
               </tr>
             </thead>
             <tbody>
