@@ -24,7 +24,16 @@ import { getModelos, toTableRow, PAGE_SIZE, type ModeloFiltros } from "./queries
 
 /** ID e Descricao como na lista do Criar Checklist do sistema de referencia (13/11/2026). */
 const TABLE_COLUMNS = ["ID", "Modelo", "Descrição", "Grupos de Sites", "Perguntas", "Status", "Ações"];
-const MIN_WIDTH = "min-w-[960px]";
+const MIN_WIDTH = "min-w-[860px]";
+
+/**
+ * Descricao e Grupos de Sites quebram linha (13/11/2026): a celula da tabela
+ * nao quebra, e um modelo ligado a muitos grupos empurrava Perguntas e Status
+ * para fora da tela.
+ */
+function TextoQueQuebra({ texto }: { texto: string }) {
+  return <span className="block min-w-40 max-w-xs whitespace-normal">{texto}</span>;
+}
 
 /** Busca ocupa a sobra, Status fica com a mesma largura do botao Filtrar. */
 const GRADE_DE_FILTROS = "grid grid-cols-1 gap-3 xl:grid-cols-[1fr_13rem]";
@@ -143,7 +152,10 @@ async function TabelaDeModelos({ searchParams }: { searchParams: SearchParamsPro
   // que se cadastra pergunta nele. Aberta a todos, porque ler e permitido a
   // quem ve a tela; so editar depende de permissao.
   const rows = resultado.rows.map((modelo) => [
-    ...toTableRow(modelo),
+    ...toTableRow(modelo).map((celula, indice) =>
+      // 2 = Descricao, 3 = Grupos de Sites (ver `toTableRow`).
+      indice === 2 || indice === 3 ? <TextoQueQuebra key={indice} texto={celula} /> : celula,
+    ),
     <div key={modelo.id} className="flex items-center gap-1.5">
       <Acao
         titulo={`Perguntas de ${modelo.nome}`}
