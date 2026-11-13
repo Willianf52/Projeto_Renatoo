@@ -50,10 +50,10 @@ const MIN_WIDTH = "min-w-[740px]";
 /** Miniatura: o suficiente para a camera de um celular ler da tela, e 1/6 do
  * peso da imagem da etiqueta impressa (240px). */
 const LARGURA_DA_MINIATURA = 96;
-/** Cinco filtros numa linha (13/11/2026): a busca e "Tipos de Servico" ganham
+/** Cinco filtros numa linha (13/11/2026): a busca, "Tipos de Servico" e "Grupo de Sites" ganham
  * mais espaco, senao o rotulo deles aparecia cortado. */
 const GRADE_DE_FILTROS =
-  "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.6fr_1.3fr_1fr_1fr_0.8fr]";
+  "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.5fr_1.3fr_1fr_1.3fr_0.7fr]";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
