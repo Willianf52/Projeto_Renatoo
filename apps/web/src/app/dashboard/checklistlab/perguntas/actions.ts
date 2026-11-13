@@ -66,6 +66,8 @@ export type ValoresDaPergunta = {
   /** Ids em texto; vazio = sem grupo / sem evento proprio (0073). */
   grupo: string;
   evento: string;
+  /** "Obrigatorio" do sistema de referencia (0099): falso, o app deixa pular. */
+  obrigatoria: boolean;
 };
 
 export type EstadoDoFormulario = {
@@ -90,6 +92,8 @@ function extrairValores(formData: FormData): ValoresDaPergunta {
       : "CNA",
     grupo: texto(formData, "grupo"),
     evento: texto(formData, "evento"),
+    // Mesmo raciocinio do status: so "nao" desliga; o resto e o padrao seguro.
+    obrigatoria: String(formData.get("obrigatoria") ?? "") !== "nao",
   };
 }
 
@@ -104,6 +108,7 @@ type LinhaDaPergunta = {
   ativo: boolean;
   grupo_pergunta_id: number | null;
   evento_id: number | null;
+  obrigatoria: boolean;
 };
 
 const ID = /^[1-9]\d{0,14}$/;
@@ -132,6 +137,7 @@ function validar(
       ativo: valores.ativo,
       grupo_pergunta_id: valores.grupo ? Number(valores.grupo) : null,
       evento_id: valores.evento ? Number(valores.evento) : null,
+      obrigatoria: valores.obrigatoria,
     },
   };
 }

@@ -74,6 +74,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             tipoResposta: pergunta.tipoResposta,
             grupo: pergunta.grupoId ? String(pergunta.grupoId) : "",
             evento: pergunta.eventoId ? String(pergunta.eventoId) : "",
+            obrigatoria: pergunta.obrigatoria,
           }}
         />
       </div>

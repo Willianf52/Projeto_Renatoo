@@ -29,6 +29,8 @@ export type PerguntaRow = {
   /** Tipo de evento que a resposta abre (0063); vazio: "NÃO CONFORMIDADE". */
   eventoId: number | null;
   evento: string;
+  /** "Obrigatorio" (0099). */
+  obrigatoria: boolean;
 };
 
 type LinhaBruta = {
@@ -43,10 +45,11 @@ type LinhaBruta = {
   grupos_perguntas: { nome: string; cor: string | null } | null;
   evento_id: number | null;
   eventos: { nome: string } | null;
+  obrigatoria: boolean;
 };
 
 const COLUNAS = `id, ordem, texto, ativo, modelo_id, tipo_resposta, modelos_checklist ( nome ),
-  grupo_pergunta_id, grupos_perguntas ( nome, cor ), evento_id, eventos ( nome )`;
+  grupo_pergunta_id, grupos_perguntas ( nome, cor ), evento_id, eventos ( nome ), obrigatoria`;
 
 function paraLinha(bruta: LinhaBruta): PerguntaRow {
   return {
@@ -62,6 +65,7 @@ function paraLinha(bruta: LinhaBruta): PerguntaRow {
     grupoCor: bruta.grupos_perguntas?.cor ?? null,
     eventoId: bruta.evento_id,
     evento: bruta.eventos?.nome ?? "",
+    obrigatoria: bruta.obrigatoria,
   };
 }
 
@@ -166,6 +170,7 @@ export function toTableRow(pergunta: PerguntaRow): string[] {
     String(pergunta.ordem),
     pergunta.texto,
     ROTULO_DO_TIPO_DE_RESPOSTA[pergunta.tipoResposta],
+    pergunta.obrigatoria ? "Sim" : "Não",
     pergunta.evento,
     pergunta.ativo ? "Ativa" : "Inativa",
   ];

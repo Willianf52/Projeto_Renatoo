@@ -22,8 +22,9 @@ import {
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { getModelos, toTableRow, PAGE_SIZE, type ModeloFiltros } from "./queries";
 
-const TABLE_COLUMNS = ["Modelo", "Grupos de Sites", "Perguntas", "Status", "Ações"];
-const MIN_WIDTH = "min-w-[760px]";
+/** ID e Descricao como na lista do Criar Checklist do sistema de referencia (13/11/2026). */
+const TABLE_COLUMNS = ["ID", "Modelo", "Descrição", "Grupos de Sites", "Perguntas", "Status", "Ações"];
+const MIN_WIDTH = "min-w-[960px]";
 
 /** Busca ocupa a sobra, Status fica com a mesma largura do botao Filtrar. */
 const GRADE_DE_FILTROS = "grid grid-cols-1 gap-3 xl:grid-cols-[1fr_13rem]";

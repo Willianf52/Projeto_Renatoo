@@ -1147,6 +1147,7 @@ export type Database = {
         Row: {
           ativo: boolean
           criado_em: string
+          descricao: string | null
           exige_aprovacao: boolean
           foto_obrigatoria: boolean
           id: number
@@ -1157,6 +1158,7 @@ export type Database = {
         Insert: {
           ativo?: boolean
           criado_em?: string
+          descricao?: string | null
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
@@ -1167,6 +1169,7 @@ export type Database = {
         Update: {
           ativo?: boolean
           criado_em?: string
+          descricao?: string | null
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
@@ -1567,6 +1570,7 @@ export type Database = {
           grupo_pergunta_id: number | null
           id: number
           modelo_id: number
+          obrigatoria: boolean
           ordem: number
           texto: string
           tipo_resposta: string
@@ -1578,6 +1582,7 @@ export type Database = {
           grupo_pergunta_id?: number | null
           id?: never
           modelo_id: number
+          obrigatoria?: boolean
           ordem: number
           texto: string
           tipo_resposta?: string
@@ -1589,6 +1594,7 @@ export type Database = {
           grupo_pergunta_id?: number | null
           id?: never
           modelo_id?: number
+          obrigatoria?: boolean
           ordem?: number
           texto?: string
           tipo_resposta?: string

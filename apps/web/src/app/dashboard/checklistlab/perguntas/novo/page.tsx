@@ -76,6 +76,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> 
             tipoResposta: "CNA",
             grupo: "",
             evento: "",
+            obrigatoria: true,
           }}
         />
       </div>

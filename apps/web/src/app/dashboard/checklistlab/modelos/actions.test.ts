@@ -90,7 +90,7 @@ describe("salvarModelo — validação antes do banco", () => {
   it("devolve o que a pessoa digitou junto do erro", async () => {
     const estado = await salvarModelo({}, formulario({ nome: "", status: "inativo" }, ["3"]));
 
-    expect(estado.valores).toEqual({ nome: "", ativo: false, grupos: ["3"], exigeAprovacao: false, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 });
+    expect(estado.valores).toEqual({ nome: "", descricao: "", ativo: false, grupos: ["3"], exigeAprovacao: false, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 });
   });
 });
 
@@ -99,7 +99,7 @@ describe("salvarModelo — escrita", () => {
     await salvarModelo({}, formulario({ nome: "  Portaria  " }, ["3", "7"]));
 
     expect(tipos()).toEqual(["insert", "sincronizar_grupos_do_modelo"]);
-    expect(primeira("insert")?.args[0]).toEqual({ nome: "Portaria", ativo: true, exige_aprovacao: false, foto_obrigatoria: false, quantidade_de_assinaturas: 2 });
+    expect(primeira("insert")?.args[0]).toEqual({ nome: "Portaria", descricao: null, ativo: true, exige_aprovacao: false, foto_obrigatoria: false, quantidade_de_assinaturas: 2 });
     expect(primeira("sincronizar_grupos_do_modelo")?.args[0]).toEqual({
       p_modelo_id: 9,
       p_grupos: [3, 7],

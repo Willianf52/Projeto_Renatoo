@@ -124,6 +124,7 @@ describe("salvarPergunta — validação antes do banco", () => {
       tipoResposta: "CNA",
       grupo: "",
       evento: "",
+      obrigatoria: true,
     });
   });
 });
@@ -146,6 +147,7 @@ describe("salvarPergunta — escrita", () => {
         ativo: true,
         grupo_pergunta_id: null,
         evento_id: null,
+        obrigatoria: true,
         modelo_id: 5,
         tipo_resposta: "CN",
       },
@@ -167,6 +169,12 @@ describe("salvarPergunta — escrita", () => {
     await salvarPergunta({}, formulario({ texto: "Ok?", ordem: "1", modelo: "5", tipo_resposta: "XYZ" }));
 
     expect(chamadas[0]).toMatchObject({ linha: { tipo_resposta: "CNA" } });
+  });
+
+  it("grava obrigatoria = false só quando o campo diz \"nao\" (0099)", async () => {
+    await salvarPergunta({}, formulario({ texto: "Opcional", ordem: "8", modelo: "5", obrigatoria: "nao" }));
+
+    expect(chamadas[0]).toMatchObject({ linha: { obrigatoria: false } });
   });
 
   it("grava ativo = false quando o status é inativo", async () => {
@@ -201,7 +209,7 @@ describe("salvarPergunta — escrita", () => {
     expect(chamadas[0]).toEqual({
       tipo: "update",
       tabela: "perguntas_checklist",
-      linha: { texto: "Novo texto", ordem: 2, ativo: true, grupo_pergunta_id: null, evento_id: null },
+      linha: { texto: "Novo texto", ordem: 2, ativo: true, grupo_pergunta_id: null, evento_id: null, obrigatoria: true },
       id: 4,
     });
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1&modelo=5`);
