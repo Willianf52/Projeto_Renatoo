@@ -508,33 +508,33 @@ Sem os secrets, os dois se pulam e o job aparece como *skipped*, com aviso
 dizendo que não existe cópia (#115). O sinal de que funcionaram é a
 **duração** — minutos, não segundos —, não a cor do run.
 
-## Limites conhecidos (25/09/2026)
+## Limites conhecidos (revisto em 16/11/2026)
 
 Estado real, não plano. Cada item diz o que falta para sair daqui.
 
-- **Não existe backup ainda.** Os workflows estão prontos e nunca executaram:
-  faltam 4 dos 6 secrets (os 3 do R2 e `PRODUCAO_DB_URL`). O Supabase está no
-  plano free, sem backup automático nem PITR.
-- **Não existe leitor de QR no app.** A fila, a sincronização e a validação
-  no banco estão prontas e testadas, mas nenhuma tela chama `registrarLeitura`
-  — só o roteiro do marco 03. Não há câmera de leitura nem `expo-location` nas
-  dependências.
-- **Não existe geofence.** `sites` tem latitude, longitude e `raio_metros`,
-  mas nada compara a posição da leitura com o raio. Leitura fora do lugar não
-  é recusada nem marcada.
-- **App nunca rodou em aparelho físico.** Keystore real, refresh em segundo
-  plano e fila offline foram provados só no emulador.
-- **A resiliência do #123 ainda não chegou aos aparelhos.** Está na `main`, mas
-  nenhum `eas update` foi publicado depois. A tela de erro, a volta do
-  rascunho após o app morrer e o contador por anti-join (nunca executado
-  contra o PostgREST real) esperam o teste em aparelho.
+- **Não existe geofence.** `sites` tem latitude, longitude e `raio_metros`
+  (0021), e desde a 0088 cada leitura do app guarda a própria latitude,
+  longitude e precisão (`expo-location`). Mas nada compara a posição da
+  leitura com o raio do site: `raio_metros` só é gravado (formulário e
+  importação de Site/Planta) e nunca lido. Leitura fora do lugar não é
+  recusada nem marcada. É o item M3 aberto em `docs/auditoria-seguranca.md`
+  (prova de presença).
 - **Importar grupos nunca gravou em produção.** Ao vivo, só o caminho que não
-  grava foi exercido (arquivo recusado e pulados listados).
-- **Remetente de e-mail provisório.** Sem domínio verificado na Resend, o
-  aviso de troca de senha sai de `onboarding@resend.dev` e só chega ao dono da
-  conta Resend.
-- **Não conformidade sem ciclo de vida.** Os relatórios de ranking e de tempo
-  médio de resolução esperam a migration de status/resolução.
+  grava foi exercido (arquivo recusado e pulados listados). Não reconferido
+  em 16/11.
 - **Região única.** Painel e banco estão só em São Paulo; não há réplica nem
   failover. É coerente com o porte atual, e está registrado para não ser
   descoberto num incidente.
+
+**Resolvidos desde a lista de 25/09:**
+
+- *Backup:* o workflow do R2 roda desde 28/09, e o ensaio de restauração
+  passou.
+- *Leitor de QR:* o app lê o QR pela câmera (`TelaDeLeitura`, `expo-camera`)
+  e registra as leituras pela fila (`campo/ronda.ts`, `registrarLeitura`).
+- *Aparelho físico:* o app rodou no iPhone (Expo Go) e num tablet Android com
+  o APK da EAS, e a resiliência do #123 chegou aos aparelhos por OTA.
+- *Remetente de e-mail:* domínio próprio verificado na Resend desde 18/10.
+- *Ciclo de vida da não conformidade:* as ocorrências têm análise,
+  andamentos e finalização (0063 a 0065), e os relatórios de ranking e de
+  tempo médio usam isso.

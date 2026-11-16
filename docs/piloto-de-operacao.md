@@ -68,8 +68,11 @@ A ordem importa: cada passo depende do anterior por chave estrangeira.
 1. **Grupo de sites** — *Cadastros → Grupo de Sites*. O site real não deve
    nascer dentro de `[TESTE] Homologacao mobile`.
 2. **Site / Planta** — *Cadastros → Site / Planta*, dentro do grupo novo.
-   Coordenadas e raio importam: é o que o app usa para julgar se a leitura
-   aconteceu no lugar.
+   Coordenadas e raio ficam no cadastro, mas **hoje nada os usa para julgar
+   se a leitura aconteceu no lugar**: não existe geofence (ver *Limites
+   conhecidos* em `docs/arquitetura.md`). O app grava a posição de cada
+   leitura (latitude, longitude e precisão, desde a migration 0088), e
+   ninguém a compara com o raio do site. Uma ronda feita longe entra igual.
 3. **QR-codes** — *Cadastros → QR Code*, um por ponto de ronda, todos amarrados
    ao site. **É daqui que sai o escopo do inspetor**: não há tabela de vínculo
    inspetor↔site; quem define o que ele alcança é o QR que ele escaneia
