@@ -11,9 +11,40 @@ import { FilterSelect } from "@/components/dashboard/FilterField";
 import { FilterIcon, PieChartIcon, SearchIcon } from "@/components/dashboard/icons";
 import { PieChart } from "@/components/dashboard/PieChart";
 import { FUSO_DO_PROJETO } from "@/lib/data-hora";
-import { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites, type SearchParams } from "./queries";
+import {
+  extrairFiltros,
+  getHistoricoDeSupervisao,
+  getOpcoesSites,
+  linkDoMapa,
+  type SearchParams,
+  type VisitaDeSupervisao,
+} from "./queries";
 
 const TABLE_COLUMNS = ["Data/Hora", "Funcionário", "Local", "Geolocalização", "Motivo Visita", "Observação"];
+
+/**
+ * Coluna "Geolocalizacao", como no sistema de referencia (16/11/2026): com a
+ * coordenada da leitura, um link que abre o mapa num ponto (la abre um mapa na
+ * propria linha; aqui, o mapa numa aba nova). Sem coordenada mas com sinal
+ * (visita anterior a 0088), "Sim", como era. Sem nada, vazio.
+ */
+function Geolocalizacao({ visita }: { visita: VisitaDeSupervisao }) {
+  const link = linkDoMapa(visita);
+  if (link) {
+    return (
+      <a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-brand-green hover:underline"
+        aria-label={`Ver no mapa o local da visita de ${visita.funcionario} (abre em outra aba)`}
+      >
+        Ver mapa
+      </a>
+    );
+  }
+  return visita.temLocalizacao ? "Sim" : "";
+}
 
 /** "yyyy-mm" -> "mm/yyyy", como no sistema de referencia. */
 function formatarPeriodo(mes: string): string {
@@ -192,7 +223,7 @@ async function CorpoDoHistorico({ searchParams }: { searchParams: SearchParamsPr
           formatarDataHoraVisita(visita.dataHora),
           visita.funcionario,
           visita.local,
-          visita.temLocalizacao ? "Sim" : "",
+          <Geolocalizacao key="geo" visita={visita} />,
           visita.motivoVisita,
           visita.observacao,
         ])}

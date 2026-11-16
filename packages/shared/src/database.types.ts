@@ -2419,7 +2419,9 @@ export type Database = {
         Returns: {
           data_hora: string
           funcionario: string
+          latitude: number
           local: string
+          longitude: number
           motivo_visita: string
           observacao: string
           tem_localizacao: boolean
