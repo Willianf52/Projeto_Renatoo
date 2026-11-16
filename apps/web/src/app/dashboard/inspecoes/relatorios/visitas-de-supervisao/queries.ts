@@ -75,6 +75,9 @@ export type VisitaDeSupervisao = {
   funcionario: string;
   local: string;
   temLocalizacao: boolean;
+  /** Coordenada da primeira leitura que a tem (0101); nula antes da 0088 ou sem sinal. */
+  latitude: number | null;
+  longitude: number | null;
   motivoVisita: string;
   observacao: string;
 };
@@ -92,6 +95,8 @@ export type VisitaDoBanco = {
   funcionario: string;
   local: string;
   tem_localizacao: boolean;
+  latitude: number | null;
+  longitude: number | null;
   motivo_visita: string;
   observacao: string;
 };
@@ -106,9 +111,23 @@ export function paraVisitaDeSupervisao(linha: VisitaDoBanco): VisitaDeSupervisao
     funcionario: linha.funcionario,
     local: linha.local,
     temLocalizacao: linha.tem_localizacao,
+    latitude: linha.latitude ?? null,
+    longitude: linha.longitude ?? null,
     motivoVisita: linha.motivo_visita,
     observacao: linha.observacao,
   };
+}
+
+/**
+ * Link do mapa da visita, como o "Geolocalizacao" do sistema de referencia
+ * (que abre um mapa com um marcador no ponto da leitura). Nulo sem coordenada.
+ * So numeros entram na URL: nada vindo de texto livre.
+ */
+export function linkDoMapa(visita: Pick<VisitaDeSupervisao, "latitude" | "longitude">): string | null {
+  const { latitude, longitude } = visita;
+  if (latitude === null || longitude === null) return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
 /**
