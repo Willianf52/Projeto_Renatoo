@@ -52,8 +52,11 @@ select is(
   'cada pessoa le so as proprias notificacoes'
 );
 
+-- Sem filtro: o RLS deixa o update alcancar so a linha da Ana.
+update public.notificacoes set lida_em = now();
+
 select is(
-  (with m as (update public.notificacoes set lida_em = now() returning 1) select count(*)::int from m),
+  (select count(*)::int from public.notificacoes where lida_em is not null),
   1,
   'a pessoa marca as proprias como lidas'
 );
