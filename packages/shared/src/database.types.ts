@@ -1111,6 +1111,51 @@ export type Database = {
         }
         Relationships: []
       }
+      metas_de_visita: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          periodo: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          periodo?: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          periodo?: string
+          quantidade?: number
+          site_id?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_de_visita_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_de_visita_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metas_visitas: {
         Row: {
           competencia: string
@@ -2468,10 +2513,30 @@ export type Database = {
           site_nome: string
         }[]
       }
+      periodo_da_meta: {
+        Args: { p_dia: string; p_periodo: string }
+        Returns: {
+          fim: string
+          inicio: string
+        }[]
+      }
       pode_administrar_cadastros: { Args: never; Returns: boolean }
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      progresso_das_metas: {
+        Args: { p_dia?: string }
+        Returns: {
+          feitas: number
+          fim: string
+          inicio: string
+          meta_id: number
+          periodo: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }[]
+      }
       registrar_andamento_da_ocorrencia: {
         Args: {
           p_apoio?: string[]

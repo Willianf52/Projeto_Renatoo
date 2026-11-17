@@ -107,6 +107,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
       // Pedido do gestor (17/11/2026, 0104): frota com km e revisao.
       { label: "Veículos", href: "/dashboard/cadastros/veiculos", icon: CarIcon },
+      { label: "Metas de Visita", href: "/dashboard/cadastros/metas-de-visita", icon: ClipboardListIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },
