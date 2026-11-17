@@ -6,25 +6,18 @@ import { ClipboardListIcon, TrashIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { excluirMeta } from "./actions";
 import { MetaForm } from "./MetaForm";
-import { getMetasDaSemana, getOpcoesDoFormulario } from "./queries";
+import { intervaloNaTela, rotuloDoPeriodo } from "./periodos";
+import { getMetas, getOpcoesDoFormulario } from "./queries";
 
 /**
- * Cadastros > Metas de Visita (pedido do gestor, 0105): meta semanal por
- * pessoa e lugar, com o "1 de 4" da semana corrente. Quem administra
- * cadastros cadastra e ve todas; os demais veem so as proprias (RLS).
+ * Cadastros > Metas de Visita (pedido do gestor, 0105/0106): meta por pessoa,
+ * lugar e periodo (diario, semanal, quinzenal, mensal), com o "1 de 4" do
+ * periodo corrente. Quem administra cadastros cadastra e ve todas; os demais
+ * veem so as proprias (RLS).
  */
 
-const COLUNAS = ["Pessoa", "Lugar", "Meta da semana", "Feitas", "Situação", "Ações"];
-const MIN_WIDTH = "min-w-[760px]";
-
-function semanaNaTela(inicio: string | null): string {
-  if (!inicio) return "";
-  const [ano, mes, dia] = inicio.split("-").map(Number);
-  const segunda = new Date(Date.UTC(ano, mes - 1, dia));
-  const domingo = new Date(Date.UTC(ano, mes - 1, dia + 6));
-  const f = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "UTC" });
-  return `Semana de ${f.format(segunda)} a ${f.format(domingo)}`;
-}
+const COLUNAS = ["Pessoa", "Lugar", "Período", "Meta", "Período atual", "Feitas", "Situação", "Ações"];
+const MIN_WIDTH = "min-w-[900px]";
 
 export default function MetasDeVisitaPage() {
   return (
@@ -58,14 +51,16 @@ async function Formulario() {
 }
 
 async function Tabela() {
-  const [{ semanaInicio, linhas }, podeAdministrar] = await Promise.all([getMetasDaSemana(), podeAdministrarCadastros()]);
+  const [linhas, podeAdministrar] = await Promise.all([getMetas(), podeAdministrarCadastros()]);
 
   const rows = linhas.map((m) => {
     const batida = m.feitas >= m.meta;
     return [
       m.usuarioNome,
       m.siteNome,
-      `${m.meta} por semana`,
+      rotuloDoPeriodo(m.periodo),
+      m.meta,
+      m.inicio && m.fim ? intervaloNaTela(m.inicio, m.fim) : "",
       `${m.feitas} de ${m.meta}`,
       !m.ativo ? (
         <span key="s" className="text-brand-muted">Inativa</span>
@@ -81,8 +76,8 @@ async function Tabela() {
           <input type="hidden" name="id" value={m.id} />
           <button
             type="submit"
-            title={`Excluir a meta de ${m.usuarioNome} em ${m.siteNome}`}
-            aria-label={`Excluir a meta de ${m.usuarioNome} em ${m.siteNome}`}
+            title={`Excluir a meta ${rotuloDoPeriodo(m.periodo).toLowerCase()} de ${m.usuarioNome} em ${m.siteNome}`}
+            aria-label={`Excluir a meta ${rotuloDoPeriodo(m.periodo).toLowerCase()} de ${m.usuarioNome} em ${m.siteNome}`}
             className="rounded-md border border-slate-700 p-1.5 text-slate-300 transition-colors hover:border-red-500 hover:bg-red-500/10 hover:text-red-400"
           >
             <TrashIcon className="h-4 w-4" />
@@ -101,7 +96,6 @@ async function Tabela() {
           <ClipboardListIcon className="h-4 w-4" />
           Metas de Visita
         </h1>
-        <span className="text-xs text-brand-muted">{semanaNaTela(semanaInicio)}</span>
       </div>
       <DataTable
         columns={COLUNAS}

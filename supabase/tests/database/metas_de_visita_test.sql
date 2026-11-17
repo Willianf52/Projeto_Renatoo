@@ -1,16 +1,17 @@
 -- ============================================================================
--- pgTAP -- meta semanal por inspetor e lugar (migration 0105)
+-- pgTAP -- meta de visitas por pessoa, lugar e periodo (migrations 0105/0106)
 --
 --   1) So quem administra cadastros cria meta; cada pessoa ve so as proprias.
 --   2) O progresso conta qualquer checklist enviado pela pessoa no lugar,
---      so na semana (segunda a domingo).
---   3) O aviso de sexta vai so para quem esta abaixo da meta, uma vez por
---      semana.
+--      so no periodo (aqui, a semana de segunda a domingo).
+--   3) Os periodos: dia, semana, quinzenas 1-15 e 16-fim, mes.
+--   4) O aviso vai so para quem esta abaixo da meta, no dia de aviso do
+--      periodo, uma vez por periodo.
 -- ============================================================================
 
 begin;
 
-select plan(8);
+select plan(11);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -36,8 +37,8 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000001052", "role": "authenticated"}';
 
 select throws_ok(
-  format($$ insert into public.metas_semanais (usuario_id, site_id, visitas_por_semana)
-            values ('f0000000-0000-0000-0000-000000001052', %s, 4) $$, (select valor from ids_teste where chave = 'site')),
+  format($$ insert into public.metas_de_visita (usuario_id, site_id, periodo, quantidade)
+            values ('f0000000-0000-0000-0000-000000001052', %s, 'SEMANAL', 4) $$, (select valor from ids_teste where chave = 'site')),
   '42501', null,
   'o INSPETOR nao cria a propria meta'
 );
@@ -45,16 +46,16 @@ select throws_ok(
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000001051", "role": "authenticated"}';
 
 select lives_ok(
-  format($$ insert into public.metas_semanais (usuario_id, site_id, visitas_por_semana) values
-            ('f0000000-0000-0000-0000-000000001052', %1$s, 3),
-            ('f0000000-0000-0000-0000-000000001053', %1$s, 1) $$, (select valor from ids_teste where chave = 'site')),
+  format($$ insert into public.metas_de_visita (usuario_id, site_id, periodo, quantidade) values
+            ('f0000000-0000-0000-0000-000000001052', %1$s, 'SEMANAL', 3),
+            ('f0000000-0000-0000-0000-000000001053', %1$s, 'SEMANAL', 1) $$, (select valor from ids_teste where chave = 'site')),
   'o GESTOR cria metas'
 );
 
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000001052", "role": "authenticated"}';
 
 select is(
-  (select count(*)::int from public.metas_semanais where site_id = (select valor from ids_teste where chave = 'site')),
+  (select count(*)::int from public.metas_de_visita where site_id = (select valor from ids_teste where chave = 'site')),
   1,
   'o INSPETOR ve so a propria meta'
 );
@@ -82,23 +83,41 @@ set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000001051", "role": "authenticated"}';
 
 select is(
-  (select feitas from public.progresso_das_metas_semanais()
+  (select feitas from public.progresso_das_metas()
     where usuario_id = 'f0000000-0000-0000-0000-000000001052'),
   1,
   'conta so o checklist desta semana (o de 30 dias atras fica de fora)'
 );
 
 select is(
-  (select feitas from public.progresso_das_metas_semanais()
+  (select feitas from public.progresso_das_metas()
     where usuario_id = 'f0000000-0000-0000-0000-000000001053'),
   1,
   'cada inspetor tem o proprio progresso'
 );
 
 select is(
-  (select semana_inicio from public.progresso_das_metas_semanais('2026-11-20') limit 1),
+  (select inicio from public.progresso_das_metas('2026-11-20') limit 1),
   '2026-11-16'::date,
   'a semana de sexta 20/11/2026 comeca na segunda 16/11'
+);
+
+select is(
+  (select array[p.inicio, p.fim] from public.periodo_da_meta('QUINZENAL', '2026-11-18') p),
+  array['2026-11-16', '2026-12-01']::date[],
+  'a segunda quinzena vai do dia 16 ao fim do mes'
+);
+
+select is(
+  (select array[p.inicio, p.fim] from public.periodo_da_meta('MENSAL', '2026-02-10') p),
+  array['2026-02-01', '2026-03-01']::date[],
+  'o mes vai do dia 1 ao ultimo dia'
+);
+
+select is(
+  (select array[p.inicio, p.fim] from public.periodo_da_meta('DIARIA', '2026-11-18') p),
+  array['2026-11-18', '2026-11-19']::date[],
+  'a meta diaria e o proprio dia'
 );
 
 reset role;
@@ -106,22 +125,26 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- 3) Aviso de sexta
 -- ---------------------------------------------------------------------------
-select manutencao.avisar_metas_da_semana();
-select manutencao.avisar_metas_da_semana();
+-- O dia de aviso da semanal e a sexta da semana corrente.
+create temporary table sexta as
+  select (date_trunc('week', (now() at time zone 'America/Sao_Paulo')::date::timestamp)::date + 4) as dia;
+select manutencao.avisar_metas(array['SEMANAL'], (select dia from sexta) - 1);
+select manutencao.avisar_metas(array['SEMANAL'], (select dia from sexta));
+select manutencao.avisar_metas(array['SEMANAL'], (select dia from sexta));
 
 select is(
   (select array_agg(p.email order by p.email)
      from public.notificacoes n
      join public.profiles p on p.id = n.destinatario_id
-    where n.tipo = 'META_DA_SEMANA' and p.email like 'meta.%'),
+    where n.tipo = 'META_DE_VISITA' and p.email like 'meta.%'),
   array['meta.abaixo@teste.local'],
-  'o aviso vai so para quem esta abaixo da meta, uma vez por semana'
+  'o aviso vai so na sexta, so para quem esta abaixo da meta, uma vez por semana'
 );
 
 select ok(
   (select texto from public.notificacoes n
      join public.profiles p on p.id = n.destinatario_id
-    where n.tipo = 'META_DA_SEMANA' and p.email = 'meta.abaixo@teste.local') like 'Site Meta 0105: 1 de 3%',
+    where n.tipo = 'META_DE_VISITA' and p.email = 'meta.abaixo@teste.local') like 'Site Meta 0105: 1 de 3%',
   'o aviso diz o lugar e quantas faltam'
 );
 
