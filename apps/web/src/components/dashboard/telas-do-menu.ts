@@ -1,6 +1,7 @@
 import {
   BarChartIcon,
   BuildingIcon,
+  CarIcon,
   ClipboardListIcon,
   GridIcon,
   KeyIcon,
@@ -104,6 +105,8 @@ export const NAV_ITEMS: NavItem[] = [
       // continuam: a configuracao do Cliente (minimo de caracteres, e-mails) e
       // as listas do Cadastro de Eventos seguem valendo; so nao ha atalho.
       { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
+      // Pedido do gestor (17/11/2026, 0104): frota com km e revisao.
+      { label: "Veículos", href: "/dashboard/cadastros/veiculos", icon: CarIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },
