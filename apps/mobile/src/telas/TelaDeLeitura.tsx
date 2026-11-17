@@ -29,6 +29,7 @@ import { sincronizar } from "../campo/sincronizacao";
 import { visitaDoDiaSemChecklist } from "../campo/visita-do-dia";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
+import { Campo } from "../componentes/Campo";
 import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
 import { capturarErro } from "../lib/observabilidade";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
@@ -48,10 +49,12 @@ import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema
  * fila. So o encerramento pede rede para subir -- e, sem ela, a ronda fica na
  * fila para o proximo "Sincronizar".
  *
- * SEM CAMPO DE DIGITAR O CODIGO (pedido do dono, 28/09/2026): no lugar dele,
- * "Ver sites" abre a lista de sites cadastrados. O preco conhecido: etiqueta
- * rasgada ou desbotada deixa de ter um caminho alternativo, e o emulador (camera
- * simulada) deixa de conseguir registrar leitura.
+ * "DIGITAR IDENTIFICADOR" E LANTERNA (17/11/2026), como no app antigo: o campo
+ * de digitar o codigo tinha saido em 28/09 (pedido do dono); voltou na
+ * comparacao com o app de campo antigo, para a etiqueta rasgada ou desbotada
+ * ter um caminho. O codigo digitado segue exatamente o caminho do QR lido
+ * (`tratar`): mesmo catalogo, mesma fila, mesma trava de repeticao. A lanterna
+ * so liga a luz da camera para ler no escuro.
  *
  * SEM "MINHAS VISITAS" (decisao do dono, 28/09/2026): a lista de visitas e
  * consultada so no sistema web. Era o unico caminho do INSPETOR e do GESTOR ate
@@ -74,6 +77,9 @@ export function TelaDeLeitura() {
   const [aberta, setAberta] = useState<RondaAberta | null>(null);
   const [semCatalogo, setSemCatalogo] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
+  const [lanterna, setLanterna] = useState(false);
+  const [digitando, setDigitando] = useState(false);
+  const [codigoDigitado, setCodigoDigitado] = useState("");
 
   /**
    * Trava em ref, e nao so no estado: `onBarcodeScanned` dispara varias vezes
@@ -200,11 +206,15 @@ export function TelaDeLeitura() {
   );
 
   const tratar = useCallback(
-    async (lido: string) => {
+    // Devolve `false` so quando o codigo nao e reconhecido: o "Digitar
+    // identificador" mantem o texto para a pessoa corrigir.
+    async (lido: string, daCamera = true): Promise<boolean | void> => {
       if (emVoo.current || !idDoUsuario) return;
       // Memoria do app, e nao da tela: sobrevive a tela reaberta. A trava que
-      // vale esta na fila -- ver `registrarLeituraDeQr`.
-      if (!aceitarDaCamera(memoriaDaCameraDoApp, lido, Date.now())) return;
+      // vale esta na fila -- ver `registrarLeituraDeQr`. O codigo digitado nao
+      // passa por ela: a camera relê o mesmo QR varias vezes por segundo, a
+      // pessoa nao, e quem corrige um codigo errado precisa de resposta.
+      if (daCamera && !aceitarDaCamera(memoriaDaCameraDoApp, lido, Date.now())) return;
 
       emVoo.current = true;
       setProcessando(true);
@@ -218,7 +228,7 @@ export function TelaDeLeitura() {
               : `QR code "${lido.trim().slice(0, 40)}" não está cadastrado.`,
             tom: "erro",
           });
-          return;
+          return false;
         }
 
         // Checklist comecado neste site e nao enviado: o QR reabre ele, em vez
@@ -375,6 +385,14 @@ export function TelaDeLeitura() {
 
   const ocupado = processando || encerrando;
 
+  /** O codigo digitado entra pelo mesmo caminho do QR lido pela camera. */
+  const enviarDigitado = useCallback(async () => {
+    const codigo = codigoDigitado.trim();
+    if (codigo === "" || ocupado) return;
+    const reconhecido = await tratar(codigo, false);
+    if (reconhecido !== false) setCodigoDigitado("");
+  }, [codigoDigitado, ocupado, tratar]);
+
   return (
     <ScrollView
       style={estilos.raiz}
@@ -390,6 +408,8 @@ export function TelaDeLeitura() {
               // Desligada fora de foco: com o checklist aberto por cima, a
               // camera continuaria lendo (e gastando bateria) por baixo.
               active={focada}
+              // Desliga junto com a camera: fora de foco a luz nao fica acesa.
+              enableTorch={focada && lanterna}
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
               onBarcodeScanned={ocupado ? undefined : aoLer}
             />
@@ -435,6 +455,48 @@ export function TelaDeLeitura() {
         <Aviso mensagem="Catálogo de QR codes ainda não baixado. Conecte-se à internet uma vez antes da ronda." />
       ) : null}
       {aviso ? <Aviso mensagem={aviso.mensagem} tom={aviso.tom} /> : null}
+
+      <View style={estilos.linhaDeBotoes}>
+        {permissao?.granted ? (
+          <Botao
+            titulo={lanterna ? "Desligar lanterna" : "Ligar lanterna"}
+            variante="secundaria"
+            tamanho="medio"
+            estilo={estilos.metade}
+            aoPressionar={() => setLanterna((acesa) => !acesa)}
+          />
+        ) : null}
+        <Botao
+          titulo="Digitar identificador"
+          variante="secundaria"
+          tamanho="medio"
+          estilo={estilos.metade}
+          aoPressionar={() => setDigitando((aberto) => !aberto)}
+        />
+      </View>
+
+      {digitando ? (
+        <View style={estilos.ronda}>
+          <Campo
+            rotulo="Identificador"
+            valor={codigoDigitado}
+            aoMudar={setCodigoDigitado}
+            placeholder="Informe o código do QR"
+            // Sem mudar a caixa: o codigo e unico no banco do jeito que foi cadastrado.
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            onSubmitEditing={() => void enviarDigitado()}
+          />
+          <Botao
+            titulo="Avançar"
+            larguraTotal
+            carregando={processando}
+            desabilitado={codigoDigitado.trim() === "" || encerrando}
+            aoPressionar={() => void enviarDigitado()}
+          />
+        </View>
+      ) : null}
 
       <Botao
         titulo="Ver sites"
@@ -519,6 +581,9 @@ const estilos = StyleSheet.create({
   semCameraTexto: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
 
   dica: { ...texto(tipografia.apoio, { cor: cores.textoFraco }), textAlign: "center" },
+
+  linhaDeBotoes: { flexDirection: "row", gap: espaco.entreItens },
+  metade: { flex: 1 },
 
   // Respiro entre o painel da ronda/avisos e os botoes de navegacao.
   manual: { marginTop: espaco.minimo },
