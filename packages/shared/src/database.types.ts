@@ -1233,6 +1233,50 @@ export type Database = {
         }
         Relationships: []
       }
+      notificacoes: {
+        Row: {
+          chave: string | null
+          criada_em: string
+          destinatario_id: string
+          id: number
+          lida_em: string | null
+          link: string | null
+          texto: string
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          chave?: string | null
+          criada_em?: string
+          destinatario_id: string
+          id?: never
+          lida_em?: string | null
+          link?: string | null
+          texto?: string
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          chave?: string | null
+          criada_em?: string
+          destinatario_id?: string
+          id?: never
+          lida_em?: string | null
+          link?: string | null
+          texto?: string
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ocorrencia_andamentos: {
         Row: {
           apoio: string[]

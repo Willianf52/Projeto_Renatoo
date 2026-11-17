@@ -9,6 +9,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSessao } from "../auth/SessaoProvider";
 import type { RotasDoApp } from "../navegacao/Navegacao";
 import { Aviso } from "../componentes/Aviso";
+import { CaixaDeAvisos } from "../componentes/CaixaDeAvisos";
 import { Marca } from "../componentes/Marca";
 import {
   IconeDeChecklist,
@@ -221,6 +222,8 @@ export function TelaInicial() {
       </View>
 
       <ScrollView contentContainerStyle={estilos.conteudo}>
+        <CaixaDeAvisos />
+
         <View style={estilos.grade}>
           <CartaoDeAcao
             titulo="Inspeção"
