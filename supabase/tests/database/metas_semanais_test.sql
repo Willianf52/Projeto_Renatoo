@@ -64,6 +64,10 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- 2) Progresso: um checklist desta semana para cada inspetor, e um antigo
 -- ---------------------------------------------------------------------------
+-- Sem login ativo: `enviado_por` vem do auth.uid(), e o do passo anterior
+-- (um dos inspetores) faria os checklists contarem para ele.
+set local "request.jwt.claims" to '{}';
+
 insert into public.visitas (numero_coleta, site_id, funcionario_id) values
   ('910501', (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000001052'),
   ('910502', (select valor from ids_teste where chave = 'site'), 'f0000000-0000-0000-0000-000000001053'),
