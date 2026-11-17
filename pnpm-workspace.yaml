@@ -213,6 +213,16 @@ overrides:
 # E ferramenta de build e de `expo start`, que valida configuracao do proprio
 # projeto, nunca entrada de usuario. Revisitar quando o Expo subir a @expo/cli
 # para zod 4 (`pnpm why zod` mostra), e entao tirar esta dispensa.
+#
+# GHSA-fc5q-39xc-vjpf (high, 17/11/2026): picomatch <= 4.0.7, ReDoS com
+# extglob de um ramo repetido. Mesma situacao do braces acima: o advisory
+# aponta 4.0.8, que AINDA NAO FOI PUBLICADA (a mais nova e a 4.0.7), e a linha
+# 2.x (2.3.2, de micromatch) nao tem correcao. Entra por ferramenta de
+# desenvolvimento e build (eslint/fast-glob, metro, jest-worker, vitest) e, no
+# portal, so pelo empacotamento do @sentry/nextjs no build (rollup): padroes
+# fixos da configuracao do proprio projeto, nunca entrada de usuario, e nada
+# disso roda no servidor em producao. Revisitar quando a 4.0.8 sair: trocar
+# por override `picomatch@>=4 <4.0.8: '>=4.0.8'`.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
@@ -221,6 +231,7 @@ auditConfig:
     - GHSA-86w9-cpqp-85rv
     - GHSA-vfj7-8cjw-p6xm
     - GHSA-mrhx-c7xc-m3w5
+    - GHSA-fc5q-39xc-vjpf
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6
