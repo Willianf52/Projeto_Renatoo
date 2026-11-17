@@ -2180,6 +2180,140 @@ export type Database = {
         }
         Relationships: []
       }
+      veiculo_km: {
+        Row: {
+          id: number
+          km: number
+          registrado_em: string
+          registrado_por: string
+          veiculo_id: number
+        }
+        Insert: {
+          id?: never
+          km: number
+          registrado_em?: string
+          registrado_por?: string
+          veiculo_id: number
+        }
+        Update: {
+          id?: never
+          km?: number
+          registrado_em?: string
+          registrado_por?: string
+          veiculo_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculo_km_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "veiculo_km_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      veiculo_manutencoes: {
+        Row: {
+          criado_em: string
+          data: string
+          descricao: string
+          id: number
+          km: number | null
+          registrado_por: string
+          tipo: string
+          veiculo_id: number
+        }
+        Insert: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          km?: number | null
+          registrado_por?: string
+          tipo: string
+          veiculo_id: number
+        }
+        Update: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          km?: number | null
+          registrado_por?: string
+          tipo?: string
+          veiculo_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculo_manutencoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "veiculo_manutencoes_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      veiculos: {
+        Row: {
+          ativo: boolean
+          cor: string
+          criado_em: string
+          empresa: string
+          id: number
+          km_atual: number
+          km_ultima_revisao: number
+          modelo: string
+          placa: string
+          usuario_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string
+          criado_em?: string
+          empresa?: string
+          id?: never
+          km_atual?: number
+          km_ultima_revisao?: number
+          modelo: string
+          placa: string
+          usuario_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string
+          criado_em?: string
+          empresa?: string
+          id?: never
+          km_atual?: number
+          km_ultima_revisao?: number
+          modelo?: string
+          placa?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas: {
         Row: {
           coletor_dados_id: number | null
