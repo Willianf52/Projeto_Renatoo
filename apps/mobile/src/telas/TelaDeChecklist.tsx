@@ -23,6 +23,8 @@ import {
   LIMITE_OBSERVACAO,
   MAXIMO_DE_FOTOS,
   MAXIMO_DE_FOTOS_POR_PERGUNTA,
+  ordenarPerguntas,
+  perguntasVisiveis,
   respostasDoTipo,
   rotuloDaResposta,
   ROTULO_DO_TIPO,
@@ -397,8 +399,25 @@ export function TelaDeChecklist({
 
   // Derivados, e nao estados a sincronizar: lista de outro modelo vale como
   // "ainda nao buscada".
-  const perguntas =
+  const perguntasDoModelo =
     modeloEfetivo !== null && carregadas?.modeloId === modeloEfetivo ? carregadas.perguntas : null;
+
+  // 0108: a ordem de tela (embaralhada quando o modelo pede, sempre a mesma
+  // para esta inspecao e este dia) e so as perguntas visiveis -- a condicional
+  // aparece quando a base recebe a resposta-gatilho. Tudo o que vem depois
+  // (paginas, pendencias, fotos, envio) le esta lista: a pergunta escondida
+  // nao e cobrada nem enviada, mesmo que tenha sido respondida antes de a
+  // base mudar.
+  const ordemAleatoria = modelos?.find((modelo) => modelo.id === modeloEfetivo)?.ordemAleatoria === true;
+  const sementeDaOrdem = `${chave}:${new Date().toDateString()}`;
+  const perguntasOrdenadas = useMemo(
+    () => (perguntasDoModelo ? ordenarPerguntas(perguntasDoModelo, ordemAleatoria, sementeDaOrdem) : null),
+    [perguntasDoModelo, ordemAleatoria, sementeDaOrdem],
+  );
+  const perguntas = useMemo(
+    () => (perguntasOrdenadas ? perguntasVisiveis(perguntasOrdenadas, respostas) : null),
+    [perguntasOrdenadas, respostas],
+  );
   const escolhaDeModeloPendente =
     tipo === "CONSULTORIA" && modelos !== null && modelos.length > 1 && modeloEfetivo === null;
   const carregandoPerguntas =

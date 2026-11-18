@@ -1200,6 +1200,7 @@ export type Database = {
           foto_obrigatoria: boolean
           id: number
           nome: string
+          ordem_aleatoria: boolean
           padrao: boolean
           quantidade_de_assinaturas: number
         }
@@ -1211,6 +1212,7 @@ export type Database = {
           foto_obrigatoria?: boolean
           id?: never
           nome: string
+          ordem_aleatoria?: boolean
           padrao?: boolean
           quantidade_de_assinaturas?: number
         }
@@ -1222,6 +1224,7 @@ export type Database = {
           foto_obrigatoria?: boolean
           id?: never
           nome?: string
+          ordem_aleatoria?: boolean
           padrao?: boolean
           quantidade_de_assinaturas?: number
         }
@@ -1664,6 +1667,9 @@ export type Database = {
           modelo_id: number
           obrigatoria: boolean
           ordem: number
+          pergunta_base_id: number | null
+          peso: number
+          resposta_gatilho: string | null
           texto: string
           tipo_resposta: string
         }
@@ -1676,6 +1682,9 @@ export type Database = {
           modelo_id: number
           obrigatoria?: boolean
           ordem: number
+          pergunta_base_id?: number | null
+          peso?: number
+          resposta_gatilho?: string | null
           texto: string
           tipo_resposta?: string
         }
@@ -1688,6 +1697,9 @@ export type Database = {
           modelo_id?: number
           obrigatoria?: boolean
           ordem?: number
+          pergunta_base_id?: number | null
+          peso?: number
+          resposta_gatilho?: string | null
           texto?: string
           tipo_resposta?: string
         }
@@ -1711,6 +1723,13 @@ export type Database = {
             columns: ["modelo_id"]
             isOneToOne: false
             referencedRelation: "modelos_checklist"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "perguntas_checklist_pergunta_base_id_fkey"
+            columns: ["pergunta_base_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_checklist"
             referencedColumns: ["id"]
           },
         ]

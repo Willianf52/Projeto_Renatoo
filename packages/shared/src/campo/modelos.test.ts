@@ -112,3 +112,35 @@ describe("modelosDoGrupo", () => {
     expect(modelosDoGrupo(10, [GERAL], [])).toEqual([]);
   });
 });
+
+describe("nota com peso (0108)", () => {
+  it("pondera pelo peso da pergunta", () => {
+    // Conforme de peso 3 e Nao conforme de peso 1: 3/4 = 75 (sem peso, 50).
+    expect(
+      notaDoChecklist([
+        { tipo: "CNA", resposta: "SIM", peso: 3 },
+        { tipo: "CNA", resposta: "NAO", peso: 1 },
+      ]),
+    ).toBe(75);
+  });
+
+  it("peso ausente ou invalido vale 1", () => {
+    expect(
+      notaDoChecklist([
+        { tipo: "CNA", resposta: "SIM" },
+        { tipo: "CNA", resposta: "NAO", peso: 0 },
+        { tipo: "CN", resposta: "NAO", peso: Number.NaN },
+      ]),
+    ).toBe(33);
+  });
+
+  it("Sim/Nao e Nao se aplica continuam fora, com qualquer peso", () => {
+    expect(
+      notaDoChecklist([
+        { tipo: "SN", resposta: "NAO", peso: 10 },
+        { tipo: "CNA", resposta: "NA", peso: 10 },
+        { tipo: "CNA", resposta: "SIM", peso: 2 },
+      ]),
+    ).toBe(100);
+  });
+});

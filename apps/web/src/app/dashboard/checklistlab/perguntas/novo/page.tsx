@@ -6,7 +6,7 @@ import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../../modelos/queries";
 import { PerguntaForm } from "../PerguntaForm";
-import { getOpcoesDaPergunta, getProximaOrdem, modeloDoFiltro } from "../queries";
+import { getBasesPossiveis, getOpcoesDaPergunta, getProximaOrdem, modeloDoFiltro } from "../queries";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -34,7 +34,12 @@ async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> 
   // quando ela esta filtrada; sem ele, o padrao. E so o valor inicial do
   // select -- a ordem sugerida vale para ele, e trocar de modelo no
   // formulario pode pedir outro numero (o erro de ordem repetida explica).
-  const [params, modelos, opcoes] = await Promise.all([searchParams, getOpcoesDeModelos(), getOpcoesDaPergunta()]);
+  const [params, modelos, opcoes, bases] = await Promise.all([
+    searchParams,
+    getOpcoesDeModelos(),
+    getOpcoesDaPergunta(),
+    getBasesPossiveis(),
+  ]);
   const pedido = modeloDoFiltro(Array.isArray(params.modelo) ? params.modelo[0] : params.modelo);
   const modelo =
     modelos.find((opcao) => Number(opcao.value) === pedido) ?? modelos.find((opcao) => opcao.padrao);
@@ -68,6 +73,7 @@ async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> 
           modelos={modelos}
           grupos={opcoes.grupos}
           eventos={opcoes.eventos}
+          bases={bases}
           valoresIniciais={{
             texto: "",
             ordem: String(proximaOrdem),
@@ -77,6 +83,9 @@ async function Conteudo({ searchParams }: { searchParams: Promise<SearchParams> 
             grupo: "",
             evento: "",
             obrigatoria: true,
+            peso: "1",
+            base: "",
+            gatilho: "",
           }}
         />
       </div>
