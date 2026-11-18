@@ -1,20 +1,36 @@
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
 
 import { Aviso } from "../componentes/Aviso";
+import { Botao } from "../componentes/Botao";
 import { EsqueletoDaLista } from "../componentes/Esqueleto";
 import { EstadoVazio } from "../componentes/EstadoVazio";
+import { abrirPdfDoChecklist } from "../lib/abrir-pdf";
 import { lerRespondidos, type ChecklistRespondido } from "../lib/agendados-e-respondidos";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 import { COR_DO_STATUS } from "./TelaDeAgendados";
 
 /**
  * "Checklists respondidos" de um local, como no app do sistema de referencia:
- * os enviados mais recentes (ate 30), com numero/ano, checklist e quando.
+ * os enviados mais recentes (ate 30), com numero/ano, checklist e quando, e
+ * o "Baixar PDF" de cada um (18/11/2026), para mostrar ao cliente.
  */
 export function TelaDeRespondidos({ siteId }: { siteId: number }) {
   const [lista, setLista] = useState<ChecklistRespondido[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Um PDF por vez: o botao do item em preparo mostra o carregando, e os
+  // outros esperam (o portal monta o PDF, e dois toques seguidos so pesariam).
+  const [baixando, setBaixando] = useState<number | null>(null);
+
+  async function baixar(checklistId: number) {
+    setBaixando(checklistId);
+    try {
+      const falha = await abrirPdfDoChecklist(checklistId);
+      if (falha) Alert.alert("PDF", falha);
+    } finally {
+      setBaixando(null);
+    }
+  }
 
   useEffect(() => {
     let ativo = true;
@@ -62,6 +78,15 @@ export function TelaDeRespondidos({ siteId }: { siteId: number }) {
           <Text style={estilos.itemApoio}>
             Nº {item.numeroAno} · {item.quando}
           </Text>
+          <Botao
+            titulo="Baixar PDF"
+            variante="secundaria"
+            tamanho="medio"
+            carregando={baixando === item.id}
+            desabilitado={baixando !== null && baixando !== item.id}
+            aoPressionar={() => void baixar(item.id)}
+            estilo={estilos.botaoPdf}
+          />
         </View>
       )}
     />
@@ -83,6 +108,7 @@ const estilos = StyleSheet.create({
   itemTopo: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: espaco.minimo },
   itemTitulo: { ...texto(tipografia.destaque, { cor: cores.texto }), flex: 1 },
   itemApoio: texto(tipografia.nota, { cor: cores.textoFraco }),
+  botaoPdf: { alignSelf: "flex-start", marginTop: espaco.minimo },
   selo: { borderRadius: raio.pilula, paddingHorizontal: espaco.minimo, paddingVertical: 2 },
   seloTexto: texto(tipografia.nota, {}),
 });

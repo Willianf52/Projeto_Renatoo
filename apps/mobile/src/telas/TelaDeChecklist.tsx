@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -39,6 +40,7 @@ import {
 } from "../campo/pendencias-do-checklist";
 import { gruposDasPerguntas } from "../campo/navegacao-do-checklist";
 import { descartarRascunho, esquecerFoto, guardarFoto, lerRascunho, salvarRascunho } from "../campo/rascunho";
+import { abrirPdfDoChecklist } from "../lib/abrir-pdf";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
@@ -749,7 +751,32 @@ export function TelaDeChecklist({
         capturarErro(falha, { onde: "descartarRascunho", visita: String(chave) });
       });
 
-      aoConcluir();
+      // "Baixar PDF" logo depois do envio (18/11/2026): o inspetor costuma
+      // mostrar o PDF ao cliente ali mesmo. O PDF e montado no portal, entao
+      // so oferece quando o envio devolveu o numero do checklist.
+      if ("checklistId" in resultado) {
+        const checklistId = resultado.checklistId;
+        Alert.alert(
+          "Checklist enviado",
+          "Quer abrir o PDF desta inspeção para mostrar ao cliente?",
+          [
+            { text: "Agora não", style: "cancel", onPress: aoConcluir },
+            {
+              text: "Baixar PDF",
+              onPress: () => {
+                void abrirPdfDoChecklist(checklistId)
+                  .then((falha) => {
+                    if (falha) Alert.alert("PDF", `${falha} O PDF também fica em Checklists respondidos.`);
+                  })
+                  .finally(aoConcluir);
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } else {
+        aoConcluir();
+      }
     } catch {
       // `enviarChecklist` nao rejeita, mas a captura da assinatura e o resto
       // deste bloco sao chamados com `void` pelo botao: uma rejeicao aqui
