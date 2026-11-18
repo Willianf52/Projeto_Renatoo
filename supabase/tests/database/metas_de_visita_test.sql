@@ -1,17 +1,18 @@
 -- ============================================================================
--- pgTAP -- meta de visitas por pessoa, lugar e periodo (migrations 0105/0106)
+-- pgTAP -- meta de visitas por pessoa, lugar e periodo (migrations 0105-0107)
 --
 --   1) So quem administra cadastros cria meta; cada pessoa ve so as proprias.
 --   2) O progresso conta qualquer checklist enviado pela pessoa no lugar,
 --      so no periodo (aqui, a semana de segunda a domingo).
---   3) Os periodos: dia, semana, quinzenas 1-15 e 16-fim, mes.
+--   3) Os periodos: dia, semana, quinzena de 15 dias corridos a partir da
+--      data de inicio (0107), mes; meta que nao comecou fica de fora.
 --   4) O aviso vai so para quem esta abaixo da meta, no dia de aviso do
 --      periodo, uma vez por periodo.
 -- ============================================================================
 
 begin;
 
-select plan(11);
+select plan(13);
 
 create temporary table ids_teste (chave text primary key, valor bigint);
 grant select, insert on ids_teste to public;
@@ -46,9 +47,9 @@ select throws_ok(
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000001051", "role": "authenticated"}';
 
 select lives_ok(
-  format($$ insert into public.metas_de_visita (usuario_id, site_id, periodo, quantidade) values
-            ('f0000000-0000-0000-0000-000000001052', %1$s, 'SEMANAL', 3),
-            ('f0000000-0000-0000-0000-000000001053', %1$s, 'SEMANAL', 1) $$, (select valor from ids_teste where chave = 'site')),
+  format($$ insert into public.metas_de_visita (usuario_id, site_id, periodo, quantidade, inicia_em) values
+            ('f0000000-0000-0000-0000-000000001052', %1$s, 'SEMANAL', 3, '2026-01-01'),
+            ('f0000000-0000-0000-0000-000000001053', %1$s, 'SEMANAL', 1, '2026-01-01') $$, (select valor from ids_teste where chave = 'site')),
   'o GESTOR cria metas'
 );
 
@@ -103,9 +104,15 @@ select is(
 );
 
 select is(
-  (select array[p.inicio, p.fim] from public.periodo_da_meta('QUINZENAL', '2026-11-18') p),
-  array['2026-11-16', '2026-12-01']::date[],
-  'a segunda quinzena vai do dia 16 ao fim do mes'
+  (select array[p.inicio, p.fim] from public.periodo_da_meta('QUINZENAL', '2026-11-18', '2026-11-10') p),
+  array['2026-11-10', '2026-11-25']::date[],
+  'a quinzena sao 15 dias corridos a partir da data de inicio'
+);
+
+select is(
+  (select array[p.inicio, p.fim] from public.periodo_da_meta('QUINZENAL', '2026-11-26', '2026-11-10') p),
+  array['2026-11-25', '2026-12-10']::date[],
+  'a quinzena seguinte comeca 15 dias depois, atravessando o mes'
 );
 
 select is(
@@ -118,6 +125,18 @@ select is(
   (select array[p.inicio, p.fim] from public.periodo_da_meta('DIARIA', '2026-11-18') p),
   array['2026-11-18', '2026-11-19']::date[],
   'a meta diaria e o proprio dia'
+);
+
+-- Meta que so comeca daqui a 10 dias: ainda nao entra no progresso.
+insert into public.metas_de_visita (usuario_id, site_id, periodo, quantidade, inicia_em)
+values ('f0000000-0000-0000-0000-000000001053', (select valor from ids_teste where chave = 'site'), 'MENSAL', 5,
+        (now() at time zone 'America/Sao_Paulo')::date + 10);
+
+select is(
+  (select count(*)::int from public.progresso_das_metas()
+    where usuario_id = 'f0000000-0000-0000-0000-000000001053' and periodo = 'MENSAL'),
+  0,
+  'meta que ainda nao comecou fica fora do progresso'
 );
 
 reset role;

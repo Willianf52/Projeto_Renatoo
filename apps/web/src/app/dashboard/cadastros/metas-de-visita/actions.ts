@@ -5,7 +5,7 @@ import { verificarEscritaComRls } from "@/lib/escrita-rls";
 import { texto } from "@/lib/form-data";
 import { traduzirErroPostgres } from "@/lib/postgrest-errors";
 import { createClient } from "@/lib/supabase/server";
-import { ehPeriodo } from "./periodos";
+import { ehPeriodo, lerDataDeInicio } from "./periodos";
 
 /**
  * Gravacoes das metas de visita (0105/0106). Quem pode mora no RLS (quem
@@ -31,6 +31,7 @@ export async function salvarMeta(_estado: EstadoDaMeta, formData: FormData): Pro
   const siteId = Number(texto(formData, "site_id"));
   const periodo = texto(formData, "periodo");
   const quantidade = Number(texto(formData, "quantidade"));
+  const iniciaEm = lerDataDeInicio(texto(formData, "inicia_em"));
 
   if (!UUID.test(usuarioId)) return { erro: "Escolha a pessoa." };
   if (!Number.isSafeInteger(siteId) || siteId <= 0) return { erro: "Escolha o lugar." };
@@ -38,6 +39,8 @@ export async function salvarMeta(_estado: EstadoDaMeta, formData: FormData): Pro
   if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > 200) {
     return { erro: "A meta deve ser de 1 a 200 visitas." };
   }
+  // Na quinzenal, a data ancora os blocos de 15 dias corridos (0107).
+  if (!iniciaEm) return { erro: "Informe a data de início." };
 
   const supabase = await createClient();
   const { data: existente } = await supabase
@@ -51,7 +54,7 @@ export async function salvarMeta(_estado: EstadoDaMeta, formData: FormData): Pro
   if (existente) {
     const resultado = await supabase
       .from("metas_de_visita")
-      .update({ quantidade, ativo: true })
+      .update({ quantidade, ativo: true, inicia_em: iniciaEm })
       .eq("id", existente.id)
       .select("id")
       .maybeSingle();
@@ -63,7 +66,7 @@ export async function salvarMeta(_estado: EstadoDaMeta, formData: FormData): Pro
 
   const { error } = await supabase
     .from("metas_de_visita")
-    .insert({ usuario_id: usuarioId, site_id: siteId, periodo, quantidade });
+    .insert({ usuario_id: usuarioId, site_id: siteId, periodo, quantidade, inicia_em: iniciaEm });
   if (error) return { erro: traduzirErroPostgres(error.code, MENSAGENS) };
 
   revalidatePath(TELA);

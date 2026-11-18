@@ -6,7 +6,7 @@ import { ClipboardListIcon, TrashIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { excluirMeta } from "./actions";
 import { MetaForm } from "./MetaForm";
-import { intervaloNaTela, rotuloDoPeriodo } from "./periodos";
+import { dataNaTela, hojeEmSaoPaulo, intervaloNaTela, rotuloDoPeriodo } from "./periodos";
 import { getMetas, getOpcoesDoFormulario } from "./queries";
 
 /**
@@ -16,8 +16,8 @@ import { getMetas, getOpcoesDoFormulario } from "./queries";
  * veem so as proprias (RLS).
  */
 
-const COLUNAS = ["Pessoa", "Lugar", "Período", "Meta", "Período atual", "Feitas", "Situação", "Ações"];
-const MIN_WIDTH = "min-w-[900px]";
+const COLUNAS = ["Pessoa", "Lugar", "Período", "Meta", "Início", "Período atual", "Feitas", "Situação", "Ações"];
+const MIN_WIDTH = "min-w-[980px]";
 
 export default function MetasDeVisitaPage() {
   return (
@@ -53,17 +53,23 @@ async function Formulario() {
 async function Tabela() {
   const [linhas, podeAdministrar] = await Promise.all([getMetas(), podeAdministrarCadastros()]);
 
+  const hoje = hojeEmSaoPaulo();
   const rows = linhas.map((m) => {
     const batida = m.feitas >= m.meta;
+    // "aaaa-mm-dd" compara como texto: a meta ainda nao comecou (0107).
+    const naoComecou = m.iniciaEm > hoje;
     return [
       m.usuarioNome,
       m.siteNome,
       rotuloDoPeriodo(m.periodo),
       m.meta,
+      dataNaTela(m.iniciaEm),
       m.inicio && m.fim ? intervaloNaTela(m.inicio, m.fim) : "",
-      `${m.feitas} de ${m.meta}`,
+      naoComecou ? "" : `${m.feitas} de ${m.meta}`,
       !m.ativo ? (
         <span key="s" className="text-brand-muted">Inativa</span>
+      ) : naoComecou ? (
+        <span key="s" className="text-brand-muted">Começa em {dataNaTela(m.iniciaEm)}</span>
       ) : batida ? (
         <span key="s" className="text-brand-green">Meta batida</span>
       ) : (
