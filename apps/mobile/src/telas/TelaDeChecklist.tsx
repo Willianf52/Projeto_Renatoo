@@ -952,8 +952,11 @@ export function TelaDeChecklist({
                 ]}
               >
                 {perguntaAtual.grupo ? <Text style={estilos.rotulo}>{perguntaAtual.grupo}</Text> : null}
+                {/* A posicao na tela, e nao a `ordem` do cadastro (18/11/2026): com a
+                    ordem aleatoria ou uma condicional escondida (0108), o numero
+                    do cadastro saia fora de sequencia ("7.", "2.", "11."). */}
                 <Text style={estilos.perguntaTexto}>
-                  {perguntaAtual.ordem}. {perguntaAtual.texto}
+                  {indice + 1}. {perguntaAtual.texto}
                 </Text>
                 {perguntaAtual.obrigatoria === false ? (
                   <Text style={estilos.rotulo}>Opcional: pode passar sem responder.</Text>
@@ -1050,11 +1053,11 @@ export function TelaDeChecklist({
                       key={pergunta.id}
                       onPress={() => irPara(posicaoNaLista)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Rever a pergunta ${pergunta.ordem}`}
+                      accessibilityLabel={`Rever a pergunta ${posicaoNaLista + 1}`}
                       style={({ pressed }) => [estilos.linhaDoResumo, pressed && estilos.opcaoPressionada]}
                     >
                       <Text style={estilos.linhaDoResumoTexto}>
-                        {pergunta.ordem}. {pergunta.texto}
+                        {posicaoNaLista + 1}. {pergunta.texto}
                       </Text>
                       <Text
                         style={[
