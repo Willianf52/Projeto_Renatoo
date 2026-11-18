@@ -111,6 +111,8 @@ export type PerguntaLida = {
   ordem: number;
   texto: string;
   tipo: TipoDeResposta;
+  /** Peso na nota (0108); ausente vale 1. */
+  peso?: number;
   grupoId: number | null;
   grupo: string;
   grupoOrdem: number;
@@ -140,6 +142,7 @@ type ChecklistDoBanco = {
       ordem: number;
       texto: string;
       tipo_resposta: string;
+      peso?: number | null;
       grupo_pergunta_id: number | null;
       grupos_perguntas: { nome: string; ordem: number } | null;
     } | null;
@@ -149,7 +152,7 @@ type ChecklistDoBanco = {
 const SELECT = `id, criado_em, modelo_id,
   modelos_checklist!inner ( nome, ativo ),
   visitas!inner ( funcionario_id, sites!inner ( id, nome, grupo_site_id, grupos_sites ( nome ) ) ),
-  checklist_respostas ( resposta, perguntas_checklist ( id, ordem, texto, tipo_resposta, grupo_pergunta_id,
+  checklist_respostas ( resposta, perguntas_checklist ( id, ordem, texto, tipo_resposta, peso, grupo_pergunta_id,
     grupos_perguntas ( nome, ordem ) ) )`;
 
 const DESLOCAMENTO_MS = 3 * 60 * 60 * 1000;
@@ -179,6 +182,7 @@ export function paraChecklist(c: ChecklistDoBanco): ChecklistLido {
             ordem: p.ordem,
             texto: p.texto,
             tipo: tipoDeResposta(p.tipo_resposta),
+            peso: p.peso ?? 1,
             grupoId: p.grupo_pergunta_id,
             grupo: p.grupos_perguntas?.nome ?? "",
             grupoOrdem: p.grupos_perguntas?.ordem ?? Number.MAX_SAFE_INTEGER,
@@ -244,7 +248,7 @@ export function percentualConforme(tipo: TipoDeResposta, respostas: readonly str
 function nota(c: ChecklistLido): number | null {
   return notaDoChecklist(
     // O banco so guarda SIM, NAO e NA (check da 0042); o cast so nomeia isso.
-    c.respostas.map((r) => ({ tipo: r.pergunta.tipo, resposta: r.resposta as RespostaDoChecklist })),
+    c.respostas.map((r) => ({ tipo: r.pergunta.tipo, resposta: r.resposta as RespostaDoChecklist, peso: r.pergunta.peso })),
   );
 }
 

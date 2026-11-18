@@ -63,17 +63,26 @@ export function rotuloDaResposta(tipo: TipoDeResposta, resposta: RespostaDoCheck
  *
  * Calculada, e nao guardada, por decisao de 30/09/2026: e funcao pura das
  * respostas, entao nao ha coluna para ficar desencontrada delas.
+ *
+ * PESO (0108): cada resposta conta o peso da pergunta (1 a 10). Ausente ou
+ * invalido vale 1, e com peso 1 em todas a conta e a de antes. A mesma regra
+ * esta no banco, em `historico_de_checklist`.
  */
+export function pesoDaPergunta(peso: number | null | undefined): number {
+  return typeof peso === "number" && Number.isFinite(peso) && peso >= 1 ? Math.min(Math.floor(peso), 10) : 1;
+}
+
 export function notaDoChecklist(
-  respostas: readonly { tipo: TipoDeResposta; resposta: RespostaDoChecklist }[],
+  respostas: readonly { tipo: TipoDeResposta; resposta: RespostaDoChecklist; peso?: number | null }[],
 ): number | null {
   let medidas = 0;
   let conformes = 0;
 
-  for (const { tipo, resposta } of respostas) {
+  for (const { tipo, resposta, peso } of respostas) {
     if (tipo === "SN" || resposta === "NA") continue;
-    medidas += 1;
-    if (resposta === "SIM") conformes += 1;
+    const p = pesoDaPergunta(peso);
+    medidas += p;
+    if (resposta === "SIM") conformes += p;
   }
 
   return medidas === 0 ? null : Math.round((conformes / medidas) * 100);
@@ -95,6 +104,11 @@ export type ModeloResumido = {
    * nos demais. Opcional pelo mesmo motivo; ausente vale 2.
    */
   quantidadeDeAssinaturas?: number;
+  /**
+   * Embaralha as perguntas (0108), de forma fixa por inspecao: ver
+   * `ordenarPerguntas`. Opcional pelo mesmo motivo; ausente vale falso.
+   */
+  ordemAleatoria?: boolean;
 };
 export type LigacaoDeModelo = { modelo_id: number; grupo_site_id: number };
 

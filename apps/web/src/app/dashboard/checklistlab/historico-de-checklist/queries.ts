@@ -313,8 +313,8 @@ export type ChecklistBruto = {
   checklist_respostas: {
     resposta: string;
     observacao: string | null;
-    /** O tipo decide se o "NAO" e nao conformidade (0061). */
-    perguntas_checklist: { tipo_resposta: string } | null;
+    /** O tipo decide se o "NAO" e nao conformidade (0061); o peso pondera a nota (0108). */
+    perguntas_checklist: { tipo_resposta: string; peso?: number | null } | null;
   }[];
 };
 
@@ -386,7 +386,11 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
   const respostas = bruto.checklist_respostas ?? [];
   const comTipo = respostas
     .filter((r): r is typeof r & { resposta: ValorDaResposta } => ["SIM", "NAO", "NA"].includes(r.resposta))
-    .map((r) => ({ tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta), resposta: r.resposta }));
+    .map((r) => ({
+      tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta),
+      resposta: r.resposta,
+      peso: r.perguntas_checklist?.peso ?? 1,
+    }));
   const nao = comTipo.filter((r) => r.tipo !== "SN" && r.resposta === "NAO").length;
 
   const motivoDaVisita = bruto.visitas?.motivos_visita?.nome ?? "";
@@ -890,7 +894,7 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
     resposta: string;
     observacao: string | null;
     pergunta_id: number;
-    perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string } | null;
+    perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string; peso?: number } | null;
   }[];
   checklist_fotos: { id: number; criado_em: string; pergunta_id: number | null }[];
   enviado_por_perfil: { nome_completo: string | null } | null;
@@ -913,7 +917,7 @@ const SELECT_DO_DETALHE = `
   ),
   checklist_respostas (
     resposta, observacao, pergunta_id,
-    perguntas_checklist ( ordem, texto, tipo_resposta )
+    perguntas_checklist ( ordem, texto, tipo_resposta, peso )
   ),
   checklist_fotos ( id, criado_em, pergunta_id ),
   enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )

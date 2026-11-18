@@ -46,6 +46,8 @@ export type ValoresDoModelo = {
   exigeAprovacao: boolean;
   /** "Foto obrigatoria" (0091): o app exige foto em todas as perguntas. */
   fotoObrigatoria: boolean;
+  /** "Ordem aleatoria" (0108): o app embaralha as perguntas, fixo por inspecao. */
+  ordemAleatoria: boolean;
   /** "Assinaturas" (0092): quantas o app exige, 1 ou 2. */
   quantidadeDeAssinaturas: 1 | 2;
 };
@@ -65,6 +67,7 @@ function extrairValores(formData: FormData): ValoresDoModelo {
     ativo: String(formData.get("status") ?? "") !== "inativo",
     exigeAprovacao: formData.get("exige_aprovacao") === "on",
     fotoObrigatoria: formData.get("foto_obrigatoria") === "on",
+    ordemAleatoria: formData.get("ordem_aleatoria") === "on",
     // Qualquer coisa diferente de "1" cai em 2, o padrao.
     quantidadeDeAssinaturas: String(formData.get("quantidade_de_assinaturas") ?? "") === "1" ? 1 : 2,
     // `getAll`: um checkbox escondido por grupo marcado (`SelecaoMultipla`).
@@ -116,6 +119,7 @@ export async function salvarModelo(
     ativo: valores.ativo,
     exige_aprovacao: valores.exigeAprovacao,
     foto_obrigatoria: valores.fotoObrigatoria,
+    ordem_aleatoria: valores.ordemAleatoria,
     quantidade_de_assinaturas: valores.quantidadeDeAssinaturas,
   };
 

@@ -6,7 +6,7 @@ import { ClipboardListIcon } from "@/components/dashboard/icons";
 import { podeEditarChecklist } from "@/lib/permissoes";
 import { getOpcoesDeModelos } from "../../../modelos/queries";
 import { PerguntaForm } from "../../PerguntaForm";
-import { getOpcoesDaPergunta, getPergunta } from "../../queries";
+import { getBasesPossiveis, getOpcoesDaPergunta, getPergunta } from "../../queries";
 import { idNaUrl } from "@/lib/id-na-url";
 
 /**
@@ -34,7 +34,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     redirect("/dashboard/checklistlab/perguntas");
   }
 
-  const [pergunta, modelos] = await Promise.all([getPergunta(idNumerico), getOpcoesDeModelos()]);
+  const [pergunta, modelos, bases] = await Promise.all([getPergunta(idNumerico), getOpcoesDeModelos(), getBasesPossiveis()]);
   if (!pergunta) notFound();
   const opcoes = await getOpcoesDaPergunta({ grupoId: pergunta.grupoId, eventoId: pergunta.eventoId });
 
@@ -66,6 +66,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           modelos={modelos}
           grupos={opcoes.grupos}
           eventos={opcoes.eventos}
+          bases={bases}
           valoresIniciais={{
             texto: pergunta.texto,
             ordem: String(pergunta.ordem),
@@ -75,6 +76,9 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
             grupo: pergunta.grupoId ? String(pergunta.grupoId) : "",
             evento: pergunta.eventoId ? String(pergunta.eventoId) : "",
             obrigatoria: pergunta.obrigatoria,
+            peso: String(pergunta.peso),
+            base: pergunta.perguntaBaseId ? String(pergunta.perguntaBaseId) : "",
+            gatilho: pergunta.respostaGatilho ?? "",
           }}
         />
       </div>

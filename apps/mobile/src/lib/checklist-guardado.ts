@@ -63,6 +63,9 @@ export function agruparPerguntas(
     texto: string;
     tipo_resposta: string;
     obrigatoria?: boolean;
+    peso?: number | null;
+    pergunta_base_id?: number | null;
+    resposta_gatilho?: string | null;
     grupos_perguntas?: { nome: string } | null;
   }[],
 ): Record<string, PerguntaDoModelo[]> {
@@ -75,6 +78,9 @@ export function agruparPerguntas(
       tipoResposta: tipoDeResposta(linha.tipo_resposta),
       grupo: linha.grupos_perguntas?.nome ?? null,
       obrigatoria: linha.obrigatoria ?? true,
+      peso: linha.peso ?? 1,
+      perguntaBaseId: linha.pergunta_base_id ?? null,
+      respostaGatilho: linha.resposta_gatilho ?? null,
     });
   }
   return porModelo;
@@ -103,6 +109,7 @@ export function modeloDaLinha(linha: {
   ativo: boolean;
   foto_obrigatoria?: boolean | null;
   quantidade_de_assinaturas?: number | null;
+  ordem_aleatoria?: boolean | null;
 }): ModeloResumido {
   return {
     id: linha.id,
@@ -111,6 +118,7 @@ export function modeloDaLinha(linha: {
     ativo: linha.ativo,
     fotoObrigatoria: linha.foto_obrigatoria === true,
     quantidadeDeAssinaturas: assinaturasExigidasPeloModelo(linha.quantidade_de_assinaturas),
+    ordemAleatoria: linha.ordem_aleatoria === true,
   };
 }
 
@@ -119,7 +127,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
   const [sites, modelos, ligacoes, perguntas] = await Promise.all([
     todasAsPaginas((de, ate) => supabase.from("sites").select("id, grupo_site_id").order("id").range(de, ate)),
     todasAsPaginas((de, ate) =>
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas").order("id").range(de, ate),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria").order("id").range(de, ate),
     ),
     todasAsPaginas((de, ate) =>
       supabase
@@ -132,7 +140,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
     todasAsPaginas((de, ate) =>
       supabase
         .from("perguntas_checklist")
-        .select("id, modelo_id, ordem, texto, tipo_resposta, obrigatoria, grupos_perguntas ( nome )")
+        .select("id, modelo_id, ordem, texto, tipo_resposta, obrigatoria, peso, pergunta_base_id, resposta_gatilho, grupos_perguntas ( nome )")
         .eq("ativo", true)
         .order("id")
         .range(de, ate),

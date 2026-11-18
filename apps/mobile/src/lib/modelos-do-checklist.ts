@@ -35,6 +35,11 @@ export type PerguntaDoModelo = {
    * verdadeiro -- o comportamento de antes.
    */
   obrigatoria?: boolean;
+  /** Peso na nota (0108); ausente vale 1. */
+  peso?: number;
+  /** Condicional (0108): so aparece quando a base recebe `respostaGatilho`. Ausente: sempre aparece. */
+  perguntaBaseId?: number | null;
+  respostaGatilho?: string | null;
 };
 
 export type ResultadoDosModelos = { ok: true; modelos: ModeloResumido[] } | { ok: false; erro: string };
@@ -85,7 +90,7 @@ async function lerModelosDoServidor(alvo: {
   try {
     const [grupo, modelos, ligacoes] = await Promise.all([
       lerGrupoDoSite(alvo),
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas"),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria"),
       supabase.from("modelos_checklist_grupos").select("modelo_id, grupo_site_id"),
     ]);
 
@@ -157,6 +162,9 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
           texto: string;
           tipo_resposta: string;
           obrigatoria: boolean;
+          peso: number | null;
+          pergunta_base_id: number | null;
+          resposta_gatilho: string | null;
           grupos_perguntas: { nome: string } | null;
         }[]
       | null;
@@ -165,7 +173,7 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
   try {
     resposta = await supabase
       .from("perguntas_checklist")
-      .select("id, ordem, texto, tipo_resposta, obrigatoria, grupos_perguntas ( nome )")
+      .select("id, ordem, texto, tipo_resposta, obrigatoria, peso, pergunta_base_id, resposta_gatilho, grupos_perguntas ( nome )")
       .eq("modelo_id", modeloId)
       .eq("ativo", true)
       .order("ordem", { ascending: true });
@@ -186,6 +194,9 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
       tipoResposta: tipoDeResposta(pergunta.tipo_resposta),
       grupo: pergunta.grupos_perguntas?.nome ?? null,
       obrigatoria: pergunta.obrigatoria,
+      peso: pergunta.peso ?? 1,
+      perguntaBaseId: pergunta.pergunta_base_id,
+      respostaGatilho: pergunta.resposta_gatilho,
     })),
     erro: null,
   };
