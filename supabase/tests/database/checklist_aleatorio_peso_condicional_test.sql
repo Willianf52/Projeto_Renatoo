@@ -122,7 +122,7 @@ select is(
               where c.modelo_id = m.id and c.ordem = 3 and b.modelo_id = m.id),
             (select resposta_gatilho from public.perguntas_checklist where modelo_id = m.id and ordem = 3))
      from public.modelos_checklist m where m.id = (select valor from ids_teste where chave = 'copia')),
-  'true|3|1|NAO',
+  't|3|1|NAO',
   'duplicar leva a ordem aleatoria, o peso e a condicional apontando para a copia da base'
 );
 

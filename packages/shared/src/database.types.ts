@@ -1667,8 +1667,8 @@ export type Database = {
           modelo_id: number
           obrigatoria: boolean
           ordem: number
-          peso: number
           pergunta_base_id: number | null
+          peso: number
           resposta_gatilho: string | null
           texto: string
           tipo_resposta: string
@@ -1682,8 +1682,8 @@ export type Database = {
           modelo_id: number
           obrigatoria?: boolean
           ordem: number
-          peso?: number
           pergunta_base_id?: number | null
+          peso?: number
           resposta_gatilho?: string | null
           texto: string
           tipo_resposta?: string
@@ -1697,8 +1697,8 @@ export type Database = {
           modelo_id?: number
           obrigatoria?: boolean
           ordem?: number
-          peso?: number
           pergunta_base_id?: number | null
+          peso?: number
           resposta_gatilho?: string | null
           texto?: string
           tipo_resposta?: string
