@@ -1116,6 +1116,7 @@ export type Database = {
           ativo: boolean
           criado_em: string
           id: number
+          inicia_em: string
           periodo: string
           quantidade: number
           site_id: number
@@ -1125,6 +1126,7 @@ export type Database = {
           ativo?: boolean
           criado_em?: string
           id?: never
+          inicia_em?: string
           periodo?: string
           quantidade: number
           site_id: number
@@ -1134,6 +1136,7 @@ export type Database = {
           ativo?: boolean
           criado_em?: string
           id?: never
+          inicia_em?: string
           periodo?: string
           quantidade?: number
           site_id?: number
@@ -2514,7 +2517,7 @@ export type Database = {
         }[]
       }
       periodo_da_meta: {
-        Args: { p_dia: string; p_periodo: string }
+        Args: { p_dia: string; p_inicia_em?: string; p_periodo: string }
         Returns: {
           fim: string
           inicio: string
