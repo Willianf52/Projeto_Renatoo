@@ -17,6 +17,8 @@ export type LinhaDeMeta = {
   inicio: string | null;
   fim: string | null;
   ativo: boolean;
+  /** Quando a meta passa a valer (0107); antes disso nao ha periodo nem progresso. */
+  iniciaEm: string;
 };
 
 const ORDEM_DO_PERIODO: Record<string, number> = { DIARIA: 0, SEMANAL: 1, QUINZENAL: 2, MENSAL: 3 };
@@ -24,7 +26,7 @@ const ORDEM_DO_PERIODO: Record<string, number> = { DIARIA: 0, SEMANAL: 1, QUINZE
 export async function getMetas(): Promise<LinhaDeMeta[]> {
   const supabase = await createClient();
   const [metas, progresso] = await Promise.all([
-    supabase.from("metas_de_visita").select("id, usuario_id, site_id, periodo, quantidade, ativo"),
+    supabase.from("metas_de_visita").select("id, usuario_id, site_id, periodo, quantidade, ativo, inicia_em"),
     supabase.rpc("progresso_das_metas"),
   ]);
   if (metas.error) throw new Error(`Metas: falha ao listar: ${metas.error.message}`);
@@ -54,6 +56,7 @@ export async function getMetas(): Promise<LinhaDeMeta[]> {
         inicio: p?.inicio ?? null,
         fim: p?.fim ?? null,
         ativo: m.ativo,
+        iniciaEm: m.inicia_em,
       };
     })
     .sort(

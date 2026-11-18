@@ -2,10 +2,11 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/Button";
+import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
 import { salvarMeta, type EstadoDaMeta } from "./actions";
-import { PERIODOS } from "./periodos";
+import { hojeEmSaoPaulo, PERIODOS } from "./periodos";
 import type { Opcao } from "./queries";
 
 const rotuloClasses = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-brand-muted";
@@ -47,7 +48,7 @@ export function MetaForm({ usuarios, sites }: { usuarios: Opcao[]; sites: Opcao[
 
   return (
     <form action={acao} className="space-y-3 p-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_10rem_9rem_auto] md:items-end">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_10rem_9rem_11rem_auto] md:items-end">
         <Select id="usuario_id" rotulo="Pessoa" opcoes={usuarios} />
         <Select id="site_id" rotulo="Lugar" opcoes={sites} />
         <Select id="periodo" rotulo="Período" opcoes={PERIODOS} inicial="SEMANAL" />
@@ -66,6 +67,12 @@ export function MetaForm({ usuarios, sites }: { usuarios: Opcao[]; sites: Opcao[
             className={getInputClasses(Boolean(estado.erro))}
           />
         </div>
+        <div>
+          <span className={rotuloClasses}>
+            Início <span className="text-red-400">*</span>
+          </span>
+          <FilterDatePicker label="Início" name="inicia_em" defaultValue={hojeEmSaoPaulo()} />
+        </div>
         <Button type="submit" loading={enviando}>
           Salvar meta
         </Button>
@@ -82,7 +89,8 @@ export function MetaForm({ usuarios, sites }: { usuarios: Opcao[]; sites: Opcao[
       ) : null}
       <p className="text-xs text-brand-muted">
         Salvar a mesma pessoa, lugar e período troca a meta. Conta qualquer checklist que a pessoa enviar no lugar
-        dentro do período: o dia, a semana (segunda a domingo), a quinzena (1 a 15 e 16 ao fim do mês) ou o mês.
+        dentro do período: o dia, a semana (segunda a domingo), a quinzena (15 dias corridos a partir do início) ou o
+        mês. A meta só vale a partir da data de início.
         Quem está abaixo recebe um aviso perto do fim: no diário às 14h, no semanal na sexta, no quinzenal dois
         dias antes e no mensal três dias antes do fim.
       </p>
