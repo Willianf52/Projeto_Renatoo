@@ -16,7 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * salva ou manda por WhatsApp pelo proprio visualizador.
  */
 
-export const dynamic = "force-dynamic";
+// Sem `export const dynamic`: com Cache Components ligado o Next recusa a
+// opcao, e a rota ja e dinamica por ler o pedido (cabecalhos e parametros).
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const idRequisicao = gerarIdDeRequisicao();

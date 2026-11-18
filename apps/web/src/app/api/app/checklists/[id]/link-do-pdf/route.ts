@@ -18,7 +18,8 @@ import { identificarChamador } from "@/lib/rate-limit";
  * checklist existe.
  */
 
-export const dynamic = "force-dynamic";
+// Sem `export const dynamic`: com Cache Components ligado o Next recusa a
+// opcao, e a rota ja e dinamica por ler o pedido (cabecalhos e parametros).
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const idRequisicao = gerarIdDeRequisicao();
