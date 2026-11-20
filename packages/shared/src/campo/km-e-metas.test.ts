@@ -52,3 +52,35 @@ describe("metas pendentes", () => {
     expect(resumos).toEqual(["0 de 3 na quinzena", "0 de 2 hoje"]);
   });
 });
+
+describe("carro do dia", () => {
+  const carro = (id: number, modelo: string, placa: string, usuario: string | null = null) => ({
+    id,
+    modelo,
+    placa,
+    km_atual: 0,
+    usuario_id: usuario,
+  });
+
+  it("os da pessoa primeiro, depois os da frota, por modelo e placa", async () => {
+    const { carrosParaEscolher } = await import("./km-e-metas");
+    const lista = carrosParaEscolher(
+      [carro(1, "Renault Kwid", "UPZ7C40"), carro(2, "Fiat Mobi", "SWT6J08"), carro(3, "Renault Kwid", "UEA4E39", "eu"), carro(4, "Fiat Argo", "BYI1I82", "eu")],
+      "eu",
+    );
+    expect(lista.map((c) => [c.id, c.seu])).toEqual([
+      [4, true],
+      [3, true],
+      [2, false],
+      [1, false],
+    ]);
+  });
+
+  it("pede o km de quem usa carro e ainda nao registrou hoje", async () => {
+    const { devePedirKm } = await import("./km-e-metas");
+    expect(devePedirKm({ temCarroNoNome: true, registrouKmNosUltimos30Dias: false, registrouKmHoje: false })).toBe(true);
+    expect(devePedirKm({ temCarroNoNome: false, registrouKmNosUltimos30Dias: true, registrouKmHoje: false })).toBe(true);
+    expect(devePedirKm({ temCarroNoNome: true, registrouKmNosUltimos30Dias: true, registrouKmHoje: true })).toBe(false);
+    expect(devePedirKm({ temCarroNoNome: false, registrouKmNosUltimos30Dias: false, registrouKmHoje: false })).toBe(false);
+  });
+});
