@@ -36,7 +36,7 @@ export type ValoresDoVeiculo = {
 export type EstadoDoFormulario = { erro?: string; valores?: ValoresDoVeiculo };
 
 const MENSAGENS_DO_VEICULO = {
-  duplicado: "Já existe um veículo com essa placa, ou essa pessoa já tem um veículo ativo.",
+  duplicado: "Já existe um veículo com essa placa.",
   semPermissao: "Você não tem permissão para cadastrar veículos.",
   fkInvalida: "O usuário escolhido não existe mais.",
   generico: "Não foi possível salvar o veículo. Tente novamente.",

@@ -119,7 +119,7 @@ export function VeiculoForm({
         </label>
         <Select id="usuario_id" options={usuarios} defaultValue={valores.usuarioId} vazio="Nenhum" />
         <p className="mt-1.5 text-xs text-brand-muted">
-          Quem usa o veículo no dia a dia. Cada pessoa tem no máximo um veículo ativo.
+          Quem usa o veículo no dia a dia. A mesma pessoa pode ter mais de um; no app, ela escolhe o carro do dia.
         </p>
       </div>
 
