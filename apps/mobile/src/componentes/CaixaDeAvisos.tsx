@@ -20,7 +20,8 @@ type Notificacao = { id: number; titulo: string; texto: string };
 
 const MAXIMO = 5;
 
-export function CaixaDeAvisos() {
+/** `recarga` muda quando a pessoa puxa a tela inicial para atualizar. */
+export function CaixaDeAvisos({ recarga = 0 }: { recarga?: number }) {
   const focada = useIsFocused();
   const [avisos, setAvisos] = useState<Notificacao[]>([]);
 
@@ -39,7 +40,7 @@ export function CaixaDeAvisos() {
     return () => {
       ativo = false;
     };
-  }, [focada]);
+  }, [focada, recarga]);
 
   const dispensar = useCallback((id: number) => {
     setAvisos((atuais) => atuais.filter((a) => a.id !== id));
