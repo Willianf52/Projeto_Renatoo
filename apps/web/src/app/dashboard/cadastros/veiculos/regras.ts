@@ -62,10 +62,5 @@ export function rotuloDoTipo(tipo: string): string {
   return TIPOS_DE_MANUTENCAO.find((t) => t.value === tipo)?.label ?? tipo;
 }
 
-/** Km digitado na tela ("12.345" ou "12345") como inteiro; `null` se invalido. */
-export function lerKm(texto: string): number | null {
-  const limpo = texto.replace(/[.\s]/g, "").replace(/km$/i, "");
-  if (!/^\d{1,7}$/.test(limpo)) return null;
-  const km = Number(limpo);
-  return km <= 2_000_000 ? km : null;
-}
+/** Km digitado na tela: a mesma regra do app, em `@projeto-renatoo/shared`. */
+export { lerKm } from "@projeto-renatoo/shared";

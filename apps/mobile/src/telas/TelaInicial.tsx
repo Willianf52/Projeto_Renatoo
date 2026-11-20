@@ -10,6 +10,8 @@ import { useSessao } from "../auth/SessaoProvider";
 import type { RotasDoApp } from "../navegacao/Navegacao";
 import { Aviso } from "../componentes/Aviso";
 import { CaixaDeAvisos } from "../componentes/CaixaDeAvisos";
+import { MetasPendentes } from "../componentes/MetasPendentes";
+import { PedidoDeKm } from "../componentes/PedidoDeKm";
 import { Marca } from "../componentes/Marca";
 import {
   IconeDeChecklist,
@@ -221,8 +223,11 @@ export function TelaInicial() {
         </View>
       </View>
 
+      <PedidoDeKm usuarioId={idDoUsuario} />
+
       <ScrollView contentContainerStyle={estilos.conteudo}>
         <CaixaDeAvisos />
+        <MetasPendentes usuarioId={idDoUsuario} />
 
         <View style={estilos.grade}>
           <CartaoDeAcao
