@@ -18,7 +18,8 @@ import { cores, espaco, raio, texto, tipografia } from "../tema";
 
 type Linha = MetaPendente & { siteNome: string };
 
-export function MetasPendentes({ usuarioId }: { usuarioId: string | null }) {
+/** `recarga` muda quando a pessoa puxa a tela inicial para atualizar. */
+export function MetasPendentes({ usuarioId, recarga = 0 }: { usuarioId: string | null; recarga?: number }) {
   const focada = useIsFocused();
   const [linhas, setLinhas] = useState<Linha[]>([]);
 
@@ -45,7 +46,7 @@ export function MetasPendentes({ usuarioId }: { usuarioId: string | null }) {
     return () => {
       ativo = false;
     };
-  }, [focada, usuarioId]);
+  }, [focada, usuarioId, recarga]);
 
   if (linhas.length === 0) return null;
 
