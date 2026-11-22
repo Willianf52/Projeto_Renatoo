@@ -7,7 +7,6 @@ import { linkDaFoto } from "@/lib/foto-do-usuario";
 import { filtroDeUuid } from "@/lib/id-na-url";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
 import { EditorDeFoto } from "@/app/dashboard/minha-foto/EditorDeFoto";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ClientesAtendidos } from "../../ClientesAtendidos";
 import { UsuarioForm } from "../../UsuarioForm";
@@ -61,12 +60,10 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   const foto = await linkDaFoto(usuario.id).catch(() => null);
 
   // Ficha do supervisor/usuario (pedido do gestor, Fase 2): os clientes que
-  // ele atende (0113) e os veiculos no nome dele (0104/0109).
+  // ele atende (0113). Veiculo nao entra: o carro nao e de uma pessoa
+  // especifica (decisao do dono, 22/11/2026).
   const supabase = await createClient();
-  const [atendidos, veiculos] = await Promise.all([
-    supabase.from("clientes_atendidos").select("grupo_site_id").eq("usuario_id", usuario.id),
-    supabase.from("veiculos").select("id, placa, modelo, ativo").eq("usuario_id", usuario.id).order("modelo"),
-  ]);
+  const atendidos = await supabase.from("clientes_atendidos").select("grupo_site_id").eq("usuario_id", usuario.id);
 
   return (
     <div className="space-y-4">
@@ -128,35 +125,6 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           grupos={gruposSites}
           marcadosIniciais={(atendidos.data ?? []).map((a) => a.grupo_site_id)}
         />
-      </section>
-
-      <section className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm">
-        <h2 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Veículos</h2>
-        {(veiculos.data ?? []).length === 0 ? (
-          <p className="px-4 py-4 text-sm text-brand-muted">
-            Nenhum veículo no nome desta pessoa. Ligue um em{" "}
-            <Link href="/dashboard/cadastros/veiculos" className="text-brand-green underline">
-              Cadastros &gt; Veículos
-            </Link>
-            .
-          </p>
-        ) : (
-          <ul className="divide-y divide-slate-800/60">
-            {(veiculos.data ?? []).map((v) => (
-              <li key={v.id}>
-                <Link
-                  href={`/dashboard/cadastros/veiculos/${v.id}`}
-                  className="flex items-center justify-between px-4 py-3 text-sm text-white hover:bg-white/5"
-                >
-                  <span>
-                    {v.modelo} · {v.placa.length === 7 ? `${v.placa.slice(0, 3)}-${v.placa.slice(3)}` : v.placa}
-                  </span>
-                  <span className="text-xs text-brand-muted">{v.ativo ? "Ativo" : "Inativo"}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
       <section className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm">

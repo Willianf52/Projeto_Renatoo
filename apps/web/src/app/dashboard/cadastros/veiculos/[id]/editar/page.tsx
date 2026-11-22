@@ -6,7 +6,7 @@ import { CarIcon } from "@/components/dashboard/icons";
 import { idNaUrl } from "@/lib/id-na-url";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { VeiculoForm } from "../../VeiculoForm";
-import { getUsuariosParaSelecao, getVeiculo } from "../../queries";
+import { getVeiculo } from "../../queries";
 import { placaNaTela } from "../../regras";
 
 /** Pagina sem `async`: ver `grupo-de-sites/[id]/editar/page.tsx`. */
@@ -23,7 +23,7 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   if (id === null) notFound();
   if (!(await podeAdministrarCadastros())) redirect("/dashboard/cadastros/veiculos");
 
-  const [veiculo, usuarios] = await Promise.all([getVeiculo(id), getUsuariosParaSelecao()]);
+  const veiculo = await getVeiculo(id);
   if (!veiculo) notFound();
 
   return (
@@ -40,13 +40,11 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
         </div>
         <VeiculoForm
           id={veiculo.id}
-          usuarios={usuarios}
           valoresIniciais={{
             placa: placaNaTela(veiculo.placa),
             modelo: veiculo.modelo,
             cor: veiculo.cor,
             empresa: veiculo.empresa,
-            usuarioId: veiculo.usuario_id ?? "",
             kmUltimaRevisao: String(veiculo.km_ultima_revisao),
             ativo: veiculo.ativo,
           }}

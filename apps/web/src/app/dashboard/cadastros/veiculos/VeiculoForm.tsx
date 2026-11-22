@@ -86,11 +86,9 @@ const STATUS_OPCOES: Opcao[] = [
 export function VeiculoForm({
   id,
   valoresIniciais,
-  usuarios,
 }: {
   id?: number;
   valoresIniciais: ValoresDoVeiculo;
-  usuarios: Opcao[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(salvarVeiculo, {});
   const valores = estado.valores ?? valoresIniciais;
@@ -111,16 +109,6 @@ export function VeiculoForm({
         <Campo id="modelo" rotulo="Modelo" defaultValue={valores.modelo} obrigatorio erro={comErro} />
         <Campo id="cor" rotulo="Cor" defaultValue={valores.cor} erro={comErro} />
         <Campo id="empresa" rotulo="Empresa" defaultValue={valores.empresa} erro={comErro} />
-      </div>
-
-      <div>
-        <label htmlFor="usuario_id" className={rotuloClasses}>
-          Usuário do veículo
-        </label>
-        <Select id="usuario_id" options={usuarios} defaultValue={valores.usuarioId} vazio="Nenhum" />
-        <p className="mt-1.5 text-xs text-brand-muted">
-          Quem usa o veículo no dia a dia. A mesma pessoa pode ter mais de um; no app, ela escolhe o carro do dia.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

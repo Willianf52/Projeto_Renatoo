@@ -10,7 +10,7 @@ import { FilterInput, FilterSelect } from "@/components/dashboard/FilterField";
 import { CarIcon, EyeIcon, FilterIcon, PencilIcon, PlusCircleIcon } from "@/components/dashboard/icons";
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
-import { getVeiculos, nomesDasPessoas, PAGE_SIZE, type VeiculoFiltros } from "./queries";
+import { getVeiculos, PAGE_SIZE, type VeiculoFiltros } from "./queries";
 import { formatarKm, placaNaTela, situacaoDaRevisao } from "./regras";
 
 /**
@@ -21,7 +21,7 @@ import { formatarKm, placaNaTela, situacaoDaRevisao } from "./regras";
  */
 
 const LISTAGEM = "/dashboard/cadastros/veiculos";
-const COLUNAS = ["Placa", "Modelo", "Cor", "Empresa", "Usuário", "Km atual", "Revisão", "Status", "Ações"];
+const COLUNAS = ["Placa", "Modelo", "Cor", "Empresa", "Km atual", "Revisão", "Status", "Ações"];
 const MIN_WIDTH = "min-w-[1000px]";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -122,7 +122,6 @@ async function TabelaDeVeiculos({ searchParams }: { searchParams: SearchParamsPr
   const params = await searchParams;
   const filtros = extrairFiltros(params);
   const [resultado, podeAdministrar] = await Promise.all([getVeiculos(filtros), podeAdministrarCadastros()]);
-  const nomes = await nomesDasPessoas(resultado.rows.map((v) => v.usuario_id));
   const totalPages = Math.max(1, Math.ceil(resultado.totalItems / PAGE_SIZE));
 
   const rows = resultado.rows.map((v) => {
@@ -132,7 +131,6 @@ async function TabelaDeVeiculos({ searchParams }: { searchParams: SearchParamsPr
       v.modelo,
       v.cor,
       v.empresa,
-      v.usuario_id ? (nomes.get(v.usuario_id) ?? "") : "",
       formatarKm(v.km_atual),
       <span key="revisao" className={v.ativo ? COR_DO_TOM[situacao.tom] : "text-brand-muted"}>
         {situacao.rotulo}

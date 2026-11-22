@@ -5,7 +5,6 @@ import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDe
 import { CarIcon } from "@/components/dashboard/icons";
 import { podeAdministrarCadastros } from "@/lib/permissoes";
 import { VeiculoForm } from "../VeiculoForm";
-import { getUsuariosParaSelecao } from "../queries";
 
 /** Pagina sem `async`: ver `grupo-de-sites/novo/page.tsx`. */
 export default function NovoVeiculoPage() {
@@ -20,7 +19,6 @@ async function Conteudo() {
   // O RLS recusaria o insert; aqui so poupa preencher o formulario a toa.
   if (!(await podeAdministrarCadastros())) redirect("/dashboard/cadastros/veiculos");
 
-  const usuarios = await getUsuariosParaSelecao();
 
   return (
     <div className="space-y-4">
@@ -35,8 +33,7 @@ async function Conteudo() {
           </h1>
         </div>
         <VeiculoForm
-          usuarios={usuarios}
-          valoresIniciais={{ placa: "", modelo: "", cor: "", empresa: "", usuarioId: "", kmUltimaRevisao: "", ativo: true }}
+          valoresIniciais={{ placa: "", modelo: "", cor: "", empresa: "", kmUltimaRevisao: "", ativo: true }}
         />
       </div>
     </div>
