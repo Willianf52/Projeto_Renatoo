@@ -7,6 +7,7 @@ import { esquecerInspetor, identificarInspetor } from "../lib/observabilidade";
 import { comPrazo, ESGOTADO, PRAZO_ANTES_DA_COPIA_MS } from "../lib/com-prazo";
 import { supabase } from "../lib/supabase";
 import { esquecerPerfil, guardarPerfil, lerPerfilGuardado } from "./perfil-guardado";
+import { esquecerAparelhoDoPush } from "../lib/push";
 import { AVISO_DE_SESSAO_EXPIRADA, deveEncerrarPorPrazo } from "./prazo-da-sessao";
 import { useCicloDeVidaDaSessao } from "./useCicloDeVidaDaSessao";
 
@@ -243,6 +244,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const sair = useCallback(async () => {
     // A copia do perfil sai junto: o aparelho passa para o proximo turno.
     if (idDoUsuario) await esquecerPerfil(idDoUsuario).catch(() => undefined);
+    // Antes do signOut: o RLS so deixa apagar o aparelho com a sessao valendo.
+    await esquecerAparelhoDoPush();
     await supabase.auth.signOut();
     setPerfilCarregado(null);
   }, [idDoUsuario]);

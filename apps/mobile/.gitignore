@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase: o arquivo entra no build pelo EAS (GOOGLE_SERVICES_JSON), nunca no repositorio publico.
+google-services.json

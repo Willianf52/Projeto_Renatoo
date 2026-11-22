@@ -23,6 +23,7 @@ import { atualizarCatalogo } from "../campo/ronda";
 import { sincronizar } from "../campo/sincronizacao";
 import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
 import { aplicarAtualizacao, buscarAtualizacao } from "../lib/atualizacao-do-app";
+import { registrarParaPush } from "../lib/push";
 import { supabase } from "../lib/supabase";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 import app from "../../app.json";
@@ -63,6 +64,12 @@ export function TelaInicial() {
 
   const idDoUsuario = sessao?.user.id ?? null;
   const soAsMinhas = listaSoAsMinhas(perfil?.cargo);
+
+  // Push no celular (0110): registra o aparelho para quem entrou. Uma vez por
+  // pessoa logada; sem permissao ou sem rede, nao faz nada.
+  useEffect(() => {
+    if (idDoUsuario) void registrarParaPush();
+  }, [idDoUsuario]);
 
   const atualizarRodape = useCallback(async () => {
     if (!idDoUsuario) return;
