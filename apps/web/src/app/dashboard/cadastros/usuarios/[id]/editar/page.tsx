@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UserIcon } from "@/components/dashboard/icons";
+import { linkDaFoto } from "@/lib/foto-do-usuario";
 import { filtroDeUuid } from "@/lib/id-na-url";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
+import { EditorDeFoto } from "@/app/dashboard/minha-foto/EditorDeFoto";
 import { UsuarioForm } from "../../UsuarioForm";
 import { getDadosPessoais } from "../../ler-dados-pessoais";
 import {
@@ -52,6 +54,8 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     getListasDoUsuario(),
   ]);
   if (!usuario) notFound();
+  // A foto do usuario (0112): o GESTOR coloca, troca ou remove.
+  const foto = await linkDaFoto(usuario.id).catch(() => null);
 
   return (
     <div className="space-y-4">
@@ -105,6 +109,11 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           }}
         />
       </div>
+
+      <section className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm">
+        <h2 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Foto</h2>
+        <EditorDeFoto usuarioId={usuario.id} fotoAtual={foto} />
+      </section>
     </div>
   );
 }

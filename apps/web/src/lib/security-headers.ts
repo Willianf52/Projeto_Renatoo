@@ -52,7 +52,9 @@ const CSP = [
     ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  // A foto do usuario (0112) vem do Storage do projeto por link assinado e
+  // temporario: so a origem do projeto, a mesma ja liberada no connect-src.
+  `img-src 'self' data: blob: ${supabaseOrigem}`,
   "font-src 'self'",
   // A API do Supabase e chamada direto do navegador com a anon key. Em dev
   // soma-se o websocket do Fast Refresh, que roda em ws:// sem TLS.
