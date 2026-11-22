@@ -500,6 +500,39 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes_atendidos: {
+        Row: {
+          criado_em: string
+          grupo_site_id: number
+          usuario_id: string
+        }
+        Insert: {
+          criado_em?: string
+          grupo_site_id: number
+          usuario_id: string
+        }
+        Update: {
+          criado_em?: string
+          grupo_site_id?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_atendidos_grupo_site_id_fkey"
+            columns: ["grupo_site_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clientes_atendidos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coletores_dados: {
         Row: {
           ativo: boolean
@@ -2905,6 +2938,10 @@ export type Database = {
         Returns: number
       }
       salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }
+      salvar_clientes_atendidos: {
+        Args: { p_grupos: number[]; p_usuario_id: string }
+        Returns: undefined
+      }
       salvar_evento: {
         Args: {
           p_ativo: boolean
