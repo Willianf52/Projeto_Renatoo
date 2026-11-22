@@ -556,6 +556,35 @@ export type Database = {
           },
         ]
       }
+      dispositivos_push: {
+        Row: {
+          atualizado_em: string
+          plataforma: string
+          token: string
+          usuario_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          plataforma?: string
+          token: string
+          usuario_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          plataforma?: string
+          token?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispositivos_push_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evento_permissoes: {
         Row: {
           canal: string
@@ -2588,6 +2617,10 @@ export type Database = {
           p_visita_id: number
         }
         Returns: number
+      }
+      registrar_dispositivo_push: {
+        Args: { p_plataforma?: string; p_token: string }
+        Returns: undefined
       }
       registrar_ocorrencia_manual: {
         Args: {
