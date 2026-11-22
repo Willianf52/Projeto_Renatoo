@@ -14,6 +14,8 @@
 | Coordenadas de leitura, horário de visita | `leituras`, `visitas` | Indiretamente ligado ao operador que fez a coleta |
 | Nome/e-mail de contato de cliente | `grupos_sites_clientes` (via `profiles` de nível CLIENTE) | Contato de cliente/holding |
 | Login e telas abertas no painel (rota e **nomes** dos filtros, nunca os valores), com cargo | `eventos_de_uso` (migration 0051) | Usuários do sistema. Leitura só por quem vê a operação inteira |
+| Foto do usuário | Bucket **privado** `fotos-de-usuario` (`<id>/foto`) e `fotos_de_usuario` (migration 0112) | Usuários do sistema. Vê e troca só a própria pessoa e o GESTOR; a tela recebe link assinado de 1 hora. JPG, PNG ou WebP até 2 MB. Removida pela própria pessoa ou pelo GESTOR a qualquer momento; sai junto com a conta |
+| Endereço de push do celular e quem está logado nele | `dispositivos_push` (migration 0110) | Usuários do app. Cada um vê só os próprios; apagado ao sair do app |
 
 Não há coleta de dado sensível (saúde, biometria, origem racial, opinião
 política) no schema atual — vale reconfirmar isso a cada tabela nova antes de
@@ -78,6 +80,7 @@ precisar dele pela primeira vez sob pressão de prazo legal.
 | Serviço | O que processa | Contrato/DPA verificado? |
 |---|---|---|
 | Supabase | Todo o banco (dados de usuário, leituras, visitas) + Auth | A confirmar — checar Data Processing Agreement da Supabase Inc. |
+| Expo (push) e Google Firebase Cloud Messaging | Notificação no celular (0110): recebem o endereço de push do aparelho, o título e o texto do aviso (ex.: "Revisão do veículo ABC-1D23"). Sem nome, e-mail nem dado de inspeção. O projeto do Firebase tem o Analytics ligado, mas o app não tem o pacote do Analytics: nenhum dado de uso vai para o Google | A confirmar |
 | Resend | E-mail transacional (hoje: recuperação de senha) — recebe endereço de e-mail do destinatário | A confirmar |
 | Sentry | Erros de aplicação — inerte enquanto não houver DSN configurado. **Correção de registro (16/09/2026):** esta linha dizia que `sendDefaultPii` estava desligado "por padrão do SDK", o que não valia no painel web: o `dataCollection: {}` gerado pelo wizard fazia o SDK ignorar `sendDefaultPii` e coletar corpo de requisição (inclusive senha em texto puro), cookies e dados do usuário. Desde então as três inicializações usam `src/lib/sentry-privacidade.ts` — sem corpo, cookie, usuário, consulta ao banco nem cabeçalho de credencial, com `beforeSend` removendo corpo como segunda barreira — travado em `sentry-privacidade.test.ts`. O que sai é stack trace, rota e mensagem de erro. Dado hospedado na UE: transferência internacional | A confirmar quando for ativado |
 

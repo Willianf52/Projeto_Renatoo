@@ -837,6 +837,29 @@ export type Database = {
           },
         ]
       }
+      fotos_de_usuario: {
+        Row: {
+          atualizada_em: string
+          usuario_id: string
+        }
+        Insert: {
+          atualizada_em?: string
+          usuario_id: string
+        }
+        Update: {
+          atualizada_em?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fotos_de_usuario_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grupos_perguntas: {
         Row: {
           ativo: boolean

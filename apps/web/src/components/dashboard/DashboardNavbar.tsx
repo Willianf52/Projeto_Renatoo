@@ -8,7 +8,7 @@ import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 import { AlternarTema } from "./AlternarTema";
 import { SinoDeNotificacoes } from "./SinoDeNotificacoes";
-import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
+import { ChevronDownIcon, LogoutIcon, MenuIcon } from "./icons";
 
 export function DashboardNavbar({
   identidade,
@@ -99,10 +99,8 @@ export function DashboardNavbar({
       <div className="relative ml-auto flex items-center gap-3">
         <SinoDeNotificacoes />
         <AlternarTema />
+        {/* Avatar (com a foto, 0112) e nome vem prontos do servidor. */}
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
-            <UserIcon className="h-5 w-5" />
-          </span>
           {identidade}
         </div>
 
