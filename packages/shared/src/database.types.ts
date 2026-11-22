@@ -504,16 +504,19 @@ export type Database = {
         Row: {
           criado_em: string
           grupo_site_id: number
+          id: number
           usuario_id: string
         }
         Insert: {
           criado_em?: string
           grupo_site_id: number
+          id?: never
           usuario_id: string
         }
         Update: {
           criado_em?: string
           grupo_site_id?: number
+          id?: never
           usuario_id?: string
         }
         Relationships: [

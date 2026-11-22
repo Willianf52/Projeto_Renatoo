@@ -13,11 +13,14 @@
 -- lista inteira de uma vez (`salvar_clientes_atendidos`, transacional).
 -- ============================================================================
 
+-- `id` proprio: o `registrar_auditoria` grava o id da linha (registro_id nao
+-- aceita nulo); a dupla pessoa + cliente segue unica pela constraint abaixo.
 create table if not exists public.clientes_atendidos (
+  id bigint generated always as identity primary key,
   usuario_id uuid not null references public.profiles (id) on delete cascade,
   grupo_site_id bigint not null references public.grupos_sites (id) on delete cascade,
   criado_em timestamptz not null default now(),
-  primary key (usuario_id, grupo_site_id)
+  constraint clientes_atendidos_unico unique (usuario_id, grupo_site_id)
 );
 
 comment on table public.clientes_atendidos is
