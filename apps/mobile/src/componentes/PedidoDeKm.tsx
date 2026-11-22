@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import {
-  carrosParaEscolher,
-  devePedirKm,
-  kmNaTela,
-  lerKm,
-  placaComHifen,
-  type VeiculoDaFrota,
-} from "@projeto-renatoo/shared";
+import { carrosParaEscolher, kmNaTela, lerKm, placaComHifen, type VeiculoDaFrota } from "@projeto-renatoo/shared";
 
-import { inicioDoDia } from "../campo/rascunho";
 import { supabase } from "../lib/supabase";
 import { cores, espaco, raio, texto, tipografia } from "../tema";
 import { Aviso } from "./Aviso";
@@ -18,45 +10,29 @@ import { Campo } from "./Campo";
 
 /**
  * "Ao abrir ja pede o km do veiculo" (pedido do gestor, 16/11/2026), com o
- * carro do dia (20/11/2026): a mesma pessoa pode usar mais de um carro, entao
- * o app pergunta qual ela esta usando, com os dela primeiro e depois os da
- * frota, e pede o km dele.
+ * carro do dia (20/11/2026): o app pergunta qual carro a pessoa esta usando e
+ * pede o km dele.
  *
- * Uma vez por dia e so para quem usa carro: quem tem um no nome ou registrou
- * km nos ultimos 30 dias, e ainda nao registrou hoje (`devePedirKm`). "Agora
- * nao" fecha ate a proxima abertura do app. Sem sinal, nao pergunta: o km nao
- * vai para a fila do aparelho.
+ * Decisao do dono (22/11/2026): pede TODA VEZ que o app abre, para TODOS, e o
+ * carro nao e de ninguem: a lista e a frota inteira, nenhum vem marcado.
+ * "Toda vez que abre" e cada abertura do app (o processo novo); ir e voltar
+ * entre telas nao pergunta de novo. "Agora nao" fecha ate a proxima abertura.
+ * Sem sinal ou sem carro cadastrado, nao pergunta: o km nao vai para a fila
+ * do aparelho.
  *
  * O banco recusa km menor que o ultimo (22023) e e ele que avisa a revisao aos
  * 9.000 km; aqui so o formato e a conferencia com o km atual do carro.
  */
 
-type Carro = VeiculoDaFrota & { seu: boolean };
+type Carro = VeiculoDaFrota;
 
 /** Ja perguntou nesta abertura do app (sobrevive a ir e voltar da tela). */
 let jaPerguntouNestaAbertura = false;
 
-async function carrosSePrecisarPedir(usuarioId: string): Promise<Carro[] | null> {
-  const trintaDiasAtras = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const [veiculos, kmRecentes] = await Promise.all([
-    supabase.from("veiculos").select("id, placa, modelo, km_atual, usuario_id").eq("ativo", true),
-    supabase
-      .from("veiculo_km")
-      .select("registrado_em")
-      .eq("registrado_por", usuarioId)
-      .gte("registrado_em", trintaDiasAtras)
-      .order("registrado_em", { ascending: false })
-      .limit(1),
-  ]);
-  if (veiculos.error || kmRecentes.error || !veiculos.data?.length) return null;
-
-  const ultimo = kmRecentes.data?.[0]?.registrado_em ?? null;
-  const pedir = devePedirKm({
-    temCarroNoNome: veiculos.data.some((v) => v.usuario_id === usuarioId),
-    registrouKmNosUltimos30Dias: ultimo !== null,
-    registrouKmHoje: ultimo !== null && ultimo >= inicioDoDia(),
-  });
-  return pedir ? carrosParaEscolher(veiculos.data, usuarioId) : null;
+async function carrosDaFrota(): Promise<Carro[] | null> {
+  const { data, error } = await supabase.from("veiculos").select("id, placa, modelo, km_atual").eq("ativo", true);
+  if (error || !data?.length) return null;
+  return carrosParaEscolher(data);
 }
 
 export function PedidoDeKm({ usuarioId }: { usuarioId: string | null }) {
@@ -69,14 +45,11 @@ export function PedidoDeKm({ usuarioId }: { usuarioId: string | null }) {
   useEffect(() => {
     if (!usuarioId || jaPerguntouNestaAbertura) return;
     let ativo = true;
-    carrosSePrecisarPedir(usuarioId)
+    carrosDaFrota()
       .then((lista) => {
         if (!ativo || !lista) return;
         jaPerguntouNestaAbertura = true;
         setCarros(lista);
-        // Com um carro so no nome, ja vem escolhido.
-        const meus = lista.filter((c) => c.seu);
-        if (meus.length === 1) setEscolhido(meus[0]);
       })
       // Sem sinal ou sem carro: nao pergunta.
       .catch(() => undefined);
@@ -152,10 +125,9 @@ export function PedidoDeKm({ usuarioId }: { usuarioId: string | null }) {
                     <Text style={estilos.opcaoTitulo}>
                       {c.modelo} · {placaComHifen(c.placa)}
                     </Text>
-                    <Text style={estilos.opcaoApoio}>
-                      {c.seu ? "Seu" : "Frota"}
-                      {c.km_atual > 0 ? ` · último ${kmNaTela(c.km_atual)}` : ""}
-                    </Text>
+                    {c.km_atual > 0 ? (
+                      <Text style={estilos.opcaoApoio}>Último {kmNaTela(c.km_atual)}</Text>
+                    ) : null}
                   </View>
                 </Pressable>
               );
