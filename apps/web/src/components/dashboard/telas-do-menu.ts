@@ -108,6 +108,9 @@ export const NAV_ITEMS: NavItem[] = [
       // Pedido do gestor (17/11/2026, 0104): frota com km e revisao.
       { label: "Veículos", href: "/dashboard/cadastros/veiculos", icon: CarIcon },
       { label: "Metas de Visita", href: "/dashboard/cadastros/metas-de-visita", icon: ClipboardListIcon },
+      // Pedido do gestor (22/11/2026, 0111): maquinas e a lista de acessorios e produtos de cada site.
+      { label: "Máquinas", href: "/dashboard/cadastros/maquinas", icon: SlidersIcon },
+      { label: "Acessórios e Produtos", href: "/dashboard/cadastros/acessorios-e-produtos", icon: ClipboardListIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },

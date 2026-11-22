@@ -1140,6 +1140,89 @@ export type Database = {
         }
         Relationships: []
       }
+      maquina_manutencoes: {
+        Row: {
+          criado_em: string
+          data: string
+          descricao: string
+          id: number
+          maquina_id: number
+          registrado_por: string
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          maquina_id: number
+          registrado_por?: string
+          tipo: string
+        }
+        Update: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          maquina_id?: number
+          registrado_por?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquina_manutencoes_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquina_manutencoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maquinas: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          descricao: string
+          id: number
+          modelo: string
+          patrimonio: string
+          site_id: number
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string
+          id?: never
+          modelo: string
+          patrimonio?: string
+          site_id: number
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string
+          id?: never
+          modelo?: string
+          patrimonio?: string
+          site_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquinas_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metas_de_visita: {
         Row: {
           ativo: boolean
@@ -1963,6 +2046,44 @@ export type Database = {
           },
           {
             foreignKeyName: "site_anexos_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_itens: {
+        Row: {
+          criado_em: string
+          id: number
+          nome: string
+          observacao: string
+          quantidade: number
+          site_id: number
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: never
+          nome: string
+          observacao?: string
+          quantidade?: number
+          site_id: number
+          tipo: string
+        }
+        Update: {
+          criado_em?: string
+          id?: never
+          nome?: string
+          observacao?: string
+          quantidade?: number
+          site_id?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_itens_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
