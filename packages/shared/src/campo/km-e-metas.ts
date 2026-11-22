@@ -65,3 +65,47 @@ export function metasPendentes(progresso: readonly ProgressoDaMeta[], usuarioId:
     }))
     .sort((a, b) => b.faltam - a.faltam || a.metaId - b.metaId);
 }
+
+// ---------------------------------------------------------------------------
+// Carro do dia (0109): a mesma pessoa pode usar mais de um carro
+// ---------------------------------------------------------------------------
+
+export type VeiculoDaFrota = {
+  id: number;
+  placa: string;
+  modelo: string;
+  km_atual: number;
+  usuario_id: string | null;
+};
+
+/**
+ * Os carros para escolher: os da pessoa primeiro, depois os da frota, cada
+ * grupo por modelo e placa. `seu` marca os que estao no nome dela.
+ */
+export function carrosParaEscolher(
+  veiculos: readonly VeiculoDaFrota[],
+  usuarioId: string,
+): (VeiculoDaFrota & { seu: boolean })[] {
+  return veiculos
+    .map((v) => ({ ...v, seu: v.usuario_id === usuarioId }))
+    .sort(
+      (a, b) =>
+        Number(b.seu) - Number(a.seu) ||
+        a.modelo.localeCompare(b.modelo, "pt-BR") ||
+        a.placa.localeCompare(b.placa),
+    );
+}
+
+/**
+ * Quem recebe o pedido do km ao abrir o app: quem usa carro (tem um no nome
+ * ou registrou km nos ultimos 30 dias) e ainda nao registrou km hoje. Quem
+ * so trabalha no escritorio nao e incomodado todo dia.
+ */
+export function devePedirKm(situacao: {
+  temCarroNoNome: boolean;
+  registrouKmNosUltimos30Dias: boolean;
+  registrouKmHoje: boolean;
+}): boolean {
+  if (situacao.registrouKmHoje) return false;
+  return situacao.temCarroNoNome || situacao.registrouKmNosUltimos30Dias;
+}
