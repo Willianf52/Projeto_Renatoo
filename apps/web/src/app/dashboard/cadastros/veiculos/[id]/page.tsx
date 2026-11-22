@@ -51,7 +51,6 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
   if (!veiculo) notFound();
 
   const nomes = await nomesDasPessoas([
-    veiculo.usuario_id,
     ...historico.km.map((k) => k.registrado_por),
     ...historico.manutencoes.map((m) => m.registrado_por),
   ]);
@@ -72,10 +71,6 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           </h1>
         </div>
         <dl className="grid grid-cols-2 gap-4 p-4 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-brand-muted">Usuário</dt>
-            <dd className="text-white">{veiculo.usuario_id ? nomes.get(veiculo.usuario_id) : ""}</dd>
-          </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-brand-muted">Km atual</dt>
             <dd className="text-white">{formatarKm(veiculo.km_atual)}</dd>

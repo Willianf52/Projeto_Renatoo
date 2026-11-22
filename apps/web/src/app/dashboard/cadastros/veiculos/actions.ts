@@ -28,7 +28,6 @@ export type ValoresDoVeiculo = {
   modelo: string;
   cor: string;
   empresa: string;
-  usuarioId: string;
   kmUltimaRevisao: string;
   ativo: boolean;
 };
@@ -48,13 +47,10 @@ function extrairValores(formData: FormData): ValoresDoVeiculo {
     modelo: texto(formData, "modelo"),
     cor: texto(formData, "cor"),
     empresa: texto(formData, "empresa"),
-    usuarioId: texto(formData, "usuario_id"),
     kmUltimaRevisao: texto(formData, "km_ultima_revisao"),
     ativo: texto(formData, "status") !== "inativo",
   };
 }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function salvarVeiculo(_estado: EstadoDoFormulario, formData: FormData): Promise<EstadoDoFormulario> {
   const valores = extrairValores(formData);
@@ -71,14 +67,14 @@ export async function salvarVeiculo(_estado: EstadoDoFormulario, formData: FormD
   const kmUltimaRevisao = valores.kmUltimaRevisao === "" ? 0 : lerKm(valores.kmUltimaRevisao);
   if (kmUltimaRevisao === null) return { erro: "Km da última revisão inválido.", valores };
 
-  if (valores.usuarioId !== "" && !UUID.test(valores.usuarioId)) return { erro: "Usuário inválido.", valores };
-
+  // Sem "usuario do veiculo": decisao do dono (22/11/2026), o carro nao e de
+  // uma pessoa especifica; no app, quem abre escolhe o carro do dia. A coluna
+  // `usuario_id` segue no banco (0104), vazia, e o portal nao a mexe mais.
   const linha = {
     placa,
     modelo: validado.data.modelo,
     cor: validado.data.cor,
     empresa: validado.data.empresa,
-    usuario_id: valores.usuarioId === "" ? null : valores.usuarioId,
     km_ultima_revisao: kmUltimaRevisao,
     ativo: valores.ativo,
   };

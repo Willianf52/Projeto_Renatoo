@@ -15,7 +15,6 @@ export type Veiculo = {
   modelo: string;
   cor: string;
   empresa: string;
-  usuario_id: string | null;
   km_atual: number;
   km_ultima_revisao: number;
   ativo: boolean;
@@ -23,7 +22,7 @@ export type Veiculo = {
 
 export type Opcao = { value: string; label: string };
 
-const COLUNAS = "id, placa, modelo, cor, empresa, usuario_id, km_atual, km_ultima_revisao, ativo";
+const COLUNAS = "id, placa, modelo, cor, empresa, km_atual, km_ultima_revisao, ativo";
 
 /** A busca entra num `or` do PostgREST: so letras, numeros, espaco e hifen. */
 function buscaSegura(busca: string | undefined): string | null {
@@ -55,19 +54,7 @@ export async function getVeiculo(id: number): Promise<Veiculo | null> {
   return data;
 }
 
-/** Pessoas ativas da UP para "Usuário do veículo" (o RLS de profiles recorta). */
-export async function getUsuariosParaSelecao(): Promise<Opcao[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("id, nome_completo, cargo")
-    .eq("ativo", true)
-    .neq("cargo", "CLIENTE")
-    .order("nome_completo");
-  return (data ?? []).map((p) => ({ value: p.id, label: p.nome_completo ?? "(sem nome)" }));
-}
-
-/** Nome de cada pessoa por id, para as colunas "Usuário" e "Registrado por". */
+/** Nome de cada pessoa por id, para a coluna "Registrado por". */
 export async function nomesDasPessoas(ids: (string | null)[]): Promise<Map<string, string>> {
   const unicos = [...new Set(ids.filter((id): id is string => Boolean(id)))];
   if (unicos.length === 0) return new Map();
