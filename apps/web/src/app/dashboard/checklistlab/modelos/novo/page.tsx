@@ -42,11 +42,11 @@ async function Conteudo() {
         <div className="border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <ClipboardListIcon className="h-4 w-4" />
-            Novo Modelo de Checklist
+            Adicionar Checklist
           </h1>
         </div>
 
-        <ModeloForm valoresIniciais={{ nome: "", descricao: "", ativo: true, grupos: [], exigeAprovacao: false, fotoObrigatoria: false, ordemAleatoria: false, quantidadeDeAssinaturas: 2 }} grupos={grupos} />
+        <ModeloForm valoresIniciais={{ nome: "", descricao: "", ativo: true, grupos: [], exigeAprovacao: false, fotoObrigatoria: false, ordemAleatoria: false, quantidadeDeAssinaturas: 2, minCaracteresObservacao: "" }} grupos={grupos} />
       </div>
     </div>
   );

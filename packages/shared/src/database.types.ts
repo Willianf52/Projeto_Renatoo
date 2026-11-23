@@ -1370,6 +1370,7 @@ export type Database = {
           exige_aprovacao: boolean
           foto_obrigatoria: boolean
           id: number
+          min_caracteres_observacao: number | null
           nome: string
           ordem_aleatoria: boolean
           padrao: boolean
@@ -1382,6 +1383,7 @@ export type Database = {
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
+          min_caracteres_observacao?: number | null
           nome: string
           ordem_aleatoria?: boolean
           padrao?: boolean
@@ -1394,6 +1396,7 @@ export type Database = {
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
+          min_caracteres_observacao?: number | null
           nome?: string
           ordem_aleatoria?: boolean
           padrao?: boolean

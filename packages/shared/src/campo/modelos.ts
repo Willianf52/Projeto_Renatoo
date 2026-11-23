@@ -109,6 +109,11 @@ export type ModeloResumido = {
    * `ordenarPerguntas`. Opcional pelo mesmo motivo; ausente vale falso.
    */
   ordemAleatoria?: boolean;
+  /**
+   * Minimo de caracteres da observacao do "Nao conforme" neste checklist
+   * (0115). Ausente ou nulo: vale o de Cadastros > Cliente.
+   */
+  minCaracteresObservacao?: number | null;
 };
 export type LigacaoDeModelo = { modelo_id: number; grupo_site_id: number };
 

@@ -92,6 +92,7 @@ export type ModeloEmEdicao = {
   fotoObrigatoria: boolean;
   ordemAleatoria: boolean;
   quantidadeDeAssinaturas: 1 | 2;
+  minCaracteresObservacao: string;
 };
 
 export async function getModelo(id: number): Promise<ModeloEmEdicao | null> {
@@ -99,7 +100,7 @@ export async function getModelo(id: number): Promise<ModeloEmEdicao | null> {
 
   const { data, error } = await supabase
     .from("modelos_checklist")
-    .select("id, nome, descricao, padrao, ativo, exige_aprovacao, foto_obrigatoria, ordem_aleatoria, quantidade_de_assinaturas, modelos_checklist_grupos ( grupo_site_id )")
+    .select("id, nome, descricao, padrao, ativo, exige_aprovacao, foto_obrigatoria, ordem_aleatoria, quantidade_de_assinaturas, min_caracteres_observacao, modelos_checklist_grupos ( grupo_site_id )")
     .eq("id", id)
     // `maybeSingle`: id que nao existe e 404 da tela, nao erro do Postgres.
     .maybeSingle();
@@ -118,6 +119,7 @@ export async function getModelo(id: number): Promise<ModeloEmEdicao | null> {
     fotoObrigatoria: data.foto_obrigatoria,
     ordemAleatoria: data.ordem_aleatoria,
     quantidadeDeAssinaturas: data.quantidade_de_assinaturas === 1 ? 1 : 2,
+    minCaracteresObservacao: data.min_caracteres_observacao === null ? "" : String(data.min_caracteres_observacao),
   };
 }
 

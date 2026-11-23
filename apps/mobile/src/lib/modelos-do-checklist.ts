@@ -90,7 +90,7 @@ async function lerModelosDoServidor(alvo: {
   try {
     const [grupo, modelos, ligacoes] = await Promise.all([
       lerGrupoDoSite(alvo),
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria"),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria, min_caracteres_observacao"),
       supabase.from("modelos_checklist_grupos").select("modelo_id, grupo_site_id"),
     ]);
 

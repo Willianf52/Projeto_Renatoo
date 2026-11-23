@@ -179,7 +179,7 @@ export function TelaDeChecklist({
    * Cliente, 0085/0086). Sem rede ou sem leitura, fica zero: o checklist
    * offline nunca trava por uma configuracao que nao chegou.
    */
-  const [minimoDaObservacao, setMinimoDaObservacao] = useState(0);
+  const [minimoDoCliente, setMinimoDoCliente] = useState(0);
   useEffect(() => {
     let ativo = true;
     supabase
@@ -188,7 +188,7 @@ export function TelaDeChecklist({
       .maybeSingle()
       .then(
         ({ data }) => {
-          if (ativo && data) setMinimoDaObservacao(data.min_caracteres_descricao ?? 0);
+          if (ativo && data) setMinimoDoCliente(data.min_caracteres_descricao ?? 0);
         },
         () => undefined,
       );
@@ -444,6 +444,11 @@ export function TelaDeChecklist({
   );
 
   // O modelo escolhido exige foto em todas as perguntas (0091)? Os carros da empresa, sim.
+  // Minimo da observacao do "Nao conforme": o do checklist (0115) quando
+  // preenchido; senao o de Cadastros > Cliente, como antes.
+  const minimoDoModelo = modelos?.find((modelo) => modelo.id === modeloEfetivo)?.minCaracteresObservacao;
+  const minimoDaObservacao = typeof minimoDoModelo === "number" ? minimoDoModelo : minimoDoCliente;
+
   const fotoObrigatoriaPorPergunta =
     tipo === "CONSULTORIA" && (modelos?.find((modelo) => modelo.id === modeloEfetivo)?.fotoObrigatoria ?? false);
 

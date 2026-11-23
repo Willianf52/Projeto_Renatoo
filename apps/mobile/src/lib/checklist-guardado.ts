@@ -110,6 +110,7 @@ export function modeloDaLinha(linha: {
   foto_obrigatoria?: boolean | null;
   quantidade_de_assinaturas?: number | null;
   ordem_aleatoria?: boolean | null;
+  min_caracteres_observacao?: number | null;
 }): ModeloResumido {
   return {
     id: linha.id,
@@ -119,6 +120,7 @@ export function modeloDaLinha(linha: {
     fotoObrigatoria: linha.foto_obrigatoria === true,
     quantidadeDeAssinaturas: assinaturasExigidasPeloModelo(linha.quantidade_de_assinaturas),
     ordemAleatoria: linha.ordem_aleatoria === true,
+    minCaracteresObservacao: linha.min_caracteres_observacao ?? null,
   };
 }
 
@@ -127,7 +129,7 @@ export async function atualizarCopiaDoChecklist(): Promise<void> {
   const [sites, modelos, ligacoes, perguntas] = await Promise.all([
     todasAsPaginas((de, ate) => supabase.from("sites").select("id, grupo_site_id").order("id").range(de, ate)),
     todasAsPaginas((de, ate) =>
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria").order("id").range(de, ate),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria, min_caracteres_observacao").order("id").range(de, ate),
     ),
     todasAsPaginas((de, ate) =>
       supabase
