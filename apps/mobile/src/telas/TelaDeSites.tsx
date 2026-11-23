@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { abrirFila } from "../campo/fila";
-import { rascunhoDeRondaDoSite } from "../campo/rascunho";
+import { dataEHoraDaInspecao, inspecoesEmAndamento, type InspecaoEmAndamento } from "../campo/inspecoes-em-andamento";
+import { inicioDoDia, rascunhoDeRondaDoSite } from "../campo/rascunho";
+import { visitaDoDiaSemChecklist } from "../campo/visita-do-dia";
 import { useSessao } from "../auth/SessaoProvider";
 import { motivoParaNaoAbrir, novoNumeroDeColeta, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { Aviso } from "../componentes/Aviso";
@@ -31,6 +33,11 @@ type Navegador = NativeStackNavigationProp<RotasDoApp>;
  * a visita so e criada no envio do checklist (`campo/visita-pelo-site.ts`), e
  * voltar sem enviar nao deixa visita vazia no banco. Por isso tambem nao ha
  * confirmacao -- um toque sem querer se desfaz com o voltar.
+ *
+ * "INSPECAO EM ANDAMENTO, INICIADA EM ..." embaixo do site (22/11/2026), como
+ * no app do sistema de referencia: o checklist comecado e nao enviado, ou a
+ * visita de hoje lida pelo QR e ainda aberta (`campo/inspecoes-em-andamento.ts`).
+ * O toque nesse site retoma a inspecao, nao abre outra.
  *
  * Com rede, a lista vem do servidor -- o recorte e o do RLS
  * (`pode_ver_grupo_site`): INSPETOR e GESTOR enxergam todos. Sem rede, cai para
@@ -106,6 +113,24 @@ export function TelaDeSites() {
   const { sessao } = useSessao();
   const idDoUsuario = sessao?.user.id ?? null;
 
+  // Relida ao voltar para a lista: o checklist enviado (ou a inspecao
+  // abandonada) tira o aviso do site.
+  const [emAndamento, setEmAndamento] = useState<Map<number, InspecaoEmAndamento>>(new Map());
+  useFocusEffect(
+    useCallback(() => {
+      if (!idDoUsuario) return;
+      let ativo = true;
+      inspecoesEmAndamento(idDoUsuario)
+        .then((mapa) => {
+          if (ativo) setEmAndamento(mapa);
+        })
+        .catch(() => undefined);
+      return () => {
+        ativo = false;
+      };
+    }, [idDoUsuario]),
+  );
+
   const abrir = useCallback(
     async (site: SiteParaVisita) => {
       const motivo = motivoParaNaoAbrir(site);
@@ -122,6 +147,15 @@ export function TelaDeSites() {
         : null;
       if (daRonda) {
         navegacao.navigate("TipoDeVisita", { ...daRonda, site });
+        return;
+      }
+
+      // Visita de hoje lida pelo QR e ainda aberta: reabre ela, como o QR faz.
+      const doDia = idDoUsuario
+        ? await visitaDoDiaSemChecklist(site.id, idDoUsuario, inicioDoDia()).catch(() => null)
+        : null;
+      if (doDia) {
+        navegacao.navigate("TipoDeVisita", { ...doDia, site });
         return;
       }
 
@@ -183,16 +217,27 @@ export function TelaDeSites() {
               <Pressable
                 onPress={() => void abrir(item)}
                 accessibilityRole="button"
-                accessibilityLabel={`Fazer checklist em ${item.nome}`}
+                accessibilityLabel={
+                  emAndamento.has(item.id)
+                    ? `${item.nome}. Inspeção em andamento, iniciada em ${dataEHoraDaInspecao(emAndamento.get(item.id)!.iniciadaEm)}`
+                    : `Fazer checklist em ${item.nome}`
+                }
                 style={({ pressed }) => [
                   estilos.site,
                   larguraDoItem !== undefined && { width: larguraDoItem },
                   pressed && estilos.pressionado,
                 ]}
               >
-                <Text style={estilos.nome} numberOfLines={2}>
-                  {item.nome}
-                </Text>
+                <View style={estilos.miolo}>
+                  <Text style={estilos.nome} numberOfLines={2}>
+                    {item.nome}
+                  </Text>
+                  {emAndamento.has(item.id) ? (
+                    <Text style={estilos.andamento}>
+                      Inspeção em andamento, iniciada em {dataEHoraDaInspecao(emAndamento.get(item.id)!.iniciadaEm)}
+                    </Text>
+                  ) : null}
+                </View>
               </Pressable>
             </EntradaEmCascata>
           )}
@@ -266,5 +311,8 @@ const estilos = StyleSheet.create({
     padding: espaco.interno,
   },
   pressionado: { opacity: 0.7 },
-  nome: { ...texto(tipografia.apoioMedio, { cor: cores.texto }), flex: 1 },
+  miolo: { flex: 1, gap: 2 },
+  nome: texto(tipografia.apoioMedio, { cor: cores.texto }),
+  // O mesmo amarelo das metas pendentes da tela inicial: algo aberto.
+  andamento: texto(tipografia.nota, { cor: "#fbbf24" }),
 });

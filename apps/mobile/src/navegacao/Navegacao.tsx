@@ -201,12 +201,13 @@ export function Navegacao() {
             formulario: e a forma do material que a supervisao distribuiu para
             os inspetores. O `push` para `Checklist` leva o tipo como
             parametro. */}
-        <Pilha.Screen name="TipoDeVisita" options={{ title: "Checklist de visitas" }}>
+        <Pilha.Screen name="TipoDeVisita" options={{ title: "Inspeção" }}>
           {({ route, navigation }) => (
             <TelaDeTipoDeVisita
               visitaId={route.params.visitaId}
               numeroColeta={route.params.numeroColeta}
               siteId={route.params.site?.id ?? null}
+              nomeDoSite={route.params.site?.nome}
               retomado={route.params.retomado === true}
               aoEscolher={(tipo) =>
                 navigation.navigate("Checklist", { ...route.params, tipo })
