@@ -632,8 +632,8 @@ INSPETOR. Nenhum achado crítico. Estado de cada item:
 | M3 | Média | INSPETOR escrevia `criado_em`/`data_integracao`, pendurava QR de outro site e registrava leitura retroativa | Migration 0054: grant por coluna e trigger de validação. **Continua aberto:** prova de presença (coordenada e raio conferidos no servidor) |
 | M4 | Média | MFA não exigido para GESTOR, que redefine senha de qualquer conta | Aberto (mesmo achado da 5.3). Configuração de produção não verificável pela API |
 | L1 | Baixa | INSPETOR/OPERADOR leem sites e QR-codes de todos os clientes (`pode_ver_grupo_site`) | Aberto — depende de vínculo inspetor↔grupo (decisão de produto) |
-| L2 | Baixa | Fila offline em SQLite sem cifra, incluída no backup automático do Android/iCloud | Aberto |
-| L3 | Baixa | `EXPO_PUBLIC_ROTEIRO_SENHA` entra no bundle se estiver no ambiente do build, mesmo com o roteiro desligado | Aberto |
+| L2 | Baixa | Fila offline em SQLite sem cifra, incluída no backup automático do Android/iCloud | Parcial (06/11/2026): `android.allowBackup: false` tira do backup do Android; o do iCloud segue (a pasta de documentos do iOS entra no backup) |
+| L3 | Baixa | `EXPO_PUBLIC_ROTEIRO_SENHA` entra no bundle se estiver no ambiente do build, mesmo com o roteiro desligado | Resolvido (06/11/2026): roteiro do marco 03 e as variaveis `EXPO_PUBLIC_ROTEIRO_*` removidos do app |
 | L4 | Baixa | Importação faz `upsert` sobrescrevendo visitas existentes, inclusive as do app | Aberto |
 | L5 | Info | Redirecionamento para o login duplica a query string | Aberto |
 

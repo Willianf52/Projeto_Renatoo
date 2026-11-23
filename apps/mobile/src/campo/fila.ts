@@ -546,9 +546,3 @@ export async function ultimaSincronizacao(): Promise<string | null> {
   );
   return linha?.valor ?? null;
 }
-
-/** So para o roteiro de teste comecar de uma fila limpa. */
-export async function esvaziarFila(): Promise<void> {
-  const banco = await abrirFila();
-  await banco.execAsync("delete from leituras_na_fila; delete from visitas_na_fila;");
-}

@@ -27,6 +27,7 @@
     },
     "android": {
       "package": "br.com.upservicos.inspecao",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#2b6cb0",
         "foregroundImage": "./assets/android-icon-foreground.png",

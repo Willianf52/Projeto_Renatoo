@@ -97,10 +97,10 @@ vi.mock("expo-file-system", () => {
     }
   }
 
-  return { Directory, File, Paths: { document: "doc" } };
+  return { Directory, File, Paths: { document: "doc", cache: { uri: "cache/" } } };
 });
 
-const { descartarRascunho, guardarFoto, lerRascunho, salvarRascunho } = await import("./rascunho");
+const { apagarDoCache, descartarRascunho, guardarFoto, lerRascunho, salvarRascunho } = await import("./rascunho");
 
 const A = "11111111-2222-4333-8444-555555555555";
 const B = "99999999-8888-4777-8666-555555555555";
@@ -233,6 +233,26 @@ describe("fotos", () => {
     estado.falharCopia = true;
 
     expect(await guardarFoto(42, "cache/camera.jpg")).toBe("cache/camera.jpg");
+    // A origem e a unica copia que sobrou: nao pode sumir.
+    expect(estado.apagados).not.toContain("cache/camera.jpg");
+  });
+
+  it("depois de copiar, apaga a origem do cache", async () => {
+    estado.arquivosQueExistem.add("cache/camera.jpg");
+
+    await guardarFoto(42, "cache/camera.jpg");
+
+    expect(estado.apagados).toContain("cache/camera.jpg");
+  });
+
+  it("apagarDoCache so apaga o que esta no cache", () => {
+    estado.arquivosQueExistem.add("cache/original.jpg");
+    estado.arquivosQueExistem.add("doc/rascunhos/42/foto.jpg");
+
+    apagarDoCache("cache/original.jpg");
+    apagarDoCache("doc/rascunhos/42/foto.jpg");
+
+    expect(estado.apagados).toEqual(["cache/original.jpg"]);
   });
 });
 
