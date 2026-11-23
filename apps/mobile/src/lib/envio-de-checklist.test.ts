@@ -173,6 +173,23 @@ describe("envio bem-sucedido", () => {
     expect(args.p_assinatura_path).toBe(estado.subidos[0]);
   });
 
+  // Duas assinaturas identicas ponto a ponto (desenho por comando no
+  // emulador, 22/11/2026) viravam o mesmo arquivo e o banco recusava a
+  // segunda. Cada uma tem o seu arquivo.
+  it("assinaturas identicas sobem em arquivos separados", async () => {
+    await enviarChecklist({
+      ...CORRETIVA,
+      assinaturas: [
+        { nome: "Willian", png: "iVBORw0KGgo=" },
+        { nome: "Gesiel", png: "iVBORw0KGgo=" },
+      ],
+    });
+
+    const [primeira, segunda] = rpc.mock.calls[0][1].p_assinaturas;
+    expect(primeira.storage_path).not.toBe(segunda.storage_path);
+    expect(estado.subidos.filter((c: string) => c.includes("assinatura"))).toHaveLength(2);
+  });
+
   it("apara o nome antes de mandar", async () => {
     await enviarChecklist({
       ...CORRETIVA,

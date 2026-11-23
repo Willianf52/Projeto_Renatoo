@@ -99,7 +99,7 @@ const FOLGA_DO_REMOVER = (alturaDeControle.padrao - LADO_DO_REMOVER) / 2;
  * UMA PERGUNTA POR VEZ (pedido do dono, 11/10/2026, como no app do sistema de
  * referencia): na consultoria, cada pergunta ocupa a tela, com "Progresso do
  * checklist X de N" e Anterior/Proximo no rodape; depois da ultima vem o
- * resumo, com a assinatura e o "Finalizar visita". A
+ * resumo, com a assinatura e o "Enviar checklist". A
  * corretiva continua numa tela so -- e o motivo, uma foto e a assinatura.
  */
 export function TelaDeChecklist({
@@ -1267,7 +1267,10 @@ export function TelaDeChecklist({
               ) : null}
               <View style={estilos.botaoDaNavegacao}>
                 <Botao
-                  titulo="Finalizar visita"
+                  // "Enviar checklist", e nao "Finalizar visita" (22/11/2026):
+                  // desde a 0114 a inspecao segue aberta depois do envio, e
+                  // quem a encerra e o "Finalizar inspecao" da tela anterior.
+                  titulo="Enviar checklist"
                   larguraTotal
                   carregando={enviando}
                   // Nao desabilitado por campo faltando, de proposito: um botao
