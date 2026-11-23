@@ -97,12 +97,16 @@ export async function enviarChecklist(
       if (problema) return { ok: false, erro: problema };
     }
 
-    // A chave de cada assinatura e o proprio traco: colhida de novo, e outra
-    // imagem e sobe outra vez; a mesma, reaproveita.
+    // A chave de cada assinatura e a POSICAO e o traco: colhida de novo, e
+    // outra imagem e sobe outra vez; a mesma, reaproveita no reenvio. A
+    // posicao entra (22/11/2026) porque duas assinaturas identicas ponto a
+    // ponto caiam na mesma chave, viravam o mesmo arquivo e o banco recusava
+    // a segunda (`checklist_assinaturas_path_unico`). A mao nunca repete um
+    // traco, mas o envio nao pode depender disso: cada uma tem o seu arquivo.
     const assinaturasEnviadas: { nome: string; storage_path: string }[] = [];
 
-    for (const assinatura of envio.assinaturas) {
-      const origemDaAssinatura = `assinatura:${assinatura.png}`;
+    for (const [indice, assinatura] of envio.assinaturas.entries()) {
+      const origemDaAssinatura = `assinatura:${indice}:${assinatura.png}`;
       let caminhoDaAssinatura = jaEnviadas.get(origemDaAssinatura);
 
       if (caminhoDaAssinatura === undefined) {
