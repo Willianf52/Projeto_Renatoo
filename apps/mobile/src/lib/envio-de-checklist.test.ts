@@ -435,7 +435,7 @@ describe("falha de upload", () => {
 });
 
 describe("erro vindo do banco", () => {
-  it("trata a unique de visita_id como envio ja concluido quando fui eu que enviei", async () => {
+  it("trata o reenvio (unique da assinatura, 0114) como envio ja concluido quando fui eu que enviei", async () => {
     // 23505 acontece quando o inspetor toca em Enviar de novo depois de um
     // envio que pareceu falhar mas chegou -- devolver erro ali prendia o
     // inspetor na tela sobre um trabalho que ja estava feito.

@@ -21,7 +21,7 @@ describe("inspecoes em andamento", () => {
     expect(mapa.size).toBe(2);
   });
 
-  it("visita que ja tem checklist enviado nao esta em andamento", () => {
+  it("inspecao ja finalizada no servidor nao esta em andamento", () => {
     const mapa = juntarPorSite([{ siteId: 1, iniciadaEm: "2026-11-22T12:00:00.000Z", visitaId: 10 }], new Set([10]));
     expect(mapa.size).toBe(0);
   });

@@ -19,7 +19,8 @@ export const PAGE_SIZE = 25;
  * Teto de checklists buscados numa consulta. Menor que o `TETO_DE_AGREGACAO`
  * padrao (100 mil) de proposito: `checklists_visita` tem no maximo uma linha
  * por visita (constraint `checklists_visita_visita_unica`, 0042), entao um
- * filtro que passe de 10 mil ja e "o historico inteiro", nao um recorte que
+ * filtro que passe de 10 mil ja e "o historico inteiro" (desde a 0114 uma
+ * visita pode ter varios checklists, mas o teto segue folgado), nao um recorte que
  * alguem va ler.
  */
 export const TETO_DO_HISTORICO = 10_000;

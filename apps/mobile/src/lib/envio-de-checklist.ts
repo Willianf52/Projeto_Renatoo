@@ -231,8 +231,11 @@ export async function enviarChecklist(
       //
       // Quem desempata e `enviado_por` (gravado pelo trigger da 0059, nunca
       // pelo cliente).
+      // Desde a 0114 a visita recebe varios checklists e a unique e a de
+      // `assinatura_path`: o 23505 e o reenvio deste mesmo formulario (o
+      // caminho da assinatura e reaproveitado entre tentativas).
       if (error.code === "23505") {
-        return await desfechoDaVisitaJaFechada(envio.visitaId);
+        return await desfechoDaVisitaJaFechada(dados.assinaturaPath);
       }
 
       // Recusa do RPC que NAO e a unique conhecida: policy, check do banco,
@@ -274,13 +277,13 @@ export const ERRO_FINALIZADA_SEM_CONFIRMAR_AUTOR =
  * este desempate existe para evitar. O custo do lado conservador e o usuario
  * voltar pela seta do header num caso que ja era de rede ruim duas vezes.
  */
-async function desfechoDaVisitaJaFechada(visitaId: number): Promise<ResultadoDoEnvio> {
+async function desfechoDaVisitaJaFechada(assinaturaPath: string): Promise<ResultadoDoEnvio> {
   const [{ data: sessao }, { data: existente, error }] = await Promise.all([
     supabase.auth.getSession(),
     supabase
       .from("checklists_visita")
-      .select("enviado_por")
-      .eq("visita_id", visitaId)
+      .select("id, enviado_por")
+      .eq("assinatura_path", assinaturaPath)
       .maybeSingle(),
   ]);
 
@@ -291,7 +294,8 @@ async function desfechoDaVisitaJaFechada(visitaId: number): Promise<ResultadoDoE
   }
 
   if (existente.enviado_por === eu) {
-    return { ok: true, jaFinalizada: true };
+    // Com o id, a tela ainda oferece o PDF do checklist que ja chegou.
+    return typeof existente.id === "number" ? { ok: true, checklistId: existente.id } : { ok: true, jaFinalizada: true };
   }
 
   return { ok: false, erro: ERRO_FINALIZADA_POR_OUTRA_PESSOA };

@@ -13,12 +13,13 @@ import { inicioDoDia } from "./rascunho";
  *   1. Checklist comecado e nao enviado (rascunho com conteudo), de qualquer
  *      dia: o da ronda pelo QR (`rascunhoDeRondaDoSite`) e o do proprio "Ver
  *      sites" (guardado pelo site, com chave negativa).
- *   2. Visita de HOJE lida pelo QR neste aparelho, sem Termino e sem
- *      checklist enviado (`visitaDoDiaSemChecklist`).
+ *   2. Inspecao de HOJE ainda nao finalizada (`visitaDoDiaAberta`): a lida
+ *      pelo QR neste aparelho (sem Termino na fila) e, com sinal, as do
+ *      servidor com `finalizada_em` nulo -- inclusive a aberta pelo "Ver
+ *      sites", que nasce no envio do primeiro checklist (0114).
  *
- * Tudo sai do aparelho; so a conferencia "ja tem checklist?" das visitas do
- * item 2 pergunta ao servidor. Sem sinal, a visita conta como em andamento:
- * melhor um aviso a mais do que esconder uma inspecao aberta.
+ * Sem sinal, a visita da fila conta como em andamento: melhor um aviso a mais
+ * do que esconder uma inspecao aberta.
  */
 
 export type InspecaoEmAndamento = {
@@ -33,10 +34,10 @@ type Candidata = InspecaoEmAndamento & { visitaId: number | null };
  * Uma por site, a que comecou primeiro (o aviso conta desde quando o site
  * esta aberto). Pura: e a regra que o teste confere.
  */
-export function juntarPorSite(candidatas: readonly Candidata[], comChecklist: ReadonlySet<number>): Map<number, InspecaoEmAndamento> {
+export function juntarPorSite(candidatas: readonly Candidata[], finalizadas: ReadonlySet<number>): Map<number, InspecaoEmAndamento> {
   const porSite = new Map<number, InspecaoEmAndamento>();
   for (const c of candidatas) {
-    if (c.visitaId !== null && comChecklist.has(c.visitaId)) continue;
+    if (c.visitaId !== null && finalizadas.has(c.visitaId)) continue;
     const atual = porSite.get(c.siteId);
     if (!atual || c.iniciadaEm < atual.iniciadaEm) porSite.set(c.siteId, { siteId: c.siteId, iniciadaEm: c.iniciadaEm });
   }
@@ -65,40 +66,52 @@ export async function inspecoesEmAndamento(funcionarioId: string, agora: Date = 
         where r.visita_id < 0 and r.funcionario_id = ? and ${TEM_CONTEUDO}`,
       funcionarioId,
     ),
-    // Visita de hoje, sem Termino (convertida, encerrada ou finalizada).
-    banco.getAllAsync<{ site_id: number; inicio: string; visita_id: number | null }>(
-      `select v.site_id, v.capturado_em as inicio, v.visita_id
+    // Visita de hoje na fila; `finalizada` marca a que tem Termino aqui.
+    banco.getAllAsync<{ site_id: number; inicio: string; visita_id: number | null; chave: string; finalizada: number }>(
+      `select v.site_id, v.capturado_em as inicio, v.visita_id, v.chave,
+              exists (select 1 from leituras_na_fila l where l.chave_da_visita = v.chave and l.termino = 1) as finalizada
          from visitas_na_fila v
         where v.funcionario_id = ?
-          and v.capturado_em >= ?
-          and not exists (
-            select 1 from leituras_na_fila l where l.chave_da_visita = v.chave and l.termino = 1
-          )`,
+          and v.capturado_em >= ?`,
       funcionarioId,
       inicioDoDia(agora),
     ),
   ]);
+
+  const finalizadasAqui = new Set(doDia.filter((l) => l.finalizada).map((l) => l.chave));
 
   const candidatas: Candidata[] = [
     // O rascunho da ronda vale mesmo com checklist ja enviado? Nao chega a
     // acontecer: o envio descarta o rascunho. Entra sem `visitaId`.
     ...daRonda.map((l) => ({ siteId: l.site_id, iniciadaEm: l.inicio, visitaId: null })),
     ...doVerSites.map((l) => ({ siteId: l.site_id, iniciadaEm: l.inicio, visitaId: null })),
-    ...doDia.map((l) => ({ siteId: l.site_id, iniciadaEm: l.inicio, visitaId: l.visita_id })),
+    ...doDia
+      .filter((l) => !l.finalizada)
+      .map((l) => ({ siteId: l.site_id, iniciadaEm: l.inicio, visitaId: l.visita_id })),
   ];
 
-  const ids = doDia.map((l) => l.visita_id).filter((id): id is number => id !== null);
-  const comChecklist = new Set<number>();
-  if (ids.length > 0) {
-    try {
-      const { data } = await supabase.from("checklists_visita").select("visita_id").in("visita_id", ids);
-      for (const linha of data ?? []) comChecklist.add(linha.visita_id);
-    } catch {
-      // Sem sinal: fica como em andamento (ver o cabecalho).
+  // As de hoje no servidor: as abertas entram (a do "Ver sites" so existe
+  // la); as finalizadas tiram a da fila que ja foi enviada.
+  const finalizadasNoServidor = new Set<number>();
+  try {
+    const { data, error } = await supabase
+      .from("visitas")
+      .select("id, site_id, criado_em, numero_coleta, finalizada_em")
+      .eq("funcionario_id", funcionarioId)
+      .gte("criado_em", inicioDoDia(agora));
+    if (!error) {
+      for (const v of data ?? []) {
+        if (v.finalizada_em !== null) finalizadasNoServidor.add(v.id);
+        else if (!finalizadasAqui.has(v.numero_coleta)) {
+          candidatas.push({ siteId: v.site_id, iniciadaEm: v.criado_em, visitaId: v.id });
+        }
+      }
     }
+  } catch {
+    // Sem sinal: fica so o que o aparelho sabe (ver o cabecalho).
   }
 
-  return juntarPorSite(candidatas, comChecklist);
+  return juntarPorSite(candidatas, finalizadasNoServidor);
 }
 
 /** "22/11/2026 14:05", no fuso do aparelho. */

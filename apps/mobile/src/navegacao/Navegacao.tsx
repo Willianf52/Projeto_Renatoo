@@ -243,17 +243,14 @@ export function Navegacao() {
               site={route.params.site}
               numeroColeta={route.params.numeroColeta}
               tipo={route.params.tipo}
-              // `pop(2)` e nao `goBack`: ha duas telas entre a origem (a lista
-              // ou a camera) e aqui -- a escolha do tipo no meio --, e um voltar simples
-              // devolveria o inspetor a pergunta "que tipo de visita?" logo
-              // depois de ele ter terminado uma. Desempilhar as duas mantem o
-              // que o `goBack` dava -- a lista continua montada embaixo, com a
-              // rolagem de onde ele saiu.
-              //
-              // A faixa confirma o envio na tela de origem: sem ela, o
-              // inspetor voltava a camera sem saber se o checklist tinha ido.
-              aoConcluir={() => {
-                navigation.pop(2);
+              // Volta para a tela da INSPECAO (0114, 22/11/2026), e nao mais
+              // para a origem: a inspecao segue aberta para outro checklist ou
+              // para o "Finalizar inspecao". `popTo` atualiza os parametros:
+              // a visita do "Ver sites" nasce no envio, e a tela passa a
+              // conhecer o id dela. A faixa confirma o envio.
+              aoConcluir={(visitaId) => {
+                const { tipo: _tipo, ...daInspecao } = route.params;
+                navigation.popTo("TipoDeVisita", { ...daInspecao, visitaId, retomado: false });
                 mostrar("Checklist enviado.");
               }}
             />

@@ -35,8 +35,11 @@ import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema
  * coisas diferentes (motivo de um lado, as perguntas do modelo do outro), e
  * o voltar do checklist descarta o formulario e volta para ca.
  *
- * "Finalizar inspecao" grava o Termino (o mesmo do "Converter para Visita"),
- * mas so depois de ao menos um checklist enviado e sem nenhum comecado.
+ * VARIOS CHECKLISTS NA MESMA INSPECAO (0114): depois do envio o checklist
+ * volta para ca, e a inspecao segue aberta para outro. "Finalizar inspecao"
+ * grava o Termino (o mesmo do "Converter para Visita"), que no banco marca
+ * `visitas.finalizada_em`; pede ao menos um checklist enviado e nenhum
+ * comecado. Esquecida, a inspecao fecha sozinha a meia-noite.
  */
 
 const DESCRICAO: Record<TipoDeVisita, string> = {
@@ -314,7 +317,11 @@ export function TelaDeTipoDeVisita({
         return (
           <Pressable
             key={tipo}
-            onPress={() => aoEscolher(tipo)}
+            onPress={() => {
+              // Fecha a escolha: o checklist volta para ca depois do envio.
+              setEscolhendo(false);
+              aoEscolher(tipo);
+            }}
             accessibilityRole="button"
             accessibilityLabel={`${ROTULO_DO_TIPO[tipo]}. ${DESCRICAO[tipo]}`}
             // Cartao inteiro como alvo de toque, e nao so o texto: o aparelho
@@ -364,6 +371,10 @@ export function TelaDeTipoDeVisita({
 
       {erro ? <Aviso mensagem={erro} /> : null}
 
+      {/* Com checklist enviado, a inspecao so termina no Finalizar: converter
+          (so a presenca) e abandonar (apagar) deixam de fazer sentido, e o
+          banco recusa abandonar inspecao com checklist (0088). */}
+      {finalizados === 0 ? (
       <View style={estilos.acoes}>
         {visitaId !== null ? (
           <Botao
@@ -384,6 +395,7 @@ export function TelaDeTipoDeVisita({
           aoPressionar={abandonar}
         />
       </View>
+      ) : null}
     </ScrollView>
   );
 }

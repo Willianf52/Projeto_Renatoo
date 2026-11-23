@@ -6,7 +6,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { abrirFila } from "../campo/fila";
 import { dataEHoraDaInspecao, inspecoesEmAndamento, type InspecaoEmAndamento } from "../campo/inspecoes-em-andamento";
 import { inicioDoDia, rascunhoDeRondaDoSite } from "../campo/rascunho";
-import { visitaDoDiaSemChecklist } from "../campo/visita-do-dia";
+import { visitaDoDiaAberta } from "../campo/visita-do-dia";
 import { useSessao } from "../auth/SessaoProvider";
 import { motivoParaNaoAbrir, novoNumeroDeColeta, type SiteParaVisita } from "../campo/visita-pelo-site";
 import { Aviso } from "../componentes/Aviso";
@@ -152,7 +152,7 @@ export function TelaDeSites() {
 
       // Visita de hoje lida pelo QR e ainda aberta: reabre ela, como o QR faz.
       const doDia = idDoUsuario
-        ? await visitaDoDiaSemChecklist(site.id, idDoUsuario, inicioDoDia()).catch(() => null)
+        ? await visitaDoDiaAberta(site.id, idDoUsuario, inicioDoDia()).catch(() => null)
         : null;
       if (doDia) {
         navegacao.navigate("TipoDeVisita", { ...doDia, site });

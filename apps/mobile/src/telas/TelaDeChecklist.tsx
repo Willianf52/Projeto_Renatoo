@@ -124,7 +124,12 @@ export function TelaDeChecklist({
    * explicito, em vez de esvaziar respostas por baixo do dedo.
    */
   tipo: TipoDeVisita;
-  aoConcluir: () => void;
+  /**
+   * Depois do envio, com o id da visita (a do "Ver sites" nasce no envio):
+   * volta para a tela da inspecao, que segue aberta para outro checklist
+   * ou para o "Finalizar inspecao" (0114).
+   */
+  aoConcluir: (visitaId: number) => void;
 }) {
   const { sessao } = useSessao();
   const funcionarioId = sessao?.user.id ?? null;
@@ -761,6 +766,8 @@ export function TelaDeChecklist({
         return;
       }
 
+      const visitaEnviada = visitaCriada.current;
+
       // O checklist ja esta no banco: o rascunho perdeu o motivo de existir.
       // Falhar aqui nao desfaz o envio, entao so registra e segue.
       envioConcluido.current = true;
@@ -779,7 +786,7 @@ export function TelaDeChecklist({
           "Checklist enviado",
           "Quer abrir o PDF desta inspeção para mostrar ao cliente?",
           [
-            { text: "Agora não", style: "cancel", onPress: aoConcluir },
+            { text: "Agora não", style: "cancel", onPress: () => aoConcluir(visitaEnviada) },
             {
               text: "Baixar PDF",
               onPress: () => {
@@ -787,14 +794,14 @@ export function TelaDeChecklist({
                   .then((falha) => {
                     if (falha) Alert.alert("PDF", `${falha} O PDF também fica em Checklists respondidos.`);
                   })
-                  .finally(aoConcluir);
+                  .finally(() => aoConcluir(visitaEnviada));
               },
             },
           ],
           { cancelable: false },
         );
       } else {
-        aoConcluir();
+        aoConcluir(visitaEnviada);
       }
     } catch {
       // `enviarChecklist` nao rejeita, mas a captura da assinatura e o resto

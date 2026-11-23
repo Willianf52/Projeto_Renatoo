@@ -30,14 +30,20 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     const { visitaId } = await registrarRonda(inspetor, { site: "Agência Centro", minutos: 20 });
     const checklistId = await enviarChecklistCorretivo(inspetor, visitaId, motivo);
 
-    // Reenvio da mesma visita: a unique de `visita_id` recusa, e o app traduz
-    // 23505 para "ja finalizada". Um segundo checklist aqui seria a inspecao
-    // duplicada que a constraint existe para impedir.
+    // Reenvio do MESMO formulario (o app reaproveita o caminho da assinatura
+    // entre tentativas): a unique de `assinatura_path` (0114) recusa, e o app
+    // traduz 23505 para "ja enviado". Desde a 0114 a visita aceita outros
+    // checklists, cada um com a propria assinatura.
+    const { data: enviado } = await inspetor
+      .from("checklists_visita")
+      .select("assinatura_path")
+      .eq("id", checklistId)
+      .single();
     const reenvio = await inspetor.rpc("registrar_checklist", {
       p_visita_id: visitaId,
       p_tipo: "CORRETIVA",
       p_motivo: motivo,
-      p_assinatura_path: `${visitaId}/assinatura-reenvio.png`,
+      p_assinatura_path: enviado?.assinatura_path ?? "",
       p_fotos: [],
       p_respostas: [],
     });

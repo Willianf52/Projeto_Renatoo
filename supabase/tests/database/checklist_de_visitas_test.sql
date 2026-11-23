@@ -9,7 +9,9 @@
 --   3) CORRETIVA sem motivo é recusada pelo check, não pela tela -- nega.
 --   4) CONSULTORIA *com* motivo também é recusada (o check vale nos dois
 --      sentidos, senão o app poderia gravar motivo onde ele não existe).
---   5) Uma visita não recebe dois checklists (unique) -- nega o reenvio.
+--   5) O reenvio do mesmo formulario (mesma assinatura) nao vira um segundo
+--      checklist -- nega. Desde a 0114 a visita aceita varios checklists, e a
+--      guarda do reenvio e a unique de `assinatura_path`.
 --   6) INSPETOR não pendura resposta em checklist de outro inspetor -- nega.
 --   7) INSPETOR inativo não grava checklist -- nega (`usuario_ativo()` entra
 --      na conjunção de `e_inspetor()`).
@@ -193,7 +195,7 @@ select throws_ok(
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 5) Uma visita não recebe dois checklists (reenvio do app sem sinal).
+-- 5) Reenvio do app sem sinal (mesma assinatura) nao duplica (0114).
 -- ---------------------------------------------------------------------------
 set local role authenticated;
 set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011", "role": "authenticated"}';
@@ -201,12 +203,12 @@ set local "request.jwt.claims" to '{"sub": "f0000000-0000-0000-0000-000000000011
 select throws_ok(
   format(
     $$ insert into public.checklists_visita (visita_id, tipo, assinatura_path)
-       values (%1$L, 'CONSULTORIA', '%1$s/y.png') $$,
+       values (%1$L, 'CONSULTORIA', '%1$s/assinatura.png') $$,
     (select valor from ids_teste where chave = 'visita_a')
   ),
   '23505',
   null,
-  'Reenvio nao cria um segundo checklist para a mesma visita'
+  'Reenvio (mesma assinatura) nao cria um segundo checklist'
 );
 
 reset role;
