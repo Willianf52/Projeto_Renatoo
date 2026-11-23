@@ -13,6 +13,11 @@ import { registrarFoto, removerFoto } from "./actions";
  * ou a de outra pessoa, pelo GESTOR na edicao do usuario. O arquivo sobe do
  * navegador direto para o bucket privado (o RLS confere quem pode) e a action
  * registra a troca.
+ *
+ * A previa depois do envio vem do LINK ASSINADO do bucket, e nao de um
+ * `URL.createObjectURL` do arquivo escolhido (auditoria de 23/11/2026, alerta
+ * do CodeQL js/xss-through-dom): nada que vem do campo de arquivo chega ao
+ * `src` da imagem, so o que o proprio armazenamento devolveu.
  */
 export function EditorDeFoto({ usuarioId, fotoAtual }: { usuarioId: string; fotoAtual: string | null }) {
   const router = useRouter();
@@ -44,7 +49,12 @@ export function EditorDeFoto({ usuarioId, fotoAtual }: { usuarioId: string; foto
       setMensagem({ texto: resultado.erro, erro: true });
       return;
     }
-    setPrevia(URL.createObjectURL(arquivo));
+    // Link temporario da foto que acabou de ser guardada (uma hora, como a
+    // pagina). Sem ele, a pagina recarregada mostra a nova de todo modo.
+    const { data: assinado } = await supabase.storage
+      .from(BUCKET_DAS_FOTOS)
+      .createSignedUrl(caminhoDaFoto(usuarioId), 60 * 60);
+    if (assinado?.signedUrl) setPrevia(assinado.signedUrl);
     setMensagem({ texto: "Foto salva.", erro: false });
     router.refresh();
   }
