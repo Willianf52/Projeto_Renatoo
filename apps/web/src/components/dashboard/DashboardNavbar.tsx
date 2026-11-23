@@ -7,16 +7,20 @@ import { BrandLogo } from "@/components/HeroPanel";
 import { Spinner } from "@/components/Spinner";
 import { createClient } from "@/lib/supabase/client";
 import { AlternarTema } from "./AlternarTema";
-import { ChevronDownIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
+import { SinoDeNotificacoes } from "./SinoDeNotificacoes";
+import { ChevronDownIcon, LogoutIcon, MenuIcon } from "./icons";
 
 export function DashboardNavbar({
   identidade,
   organization,
   onToggleSidebar,
+  menuRecolhido = false,
 }: {
   identidade: React.ReactNode;
   organization: string;
   onToggleSidebar: () => void;
+  /** Tela grande com o menu lateral recolhido: muda so o texto do botao. */
+  menuRecolhido?: boolean;
 }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -63,8 +67,9 @@ export function DashboardNavbar({
       <button
         type="button"
         onClick={onToggleSidebar}
-        aria-label="Alternar menu"
-        className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white lg:hidden"
+        aria-label={menuRecolhido ? "Mostrar menu" : "Alternar menu"}
+        title={menuRecolhido ? "Mostrar menu" : "Recolher menu"}
+        className="rounded-md p-2 text-slate-300 hover:bg-slate-800 hover:text-white"
       >
         <MenuIcon className="h-5 w-5" />
       </button>
@@ -92,11 +97,10 @@ export function DashboardNavbar({
       </div>
 
       <div className="relative ml-auto flex items-center gap-3">
+        <SinoDeNotificacoes />
         <AlternarTema />
+        {/* Avatar (com a foto, 0112) e nome vem prontos do servidor. */}
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-green/20 text-brand-green">
-            <UserIcon className="h-5 w-5" />
-          </span>
           {identidade}
         </div>
 

@@ -28,9 +28,9 @@ import { numeroDaColeta } from "../lib/titulo-da-coleta";
 import { colunaDeLeitura, cores, espaco, texto, tipografia } from "../tema";
 
 /** Colunas que a lista mostra -- recorte de `visitas` do schema real. */
-type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" | "criado_em"> & {
-  /** O checklist da visita, se ja houver -- a unique da 0042 faz disto 1:1. */
-  checklists_visita: { id: number } | null;
+type VisitaNaLista = Pick<Tables<"visitas">, "id" | "numero_coleta" | "site_id" | "criado_em" | "finalizada_em"> & {
+  /** Os checklists da visita: desde a 0114 a inspecao recebe varios. */
+  checklists_visita: { id: number }[];
 };
 
 export function TelaDeInspecoes() {
@@ -192,15 +192,15 @@ export function TelaDeInspecoes() {
                     cargos so leem. O portao de verdade e
                     `autorizacao.pode_finalizar_visita` (0059) -- isto aqui e para
                     nao oferecer o que o banco vai recusar. */}
-                {item.checklists_visita ? (
-                  // Ja fechada: sem botao para ninguem. Desde a 0059 sao duas
-                  // pessoas que podem fechar a mesma visita, e oferecer o botao
-                  // aqui era convidar a preencher um checklist inteiro que o
-                  // banco vai recusar pela unique de `visita_id`.
+                {item.checklists_visita.length > 0 ? (
+                  <LinhaDoCartao rotulo="Checklists" valor={String(item.checklists_visita.length)} />
+                ) : null}
+                {item.finalizada_em ? (
+                  // Inspecao finalizada (0114): sem botao para ninguem.
                   <LinhaDoCartao rotulo="Situação" valor="Finalizada" />
                 ) : podeFinalizar ? (
                   <Botao
-                    titulo="Finalizar visita"
+                    titulo="Abrir inspeção"
                     variante="secundaria"
                     tamanho="medio"
                     larguraTotal
@@ -232,7 +232,7 @@ async function lerVisitas(
 ): Promise<{ visitas: VisitaNaLista[]; erro: string | null }> {
   const consulta = supabase
     .from("visitas")
-    .select("id, numero_coleta, site_id, criado_em, checklists_visita ( id )");
+    .select("id, numero_coleta, site_id, criado_em, finalizada_em, checklists_visita ( id )");
 
   // `funcionario_id = auth.uid()` e o ramo da policy "Leitura da operacao no
   // escopo" (0014, revisada na 0029) que atende um INSPETOR ativo. O filtro

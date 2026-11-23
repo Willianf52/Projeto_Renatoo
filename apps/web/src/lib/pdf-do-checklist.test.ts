@@ -13,6 +13,7 @@ const {
   assinaturasParaDesenhar,
   enderecoDoSite,
   gerarPdfDoChecklist,
+  gerarPdfUnificado,
   legendaDaAssinatura,
   nomeDoArquivo,
   notaComVirgula,
@@ -222,5 +223,44 @@ describe("cabecalho no formato do antigo", () => {
 describe("nomeDoArquivo", () => {
   it("sem Numero/Ano, usa o id", () => {
     expect(nomeDoArquivo({ linha: { id: 46, numeroAno: "" } as never })).toBe("checklist-46.pdf");
+  });
+});
+
+/** PDF Unificado do Historico no desenho do antigo (10/11/2026). */
+describe("gerarPdfUnificado", () => {
+  const arquivos = { "113/foto-1.jpg": PNG, "113/foto-2.jpg": PNG, "113/assinatura-a.png": PNG, "113/assinatura-b.png": PNG };
+
+  it("o desenho unificado de um checklist e um PDF valido", async () => {
+    getChecklist.mockResolvedValue(DETALHE);
+
+    const pdf = await gerarPdfDoChecklist(bancoFalso(arquivos), 46, new Date(), "unificado");
+
+    const lido = await PDFDocument.load(pdf!.arquivo);
+    expect(lido.getPageCount()).toBeGreaterThanOrEqual(1);
+  });
+
+  it("junta os checklists num arquivo so, cada um com as suas folhas", async () => {
+    getChecklist.mockResolvedValue(DETALHE);
+    const um = await gerarPdfDoChecklist(bancoFalso(arquivos), 46, new Date(), "unificado");
+    const folhasDeUm = (await PDFDocument.load(um!.arquivo)).getPageCount();
+
+    const unificado = await gerarPdfUnificado(bancoFalso(arquivos), [46, 46, 46]);
+
+    expect((await PDFDocument.load(unificado)).getPageCount()).toBe(folhasDeUm * 3);
+  });
+
+  it("checklist que sumiu fica de fora sem derrubar o resto", async () => {
+    getChecklist.mockImplementation(async (_admin: unknown, id: number) => (id === 46 ? DETALHE : null));
+    const um = await gerarPdfDoChecklist(bancoFalso(arquivos), 46, new Date(), "unificado");
+
+    const unificado = await gerarPdfUnificado(bancoFalso(arquivos), [46, 999]);
+
+    expect((await PDFDocument.load(unificado)).getPageCount()).toBe((await PDFDocument.load(um!.arquivo)).getPageCount());
+  });
+
+  it("sem checklist nenhum, uma folha com o aviso", async () => {
+    const unificado = await gerarPdfUnificado(bancoFalso({}), []);
+
+    expect((await PDFDocument.load(unificado)).getPageCount()).toBe(1);
   });
 });

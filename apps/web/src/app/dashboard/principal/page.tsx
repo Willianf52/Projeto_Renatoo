@@ -5,9 +5,22 @@ import { GridIcon, PinIcon } from "@/components/dashboard/icons";
 import { TELAS_DO_MENU } from "@/components/dashboard/telas-do-menu";
 import { TAMANHO_DA_GRADE } from "@/lib/atalhos";
 import { PersonalizarAtalhos } from "./PersonalizarAtalhos";
-import { lerAtalhos } from "./queries";
+import { lerAtalhos, lerResumoDoDia } from "./queries";
 
 const TELA_POR_ROTA = new Map(TELAS_DO_MENU.map((tela) => [tela.href, tela]));
+
+/**
+ * Cada secao do menu ganha um tom da marca (o azul, o verde e o vermelho do
+ * arco da logo, mais o ambar): o icone do atalho passa a dizer, pela cor, de
+ * onde a tela vem. So o icone e o fundo dele mudam; o texto segue o tema.
+ */
+const TOM_DA_SECAO: Record<string, string> = {
+  Cadastros: "bg-brand-blue/10 text-brand-blue group-hover:bg-brand-blue/20",
+  "Inspeções": "bg-brand-green/10 text-brand-green group-hover:bg-brand-green/20",
+  Eventos: "bg-red-400/10 text-red-400 group-hover:bg-red-400/20",
+  ChecklistLab: "bg-amber-400/10 text-amber-400 group-hover:bg-amber-400/20",
+};
+const TOM_PADRAO = "bg-brand-green/10 text-brand-green group-hover:bg-brand-green/20";
 
 /**
  * Pagina Principal -- os "Atalhos da Tela Inicial" do sistema de referencia
@@ -27,9 +40,77 @@ export default function PaginaPrincipal() {
         <Breadcrumbs items={[{ label: "Principal" }]} />
       </div>
 
+      <Suspense fallback={<ResumoEsqueleto />}>
+        <ResumoDeHoje />
+      </Suspense>
+
       <Suspense fallback={<GradeEsqueleto />}>
         <Atalhos />
       </Suspense>
+    </div>
+  );
+}
+
+/** "Resumo de hoje": tres numeros reais, cada um levando a tela que o explica. */
+async function ResumoDeHoje() {
+  const [resumo, { ehGestor }] = await Promise.all([lerResumoDoDia(), lerAtalhos()]);
+  const cartoes = [
+    ehGestor && resumo.eventosEmAberto !== null
+      ? {
+          rotulo: "Eventos em aberto",
+          valor: resumo.eventosEmAberto,
+          href: "/dashboard/eventos/painel-de-eventos?status=ABERTAS",
+          tom: "text-red-400",
+          fita: "bg-red-400",
+        }
+      : null,
+    resumo.checklistsHoje !== null
+      ? {
+          rotulo: "Checklists enviados hoje",
+          valor: resumo.checklistsHoje,
+          href: `/dashboard/checklistlab/historico-de-checklist?campo_data=finalizacao&data_inicial=${resumo.hoje}&data_final=${resumo.hoje}`,
+          tom: "text-amber-400",
+          fita: "bg-amber-400",
+        }
+      : null,
+    resumo.visitasHoje !== null
+      ? {
+          rotulo: "Visitas registradas hoje",
+          valor: resumo.visitasHoje,
+          href: `/dashboard/inspecoes/coletas-importadas?data_inicial=${resumo.hoje}&data_final=${resumo.hoje}`,
+          tom: "text-brand-green",
+          fita: "bg-brand-green",
+        }
+      : null,
+  ].filter((c): c is NonNullable<typeof c> => c !== null);
+
+  if (cartoes.length === 0) return null;
+
+  return (
+    <section aria-label="Resumo de hoje" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {cartoes.map((c, i) => (
+        <Link
+          key={c.rotulo}
+          href={c.href}
+          className="group relative overflow-hidden rounded-xl bg-brand-surface px-5 py-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md animate-fade-in-up"
+          style={{ animationDelay: `${i * 60}ms` }}
+        >
+          <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${c.fita}`} />
+          <span className="block text-xs font-semibold uppercase tracking-wider text-brand-muted">{c.rotulo}</span>
+          <span className={`mt-1 block text-3xl font-bold tabular-nums tracking-tight ${c.tom}`}>{c.valor}</span>
+          <span className="mt-1 block text-xs text-brand-muted transition-colors group-hover:text-white">Ver detalhes</span>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+function ResumoEsqueleto() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="brilho-de-carregamento h-[92px] animate-pulse rounded-xl bg-brand-surface shadow-sm" />
+      ))}
     </div>
   );
 }
@@ -40,8 +121,8 @@ async function Atalhos() {
 
   return (
     <div
-      className="overflow-hidden rounded-lg bg-brand-surface shadow-sm animate-fade-in-up"
-      style={{ animationDelay: "80ms" }}
+      className="overflow-hidden rounded-xl bg-brand-surface shadow-sm animate-fade-in-up"
+      style={{ animationDelay: "120ms" }}
     >
       <Cabecalho>
         <PersonalizarAtalhos grade={grade} fixados={fixados} ehGestor={ehGestor} />
@@ -73,9 +154,9 @@ async function Atalhos() {
               <li key={rota} className="animate-fade-in-up" style={{ animationDelay: `${indice * 30}ms` }}>
                 <Link
                   href={rota}
-                  className="group relative flex h-full items-center gap-4 rounded-lg border border-slate-800 bg-brand-navy px-4 py-5 transition-colors hover:border-brand-green/60"
+                  className="group relative flex h-full items-center gap-4 rounded-xl border border-slate-800 bg-brand-navy px-4 py-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-green/50 hover:shadow-md"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-green/10 text-brand-green transition-colors group-hover:bg-brand-green/20">
+                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${TOM_DA_SECAO[tela.secao] ?? TOM_PADRAO}`}>
                     <Icone className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">

@@ -72,6 +72,7 @@ describe("extrairFiltros", () => {
       extrairFiltros({
         busca: "AGC",
         tipo_servico: "7",
+        site: "12",
         grupo_site: "1",
         situacao: "inativos",
         pagina: "2",
@@ -79,6 +80,7 @@ describe("extrairFiltros", () => {
     ).toEqual({
       busca: "AGC",
       tipoServico: "7",
+      site: "12",
       grupoSite: "1",
       situacao: "inativos",
       pagina: 2,

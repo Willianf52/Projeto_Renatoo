@@ -1,11 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
-import { ROTULO_DO_TIPO_DE_RESPOSTA, TIPOS_DE_RESPOSTA } from "@projeto-renatoo/shared";
+import { useActionState, useState } from "react";
+import {
+  ROTULO_DO_TIPO_DE_RESPOSTA,
+  TIPOS_DE_RESPOSTA,
+  respostasDoTipo,
+  rotuloDaResposta,
+} from "@projeto-renatoo/shared";
 import { Button } from "@/components/Button";
 import { ChevronDownIcon } from "@/components/dashboard/icons";
 import { getInputClasses } from "@/components/FormField";
 import { salvarPergunta, type EstadoDoFormulario, type ValoresDaPergunta } from "./actions";
+import type { OpcaoDeBase } from "./queries";
 
 const LISTAGEM = "/dashboard/checklistlab/perguntas";
 
@@ -17,6 +23,7 @@ export function PerguntaForm({
   modelos,
   grupos,
   eventos,
+  bases,
 }: {
   /** Ausente na criacao; presente na edicao. */
   id?: number;
@@ -24,6 +31,8 @@ export function PerguntaForm({
   modelos: { value: string; label: string }[];
   grupos: { value: string; label: string }[];
   eventos: { value: string; label: string }[];
+  /** Perguntas que podem ser base de condicional (0108), de todos os modelos. */
+  bases: OpcaoDeBase[];
 }) {
   const [estado, formAction, enviando] = useActionState<EstadoDoFormulario, FormData>(
     salvarPergunta,
@@ -35,6 +44,14 @@ export function PerguntaForm({
   const valores = estado.valores ?? valoresIniciais;
   const editando = id !== undefined;
   const nomeDoModelo = modelos.find((modelo) => modelo.value === valores.modelo)?.label ?? "";
+
+  // O modelo e a base mudam o que a condicional oferece: a base precisa ser do
+  // mesmo modelo, e as respostas-gatilho sao as do tipo da base. A `key` no
+  // select de resposta reinicia a escolha quando a base troca.
+  const [modeloEscolhido, setModeloEscolhido] = useState(valores.modelo);
+  const [base, setBase] = useState(valores.base);
+  const basesDoModelo = bases.filter((b) => b.modelo === modeloEscolhido && b.value !== String(id ?? ""));
+  const tipoDaBase = basesDoModelo.find((b) => b.value === base)?.tipo;
 
   return (
     <form action={formAction} className="space-y-4 p-4">
@@ -83,6 +100,10 @@ export function PerguntaForm({
                 name="modelo"
                 required
                 defaultValue={valores.modelo}
+                onChange={(evento) => {
+                  setModeloEscolhido(evento.target.value);
+                  setBase("");
+                }}
                 className={`peer ${getInputClasses(false)} appearance-none pr-9`}
               >
                 {modelos.map((modelo) => (
@@ -208,6 +229,108 @@ export function PerguntaForm({
           </p>
         </div>
       </div>
+
+      {/* "Obrigatorio" (0099), como no sistema de referencia. */}
+      <div>
+        <label htmlFor="obrigatoria" className={rotuloClasses}>
+          Obrigatória
+        </label>
+        <div className="relative">
+          <select
+            id="obrigatoria"
+            name="obrigatoria"
+            defaultValue={valores.obrigatoria ? "sim" : "nao"}
+            className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+          >
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+        </div>
+        <p className="mt-1.5 text-xs text-brand-muted">
+          Não: o inspetor pode passar sem responder esta pergunta no app.
+        </p>
+      </div>
+
+      {/* Peso e condicional (0108), como no cadastro do sistema de referencia. */}
+      <div>
+        <label htmlFor="peso" className={rotuloClasses}>
+          Peso
+        </label>
+        <input
+          id="peso"
+          name="peso"
+          type="number"
+          min={1}
+          max={10}
+          required
+          defaultValue={valores.peso}
+          className={getInputClasses(Boolean(estado.erro))}
+        />
+        <p className="mt-1.5 text-xs text-brand-muted">
+          De 1 a 10. A nota do checklist é a média ponderada: uma pergunta de peso 3 vale três vezes uma de peso 1.
+        </p>
+      </div>
+
+      <fieldset className="space-y-3 rounded-md border border-slate-800 p-3">
+        <legend className="px-1 text-xs font-medium uppercase tracking-wide text-brand-muted">
+          Mostrar esta pergunta só quando
+        </legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="base" className={rotuloClasses}>
+              Pergunta base
+            </label>
+            <div className="relative">
+              <select
+                id="base"
+                name="base"
+                value={base}
+                onChange={(evento) => setBase(evento.target.value)}
+                className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+              >
+                <option value="">Sempre mostrar</option>
+                {basesDoModelo.map((opcao) => (
+                  <option key={opcao.value} value={opcao.value}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+            </div>
+          </div>
+          {tipoDaBase ? (
+            <div>
+              <label htmlFor="gatilho" className={rotuloClasses}>
+                For respondida com
+                <span className="text-red-400"> *</span>
+              </label>
+              <div className="relative">
+                <select
+                  key={base}
+                  id="gatilho"
+                  name="gatilho"
+                  required
+                  defaultValue={base === valores.base ? valores.gatilho : ""}
+                  className={`peer ${getInputClasses(false)} appearance-none pr-9`}
+                >
+                  <option value="">Escolha</option>
+                  {respostasDoTipo(tipoDaBase).map((resposta) => (
+                    <option key={resposta} value={resposta}>
+                      {rotuloDaResposta(tipoDaBase, resposta)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand-muted transition-transform duration-200 peer-focus:rotate-180" />
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <p className="text-xs text-brand-muted">
+          Exemplo: &quot;Qual o problema?&quot; aparece só quando a anterior for Não conforme. A pergunta base é do
+          mesmo modelo e não pode ser condicional. Escondida, a pergunta não é cobrada nem enviada.
+        </p>
+      </fieldset>
 
       <div>
         <label htmlFor="status" className={rotuloClasses}>

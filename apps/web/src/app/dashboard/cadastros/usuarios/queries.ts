@@ -34,6 +34,8 @@ export type UsuarioFiltros = {
 
 export type UsuarioRow = {
   id: string;
+  /** Numero da conta (0095), a coluna ID da lista. Nao e o ID do sistema antigo. */
+  numero: number;
   nome_completo: string | null;
   login: string | null;
   email: string;
@@ -139,6 +141,7 @@ export async function getGruposUsuarios(): Promise<FilterOption[]> {
 export function montarSelectDeUsuarios(filtrandoPorGrupo: boolean): string {
   return `
       id,
+      numero,
       nome_completo,
       login,
       email,
@@ -262,6 +265,7 @@ export async function getUsuarios(filtros: UsuarioFiltros): Promise<{
 
 /** Colunas do "Exportar para Excel": as da tabela, sem "Ações". */
 export const COLUNAS_EXPORTACAO = [
+  "ID",
   "Nome",
   "Login",
   "Usuário Superior",
@@ -444,6 +448,7 @@ export async function getEscopoDoCliente(profileId: string): Promise<string[]> {
  */
 export function toTableRow(usuario: UsuarioRow): string[] {
   return [
+    String(usuario.numero),
     usuario.nome_completo ?? "",
     usuario.login ?? "",
     usuario.superior?.nome_completo ?? "",

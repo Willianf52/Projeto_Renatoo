@@ -20,7 +20,7 @@
 
 begin;
 
-select plan(25);
+select plan(27);
 
 -- ---------------------------------------------------------------------------
 -- Fixture (como postgres: ignora RLS so para montar o cenario)
@@ -201,16 +201,32 @@ select results_eq(
 
 -- 4) Ranking de Inspecoes ------------------------------------------------------------
 
+-- Tipo (0100), como no antigo: VISITA uma por visita, INSPECAO uma por QR
+-- lido, sem tipo a soma. A tem 4 visitas e 1 QR lido (V2), B 2 visitas.
+select results_eq(
+  $$ select nome, quantidade from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03',
+       '{"tipo": "VISITA"}') where funcionario_id::text like 'e0490000%' order by nome $$,
+  $$ values ('Inspetor A'::text, 4), ('Inspetor B'::text, 2) $$,
+  'Visita conta visita com qualquer leitura no periodo, com ou sem par Inicio/Termino'
+);
+
+select results_eq(
+  $$ select nome, quantidade from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03',
+       '{"tipo": "INSPECAO"}') where funcionario_id::text like 'e0490000%' order by nome $$,
+  $$ values ('Inspetor A'::text, 1) $$,
+  'Inspecao conta cada QR-Code lido; quem nao leu nenhum some do ranking (0100)'
+);
+
 select results_eq(
   $$ select nome, quantidade from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03')
       where funcionario_id::text like 'e0490000%' order by nome $$,
-  $$ values ('Inspetor A'::text, 4), ('Inspetor B'::text, 2) $$,
-  'ranking conta visita com qualquer leitura no periodo, com ou sem par Inicio/Termino'
+  $$ values ('Inspetor A'::text, 5), ('Inspetor B'::text, 2) $$,
+  'sem tipo, o ranking soma visitas e QR-Codes lidos, como no antigo (0100)'
 );
 
 select is(
   (select quantidade from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03',
-     jsonb_build_object('checkpoint', (select checkpoint from ids)))
+     jsonb_build_object('checkpoint', (select checkpoint from ids), 'tipo', 'VISITA'))
     where funcionario_id = 'e0490000-0000-0000-0000-00000000000a'),
   1,
   'ranking com checkpoint conta a visita uma vez, nao uma por leitura'
@@ -290,8 +306,8 @@ set local "request.jwt.claims" to '{"sub": "e0490000-0000-0000-0000-00000000000b
 select is(
   (select sum(quantidade)::int from public.relatorio_ranking_de_inspecoes('2026-03-01 00:00-03', '2026-04-01 00:00-03')
     where funcionario_id::text like 'e0490000%'),
-  6,
-  'INSPETOR B enxerga as visitas de todos (V1, V2, V3 e V6 de A, V4 e V5 dele) -- 0075'
+  7,
+  'INSPETOR B enxerga as visitas de todos (V1, V2, V3 e V6 de A, V4 e V5 dele, mais o QR de V2) -- 0075 e 0100'
 );
 
 reset role;

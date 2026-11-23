@@ -228,6 +228,7 @@ describe("toTableRow", () => {
   it("devolve as colunas na ordem da tabela", () => {
     const linha = toTableRow({
       id: "abc",
+      numero: 7,
       nome_completo: "Gilmar",
       login: "Gilmar@servicosup.com.br",
       email: "operacional010@servicosup.com",
@@ -244,6 +245,7 @@ describe("toTableRow", () => {
     });
 
     expect(linha).toEqual([
+      "7",
       "Gilmar",
       "Gilmar@servicosup.com.br",
       "Gesiel",
@@ -258,6 +260,7 @@ describe("toTableRow", () => {
   it("celula vazia no lugar do superior quando nao ha", () => {
     const linha = toTableRow({
       id: "abc",
+      numero: 8,
       nome_completo: null,
       login: null,
       email: "sem.nome@exemplo.com",
@@ -274,6 +277,7 @@ describe("toTableRow", () => {
     });
 
     expect(linha).toEqual([
+      "8",
       "",
       "",
       "",

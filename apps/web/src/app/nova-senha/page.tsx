@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { HeroPanel } from "@/components/HeroPanel";
+import { FundoDaEntrada, HeroPanel } from "@/components/HeroPanel";
 import { FormField } from "@/components/FormField";
 import { PasswordRulesList } from "@/components/PasswordRules";
 import { isPasswordValid } from "@/lib/password-policy";
@@ -65,7 +65,8 @@ export default function NovaSenhaPage() {
   };
 
   return (
-    <div data-tema="escuro" className="flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+    <div data-tema="escuro" className="relative isolate flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+      <FundoDaEntrada />
       {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css). */}
       <HeroPanel />
 

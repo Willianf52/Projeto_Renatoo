@@ -50,7 +50,10 @@ overrides:
   # @expo/code-signing-certificates: a CLI de build e a assinatura de OTA
   # (que este projeto nao liga). Todos declaram `^1.x`, entao a 1.4.2 (27/10,
   # patch compativel) ja cabia -- o lockfile e que estava parado na 1.4.0.
-  node-forge: ^1.4.2
+  # 13/11/2026: mais quatro (alertas #26 a #29 do Dependabot: travamento de TLS,
+  # ReDoS nos cabecalhos HTTP, Ed25519 aceitando chave de ordem pequena) ate a
+  # 1.4.2; a 1.4.3 corrige, patch compativel.
+  node-forge: ^1.4.3
   # GHSA-w5hq-g745-h8pq (moderate): uuid < 11.1.1 nao confere o limite do
   # buffer em v3/v5/v6 quando `buf` e passado. Entra so por
   # apps/mobile > expo > @expo/config-plugins > xcode, que declara `^7.0.3` e
@@ -210,6 +213,16 @@ overrides:
 # E ferramenta de build e de `expo start`, que valida configuracao do proprio
 # projeto, nunca entrada de usuario. Revisitar quando o Expo subir a @expo/cli
 # para zod 4 (`pnpm why zod` mostra), e entao tirar esta dispensa.
+#
+# GHSA-fc5q-39xc-vjpf (high, 17/11/2026): picomatch <= 4.0.7, ReDoS com
+# extglob de um ramo repetido. Mesma situacao do braces acima: o advisory
+# aponta 4.0.8, que AINDA NAO FOI PUBLICADA (a mais nova e a 4.0.7), e a linha
+# 2.x (2.3.2, de micromatch) nao tem correcao. Entra por ferramenta de
+# desenvolvimento e build (eslint/fast-glob, metro, jest-worker, vitest) e, no
+# portal, so pelo empacotamento do @sentry/nextjs no build (rollup): padroes
+# fixos da configuracao do proprio projeto, nunca entrada de usuario, e nada
+# disso roda no servidor em producao. Revisitar quando a 4.0.8 sair: trocar
+# por override `picomatch@>=4 <4.0.8: '>=4.0.8'`.
 auditConfig:
   ignoreGhsas:
     - GHSA-w3rx-r6r6-pgpr
@@ -218,6 +231,7 @@ auditConfig:
     - GHSA-86w9-cpqp-85rv
     - GHSA-vfj7-8cjw-p6xm
     - GHSA-mrhx-c7xc-m3w5
+    - GHSA-fc5q-39xc-vjpf
 
 minimumReleaseAgeExclude:
   - expo-file-system@57.0.6

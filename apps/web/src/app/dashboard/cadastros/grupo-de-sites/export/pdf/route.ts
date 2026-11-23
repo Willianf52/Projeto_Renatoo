@@ -4,9 +4,9 @@ import { getGruposSitesParaExportar, toTableRow, LIMITE_EXPORTACAO } from "../..
 const TABLE_COLUMNS = ["ID", "Nome", "Status", "Descrição"];
 
 export async function GET(request: Request) {
-  const { busca } = Object.fromEntries(new URL(request.url).searchParams);
+  const { busca, status } = Object.fromEntries(new URL(request.url).searchParams);
   return baixarPdfDeTabela("Grupo_de_Sites.pdf", "Grupo de Sites", async () => {
-    const { rows, truncado } = await getGruposSitesParaExportar(busca);
+    const { rows, truncado } = await getGruposSitesParaExportar(busca, status);
     return {
       titulo: "Grupo de Sites",
       colunas: TABLE_COLUMNS,

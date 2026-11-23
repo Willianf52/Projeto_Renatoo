@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listaSoAsMinhas, podeRegistrarVisita } from "@projeto-renatoo/shared";
 
@@ -9,6 +9,9 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSessao } from "../auth/SessaoProvider";
 import type { RotasDoApp } from "../navegacao/Navegacao";
 import { Aviso } from "../componentes/Aviso";
+import { CaixaDeAvisos } from "../componentes/CaixaDeAvisos";
+import { MetasPendentes } from "../componentes/MetasPendentes";
+import { PedidoDeKm } from "../componentes/PedidoDeKm";
 import { Marca } from "../componentes/Marca";
 import {
   IconeDeChecklist,
@@ -19,6 +22,8 @@ import { contarPendentes, ultimaSincronizacao } from "../campo/fila";
 import { atualizarCatalogo } from "../campo/ronda";
 import { sincronizar } from "../campo/sincronizacao";
 import { atualizarCopiaDoChecklist } from "../lib/checklist-guardado";
+import { aplicarAtualizacao, buscarAtualizacao } from "../lib/atualizacao-do-app";
+import { registrarParaPush } from "../lib/push";
 import { supabase } from "../lib/supabase";
 import { colunaDeLeitura, cores, espaco, raio, texto, tipografia } from "../tema";
 import app from "../../app.json";
@@ -52,9 +57,19 @@ export function TelaInicial() {
   const [sincronizadoEm, setSincronizadoEm] = useState<string | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [aviso, setAviso] = useState<{ mensagem: string; tom: "erro" | "sucesso" } | null>(null);
+  // Puxar a tela para baixo (20/11/2026): muda `recarga`, e cada pedaco da
+  // tela relê o que mostra; o app tambem procura atualizacao pelo ar.
+  const [recarga, setRecarga] = useState(0);
+  const [atualizandoTela, setAtualizandoTela] = useState(false);
 
   const idDoUsuario = sessao?.user.id ?? null;
   const soAsMinhas = listaSoAsMinhas(perfil?.cargo);
+
+  // Push no celular (0110): registra o aparelho para quem entrou. Uma vez por
+  // pessoa logada; sem permissao ou sem rede, nao faz nada.
+  useEffect(() => {
+    if (idDoUsuario) void registrarParaPush();
+  }, [idDoUsuario]);
 
   const atualizarRodape = useCallback(async () => {
     if (!idDoUsuario) return;
@@ -96,7 +111,7 @@ export function TelaInicial() {
     return () => {
       ativo = false;
     };
-  }, [idDoUsuario, soAsMinhas]);
+  }, [idDoUsuario, soAsMinhas, recarga]);
 
   const sincronizarAgora = useCallback(async () => {
     if (sincronizando || !idDoUsuario) return;
@@ -192,6 +207,28 @@ export function TelaInicial() {
     );
   }, [idDoUsuario, sairAgora, sincronizarAgora]);
 
+  /**
+   * Puxar para baixo: relê metas, avisos, contadores e rodape, e procura
+   * versao nova do app. Se baixou uma, oferece reiniciar agora (a ronda em
+   * andamento fica na fila do aparelho; reiniciar nao a apaga).
+   */
+  const atualizarTela = useCallback(async () => {
+    setAtualizandoTela(true);
+    setRecarga((r) => r + 1);
+    try {
+      await atualizarRodape().catch(() => undefined);
+      const busca = await buscarAtualizacao();
+      if (busca === "nova-baixada") {
+        Alert.alert("Nova versão do app", "Uma atualização foi baixada. Reiniciar o app agora para usar?", [
+          { text: "Depois", style: "cancel" },
+          { text: "Reiniciar", onPress: () => void aplicarAtualizacao() },
+        ]);
+      }
+    } finally {
+      setAtualizandoTela(false);
+    }
+  }, [atualizarRodape]);
+
   const nome = perfil?.nome_completo?.trim() || perfil?.email || "Sem nome";
 
   return (
@@ -220,7 +257,23 @@ export function TelaInicial() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={estilos.conteudo}>
+      <PedidoDeKm usuarioId={idDoUsuario} />
+
+      <ScrollView
+        contentContainerStyle={estilos.conteudo}
+        refreshControl={
+          <RefreshControl
+            refreshing={atualizandoTela}
+            onRefresh={() => void atualizarTela()}
+            colors={[cores.primaria]}
+            tintColor={cores.primaria}
+            progressBackgroundColor={cores.superficie}
+          />
+        }
+      >
+        <CaixaDeAvisos recarga={recarga} />
+        <MetasPendentes usuarioId={idDoUsuario} recarga={recarga} />
+
         <View style={estilos.grade}>
           <CartaoDeAcao
             titulo="Inspeção"

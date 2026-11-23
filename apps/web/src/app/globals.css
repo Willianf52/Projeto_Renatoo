@@ -36,6 +36,13 @@
      tingidas de azul-ardosia em vez de preto puro -- preto puro suja o cinza do
      tema claro. Redefinir o token do Tailwind vale para os ~70 cartoes que ja
      usam `shadow-sm` e o `hover:shadow-md` das listagens, sem tocar em tela. */
+  /* Cantos mais macios (06/11/2026, "mais moderno e limpo"): o mesmo truque
+     das sombras, redefinir o token do Tailwind, vale para todo `rounded-md`,
+     `rounded-lg` e `rounded-xl` das telas sem mexer em nenhuma. */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
   --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 2px 8px -2px rgb(15 23 42 / 0.08);
   --shadow-md: 0 2px 4px -1px rgb(15 23 42 / 0.06), 0 12px 28px -8px rgb(15 23 42 / 0.16);
 }

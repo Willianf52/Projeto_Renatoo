@@ -7,6 +7,9 @@ const { rpcMock, createClientMock, redirectMock, revalidatePathMock, resultados,
     const resultados = {
       insert: { error: null as ErroSupabase },
       update: { data: { id: 1 } as { id: number } | null, error: null as ErroSupabase },
+      // Condicional (0108): a pergunta base lida e quantas dependem da editada.
+      base: null as { modelo_id: number; tipo_resposta: string; pergunta_base_id: number | null } | null,
+      dependentes: 0,
     };
     const chamadas: Array<
       | { tipo: "insert"; tabela: string; linha: Record<string, unknown> }
@@ -17,6 +20,12 @@ const { rpcMock, createClientMock, redirectMock, revalidatePathMock, resultados,
     const createClientMock = vi.fn(async () => ({
       rpc: rpcMock,
       from: (tabela: string) => ({
+        select: (_colunas: string, opcoes?: { head?: boolean }) => ({
+          eq: () =>
+            opcoes?.head
+              ? Promise.resolve({ count: resultados.dependentes })
+              : { maybeSingle: () => Promise.resolve({ data: resultados.base }) },
+        }),
         insert: (linha: Record<string, unknown>) => {
           chamadas.push({ tipo: "insert", tabela, linha });
           return Promise.resolve(resultados.insert);
@@ -62,6 +71,8 @@ beforeEach(() => {
   chamadas.length = 0;
   resultados.insert = { error: null };
   resultados.update = { data: { id: 1 }, error: null };
+  resultados.base = { modelo_id: 5, tipo_resposta: "CNA", pergunta_base_id: null };
+  resultados.dependentes = 0;
 });
 
 describe("salvarPergunta — validação antes do banco", () => {
@@ -124,6 +135,10 @@ describe("salvarPergunta — validação antes do banco", () => {
       tipoResposta: "CNA",
       grupo: "",
       evento: "",
+      obrigatoria: true,
+      peso: "1",
+      base: "",
+      gatilho: "",
     });
   });
 });
@@ -146,6 +161,10 @@ describe("salvarPergunta — escrita", () => {
         ativo: true,
         grupo_pergunta_id: null,
         evento_id: null,
+        obrigatoria: true,
+        peso: 1,
+        pergunta_base_id: null,
+        resposta_gatilho: null,
         modelo_id: 5,
         tipo_resposta: "CN",
       },
@@ -167,6 +186,12 @@ describe("salvarPergunta — escrita", () => {
     await salvarPergunta({}, formulario({ texto: "Ok?", ordem: "1", modelo: "5", tipo_resposta: "XYZ" }));
 
     expect(chamadas[0]).toMatchObject({ linha: { tipo_resposta: "CNA" } });
+  });
+
+  it("grava obrigatoria = false só quando o campo diz \"nao\" (0099)", async () => {
+    await salvarPergunta({}, formulario({ texto: "Opcional", ordem: "8", modelo: "5", obrigatoria: "nao" }));
+
+    expect(chamadas[0]).toMatchObject({ linha: { obrigatoria: false } });
   });
 
   it("grava ativo = false quando o status é inativo", async () => {
@@ -201,7 +226,17 @@ describe("salvarPergunta — escrita", () => {
     expect(chamadas[0]).toEqual({
       tipo: "update",
       tabela: "perguntas_checklist",
-      linha: { texto: "Novo texto", ordem: 2, ativo: true, grupo_pergunta_id: null, evento_id: null },
+      linha: {
+        texto: "Novo texto",
+        ordem: 2,
+        ativo: true,
+        grupo_pergunta_id: null,
+        evento_id: null,
+        obrigatoria: true,
+        peso: 1,
+        pergunta_base_id: null,
+        resposta_gatilho: null,
+      },
       id: 4,
     });
     expect(redirectMock).toHaveBeenCalledWith(`${LISTAGEM}?salvo=1&modelo=5`);
@@ -254,5 +289,57 @@ describe("moverPergunta", () => {
     await moverPergunta(formulario({ id: "abc", modelo: "5", direcao: "baixo" }));
 
     expect(rpcMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("salvarPergunta: peso e condicional (0108)", () => {
+  const base = { texto: "Qual o problema?", ordem: "4", modelo: "5" };
+
+  it("grava o peso e a condicional", async () => {
+    await salvarPergunta({}, formulario({ ...base, peso: "3", base: "9", gatilho: "NAO" }));
+
+    expect(chamadas[0]).toMatchObject({ linha: { peso: 3, pergunta_base_id: 9, resposta_gatilho: "NAO" } });
+  });
+
+  it("recusa peso fora de 1 a 10 sem chegar ao banco", async () => {
+    for (const peso of ["0", "11", "2.5"]) {
+      const estado = await salvarPergunta({}, formulario({ ...base, peso }));
+      expect(estado.erro).toMatch(/peso/);
+    }
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("com base, exige a resposta que mostra a pergunta", async () => {
+    const estado = await salvarPergunta({}, formulario({ ...base, base: "9" }));
+    expect(estado.erro).toBe("Escolha a resposta da pergunta base que faz esta aparecer.");
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("explica a base de outro modelo, a base condicional e o N.A. que a base nao tem", async () => {
+    resultados.base = { modelo_id: 6, tipo_resposta: "CNA", pergunta_base_id: null };
+    expect((await salvarPergunta({}, formulario({ ...base, base: "9", gatilho: "SIM" }))).erro).toBe(
+      "A pergunta base precisa ser do mesmo modelo.",
+    );
+
+    resultados.base = { modelo_id: 5, tipo_resposta: "CNA", pergunta_base_id: 2 };
+    expect((await salvarPergunta({}, formulario({ ...base, base: "9", gatilho: "SIM" }))).erro).toMatch(/também é condicional/);
+
+    resultados.base = { modelo_id: 5, tipo_resposta: "CN", pergunta_base_id: null };
+    expect((await salvarPergunta({}, formulario({ ...base, base: "9", gatilho: "NA" }))).erro).toMatch(/Não se aplica/);
+
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("na edicao, recusa virar condicional quando outras dependem dela", async () => {
+    resultados.dependentes = 2;
+    const estado = await salvarPergunta({}, formulario({ ...base, id: "4", base: "9", gatilho: "SIM" }));
+    expect(estado.erro).toMatch(/Outras perguntas dependem desta/);
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("a recusa do banco (23514) vira uma frase legivel", async () => {
+    resultados.insert = { error: { code: "23514" } };
+    const estado = await salvarPergunta({}, formulario({ ...base, base: "9", gatilho: "SIM" }));
+    expect(estado.erro).toBe("A condição escolhida não é válida. Confira a pergunta base e a resposta.");
   });
 });

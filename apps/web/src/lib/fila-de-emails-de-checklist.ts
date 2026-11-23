@@ -25,7 +25,7 @@ type ChecklistDoEmail = {
   criado_em: string;
   modelos_checklist: { nome: string } | null;
   visitas: { sites: { nome: string } | null; profiles: { nome_completo: string | null } | null } | null;
-  checklist_respostas: { resposta: string; perguntas_checklist: { tipo_resposta: string } | null }[];
+  checklist_respostas: { resposta: string; perguntas_checklist: { tipo_resposta: string; peso?: number | null } | null }[];
 };
 
 /** "Nao conforme" e nota, pela mesma regra do Historico (`montarLinha`). */
@@ -35,7 +35,11 @@ export function resumoDasRespostas(respostas: ChecklistDoEmail["checklist_respos
 } {
   const comTipo = respostas
     .filter((r): r is typeof r & { resposta: RespostaDoChecklist } => ["SIM", "NAO", "NA"].includes(r.resposta))
-    .map((r) => ({ tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta), resposta: r.resposta }));
+    .map((r) => ({
+      tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta),
+      resposta: r.resposta,
+      peso: r.perguntas_checklist?.peso ?? 1,
+    }));
 
   return {
     naoConformidades: comTipo.filter((r) => r.tipo !== "SN" && r.resposta === "NAO").length,
@@ -75,7 +79,7 @@ export async function processarFilaDeEmailsDeChecklist(
       `id, tipo, motivo, criado_em,
        modelos_checklist ( nome ),
        visitas ( sites ( nome ), profiles ( nome_completo ) ),
-       checklist_respostas ( resposta, perguntas_checklist ( tipo_resposta ) )`,
+       checklist_respostas ( resposta, perguntas_checklist ( tipo_resposta, peso ) )`,
     )
     .in("id", [...new Set(lote.map((l) => l.checklist_id))]);
   if (erroDeLeitura) {

@@ -136,7 +136,7 @@ export function DataTable({
                     <th
                       key={column}
                       scope="col"
-                      className={`sticky top-0 whitespace-nowrap px-4 py-3 ${FUNDO_FIXO} ${
+                      className={`sticky top-0 whitespace-nowrap border-b border-slate-800 px-4 py-3.5 ${FUNDO_FIXO} ${
                         indice === 0
                           ? `left-0 z-20 ${DIVISORIA_DO_CANTO}`
                           : column === COLUNA_DE_ACOES
@@ -159,11 +159,11 @@ export function DataTable({
                   <TableSkeleton columns={columns} />
                 ) : (
                   rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="group border-b border-slate-800/60 transition-colors duration-150 hover:bg-white/5">
+                    <tr key={rowIndex} className="group border-b border-slate-800/60 transition-colors duration-150 hover:bg-brand-green/5">
                       {row.map((cell, cellIndex) => (
                         <td
                           key={cellIndex}
-                          className={`whitespace-nowrap px-4 py-3 text-white ${
+                          className={`whitespace-nowrap px-4 py-3.5 text-white ${
                             cellIndex === 0
                               ? `sticky left-0 z-[5] ${FUNDO_FIXO} ${DIVISORIA_A_DIREITA} ${REALCE_DA_CELULA_FIXA}`
                               : columns[cellIndex] === COLUNA_DE_ACOES

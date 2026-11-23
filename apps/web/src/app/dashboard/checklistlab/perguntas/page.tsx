@@ -25,7 +25,7 @@ import { moverPergunta } from "./actions";
 import { getPerguntas, modeloDoFiltro, toTableRow, PAGE_SIZE, type PerguntaFiltros, type PerguntaRow } from "./queries";
 import { CLASSES_DO_TOM, HOVER_DO_TOM } from "@/components/dashboard/tons-de-acao";
 
-const TABLE_COLUMNS = ["Checklist", "Ordem", "Pergunta", "Grupo", "Respostas", "Tipo de Evento", "Status", "Ações"];
+const TABLE_COLUMNS = ["Checklist", "Ordem", "Pergunta", "Grupo", "Respostas", "Obrigatória", "Tipo de Evento", "Status", "Ações"];
 const MIN_WIDTH = "min-w-[1100px]";
 
 /** Modelo e busca dividem a sobra; Status fica com a largura do botao Filtrar. */

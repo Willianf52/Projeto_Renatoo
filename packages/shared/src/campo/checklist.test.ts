@@ -201,11 +201,10 @@ describe("esquemaDeChecklistDeVisita — modelo e foto por pergunta (0061)", () 
     expect(resultado.success).toBe(true);
   });
 
-  it("sem foto nenhuma, geral ou de pergunta, recusa", () => {
+  it("consultoria sem foto nenhuma e aceita: a foto e opcional no checklist (10/11/2026)", () => {
     const resultado = esquemaDeChecklistDeVisita.safeParse({ ...CONSULTORIA, fotos: [] });
 
-    expect(resultado.success).toBe(false);
-    expect(!resultado.success && primeiroErro(resultado)).toBe("Anexe ao menos uma foto.");
+    expect(resultado.success).toBe(true);
   });
 
   it("corretiva sem foto continua recusada", () => {

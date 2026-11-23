@@ -115,12 +115,21 @@ export function FilterDatePicker({
         onClick={() => setAberto((atual) => !atual)}
         aria-haspopup="dialog"
         aria-expanded={aberto}
-        aria-label={label}
         className={`h-10 w-full min-w-0 rounded-md border border-slate-800 bg-brand-surface px-3 text-left text-sm shadow-sm outline-none transition-all duration-200 hover:border-slate-700 focus:border-brand-green focus:ring-1 focus:ring-brand-green ${
           selecionado ? "pr-8 text-white" : "text-brand-muted"
         }`}
       >
-        {selecionado ? paraExibicao(selecionado) : label}
+        {/* Escolhida, o botao mostra a data e o leitor de tela le "Data Inicial:
+            10/03/2026": o nome acessivel precisa conter o texto visivel (regra
+            label-content-name-mismatch do axe, 11/11/2026). */}
+        {selecionado ? (
+          <>
+            <span className="sr-only">{label}: </span>
+            {paraExibicao(selecionado)}
+          </>
+        ) : (
+          label
+        )}
       </button>
 
       {/* Irmao do botao, nao filho: <button> dentro de <button> e invalido.

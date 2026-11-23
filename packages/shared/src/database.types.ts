@@ -446,7 +446,7 @@ export type Database = {
           {
             foreignKeyName: "checklists_visita_visita_id_fkey"
             columns: ["visita_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "visitas"
             referencedColumns: ["id"]
           },
@@ -500,6 +500,42 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes_atendidos: {
+        Row: {
+          criado_em: string
+          grupo_site_id: number
+          id: number
+          usuario_id: string
+        }
+        Insert: {
+          criado_em?: string
+          grupo_site_id: number
+          id?: never
+          usuario_id: string
+        }
+        Update: {
+          criado_em?: string
+          grupo_site_id?: number
+          id?: never
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_atendidos_grupo_site_id_fkey"
+            columns: ["grupo_site_id"]
+            isOneToOne: false
+            referencedRelation: "grupos_sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clientes_atendidos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coletores_dados: {
         Row: {
           ativo: boolean
@@ -551,6 +587,35 @@ export type Database = {
             foreignKeyName: "dados_pessoais_dos_usuarios_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispositivos_push: {
+        Row: {
+          atualizado_em: string
+          plataforma: string
+          token: string
+          usuario_id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          plataforma?: string
+          token: string
+          usuario_id: string
+        }
+        Update: {
+          atualizado_em?: string
+          plataforma?: string
+          token?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispositivos_push_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -804,6 +869,29 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fotos_de_usuario: {
+        Row: {
+          atualizada_em: string
+          usuario_id: string
+        }
+        Insert: {
+          atualizada_em?: string
+          usuario_id: string
+        }
+        Update: {
+          atualizada_em?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fotos_de_usuario_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1111,6 +1199,137 @@ export type Database = {
         }
         Relationships: []
       }
+      maquina_manutencoes: {
+        Row: {
+          criado_em: string
+          data: string
+          descricao: string
+          id: number
+          maquina_id: number
+          registrado_por: string
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          maquina_id: number
+          registrado_por?: string
+          tipo: string
+        }
+        Update: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          maquina_id?: number
+          registrado_por?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquina_manutencoes_maquina_id_fkey"
+            columns: ["maquina_id"]
+            isOneToOne: false
+            referencedRelation: "maquinas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "maquina_manutencoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      maquinas: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          descricao: string
+          id: number
+          modelo: string
+          patrimonio: string
+          site_id: number
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string
+          id?: never
+          modelo: string
+          patrimonio?: string
+          site_id: number
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          descricao?: string
+          id?: never
+          modelo?: string
+          patrimonio?: string
+          site_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "maquinas_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metas_de_visita: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          id: number
+          inicia_em: string
+          periodo: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          inicia_em?: string
+          periodo?: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          id?: never
+          inicia_em?: string
+          periodo?: string
+          quantidade?: number
+          site_id?: number
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_de_visita_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metas_de_visita_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       metas_visitas: {
         Row: {
           competencia: string
@@ -1147,30 +1366,36 @@ export type Database = {
         Row: {
           ativo: boolean
           criado_em: string
+          descricao: string | null
           exige_aprovacao: boolean
           foto_obrigatoria: boolean
           id: number
           nome: string
+          ordem_aleatoria: boolean
           padrao: boolean
           quantidade_de_assinaturas: number
         }
         Insert: {
           ativo?: boolean
           criado_em?: string
+          descricao?: string | null
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
           nome: string
+          ordem_aleatoria?: boolean
           padrao?: boolean
           quantidade_de_assinaturas?: number
         }
         Update: {
           ativo?: boolean
           criado_em?: string
+          descricao?: string | null
           exige_aprovacao?: boolean
           foto_obrigatoria?: boolean
           id?: never
           nome?: string
+          ordem_aleatoria?: boolean
           padrao?: boolean
           quantidade_de_assinaturas?: number
         }
@@ -1229,6 +1454,50 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      notificacoes: {
+        Row: {
+          chave: string | null
+          criada_em: string
+          destinatario_id: string
+          id: number
+          lida_em: string | null
+          link: string | null
+          texto: string
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          chave?: string | null
+          criada_em?: string
+          destinatario_id: string
+          id?: never
+          lida_em?: string | null
+          link?: string | null
+          texto?: string
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          chave?: string | null
+          criada_em?: string
+          destinatario_id?: string
+          id?: never
+          lida_em?: string | null
+          link?: string | null
+          texto?: string
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_destinatario_id_fkey"
+            columns: ["destinatario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ocorrencia_andamentos: {
         Row: {
@@ -1567,7 +1836,11 @@ export type Database = {
           grupo_pergunta_id: number | null
           id: number
           modelo_id: number
+          obrigatoria: boolean
           ordem: number
+          pergunta_base_id: number | null
+          peso: number
+          resposta_gatilho: string | null
           texto: string
           tipo_resposta: string
         }
@@ -1578,7 +1851,11 @@ export type Database = {
           grupo_pergunta_id?: number | null
           id?: never
           modelo_id: number
+          obrigatoria?: boolean
           ordem: number
+          pergunta_base_id?: number | null
+          peso?: number
+          resposta_gatilho?: string | null
           texto: string
           tipo_resposta?: string
         }
@@ -1589,7 +1866,11 @@ export type Database = {
           grupo_pergunta_id?: number | null
           id?: never
           modelo_id?: number
+          obrigatoria?: boolean
           ordem?: number
+          pergunta_base_id?: number | null
+          peso?: number
+          resposta_gatilho?: string | null
           texto?: string
           tipo_resposta?: string
         }
@@ -1615,6 +1896,13 @@ export type Database = {
             referencedRelation: "modelos_checklist"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "perguntas_checklist_pergunta_base_id_fkey"
+            columns: ["pergunta_base_id"]
+            isOneToOne: false
+            referencedRelation: "perguntas_checklist"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
@@ -1632,6 +1920,7 @@ export type Database = {
           lingua: string
           login: string | null
           nome_completo: string | null
+          numero: number
           pais: string
           setor_id: number | null
           superior_id: string | null
@@ -1651,6 +1940,7 @@ export type Database = {
           lingua?: string
           login?: string | null
           nome_completo?: string | null
+          numero?: number
           pais?: string
           setor_id?: number | null
           superior_id?: string | null
@@ -1670,6 +1960,7 @@ export type Database = {
           lingua?: string
           login?: string | null
           nome_completo?: string | null
+          numero?: number
           pais?: string
           setor_id?: number | null
           superior_id?: string | null
@@ -1814,6 +2105,44 @@ export type Database = {
           },
           {
             foreignKeyName: "site_anexos_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_itens: {
+        Row: {
+          criado_em: string
+          id: number
+          nome: string
+          observacao: string
+          quantidade: number
+          site_id: number
+          tipo: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: never
+          nome: string
+          observacao?: string
+          quantidade?: number
+          site_id: number
+          tipo: string
+        }
+        Update: {
+          criado_em?: string
+          id?: never
+          nome?: string
+          observacao?: string
+          quantidade?: number
+          site_id?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_itens_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
@@ -2127,11 +2456,146 @@ export type Database = {
         }
         Relationships: []
       }
+      veiculo_km: {
+        Row: {
+          id: number
+          km: number
+          registrado_em: string
+          registrado_por: string
+          veiculo_id: number
+        }
+        Insert: {
+          id?: never
+          km: number
+          registrado_em?: string
+          registrado_por?: string
+          veiculo_id: number
+        }
+        Update: {
+          id?: never
+          km?: number
+          registrado_em?: string
+          registrado_por?: string
+          veiculo_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculo_km_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "veiculo_km_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      veiculo_manutencoes: {
+        Row: {
+          criado_em: string
+          data: string
+          descricao: string
+          id: number
+          km: number | null
+          registrado_por: string
+          tipo: string
+          veiculo_id: number
+        }
+        Insert: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          km?: number | null
+          registrado_por?: string
+          tipo: string
+          veiculo_id: number
+        }
+        Update: {
+          criado_em?: string
+          data?: string
+          descricao?: string
+          id?: never
+          km?: number | null
+          registrado_por?: string
+          tipo?: string
+          veiculo_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculo_manutencoes_registrado_por_fkey"
+            columns: ["registrado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "veiculo_manutencoes_veiculo_id_fkey"
+            columns: ["veiculo_id"]
+            isOneToOne: false
+            referencedRelation: "veiculos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      veiculos: {
+        Row: {
+          ativo: boolean
+          cor: string
+          criado_em: string
+          empresa: string
+          id: number
+          km_atual: number
+          km_ultima_revisao: number
+          modelo: string
+          placa: string
+          usuario_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string
+          criado_em?: string
+          empresa?: string
+          id?: never
+          km_atual?: number
+          km_ultima_revisao?: number
+          modelo: string
+          placa: string
+          usuario_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string
+          criado_em?: string
+          empresa?: string
+          id?: never
+          km_atual?: number
+          km_ultima_revisao?: number
+          modelo?: string
+          placa?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veiculos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas: {
         Row: {
           coletor_dados_id: number | null
           criado_em: string
           data_integracao: string | null
+          finalizada_em: string | null
           funcionario_id: string | null
           id: number
           motivo_visita_id: number | null
@@ -2142,6 +2606,7 @@ export type Database = {
           coletor_dados_id?: number | null
           criado_em?: string
           data_integracao?: string | null
+          finalizada_em?: string | null
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null
@@ -2152,6 +2617,7 @@ export type Database = {
           coletor_dados_id?: number | null
           criado_em?: string
           data_integracao?: string | null
+          finalizada_em?: string | null
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null
@@ -2281,10 +2747,30 @@ export type Database = {
           site_nome: string
         }[]
       }
+      periodo_da_meta: {
+        Args: { p_dia: string; p_inicia_em?: string; p_periodo: string }
+        Returns: {
+          fim: string
+          inicio: string
+        }[]
+      }
       pode_administrar_cadastros: { Args: never; Returns: boolean }
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      progresso_das_metas: {
+        Args: { p_dia?: string }
+        Returns: {
+          feitas: number
+          fim: string
+          inicio: string
+          meta_id: number
+          periodo: string
+          quantidade: number
+          site_id: number
+          usuario_id: string
+        }[]
+      }
       registrar_andamento_da_ocorrencia: {
         Args: {
           p_apoio?: string[]
@@ -2314,6 +2800,10 @@ export type Database = {
           p_visita_id: number
         }
         Returns: number
+      }
+      registrar_dispositivo_push: {
+        Args: { p_plataforma?: string; p_token: string }
+        Returns: undefined
       }
       registrar_ocorrencia_manual: {
         Args: {
@@ -2410,7 +2900,9 @@ export type Database = {
         Returns: {
           data_hora: string
           funcionario: string
+          latitude: number
           local: string
+          longitude: number
           motivo_visita: string
           observacao: string
           tem_localizacao: boolean
@@ -2452,6 +2944,10 @@ export type Database = {
         Returns: number
       }
       salvar_atalhos_fixados: { Args: { p_atalhos: Json }; Returns: undefined }
+      salvar_clientes_atendidos: {
+        Args: { p_grupos: number[]; p_usuario_id: string }
+        Returns: undefined
+      }
       salvar_evento: {
         Args: {
           p_ativo: boolean

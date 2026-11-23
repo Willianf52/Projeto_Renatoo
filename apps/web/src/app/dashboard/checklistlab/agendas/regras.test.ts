@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quantidadeDeDatas, validarAgenda, type ValoresDaAgenda } from "./regras";
+import { filtrarAgendas, quantidadeDeDatas, validarAgenda, type ValoresDaAgenda } from "./regras";
 
 const BASE: ValoresDaAgenda = {
   nome: "  Ronda   mensal ",
@@ -54,5 +54,42 @@ describe("quantidadeDeDatas", () => {
     expect(quantidadeDeDatas("2026-01-31", "2026-12-31", "MENSAL")).toBe(12);
     expect(quantidadeDeDatas("2026-11-01", "2026-11-01", "DIARIO")).toBe(1);
     expect(quantidadeDeDatas("2026-11-02", "2026-11-01", "DIARIO")).toBe(0);
+  });
+});
+
+describe("filtrarAgendas (filtros do sistema de referencia, 11/11/2026)", () => {
+  const base = {
+    checklist: "Frota",
+    modeloId: 70,
+    responsavelId: "u1",
+    recorrencia: "SEMANAL",
+    sites: [{ id: 5 }],
+  };
+  const agendas = [
+    { ...base, nome: "Novembro", dataInicial: "2026-11-01", dataFinal: "2026-11-30" },
+    { ...base, nome: "Dezembro", dataInicial: "2026-12-01", dataFinal: "2026-12-31", modeloId: 3, responsavelId: "u2", recorrencia: "MENSAL", sites: [{ id: 9 }] },
+  ];
+  const nomes = (filtros: Parameters<typeof filtrarAgendas>[1]) => filtrarAgendas(agendas, filtros).map((a) => a.nome);
+
+  it("sem filtro, todas", () => {
+    expect(nomes({})).toEqual(["Novembro", "Dezembro"]);
+  });
+
+  it("periodo: entra a agenda cujo intervalo cruza o filtro", () => {
+    expect(nomes({ dataInicial: "2026-11-15", dataFinal: "2026-11-20" })).toEqual(["Novembro"]);
+    expect(nomes({ dataInicial: "2026-11-30" })).toEqual(["Novembro", "Dezembro"]);
+    expect(nomes({ dataFinal: "2026-11-30" })).toEqual(["Novembro"]);
+  });
+
+  it("checklists, site, responsavel e recorrencia", () => {
+    expect(nomes({ modelos: ["3"] })).toEqual(["Dezembro"]);
+    expect(nomes({ site: "5" })).toEqual(["Novembro"]);
+    expect(nomes({ responsavel: "u2" })).toEqual(["Dezembro"]);
+    expect(nomes({ recorrencia: "SEMANAL" })).toEqual(["Novembro"]);
+  });
+
+  it("busca livre no nome da agenda ou do checklist", () => {
+    expect(nomes({ busca: "dez" })).toEqual(["Dezembro"]);
+    expect(nomes({ busca: "frota" })).toEqual(["Novembro", "Dezembro"]);
   });
 });

@@ -24,7 +24,7 @@ import * as SQLite from "expo-sqlite";
  */
 const ARQUIVO = "fila-de-campo.db";
 
-const VERSAO_DO_SCHEMA = 8;
+const VERSAO_DO_SCHEMA = 9;
 
 export type VisitaNaFila = {
   /** UUID cunhado no aparelho: e a chave de idempotencia da migration 0047. */
@@ -241,6 +241,19 @@ async function abrirDeFato(): Promise<SQLite.SQLiteDatabase> {
       alter table leituras_na_fila add column latitude real;
       alter table leituras_na_fila add column longitude real;
       alter table leituras_na_fila add column precisao real;
+    `);
+  }
+
+  if (versao < 9) {
+    /**
+     * Quando o checklist comecou (22/11/2026): o "Ver sites" mostra
+     * "Inspecao em andamento, iniciada em ...", como no app do sistema de
+     * referencia, e o checklist aberto pelo "Ver sites" ainda nao tem visita
+     * nem leitura com hora. Nulo nos rascunhos anteriores: cai no
+     * `atualizado_em`.
+     */
+    await banco.execAsync(`
+      alter table rascunhos_de_checklist add column criado_em text;
     `);
   }
 
@@ -532,10 +545,4 @@ export async function ultimaSincronizacao(): Promise<string | null> {
     CHAVE_DA_ULTIMA_SINCRONIZACAO,
   );
   return linha?.valor ?? null;
-}
-
-/** So para o roteiro de teste comecar de uma fila limpa. */
-export async function esvaziarFila(): Promise<void> {
-  const banco = await abrirFila();
-  await banco.execAsync("delete from leituras_na_fila; delete from visitas_na_fila;");
 }

@@ -18,6 +18,7 @@ import {
   PencilIcon,
   PlusCircleIcon,
   TrashIcon,
+  UploadIcon,
   UsersIcon,
 } from "@/components/dashboard/icons";
 import { descricaoDeListaVazia, temFiltroAplicado } from "@/lib/lista-vazia";
@@ -84,7 +85,7 @@ export default function GrupoDeUsuariosPage({
             <UsersIcon className="h-4 w-4" />
             Grupo de Usuários
           </h1>
-          <Suspense fallback={<AcoesEsqueleto quantidade={3} />}>
+          <Suspense fallback={<AcoesEsqueleto quantidade={4} />}>
             <AcoesDoCabecalho searchParams={searchParams} />
           </Suspense>
         </div>
@@ -128,6 +129,16 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
 
   return (
     <div className="flex items-center gap-2">
+      {/* "Importar grupos de usuarios", como no sistema de referencia (13/11/2026): primeiro, como no Grupo de Sites. */}
+      {podeAdministrar ? (
+        <Acao titulo="Importar grupos de usuários" href="/dashboard/cadastros/grupo-de-usuarios/importar" tom="importar">
+          <UploadIcon className="h-4 w-4" />
+        </Acao>
+      ) : (
+        <AcaoDesabilitada titulo="Importar grupos de usuários" motivo="você não tem permissão" tom="importar">
+          <UploadIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      )}
       <Acao
         titulo="Exportar para Excel"
         href={`/dashboard/cadastros/grupo-de-usuarios/export/excel${queryExportacao}`} tom="excel"

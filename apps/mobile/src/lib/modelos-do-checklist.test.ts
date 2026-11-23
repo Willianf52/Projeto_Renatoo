@@ -44,10 +44,10 @@ vi.mock("./supabase", () => {
 
 const { lerModelosDoSite, lerPerguntasDoModelo } = await import("./modelos-do-checklist");
 
-const PADRAO = { id: 1, nome: "Padrão", padrao: true, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
-const GERAL = { id: 2, nome: "Geral", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
-const LIMPEZA = { id: 3, nome: "Limpeza", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2 };
-const FROTA = { id: 4, nome: "Frota", padrao: false, ativo: true, fotoObrigatoria: true, quantidadeDeAssinaturas: 1 };
+const PADRAO = { id: 1, nome: "Padrão", padrao: true, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2, ordemAleatoria: false };
+const GERAL = { id: 2, nome: "Geral", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2, ordemAleatoria: false };
+const LIMPEZA = { id: 3, nome: "Limpeza", padrao: false, ativo: true, fotoObrigatoria: false, quantidadeDeAssinaturas: 2, ordemAleatoria: false };
+const FROTA = { id: 4, nome: "Frota", padrao: false, ativo: true, fotoObrigatoria: true, quantidadeDeAssinaturas: 1, ordemAleatoria: false };
 
 beforeEach(() => {
   for (const chave of Object.keys(respostas)) delete respostas[chave];
@@ -55,7 +55,7 @@ beforeEach(() => {
   guardada.copia = null;
   // O servidor devolve a coluna `foto_obrigatoria` (0091); o app a traduz.
   respostas.modelos_checklist = {
-    data: [PADRAO, GERAL, LIMPEZA, FROTA].map(({ fotoObrigatoria, quantidadeDeAssinaturas, ...linha }) => ({
+    data: [PADRAO, GERAL, LIMPEZA, FROTA].map(({ fotoObrigatoria, quantidadeDeAssinaturas, ordemAleatoria: _ordem, ...linha }) => ({
       ...linha,
       foto_obrigatoria: fotoObrigatoria,
       quantidade_de_assinaturas: quantidadeDeAssinaturas,

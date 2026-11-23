@@ -1,6 +1,7 @@
 import {
   BarChartIcon,
   BuildingIcon,
+  CarIcon,
   ClipboardListIcon,
   GridIcon,
   KeyIcon,
@@ -104,6 +105,12 @@ export const NAV_ITEMS: NavItem[] = [
       // continuam: a configuracao do Cliente (minimo de caracteres, e-mails) e
       // as listas do Cadastro de Eventos seguem valendo; so nao ha atalho.
       { label: "QR-Code", href: "/dashboard/cadastros/qr-code", icon: QrCodeIcon },
+      // Pedido do gestor (17/11/2026, 0104): frota com km e revisao.
+      { label: "Veículos", href: "/dashboard/cadastros/veiculos", icon: CarIcon },
+      { label: "Metas de Visita", href: "/dashboard/cadastros/metas-de-visita", icon: ClipboardListIcon },
+      // Pedido do gestor (22/11/2026, 0111): maquinas e a lista de acessorios e produtos de cada site.
+      { label: "Máquinas", href: "/dashboard/cadastros/maquinas", icon: SlidersIcon },
+      { label: "Acessórios e Produtos", href: "/dashboard/cadastros/acessorios-e-produtos", icon: ClipboardListIcon },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },
@@ -253,12 +260,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: "ChecklistLab",
     icon: ClipboardListIcon,
     children: [
-      // "Responder Novo Checklist" pelo portal (0089), antes do Historico, com o
-      // nome e a posicao do sistema de referencia.
+      // "Responder Novo Checklist", antes do Historico, com o nome e a posicao do
+      // sistema de referencia. So do GESTOR desde 06/11/2026, a pedido do dono.
+      // Desde 13/11/2026 abre o Historico, como la (ver novo-checklist/page.tsx).
       {
         label: "Responder Novo Checklist",
         href: "/dashboard/checklistlab/novo-checklist",
         icon: ClipboardListIcon,
+        somenteGestor: true,
       },
       {
         label: "Histórico de Checklist",

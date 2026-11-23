@@ -173,6 +173,23 @@ describe("envio bem-sucedido", () => {
     expect(args.p_assinatura_path).toBe(estado.subidos[0]);
   });
 
+  // Duas assinaturas identicas ponto a ponto (desenho por comando no
+  // emulador, 22/11/2026) viravam o mesmo arquivo e o banco recusava a
+  // segunda. Cada uma tem o seu arquivo.
+  it("assinaturas identicas sobem em arquivos separados", async () => {
+    await enviarChecklist({
+      ...CORRETIVA,
+      assinaturas: [
+        { nome: "Willian", png: "iVBORw0KGgo=" },
+        { nome: "Gesiel", png: "iVBORw0KGgo=" },
+      ],
+    });
+
+    const [primeira, segunda] = rpc.mock.calls[0][1].p_assinaturas;
+    expect(primeira.storage_path).not.toBe(segunda.storage_path);
+    expect(estado.subidos.filter((c: string) => c.includes("assinatura"))).toHaveLength(2);
+  });
+
   it("apara o nome antes de mandar", async () => {
     await enviarChecklist({
       ...CORRETIVA,
@@ -262,6 +279,14 @@ describe("envio bem-sucedido", () => {
 });
 
 describe("consultoria", () => {
+  it("sem nenhuma foto, envia: no checklist a foto e opcional (10/11/2026)", async () => {
+    const resultado = await enviarChecklist({ ...CONSULTORIA, fotos: [], fotosDePergunta: [] });
+
+    expect(resultado.ok).toBe(true);
+    const argumentos = rpc.mock.calls[0][1];
+    expect(argumentos).toMatchObject({ p_modelo_id: 3, p_fotos: [] });
+  });
+
   it("manda o modelo respondido e sobe as fotos de cada pergunta (0061)", async () => {
     await enviarChecklist({
       ...CONSULTORIA,
@@ -427,7 +452,7 @@ describe("falha de upload", () => {
 });
 
 describe("erro vindo do banco", () => {
-  it("trata a unique de visita_id como envio ja concluido quando fui eu que enviei", async () => {
+  it("trata o reenvio (unique da assinatura, 0114) como envio ja concluido quando fui eu que enviei", async () => {
     // 23505 acontece quando o inspetor toca em Enviar de novo depois de um
     // envio que pareceu falhar mas chegou -- devolver erro ali prendia o
     // inspetor na tela sobre um trabalho que ja estava feito.

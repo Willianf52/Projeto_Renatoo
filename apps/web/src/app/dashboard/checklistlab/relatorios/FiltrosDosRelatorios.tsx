@@ -7,9 +7,9 @@ import { extrairFiltros, getOpcoesFiltros, SITUACOES_DO_MODELO, type SearchParam
 /**
  * A faixa de filtros dos tres relatorios, no desenho da referencia: datas,
  * "Respondido por" e o local na primeira linha; Checklist, situacao do
- * checklist e Filtrar na segunda. O Analitico filtra por Grupo de Sites, os
- * outros dois por Site -- como la. "Atividades" fica de fora: aqui atividade
- * e da leitura de QR, nao do checklist.
+ * checklist, Atividades e Filtrar na segunda. O Analitico filtra por Grupo
+ * de Sites, os outros dois por Site -- como la. "Atividades" e o Grupo de
+ * Perguntas (11/11/2026, depois de importar os grupos do antigo).
  */
 export async function FiltrosDosRelatorios({
   searchParams,
@@ -49,6 +49,9 @@ export async function FiltrosDosRelatorios({
       <div className="flex flex-col gap-3 lg:flex-row">
         <div className="min-w-0 flex-1">
           <FilterSelect label="Checklist" name="modelo" defaultValue={filtros.modelo} options={opcoes.modelos} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <FilterSelect label="Atividades" name="atividade" defaultValue={filtros.atividade} options={opcoes.atividades} />
         </div>
         <div className="w-full lg:w-64">
           <FilterSelect

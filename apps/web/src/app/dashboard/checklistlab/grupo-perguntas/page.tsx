@@ -33,7 +33,11 @@ function primeiro(valor: string | string[] | undefined): string | undefined {
 }
 
 function filtrosDe(params: SearchParams) {
-  return { situacao: situacaoDe(primeiro(params.situacao)), busca: primeiro(params.busca)?.slice(0, 100) };
+  return {
+    situacao: situacaoDe(primeiro(params.situacao)),
+    nome: primeiro(params.nome)?.slice(0, 100),
+    busca: primeiro(params.busca)?.slice(0, 100),
+  };
 }
 
 /** Pagina sem `async` -- ver o cabecalho de
@@ -91,11 +95,15 @@ async function FormularioDeFiltros({ searchParams }: { searchParams: SearchParam
   const filtros = filtrosDe(await searchParams);
   return (
     <form method="get" className="flex flex-col gap-3 border-b border-slate-800 p-4 xl:flex-row xl:items-end">
+      {/* Na ordem do sistema de referencia: Nome da Atividade, Status, Busca Livre (11/11/2026). */}
       <div className="min-w-0 flex-1">
-        <FilterInput label="Busca Livre (descrição)" name="busca" defaultValue={filtros.busca} />
+        <FilterInput label="Nome da Atividade" name="nome" defaultValue={filtros.nome} />
       </div>
       <div className="w-full xl:w-48">
         <FilterSelect label="Status" name="situacao" defaultValue={filtros.situacao} options={SITUACOES} semOpcaoVazia />
+      </div>
+      <div className="min-w-0 flex-1">
+        <FilterInput label="Busca Livre (descrição)" name="busca" defaultValue={filtros.busca} />
       </div>
       <Button type="submit" className="group shrink-0 xl:w-52">
         <FilterIcon className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12" />

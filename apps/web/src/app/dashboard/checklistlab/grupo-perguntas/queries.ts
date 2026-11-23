@@ -14,7 +14,12 @@ export type GrupoDePerguntas = {
 type LinhaBruta = Omit<GrupoDePerguntas, "perguntas"> & { perguntas_checklist: { count: number }[] };
 
 /** Sem paginacao: sao dezenas de grupos (80 na referencia). Ordem, depois nome. */
-export async function listarGrupos(filtros: { situacao: Situacao; busca?: string }): Promise<GrupoDePerguntas[]> {
+export async function listarGrupos(filtros: {
+  situacao: Situacao;
+  /** "Nome da Atividade" do sistema de referencia: trecho do nome do grupo. */
+  nome?: string;
+  busca?: string;
+}): Promise<GrupoDePerguntas[]> {
   const supabase = await createClient();
   let consulta = supabase
     .from("grupos_perguntas")
@@ -27,9 +32,12 @@ export async function listarGrupos(filtros: { situacao: Situacao; busca?: string
   const { data, error } = await consulta;
   if (error) throw error;
 
+  // O grupo nao tem descricao (0073): a Busca Livre tambem procura no nome.
   const termo = filtros.busca?.trim().toLowerCase();
+  const nome = filtros.nome?.trim().toLowerCase();
   return ((data ?? []) as unknown as LinhaBruta[])
     .map(({ perguntas_checklist, ...grupo }) => ({ ...grupo, perguntas: perguntas_checklist[0]?.count ?? 0 }))
+    .filter((grupo) => !nome || grupo.nome.toLowerCase().includes(nome))
     .filter((grupo) => !termo || grupo.nome.toLowerCase().includes(termo));
 }
 

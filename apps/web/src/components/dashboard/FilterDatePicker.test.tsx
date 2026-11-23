@@ -25,7 +25,7 @@ describe("FilterDatePicker", () => {
   it("mostra o rotulo enquanto nenhuma data foi escolhida", () => {
     render(<FilterDatePicker label="Data Inicial" name="data_inicial" />);
 
-    expect(screen.getByRole("button", { name: "Data Inicial" })).toHaveTextContent("Data Inicial");
+    expect(screen.getByRole("button", { name: /^Data Inicial/ })).toHaveTextContent("Data Inicial");
   });
 
   it("hidden input comeca vazio sem defaultValue", () => {
@@ -39,7 +39,7 @@ describe("FilterDatePicker", () => {
       <FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue="2026-03-10" />,
     );
 
-    expect(screen.getByRole("button", { name: "Data Inicial" })).toHaveTextContent("10/03/2026");
+    expect(screen.getByRole("button", { name: /^Data Inicial/ })).toHaveTextContent("10/03/2026");
     expect(hiddenInput(container, "data_inicial")).toHaveValue("2026-03-10");
   });
 
@@ -47,7 +47,7 @@ describe("FilterDatePicker", () => {
     const user = userEvent.setup();
     render(<FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue="2026-03-10" />);
 
-    await user.click(screen.getByRole("button", { name: "Data Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Data Inicial/ }));
 
     const dialogo = screen.getByRole("dialog", { name: "Calendário: Data Inicial" });
     expect(within(dialogo).getByText("Março 2026")).toBeInTheDocument();
@@ -59,12 +59,12 @@ describe("FilterDatePicker", () => {
       <FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue="2026-03-10" />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Data Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Data Inicial/ }));
     const dialogo = screen.getByRole("dialog", { name: "Calendário: Data Inicial" });
     await user.click(clicarDia20(dialogo));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Data Inicial" })).toHaveTextContent("20/03/2026");
+    expect(screen.getByRole("button", { name: /^Data Inicial/ })).toHaveTextContent("20/03/2026");
     expect(hiddenInput(container, "data_inicial")).toHaveValue("2026-03-20");
   });
 
@@ -74,7 +74,7 @@ describe("FilterDatePicker", () => {
       <FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue="2026-03-10" />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Data Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Data Inicial/ }));
     await user.click(screen.getByRole("button", { name: "Próximo mês" }));
 
     const dialogo = screen.getByRole("dialog", { name: "Calendário: Data Inicial" });
@@ -87,7 +87,7 @@ describe("FilterDatePicker", () => {
     const user = userEvent.setup();
     render(<FilterDatePicker label="Data Inicial" name="data_inicial" defaultValue="2026-03-10" />);
 
-    await user.click(screen.getByRole("button", { name: "Data Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Data Inicial/ }));
     await user.click(screen.getByRole("button", { name: "Mês anterior" }));
 
     const dialogo = screen.getByRole("dialog", { name: "Calendário: Data Inicial" });
@@ -102,7 +102,7 @@ describe("FilterDatePicker", () => {
 
     await user.click(screen.getByRole("button", { name: "Limpar Data Inicial" }));
 
-    expect(screen.getByRole("button", { name: "Data Inicial" })).toHaveTextContent("Data Inicial");
+    expect(screen.getByRole("button", { name: /^Data Inicial/ })).toHaveTextContent("Data Inicial");
     expect(hiddenInput(container, "data_inicial")).toHaveValue("");
   });
 
@@ -121,7 +121,7 @@ describe("FilterDatePicker", () => {
       </div>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Data Inicial" }));
+    await user.click(screen.getByRole("button", { name: /^Data Inicial/ }));
     await user.click(screen.getByRole("button", { name: "Fora" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

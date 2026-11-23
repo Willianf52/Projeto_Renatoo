@@ -53,7 +53,14 @@ const esquemaDaPergunta = z.object({
     .int("A ordem deve ser um número inteiro.")
     .min(1, "A ordem deve ser maior que zero.")
     .max(9999, "A ordem deve ser no máximo 9999."),
+  peso: z
+    .number({ error: "Informe o peso da pergunta." })
+    .int("O peso deve ser um número inteiro.")
+    .min(1, "O peso deve ser de 1 a 10.")
+    .max(10, "O peso deve ser de 1 a 10."),
 });
+
+const GATILHOS = ["SIM", "NAO", "NA"] as const;
 
 export type ValoresDaPergunta = {
   texto: string;
@@ -66,6 +73,13 @@ export type ValoresDaPergunta = {
   /** Ids em texto; vazio = sem grupo / sem evento proprio (0073). */
   grupo: string;
   evento: string;
+  /** "Obrigatorio" do sistema de referencia (0099): falso, o app deixa pular. */
+  obrigatoria: boolean;
+  /** Peso na nota, em texto (0108). */
+  peso: string;
+  /** Condicional (0108): id da pergunta base em texto (vazio: sempre aparece) e a resposta que a mostra. */
+  base: string;
+  gatilho: string;
 };
 
 export type EstadoDoFormulario = {
@@ -90,6 +104,11 @@ function extrairValores(formData: FormData): ValoresDaPergunta {
       : "CNA",
     grupo: texto(formData, "grupo"),
     evento: texto(formData, "evento"),
+    // Mesmo raciocinio do status: so "nao" desliga; o resto e o padrao seguro.
+    obrigatoria: String(formData.get("obrigatoria") ?? "") !== "nao",
+    peso: texto(formData, "peso") || "1",
+    base: texto(formData, "base"),
+    gatilho: texto(formData, "gatilho"),
   };
 }
 
@@ -104,6 +123,10 @@ type LinhaDaPergunta = {
   ativo: boolean;
   grupo_pergunta_id: number | null;
   evento_id: number | null;
+  obrigatoria: boolean;
+  peso: number;
+  pergunta_base_id: number | null;
+  resposta_gatilho: string | null;
 };
 
 const ID = /^[1-9]\d{0,14}$/;
@@ -116,6 +139,7 @@ function validar(
   const validado = esquemaDaPergunta.safeParse({
     texto: valores.texto,
     ordem: valores.ordem === "" ? Number.NaN : Number(valores.ordem),
+    peso: Number(valores.peso),
   });
 
   if (!validado.success) return { ok: false, erro: validado.error.issues[0].message };
@@ -123,6 +147,10 @@ function validar(
   // O POST pode ser montado a mao: os dois vao para FK `bigint`.
   if (valores.grupo && !ID.test(valores.grupo)) return { ok: false, erro: "Grupo de perguntas inválido." };
   if (valores.evento && !ID.test(valores.evento)) return { ok: false, erro: "Tipo de evento inválido." };
+  if (valores.base && !ID.test(valores.base)) return { ok: false, erro: "Pergunta base inválida." };
+  if (valores.base && !(GATILHOS as readonly string[]).includes(valores.gatilho)) {
+    return { ok: false, erro: "Escolha a resposta da pergunta base que faz esta aparecer." };
+  }
 
   return {
     ok: true,
@@ -132,9 +160,50 @@ function validar(
       ativo: valores.ativo,
       grupo_pergunta_id: valores.grupo ? Number(valores.grupo) : null,
       evento_id: valores.evento ? Number(valores.evento) : null,
+      obrigatoria: valores.obrigatoria,
+      peso: validado.data.peso,
+      pergunta_base_id: valores.base ? Number(valores.base) : null,
+      resposta_gatilho: valores.base ? valores.gatilho : null,
     },
   };
 }
+
+/**
+ * A condicional (0108) passa pelo banco de qualquer jeito: o gatilho
+ * `validar_pergunta_condicional` recusa com 23514. Esta conferencia so troca
+ * o "nao foi possivel salvar" por uma frase que diga o que corrigir.
+ */
+async function conferirCondicional(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: number | null,
+  modeloId: number,
+  linha: LinhaDaPergunta,
+): Promise<string | null> {
+  if (linha.pergunta_base_id === null) return null;
+  if (linha.pergunta_base_id === id) return "A pergunta não pode depender dela mesma.";
+
+  const { data: base } = await supabase
+    .from("perguntas_checklist")
+    .select("modelo_id, tipo_resposta, pergunta_base_id")
+    .eq("id", linha.pergunta_base_id)
+    .maybeSingle();
+  if (!base) return "A pergunta base não existe mais. Recarregue a página.";
+  if (base.modelo_id !== modeloId) return "A pergunta base precisa ser do mesmo modelo.";
+  if (base.pergunta_base_id !== null) return "A pergunta base também é condicional: escolha uma pergunta comum.";
+  if (linha.resposta_gatilho === "NA" && base.tipo_resposta !== "CNA") {
+    return "A pergunta base não tem a resposta \"Não se aplica\".";
+  }
+  if (id !== null) {
+    const { count } = await supabase
+      .from("perguntas_checklist")
+      .select("id", { count: "exact", head: true })
+      .eq("pergunta_base_id", id);
+    if ((count ?? 0) > 0) return "Outras perguntas dependem desta, então ela não pode depender de outra.";
+  }
+  return null;
+}
+
+const ERRO_DA_CONDICAO = "A condição escolhida não é válida. Confira a pergunta base e a resposta.";
 
 /** `ordem` e unica DENTRO do modelo (`perguntas_checklist_ordem_unica_no_modelo`, 0061). */
 const MENSAGENS_DE_ERRO = {
@@ -161,8 +230,13 @@ export async function salvarPergunta(
 
   const supabase = await createClient();
 
+  const modeloId = Number(valores.modelo);
+  if (validacao.linha.pergunta_base_id !== null) {
+    const problema = await conferirCondicional(supabase, id, modeloId, validacao.linha);
+    if (problema) return { erro: problema, valores };
+  }
+
   if (id === null) {
-    const modeloId = Number(valores.modelo);
     if (!valores.modelo || !Number.isInteger(modeloId) || modeloId <= 0) {
       return { erro: "Escolha o modelo da pergunta.", valores };
     }
@@ -172,6 +246,7 @@ export async function salvarPergunta(
       modelo_id: modeloId,
       tipo_resposta: valores.tipoResposta,
     });
+    if (error?.code === "23514") return { erro: ERRO_DA_CONDICAO, valores };
     if (error) return { erro: traduzirErroPostgres(error.code, MENSAGENS_DE_ERRO), valores };
   } else {
     // Ver `lib/escrita-rls.ts`: um UPDATE barrado pelo RLS nao devolve erro,
@@ -183,6 +258,7 @@ export async function salvarPergunta(
       .select("id")
       .maybeSingle();
 
+    if (resultado.error?.code === "23514") return { erro: ERRO_DA_CONDICAO, valores };
     const verificacao = verificarEscritaComRls(
       resultado,
       MENSAGENS_DE_ERRO,

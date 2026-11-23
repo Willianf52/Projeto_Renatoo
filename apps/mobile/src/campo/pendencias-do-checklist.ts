@@ -20,7 +20,8 @@ export type EstadoDoChecklist = {
   tipo: TipoDeVisita;
   motivo: string;
   /** `null` e "ainda carregando", como na tela. */
-  perguntas: readonly { id: number; ordem?: number; tipoResposta?: string }[] | null;
+  /** `obrigatoria` falso (0099): pode ficar sem resposta. Ausente vale verdadeiro. */
+  perguntas: readonly { id: number; ordem?: number; tipoResposta?: string; obrigatoria?: boolean }[] | null;
   respostas: Readonly<Record<number, unknown>>;
   /**
    * O grupo do site tem mais de um modelo e o inspetor ainda nao escolheu
@@ -130,7 +131,10 @@ function pendenciaDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
     };
   }
 
-  const semResposta = estado.perguntas.filter((pergunta) => !estado.respostas[pergunta.id]);
+  // As nao obrigatorias (0099) podem ficar em branco, como no sistema antigo.
+  const semResposta = estado.perguntas.filter(
+    (pergunta) => pergunta.obrigatoria !== false && !estado.respostas[pergunta.id],
+  );
   if (semResposta.length === 0) return null;
 
   return {
@@ -149,7 +153,12 @@ function pendenciaDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
 function pendenciaDaFotoDasPerguntas(estado: EstadoDoChecklist): Pendencia | null {
   if (!estado.fotoObrigatoriaPorPergunta || !estado.perguntas) return null;
 
-  const semFoto = estado.perguntas.filter((pergunta) => (estado.fotosPorPergunta?.[pergunta.id] ?? 0) === 0);
+  // A nao obrigatoria deixada em branco nao pede foto: nao ha o que comprovar.
+  const semFoto = estado.perguntas.filter(
+    (pergunta) =>
+      (pergunta.obrigatoria !== false || estado.respostas[pergunta.id]) &&
+      (estado.fotosPorPergunta?.[pergunta.id] ?? 0) === 0,
+  );
   if (semFoto.length === 0) return null;
 
   const primeira = semFoto[0];

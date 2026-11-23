@@ -58,7 +58,7 @@ const { createClientMock, rpcMock, erroMock, respostas, chamadasPorTabela, respo
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
 vi.mock("@/lib/log", () => ({ erro: erroMock, gerarIdDeRequisicao: () => "id-teste" }));
 
-const { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites } = await import("./queries");
+const { extrairFiltros, getHistoricoDeSupervisao, getOpcoesSites, linkDoMapa } = await import("./queries");
 
 beforeEach(() => {
   respostas.clear();
@@ -76,6 +76,8 @@ function visita(visitaId: number, dataHora: string, extra: Record<string, unknow
     funcionario: "Odair Viana Lima",
     local: "ACE Limpeza",
     tem_localizacao: false,
+    latitude: null,
+    longitude: null,
     motivo_visita: "Inspeção",
     observacao: "",
     ...extra,
@@ -131,6 +133,20 @@ describe("getOpcoesSites", () => {
   });
 });
 
+describe("linkDoMapa", () => {
+  it("monta o link do mapa com a coordenada", () => {
+    expect(linkDoMapa({ latitude: -23.2780986, longitude: -47.6717 })).toBe(
+      "https://www.google.com/maps?q=-23.2780986,-47.6717",
+    );
+  });
+
+  it("sem coordenada, ou com valor que nao e numero, nao ha link", () => {
+    expect(linkDoMapa({ latitude: null, longitude: null })).toBeNull();
+    expect(linkDoMapa({ latitude: -23.2, longitude: null })).toBeNull();
+    expect(linkDoMapa({ latitude: Number.NaN, longitude: -47 })).toBeNull();
+  });
+});
+
 describe("getHistoricoDeSupervisao", () => {
   // O agrupamento por visita (data mais antiga; localizacao e observacao de
   // qualquer leitura) desceu para o banco na 0049:
@@ -151,9 +167,22 @@ describe("getHistoricoDeSupervisao", () => {
       funcionario: "Odair Viana Lima",
       local: "ACE Limpeza",
       temLocalizacao: true,
+      latitude: null,
+      longitude: null,
       motivoVisita: "Inspeção",
       observacao: "Portão trancado",
     });
+  });
+
+  it("leva a coordenada da leitura para a tela (0101)", async () => {
+    respostasRpc.push(
+      [visita(12, "2026-08-08T09:45:00Z", { tem_localizacao: true, latitude: -23.2780986, longitude: -47.6717 })],
+      [],
+    );
+
+    const historico = await getHistoricoDeSupervisao({ mes: "2026-08", site: "3" });
+
+    expect(historico.visitas[0]).toMatchObject({ latitude: -23.2780986, longitude: -47.6717 });
   });
 
   it("manda o site e o mes como periodo meio-aberto", async () => {

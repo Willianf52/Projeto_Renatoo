@@ -39,6 +39,7 @@ import {
 
 /** Mesma ordem de `toTableRow` -- ver o comentario de la. */
 const TABLE_COLUMNS = [
+  "ID",
   "Nome",
   "Login",
   "Usuário Superior",

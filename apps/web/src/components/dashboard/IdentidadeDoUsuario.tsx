@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { linkDaFoto } from "@/lib/foto-do-usuario";
 import { getPerfilAtual, getUsuarioAtual } from "@/lib/perfil-atual";
 import { InformarCargoDoMenu } from "./CargoDoMenu";
+import { UserIcon } from "./icons";
 import { Skeleton } from "./Skeleton";
 
 /**
@@ -29,15 +32,34 @@ async function identidade() {
   const perfil = await getPerfilAtual();
 
   return {
+    id: user.id,
     nome: perfil?.nome_completo?.trim() || user.email || "Usuário",
     cargo: perfil?.cargo ?? "OPERADOR",
   };
 }
 
+/**
+ * Avatar e nome no topo. A foto (0112) vem por link temporario do bucket
+ * privado; sem foto, o boneco. Clicar leva a "Minha Foto".
+ */
 export async function IdentidadeNavbar() {
-  const { nome, cargo } = await identidade();
+  const { id, nome, cargo } = await identidade();
+  const foto = await linkDaFoto(id).catch(() => null);
 
   return (
+    <Link
+      href="/dashboard/minha-foto"
+      title="Minha foto"
+      className="flex min-w-0 items-center gap-2 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-green"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-green/20 text-brand-green">
+        {foto ? (
+          // eslint-disable-next-line @next/next/no-img-element -- link assinado e temporario do bucket privado
+          <img src={foto} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <UserIcon className="h-5 w-5" />
+        )}
+      </span>
     <span className="min-w-0 leading-tight">
       <span
         className="block max-w-[220px] truncate text-sm font-medium text-slate-200"
@@ -47,14 +69,18 @@ export async function IdentidadeNavbar() {
       </span>
       <span className="block text-xs text-brand-muted">{cargo}</span>
     </span>
+    </Link>
   );
 }
 
 export function IdentidadeNavbarSkeleton() {
   return (
+    <span className="flex items-center gap-2">
+      <Skeleton as="span" className="block h-9 w-9 rounded-full" />
     <span className="min-w-0 leading-tight">
       <Skeleton as="span" className="block h-4 w-32" />
       <Skeleton as="span" className="mt-1 block h-3 w-20" />
+    </span>
     </span>
   );
 }

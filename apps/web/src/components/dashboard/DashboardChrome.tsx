@@ -19,6 +19,15 @@ export function DashboardChrome({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Tela grande: o mesmo botao recolhe o menu lateral, como no sistema de
+  // referencia (06/11/2026), e a tabela ganha a largura dele. So enquanto o
+  // painel esta aberto -- recarregar a pagina traz o menu de volta.
+  const [recolhido, setRecolhido] = useState(false);
+
+  const alternarMenu = () => {
+    if (window.matchMedia("(min-width: 1024px)").matches) setRecolhido((atual) => !atual);
+    else setSidebarOpen((open) => !open);
+  };
 
   return (
     <ToastProvider>
@@ -33,11 +42,12 @@ export function DashboardChrome({
         <DashboardNavbar
           identidade={identidadeNavbar}
           organization={organization}
-          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          onToggleSidebar={alternarMenu}
+          menuRecolhido={recolhido}
         />
 
         <div className="flex">
-          <div className="print:hidden">
+          <div className={`print:hidden ${recolhido ? "lg:hidden" : ""}`}>
             <DashboardSidebar
               saudacao={saudacaoSidebar}
               mobileOpen={sidebarOpen}

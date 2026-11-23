@@ -61,6 +61,21 @@ export function ModeloForm({
         />
       </div>
 
+      {/* "Descricao" (0099), como no sistema de referencia: opcional. */}
+      <div>
+        <label htmlFor="descricao" className={rotuloClasses}>
+          Descrição
+        </label>
+        <textarea
+          id="descricao"
+          name="descricao"
+          rows={3}
+          maxLength={500}
+          defaultValue={valores.descricao}
+          className={getInputClasses(false)}
+        />
+      </div>
+
       {padrao ? (
         <p className="rounded-md border border-slate-800 bg-brand-navy px-4 py-3 text-sm text-brand-muted">
           Este é o modelo padrão: vale para todo grupo de sites que não tem modelo próprio. Por isso
@@ -126,6 +141,18 @@ export function ModeloForm({
           <span className="block text-xs text-brand-muted">
             O app só deixa finalizar o checklist depois que cada pergunta tiver ao menos uma foto. Desmarcado, a foto
             é opcional.
+          </span>
+        </span>
+      </label>
+
+      {/* "Ordem aleatoria" (0108), a "Randomica" do cadastro do sistema de referencia. */}
+      <label className="flex items-start gap-2 text-sm text-white">
+        <input type="checkbox" name="ordem_aleatoria" defaultChecked={valores.ordemAleatoria} className="mt-1" />
+        <span>
+          Perguntas em ordem aleatória
+          <span className="block text-xs text-brand-muted">
+            O app embaralha as perguntas dentro de cada grupo, e cada inspeção vê a sua ordem (sempre a mesma enquanto
+            é respondida). A pergunta condicional continua logo depois da pergunta base.
           </span>
         </span>
       </label>

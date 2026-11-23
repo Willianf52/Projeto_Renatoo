@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Image,
   KeyboardAvoidingView,
@@ -22,6 +23,8 @@ import {
   LIMITE_OBSERVACAO,
   MAXIMO_DE_FOTOS,
   MAXIMO_DE_FOTOS_POR_PERGUNTA,
+  ordenarPerguntas,
+  perguntasVisiveis,
   respostasDoTipo,
   rotuloDaResposta,
   ROTULO_DO_TIPO,
@@ -46,6 +49,7 @@ import {
   lerRascunho,
   salvarRascunho,
 } from "../campo/rascunho";
+import { abrirPdfDoChecklist } from "../lib/abrir-pdf";
 import { tituloDaColeta } from "../lib/titulo-da-coleta";
 import { toqueDeEscolha, toqueDeSucesso } from "../lib/toque";
 import { criarVisitaPeloSite, type SiteParaVisita } from "../campo/visita-pelo-site";
@@ -102,7 +106,7 @@ const FOLGA_DO_REMOVER = (alturaDeControle.padrao - LADO_DO_REMOVER) / 2;
  * UMA PERGUNTA POR VEZ (pedido do dono, 11/10/2026, como no app do sistema de
  * referencia): na consultoria, cada pergunta ocupa a tela, com "Progresso do
  * checklist X de N" e Anterior/Proximo no rodape; depois da ultima vem o
- * resumo, com a assinatura e o "Finalizar visita". A
+ * resumo, com a assinatura e o "Enviar checklist". A
  * corretiva continua numa tela so -- e o motivo, uma foto e a assinatura.
  */
 export function TelaDeChecklist({
@@ -127,7 +131,12 @@ export function TelaDeChecklist({
    * explicito, em vez de esvaziar respostas por baixo do dedo.
    */
   tipo: TipoDeVisita;
-  aoConcluir: () => void;
+  /**
+   * Depois do envio, com o id da visita (a do "Ver sites" nasce no envio):
+   * volta para a tela da inspecao, que segue aberta para outro checklist
+   * ou para o "Finalizar inspecao" (0114).
+   */
+  aoConcluir: (visitaId: number) => void;
 }) {
   const { sessao } = useSessao();
   const funcionarioId = sessao?.user.id ?? null;
@@ -402,8 +411,25 @@ export function TelaDeChecklist({
 
   // Derivados, e nao estados a sincronizar: lista de outro modelo vale como
   // "ainda nao buscada".
-  const perguntas =
+  const perguntasDoModelo =
     modeloEfetivo !== null && carregadas?.modeloId === modeloEfetivo ? carregadas.perguntas : null;
+
+  // 0108: a ordem de tela (embaralhada quando o modelo pede, sempre a mesma
+  // para esta inspecao e este dia) e so as perguntas visiveis -- a condicional
+  // aparece quando a base recebe a resposta-gatilho. Tudo o que vem depois
+  // (paginas, pendencias, fotos, envio) le esta lista: a pergunta escondida
+  // nao e cobrada nem enviada, mesmo que tenha sido respondida antes de a
+  // base mudar.
+  const ordemAleatoria = modelos?.find((modelo) => modelo.id === modeloEfetivo)?.ordemAleatoria === true;
+  const sementeDaOrdem = `${chave}:${new Date().toDateString()}`;
+  const perguntasOrdenadas = useMemo(
+    () => (perguntasDoModelo ? ordenarPerguntas(perguntasDoModelo, ordemAleatoria, sementeDaOrdem) : null),
+    [perguntasDoModelo, ordemAleatoria, sementeDaOrdem],
+  );
+  const perguntas = useMemo(
+    () => (perguntasOrdenadas ? perguntasVisiveis(perguntasOrdenadas, respostas) : null),
+    [perguntasOrdenadas, respostas],
+  );
   const escolhaDeModeloPendente =
     tipo === "CONSULTORIA" && modelos !== null && modelos.length > 1 && modeloEfetivo === null;
   const carregandoPerguntas =
@@ -473,7 +499,11 @@ export function TelaDeChecklist({
   // Paginacao da consultoria. `indice === total` e o resumo.
   const total = perguntas?.length ?? 0;
   const paginado = tipo === "CONSULTORIA" && total > 0;
-  const primeiraSemResposta = perguntas ? perguntas.findIndex((pergunta) => !respostas[pergunta.id]) : -1;
+  // A tela abre na primeira obrigatoria sem resposta: a nao obrigatoria (0099)
+  // em branco nao e pendencia.
+  const primeiraSemResposta = perguntas
+    ? perguntas.findIndex((pergunta) => pergunta.obrigatoria !== false && !respostas[pergunta.id])
+    : -1;
   const indice = !paginado
     ? 0
     : posicao !== null && posicao.modeloId === modeloEfetivo
@@ -500,6 +530,12 @@ export function TelaDeChecklist({
 
   const avancar = useCallback(() => {
     if (perguntaAtual === null) return;
+    // Pergunta nao obrigatoria (0099) pode passar em branco, como no antigo.
+    const emBrancoPermitido = perguntaAtual.obrigatoria === false && !respostas[perguntaAtual.id];
+    if (emBrancoPermitido) {
+      irPara(indice + 1);
+      return;
+    }
     if (!respostas[perguntaAtual.id]) {
       setErro("Responda esta pergunta para continuar.");
       setDestaque("perguntas");
@@ -723,7 +759,11 @@ export function TelaDeChecklist({
         fotosDePergunta: tipo === "CONSULTORIA" ? fotosDasPerguntas : undefined,
         respostas:
           tipo === "CONSULTORIA"
-            ? lista.map((pergunta) => ({
+            ? lista
+                // A nao obrigatoria deixada em branco (0099) nao vai: o banco so
+                // guarda resposta dada.
+                .filter((pergunta) => respostas[pergunta.id])
+                .map((pergunta) => ({
                 perguntaId: pergunta.id,
                 resposta: respostas[pergunta.id],
                 observacao: observacoes[pergunta.id]?.trim() || null,
@@ -739,6 +779,8 @@ export function TelaDeChecklist({
         return;
       }
 
+      const visitaEnviada = visitaCriada.current;
+
       // O checklist ja esta no banco: o rascunho perdeu o motivo de existir.
       // Falhar aqui nao desfaz o envio, entao so registra e segue.
       envioConcluido.current = true;
@@ -748,7 +790,32 @@ export function TelaDeChecklist({
         capturarErro(falha, { onde: "descartarRascunho", visita: String(chave) });
       });
 
-      aoConcluir();
+      // "Baixar PDF" logo depois do envio (18/11/2026): o inspetor costuma
+      // mostrar o PDF ao cliente ali mesmo. O PDF e montado no portal, entao
+      // so oferece quando o envio devolveu o numero do checklist.
+      if ("checklistId" in resultado) {
+        const checklistId = resultado.checklistId;
+        Alert.alert(
+          "Checklist enviado",
+          "Quer abrir o PDF desta inspeção para mostrar ao cliente?",
+          [
+            { text: "Agora não", style: "cancel", onPress: () => aoConcluir(visitaEnviada) },
+            {
+              text: "Baixar PDF",
+              onPress: () => {
+                void abrirPdfDoChecklist(checklistId)
+                  .then((falha) => {
+                    if (falha) Alert.alert("PDF", `${falha} O PDF também fica em Checklists respondidos.`);
+                  })
+                  .finally(() => aoConcluir(visitaEnviada));
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+      } else {
+        aoConcluir(visitaEnviada);
+      }
     } catch {
       // `enviarChecklist` nao rejeita, mas a captura da assinatura e o resto
       // deste bloco sao chamados com `void` pelo botao: uma rejeicao aqui
@@ -905,9 +972,15 @@ export function TelaDeChecklist({
                 ]}
               >
                 {perguntaAtual.grupo ? <Text style={estilos.rotulo}>{perguntaAtual.grupo}</Text> : null}
+                {/* A posicao na tela, e nao a `ordem` do cadastro (18/11/2026): com a
+                    ordem aleatoria ou uma condicional escondida (0108), o numero
+                    do cadastro saia fora de sequencia ("7.", "2.", "11."). */}
                 <Text style={estilos.perguntaTexto}>
-                  {perguntaAtual.ordem}. {perguntaAtual.texto}
+                  {indice + 1}. {perguntaAtual.texto}
                 </Text>
+                {perguntaAtual.obrigatoria === false ? (
+                  <Text style={estilos.rotulo}>Opcional: pode passar sem responder.</Text>
+                ) : null}
 
                 {/* Uma opcao por linha, como na referencia: com a pergunta
                     sozinha na tela ha espaco, e o alvo de toque fica do tamanho
@@ -1000,19 +1073,25 @@ export function TelaDeChecklist({
                       key={pergunta.id}
                       onPress={() => irPara(posicaoNaLista)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Rever a pergunta ${pergunta.ordem}`}
+                      accessibilityLabel={`Rever a pergunta ${posicaoNaLista + 1}`}
                       style={({ pressed }) => [estilos.linhaDoResumo, pressed && estilos.opcaoPressionada]}
                     >
                       <Text style={estilos.linhaDoResumoTexto}>
-                        {pergunta.ordem}. {pergunta.texto}
+                        {posicaoNaLista + 1}. {pergunta.texto}
                       </Text>
                       <Text
                         style={[
                           estilos.linhaDoResumoResposta,
-                          (!resposta || (resposta === "NAO" && pergunta.tipoResposta !== "SN")) && estilos.rotuloPendente,
+                          ((!resposta && pergunta.obrigatoria !== false) ||
+                            (resposta === "NAO" && pergunta.tipoResposta !== "SN")) &&
+                            estilos.rotuloPendente,
                         ]}
                       >
-                        {resposta ? rotuloDaResposta(pergunta.tipoResposta, resposta) : "Sem resposta"}
+                        {resposta
+                          ? rotuloDaResposta(pergunta.tipoResposta, resposta)
+                          : pergunta.obrigatoria === false
+                            ? "Sem resposta (opcional)"
+                            : "Sem resposta"}
                         {extras.length > 0 ? ` · ${extras.join(" · ")}` : ""}
                       </Text>
                     </Pressable>
@@ -1201,7 +1280,10 @@ export function TelaDeChecklist({
               ) : null}
               <View style={estilos.botaoDaNavegacao}>
                 <Botao
-                  titulo="Finalizar visita"
+                  // "Enviar checklist", e nao "Finalizar visita" (22/11/2026):
+                  // desde a 0114 a inspecao segue aberta depois do envio, e
+                  // quem a encerra e o "Finalizar inspecao" da tela anterior.
+                  titulo="Enviar checklist"
                   larguraTotal
                   carregando={enviando}
                   // Nao desabilitado por campo faltando, de proposito: um botao

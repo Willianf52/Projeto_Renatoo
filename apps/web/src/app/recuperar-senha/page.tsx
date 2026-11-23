@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { HeroPanel } from "@/components/HeroPanel";
+import { FundoDaEntrada, HeroPanel } from "@/components/HeroPanel";
 import { EMAIL_REGEX, FormField } from "@/components/FormField";
 import { createClient } from "@/lib/supabase/client";
 // Pelo subcaminho, e nao pelo indice do shared: o login pre-carrega esta
@@ -98,7 +98,8 @@ export default function RecuperarSenhaPage() {
   };
 
   return (
-    <div data-tema="escuro" className="flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+    <div data-tema="escuro" className="relative isolate flex min-h-screen flex-col bg-brand-navy text-white lg:flex-row">
+      <FundoDaEntrada />
       {/* Escuro nos dois temas: a entrada e a vitrine da marca (ver globals.css). */}
       <HeroPanel />
 

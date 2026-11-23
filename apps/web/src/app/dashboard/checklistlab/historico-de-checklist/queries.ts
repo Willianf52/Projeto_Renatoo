@@ -19,7 +19,8 @@ export const PAGE_SIZE = 25;
  * Teto de checklists buscados numa consulta. Menor que o `TETO_DE_AGREGACAO`
  * padrao (100 mil) de proposito: `checklists_visita` tem no maximo uma linha
  * por visita (constraint `checklists_visita_visita_unica`, 0042), entao um
- * filtro que passe de 10 mil ja e "o historico inteiro", nao um recorte que
+ * filtro que passe de 10 mil ja e "o historico inteiro" (desde a 0114 uma
+ * visita pode ter varios checklists, mas o teto segue folgado), nao um recorte que
  * alguem va ler.
  */
 export const TETO_DO_HISTORICO = 10_000;
@@ -313,8 +314,8 @@ export type ChecklistBruto = {
   checklist_respostas: {
     resposta: string;
     observacao: string | null;
-    /** O tipo decide se o "NAO" e nao conformidade (0061). */
-    perguntas_checklist: { tipo_resposta: string } | null;
+    /** O tipo decide se o "NAO" e nao conformidade (0061); o peso pondera a nota (0108). */
+    perguntas_checklist: { tipo_resposta: string; peso?: number | null } | null;
   }[];
 };
 
@@ -386,7 +387,11 @@ export function montarLinha(bruto: ChecklistBruto, totalPerguntas: number): Hist
   const respostas = bruto.checklist_respostas ?? [];
   const comTipo = respostas
     .filter((r): r is typeof r & { resposta: ValorDaResposta } => ["SIM", "NAO", "NA"].includes(r.resposta))
-    .map((r) => ({ tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta), resposta: r.resposta }));
+    .map((r) => ({
+      tipo: tipoDeResposta(r.perguntas_checklist?.tipo_resposta),
+      resposta: r.resposta,
+      peso: r.perguntas_checklist?.peso ?? 1,
+    }));
   const nao = comTipo.filter((r) => r.tipo !== "SN" && r.resposta === "NAO").length;
 
   const motivoDaVisita = bruto.visitas?.motivos_visita?.nome ?? "";
@@ -890,7 +895,7 @@ type ChecklistDetalheBruto = Omit<ChecklistBruto, "checklist_respostas"> & {
     resposta: string;
     observacao: string | null;
     pergunta_id: number;
-    perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string } | null;
+    perguntas_checklist: { ordem: number; texto: string; tipo_resposta: string; peso?: number } | null;
   }[];
   checklist_fotos: { id: number; criado_em: string; pergunta_id: number | null }[];
   enviado_por_perfil: { nome_completo: string | null } | null;
@@ -913,7 +918,7 @@ const SELECT_DO_DETALHE = `
   ),
   checklist_respostas (
     resposta, observacao, pergunta_id,
-    perguntas_checklist ( ordem, texto, tipo_resposta )
+    perguntas_checklist ( ordem, texto, tipo_resposta, peso )
   ),
   checklist_fotos ( id, criado_em, pergunta_id ),
   enviado_por_perfil:profiles!checklists_visita_enviado_por_fkey ( nome_completo )

@@ -12,6 +12,8 @@ export type Situacao = "ativos" | "todos" | "inativos";
 export type QrCodeFiltros = {
   busca?: string;
   tipoServico?: string;
+  /** Filtro "Site" do antigo (13/11/2026). */
+  site?: string;
   grupoSite?: string;
   situacao: Situacao;
   pagina: number;
@@ -81,6 +83,7 @@ export function extrairFiltros(params: SearchParams): QrCodeFiltros {
   return {
     busca: primeiro(params.busca),
     tipoServico: filtroDeId(primeiro(params.tipo_servico)),
+    site: filtroDeId(primeiro(params.site)),
     grupoSite: filtroDeId(primeiro(params.grupo_site)),
     // Valor fora da lista cai no padrao em vez de virar filtro vazio: a URL e
     // editavel a mao, e `?situacao=xyz` mostrando tudo seria mentira silenciosa.
@@ -115,6 +118,7 @@ function aplicarFiltros(query: any, filtros: Omit<QrCodeFiltros, "pagina">) {
   let q = comBusca(query, filtros.busca);
 
   if (filtros.tipoServico) q = q.eq("sites.tipo_servico_id", filtros.tipoServico);
+  if (filtros.site) q = q.eq("site_id", filtros.site);
   if (filtros.grupoSite) q = q.eq("sites.grupo_site_id", filtros.grupoSite);
   // "todos" nao filtra -- e a unica das tres opcoes que nao vira clausula.
   if (filtros.situacao === "ativos") q = q.eq("ativo", true);

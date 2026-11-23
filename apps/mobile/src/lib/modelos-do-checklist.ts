@@ -29,6 +29,17 @@ export type PerguntaDoModelo = {
   tipoResposta: TipoDeResposta;
   /** Nome do grupo de perguntas (0073), para o seletor da tela; opcional porque copias antigas nao o tem. */
   grupo?: string | null;
+  /**
+   * "Obrigatorio" do sistema de referencia (0099). Falso: pode ficar sem
+   * resposta. Opcional porque copias antigas nao o tem, e ausente vale como
+   * verdadeiro -- o comportamento de antes.
+   */
+  obrigatoria?: boolean;
+  /** Peso na nota (0108); ausente vale 1. */
+  peso?: number;
+  /** Condicional (0108): so aparece quando a base recebe `respostaGatilho`. Ausente: sempre aparece. */
+  perguntaBaseId?: number | null;
+  respostaGatilho?: string | null;
 };
 
 export type ResultadoDosModelos = { ok: true; modelos: ModeloResumido[] } | { ok: false; erro: string };
@@ -79,7 +90,7 @@ async function lerModelosDoServidor(alvo: {
   try {
     const [grupo, modelos, ligacoes] = await Promise.all([
       lerGrupoDoSite(alvo),
-      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas"),
+      supabase.from("modelos_checklist").select("id, nome, padrao, ativo, foto_obrigatoria, quantidade_de_assinaturas, ordem_aleatoria"),
       supabase.from("modelos_checklist_grupos").select("modelo_id, grupo_site_id"),
     ]);
 
@@ -145,14 +156,24 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
   const erro = "Não foi possível carregar as perguntas do checklist.";
   let resposta: {
     data:
-      | { id: number; ordem: number; texto: string; tipo_resposta: string; grupos_perguntas: { nome: string } | null }[]
+      | {
+          id: number;
+          ordem: number;
+          texto: string;
+          tipo_resposta: string;
+          obrigatoria: boolean;
+          peso: number | null;
+          pergunta_base_id: number | null;
+          resposta_gatilho: string | null;
+          grupos_perguntas: { nome: string } | null;
+        }[]
       | null;
     error: unknown;
   };
   try {
     resposta = await supabase
       .from("perguntas_checklist")
-      .select("id, ordem, texto, tipo_resposta, grupos_perguntas ( nome )")
+      .select("id, ordem, texto, tipo_resposta, obrigatoria, peso, pergunta_base_id, resposta_gatilho, grupos_perguntas ( nome )")
       .eq("modelo_id", modeloId)
       .eq("ativo", true)
       .order("ordem", { ascending: true });
@@ -172,6 +193,10 @@ async function lerPerguntasDoServidor(modeloId: number): Promise<PerguntasLidas>
       texto: pergunta.texto,
       tipoResposta: tipoDeResposta(pergunta.tipo_resposta),
       grupo: pergunta.grupos_perguntas?.nome ?? null,
+      obrigatoria: pergunta.obrigatoria,
+      peso: pergunta.peso ?? 1,
+      perguntaBaseId: pergunta.pergunta_base_id,
+      respostaGatilho: pergunta.resposta_gatilho,
     })),
     erro: null,
   };

@@ -3,8 +3,12 @@ import { notFound, redirect } from "next/navigation";
 import { Breadcrumbs } from "@/components/dashboard/Breadcrumbs";
 import { PaginaDeFormularioEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { UserIcon } from "@/components/dashboard/icons";
+import { linkDaFoto } from "@/lib/foto-do-usuario";
 import { filtroDeUuid } from "@/lib/id-na-url";
 import { podeAdministrarUsuarios } from "@/lib/permissoes";
+import { EditorDeFoto } from "@/app/dashboard/minha-foto/EditorDeFoto";
+import { createClient } from "@/lib/supabase/server";
+import { ClientesAtendidos } from "../../ClientesAtendidos";
 import { UsuarioForm } from "../../UsuarioForm";
 import { getDadosPessoais } from "../../ler-dados-pessoais";
 import {
@@ -52,6 +56,14 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
     getListasDoUsuario(),
   ]);
   if (!usuario) notFound();
+  // A foto do usuario (0112): o GESTOR coloca, troca ou remove.
+  const foto = await linkDaFoto(usuario.id).catch(() => null);
+
+  // Ficha do supervisor/usuario (pedido do gestor, Fase 2): os clientes que
+  // ele atende (0113). Veiculo nao entra: o carro nao e de uma pessoa
+  // especifica (decisao do dono, 22/11/2026).
+  const supabase = await createClient();
+  const atendidos = await supabase.from("clientes_atendidos").select("grupo_site_id").eq("usuario_id", usuario.id);
 
   return (
     <div className="space-y-4">
@@ -105,6 +117,20 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
           }}
         />
       </div>
+
+      <section className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm">
+        <h2 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Clientes atendidos</h2>
+        <ClientesAtendidos
+          usuarioId={usuario.id}
+          grupos={gruposSites}
+          marcadosIniciais={(atendidos.data ?? []).map((a) => a.grupo_site_id)}
+        />
+      </section>
+
+      <section className="max-w-3xl overflow-hidden rounded-lg bg-brand-surface shadow-sm">
+        <h2 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Foto</h2>
+        <EditorDeFoto usuarioId={usuario.id} fotoAtual={foto} />
+      </section>
     </div>
   );
 }

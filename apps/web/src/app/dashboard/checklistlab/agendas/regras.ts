@@ -20,16 +20,64 @@ export const RECORRENCIAS = [
 
 export type Recorrencia = (typeof RECORRENCIAS)[number]["value"];
 
+/**
+ * Filtros da lista "Criar Agenda", os do sistema de referencia (11/11/2026):
+ * periodo, checklists, site, responsavel e padrao de recorrencia. O Status
+ * fica no banco; estes, na lista ja lida (sao poucas agendas).
+ */
+export type FiltrosDaListaDeAgendas = {
+  /** Periodo: a agenda entra se o intervalo dela cruza o filtro. AAAA-MM-DD. */
+  dataInicial?: string;
+  dataFinal?: string;
+  modelos?: string[];
+  site?: string;
+  responsavel?: string;
+  recorrencia?: string;
+  busca?: string;
+};
+
+export function filtrarAgendas<
+  T extends {
+    nome: string;
+    checklist: string;
+    dataInicial: string;
+    dataFinal: string;
+    modeloId: number;
+    responsavelId: string | null;
+    recorrencia: string;
+    sites: { id: number }[];
+  },
+>(agendas: T[], filtros: FiltrosDaListaDeAgendas): T[] {
+  const termo = filtros.busca?.trim().toLowerCase();
+  const modelos = new Set(filtros.modelos ?? []);
+  return agendas.filter(
+    (a) =>
+      (!filtros.dataInicial || a.dataFinal >= filtros.dataInicial) &&
+      (!filtros.dataFinal || a.dataInicial <= filtros.dataFinal) &&
+      (modelos.size === 0 || modelos.has(String(a.modeloId))) &&
+      (!filtros.site || a.sites.some((s) => String(s.id) === filtros.site)) &&
+      (!filtros.responsavel || a.responsavelId === filtros.responsavel) &&
+      (!filtros.recorrencia || a.recorrencia === filtros.recorrencia) &&
+      (!termo || a.nome.toLowerCase().includes(termo) || a.checklist.toLowerCase().includes(termo)),
+  );
+}
+
 export function rotuloDaRecorrencia(valor: string): string {
   return RECORRENCIAS.find((r) => r.value === valor)?.label ?? valor;
 }
 
 /** Os status do "Agendamentos" do sistema de referencia. */
+/**
+ * Os 6 status da legenda do calendario do sistema de referencia, na ordem e
+ * nas cores de la (0098, 11/11/2026). A regra de cada um esta na 0098.
+ */
 export const STATUS_DO_AGENDAMENTO = [
   { value: "AGENDADO", label: "Agendado", cor: "bg-slate-500" },
-  { value: "NO_PRAZO", label: "No prazo", cor: "bg-amber-500" },
+  { value: "NO_PRAZO", label: "No prazo", cor: "bg-blue-600" },
   { value: "ATRASADO", label: "Atrasado", cor: "bg-red-600" },
-  { value: "FINALIZADO", label: "Finalizado", cor: "bg-emerald-600" },
+  { value: "FINALIZADO", label: "Finalizado", cor: "bg-emerald-700" },
+  { value: "FINALIZADO_COM_ATRASO", label: "Finalizado com Atraso", cor: "bg-cyan-700" },
+  { value: "NAO_REALIZADO", label: "Não Realizado", cor: "bg-rose-800" },
 ] as const;
 
 export function rotuloDoStatus(valor: string): string {

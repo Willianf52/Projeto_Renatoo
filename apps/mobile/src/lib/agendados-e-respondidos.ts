@@ -8,7 +8,13 @@ import { supabase } from "./supabase";
  * checklists enviados de um local, os mais recentes primeiro.
  */
 
-export type StatusDoAgendamento = "FINALIZADO" | "AGENDADO" | "NO_PRAZO" | "ATRASADO";
+export type StatusDoAgendamento =
+  | "FINALIZADO"
+  | "FINALIZADO_COM_ATRASO"
+  | "AGENDADO"
+  | "NO_PRAZO"
+  | "ATRASADO"
+  | "NAO_REALIZADO";
 
 /** Legenda do app antigo: Finalizado verde, Agendado amarelo; atrasado em vermelho. */
 export const ROTULO_DO_STATUS: Record<StatusDoAgendamento, string> = {
@@ -16,6 +22,9 @@ export const ROTULO_DO_STATUS: Record<StatusDoAgendamento, string> = {
   AGENDADO: "Agendado",
   NO_PRAZO: "No prazo",
   ATRASADO: "Atrasado",
+  // Os dois do portal desde a 0098 (11/11/2026).
+  FINALIZADO_COM_ATRASO: "Finalizado com Atraso",
+  NAO_REALIZADO: "Não Realizado",
 };
 
 export function statusDoAgendamento(valor: string): StatusDoAgendamento {

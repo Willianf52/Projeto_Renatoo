@@ -51,8 +51,15 @@ jobs:
         id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
-      - name: Liga o auto-merge (patch e minor)
-        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+      # Biblioteca nativa do app (grupo `app-nativo` do dependabot.yml) fica de
+      # fora mesmo sendo patch: so entra junto de um APK novo (11/11/2026).
+      - name: Liga o auto-merge (patch e minor, fora as nativas do app)
+        if: >-
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor') &&
+          !contains(steps.meta.outputs.dependency-names, '@sentry/react-native') &&
+          !contains(steps.meta.outputs.dependency-names, 'react-native-screens') &&
+          !contains(steps.meta.outputs.dependency-names, 'react-native-safe-area-context')
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

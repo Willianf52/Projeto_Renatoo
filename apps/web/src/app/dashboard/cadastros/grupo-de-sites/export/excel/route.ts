@@ -13,9 +13,10 @@ import { COLUNAS_DO_EXCEL, getGruposSitesParaExportar, toLinhaDoExcel } from "..
  * nome do cabecalho.
  */
 export async function GET(request: Request) {
-  const busca = new URL(request.url).searchParams.get("busca") ?? undefined;
+  const parametros = new URL(request.url).searchParams;
+  const busca = parametros.get("busca") ?? undefined;
 
-  const { rows, truncado } = await getGruposSitesParaExportar(busca);
+  const { rows, truncado } = await getGruposSitesParaExportar(busca, parametros.get("status") ?? undefined);
   const linhas = rows.map(toLinhaDoExcel);
   if (truncado) {
     linhas.push(["…", "Resultado truncado: ajuste os filtros para reduzir o total", "", "", ""]);

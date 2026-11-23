@@ -29,6 +29,13 @@ export type PerguntaRow = {
   /** Tipo de evento que a resposta abre (0063); vazio: "NÃO CONFORMIDADE". */
   eventoId: number | null;
   evento: string;
+  /** "Obrigatorio" (0099). */
+  obrigatoria: boolean;
+  /** Peso na nota, 1 a 10 (0108). */
+  peso: number;
+  /** Condicional (0108): so aparece quando a base recebe `respostaGatilho`. */
+  perguntaBaseId: number | null;
+  respostaGatilho: string | null;
 };
 
 type LinhaBruta = {
@@ -43,10 +50,15 @@ type LinhaBruta = {
   grupos_perguntas: { nome: string; cor: string | null } | null;
   evento_id: number | null;
   eventos: { nome: string } | null;
+  obrigatoria: boolean;
+  peso?: number | null;
+  pergunta_base_id?: number | null;
+  resposta_gatilho?: string | null;
 };
 
 const COLUNAS = `id, ordem, texto, ativo, modelo_id, tipo_resposta, modelos_checklist ( nome ),
-  grupo_pergunta_id, grupos_perguntas ( nome, cor ), evento_id, eventos ( nome )`;
+  grupo_pergunta_id, grupos_perguntas ( nome, cor ), evento_id, eventos ( nome ), obrigatoria,
+  peso, pergunta_base_id, resposta_gatilho`;
 
 function paraLinha(bruta: LinhaBruta): PerguntaRow {
   return {
@@ -62,7 +74,45 @@ function paraLinha(bruta: LinhaBruta): PerguntaRow {
     grupoCor: bruta.grupos_perguntas?.cor ?? null,
     eventoId: bruta.evento_id,
     evento: bruta.eventos?.nome ?? "",
+    obrigatoria: bruta.obrigatoria,
+    peso: bruta.peso ?? 1,
+    perguntaBaseId: bruta.pergunta_base_id ?? null,
+    respostaGatilho: bruta.resposta_gatilho ?? null,
   };
+}
+
+/** Uma pergunta que pode ser base de condicional, para o select do formulario. */
+export type OpcaoDeBase = { value: string; label: string; modelo: string; tipo: TipoDeResposta };
+
+/**
+ * As perguntas que podem ser base de uma condicional (0108): ativas e que nao
+ * sao condicionais (um nivel so). Todas de todos os modelos, porque no
+ * cadastro o modelo ainda pode mudar no formulario; a tela filtra pelo modelo
+ * escolhido. Em paginas de 1000: o PostgREST corta em 1000 linhas.
+ */
+export async function getBasesPossiveis(): Promise<OpcaoDeBase[]> {
+  const supabase = await createClient();
+  const todas: OpcaoDeBase[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await supabase
+      .from("perguntas_checklist")
+      .select("id, modelo_id, ordem, texto, tipo_resposta")
+      .eq("ativo", true)
+      .is("pergunta_base_id", null)
+      .order("modelo_id")
+      .order("ordem")
+      .range(de, de + 999);
+    if (error) throw error;
+    for (const p of data ?? []) {
+      todas.push({
+        value: String(p.id),
+        label: `${p.ordem}. ${p.texto}`,
+        modelo: String(p.modelo_id),
+        tipo: tipoDeResposta(p.tipo_resposta),
+      });
+    }
+    if ((data ?? []).length < 1000) return todas;
+  }
 }
 
 /** Id de modelo valido da querystring, ou `null`. `modelo=abc` nao vira um
@@ -166,6 +216,7 @@ export function toTableRow(pergunta: PerguntaRow): string[] {
     String(pergunta.ordem),
     pergunta.texto,
     ROTULO_DO_TIPO_DE_RESPOSTA[pergunta.tipoResposta],
+    pergunta.obrigatoria ? "Sim" : "Não",
     pergunta.evento,
     pergunta.ativo ? "Ativa" : "Inativa",
   ];

@@ -33,16 +33,21 @@ const esquemaDoModelo = z.object({
     .string()
     .min(1, "Informe o nome do modelo.")
     .max(200, "O nome deve ter no máximo 200 caracteres."),
+  descricao: z.string().max(500, "A descrição deve ter no máximo 500 caracteres.").optional(),
 });
 
 export type ValoresDoModelo = {
   nome: string;
+  /** "Descricao" do sistema de referencia (0099): opcional, ate 500. */
+  descricao: string;
   ativo: boolean;
   grupos: string[];
   /** "Exige aprovacao" (0089): o checklist nasce Aguardando Autorizacao. */
   exigeAprovacao: boolean;
   /** "Foto obrigatoria" (0091): o app exige foto em todas as perguntas. */
   fotoObrigatoria: boolean;
+  /** "Ordem aleatoria" (0108): o app embaralha as perguntas, fixo por inspecao. */
+  ordemAleatoria: boolean;
   /** "Assinaturas" (0092): quantas o app exige, 1 ou 2. */
   quantidadeDeAssinaturas: 1 | 2;
 };
@@ -56,11 +61,13 @@ export type EstadoDoFormulario = {
 function extrairValores(formData: FormData): ValoresDoModelo {
   return {
     nome: texto(formData, "nome"),
+    descricao: texto(formData, "descricao"),
     // Qualquer coisa diferente de "inativo" cai no lado seguro para um
     // cadastro novo -- mesmo select de duas opcoes de `perguntas`.
     ativo: String(formData.get("status") ?? "") !== "inativo",
     exigeAprovacao: formData.get("exige_aprovacao") === "on",
     fotoObrigatoria: formData.get("foto_obrigatoria") === "on",
+    ordemAleatoria: formData.get("ordem_aleatoria") === "on",
     // Qualquer coisa diferente de "1" cai em 2, o padrao.
     quantidadeDeAssinaturas: String(formData.get("quantidade_de_assinaturas") ?? "") === "1" ? 1 : 2,
     // `getAll`: um checkbox escondido por grupo marcado (`SelecaoMultipla`).
@@ -108,9 +115,11 @@ export async function salvarModelo(
   const supabase = await createClient();
   const linha = {
     nome: valores.nome,
+    descricao: valores.descricao || null,
     ativo: valores.ativo,
     exige_aprovacao: valores.exigeAprovacao,
     foto_obrigatoria: valores.fotoObrigatoria,
+    ordem_aleatoria: valores.ordemAleatoria,
     quantidade_de_assinaturas: valores.quantidadeDeAssinaturas,
   };
 
