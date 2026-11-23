@@ -57,8 +57,8 @@ export async function salvarRascunho(
   const banco = await abrirFila();
   await banco.runAsync(
     `insert into rascunhos_de_checklist
-       (visita_id, funcionario_id, motivo, respostas, fotos, modelo_id, fotos_de_pergunta, observacoes, atualizado_em)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (visita_id, funcionario_id, motivo, respostas, fotos, modelo_id, fotos_de_pergunta, observacoes, atualizado_em, criado_em)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      on conflict (visita_id) do update set
        funcionario_id = excluded.funcionario_id,
        motivo = excluded.motivo,
@@ -76,6 +76,8 @@ export async function salvarRascunho(
     rascunho.modeloId,
     JSON.stringify(rascunho.fotosDePergunta),
     JSON.stringify(rascunho.observacoes),
+    new Date().toISOString(),
+    // So vale no insert: o `on conflict` acima nao mexe em `criado_em`.
     new Date().toISOString(),
   );
 }
