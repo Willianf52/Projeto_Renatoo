@@ -50,6 +50,11 @@ export type ValoresDoModelo = {
   ordemAleatoria: boolean;
   /** "Assinaturas" (0092): quantas o app exige, 1 ou 2. */
   quantidadeDeAssinaturas: 1 | 2;
+  /**
+   * "Qtd. minima de caracteres no campo Observacao" (0115), em texto como vem
+   * do campo. Vazio: vale o de Cadastros > Cliente.
+   */
+  minCaracteresObservacao: string;
 };
 
 export type EstadoDoFormulario = {
@@ -67,7 +72,9 @@ function extrairValores(formData: FormData): ValoresDoModelo {
     ativo: String(formData.get("status") ?? "") !== "inativo",
     exigeAprovacao: formData.get("exige_aprovacao") === "on",
     fotoObrigatoria: formData.get("foto_obrigatoria") === "on",
-    ordemAleatoria: formData.get("ordem_aleatoria") === "on",
+    // "Ordenacao das perguntas" do sistema antigo: 1 = Randomica, 2 = Na ordem.
+    ordemAleatoria: String(formData.get("ordenacao_perguntas") ?? "") === "1",
+    minCaracteresObservacao: texto(formData, "min_caracteres_observacao"),
     // Qualquer coisa diferente de "1" cai em 2, o padrao.
     quantidadeDeAssinaturas: String(formData.get("quantidade_de_assinaturas") ?? "") === "1" ? 1 : 2,
     // `getAll`: um checkbox escondido por grupo marcado (`SelecaoMultipla`).
@@ -85,6 +92,13 @@ function validar(valores: ValoresDoModelo): { ok: true; grupos: number[] } | { o
   // O POST pode ser montado a mao: o valor vai para uma FK `bigint`.
   const grupos = valores.grupos.map(Number);
   if (grupos.some((id) => !Number.isInteger(id) || id <= 0)) return { ok: false, erro: "Grupo inválido." };
+
+  if (valores.minCaracteresObservacao !== "") {
+    const minimo = Number(valores.minCaracteresObservacao);
+    if (!Number.isInteger(minimo) || minimo < 0 || minimo > 500) {
+      return { ok: false, erro: "A quantidade mínima de caracteres deve ser de 0 a 500." };
+    }
+  }
 
   return { ok: true, grupos };
 }
@@ -121,6 +135,7 @@ export async function salvarModelo(
     foto_obrigatoria: valores.fotoObrigatoria,
     ordem_aleatoria: valores.ordemAleatoria,
     quantidade_de_assinaturas: valores.quantidadeDeAssinaturas,
+    min_caracteres_observacao: valores.minCaracteresObservacao === "" ? null : Number(valores.minCaracteresObservacao),
   };
 
   let modeloId: number;

@@ -49,14 +49,14 @@ async function Conteudo({ params }: { params: Promise<{ id: string }> }) {
         <div className="border-b border-slate-800 px-4 py-3">
           <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
             <ClipboardListIcon className="h-4 w-4" />
-            Editar Modelo de Checklist
+            Editar Checklist
           </h1>
         </div>
 
         <ModeloForm
           id={modelo.id}
           padrao={modelo.padrao}
-          valoresIniciais={{ nome: modelo.nome, descricao: modelo.descricao, ativo: modelo.ativo, grupos: modelo.grupos, exigeAprovacao: modelo.exigeAprovacao, fotoObrigatoria: modelo.fotoObrigatoria, ordemAleatoria: modelo.ordemAleatoria, quantidadeDeAssinaturas: modelo.quantidadeDeAssinaturas }}
+          valoresIniciais={{ nome: modelo.nome, descricao: modelo.descricao, ativo: modelo.ativo, grupos: modelo.grupos, exigeAprovacao: modelo.exigeAprovacao, fotoObrigatoria: modelo.fotoObrigatoria, ordemAleatoria: modelo.ordemAleatoria, quantidadeDeAssinaturas: modelo.quantidadeDeAssinaturas, minCaracteresObservacao: modelo.minCaracteresObservacao }}
           grupos={grupos}
         />
       </div>

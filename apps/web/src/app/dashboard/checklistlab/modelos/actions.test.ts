@@ -90,7 +90,7 @@ describe("salvarModelo — validação antes do banco", () => {
   it("devolve o que a pessoa digitou junto do erro", async () => {
     const estado = await salvarModelo({}, formulario({ nome: "", status: "inativo" }, ["3"]));
 
-    expect(estado.valores).toEqual({ nome: "", descricao: "", ativo: false, grupos: ["3"], exigeAprovacao: false, fotoObrigatoria: false, ordemAleatoria: false, quantidadeDeAssinaturas: 2 });
+    expect(estado.valores).toEqual({ nome: "", descricao: "", ativo: false, grupos: ["3"], exigeAprovacao: false, fotoObrigatoria: false, ordemAleatoria: false, quantidadeDeAssinaturas: 2, minCaracteresObservacao: "" });
   });
 });
 
@@ -99,7 +99,7 @@ describe("salvarModelo — escrita", () => {
     await salvarModelo({}, formulario({ nome: "  Portaria  " }, ["3", "7"]));
 
     expect(tipos()).toEqual(["insert", "sincronizar_grupos_do_modelo"]);
-    expect(primeira("insert")?.args[0]).toEqual({ nome: "Portaria", descricao: null, ativo: true, exige_aprovacao: false, foto_obrigatoria: false, ordem_aleatoria: false, quantidade_de_assinaturas: 2 });
+    expect(primeira("insert")?.args[0]).toEqual({ nome: "Portaria", descricao: null, ativo: true, exige_aprovacao: false, foto_obrigatoria: false, ordem_aleatoria: false, quantidade_de_assinaturas: 2, min_caracteres_observacao: null });
     expect(primeira("sincronizar_grupos_do_modelo")?.args[0]).toEqual({
       p_modelo_id: 9,
       p_grupos: [3, 7],
@@ -196,8 +196,42 @@ describe("ordem aleatoria (0108)", () => {
   it("grava a ordem aleatoria marcada no formulario", async () => {
     const dados = new FormData();
     dados.set("nome", "Ronda embaralhada");
-    dados.set("ordem_aleatoria", "on");
+    dados.set("ordenacao_perguntas", "1");
     await salvarModelo({}, dados);
     expect(primeira("insert")?.args[0]).toMatchObject({ ordem_aleatoria: true });
+  });
+});
+
+describe("Qtd. minima de caracteres no campo Observacao (0115)", () => {
+  function formularioComMinimo(minimo: string) {
+    const dados = new FormData();
+    dados.set("nome", "Checklist com minimo");
+    dados.set("min_caracteres_observacao", minimo);
+    return dados;
+  }
+
+  it("grava o minimo do checklist", async () => {
+    await salvarModelo({}, formularioComMinimo("20"));
+    expect(primeira("insert")?.args[0]).toMatchObject({ min_caracteres_observacao: 20 });
+  });
+
+  it("vazio grava nulo (vale o de Cadastros > Cliente)", async () => {
+    await salvarModelo({}, formularioComMinimo(""));
+    expect(primeira("insert")?.args[0]).toMatchObject({ min_caracteres_observacao: null });
+  });
+
+  it("recusa numero fora de 0 a 500 antes do banco", async () => {
+    for (const minimo of ["-1", "501", "2.5", "abc"]) {
+      const estado = await salvarModelo({}, formularioComMinimo(minimo));
+      expect(estado.erro).toBe("A quantidade mínima de caracteres deve ser de 0 a 500.");
+    }
+    expect(primeira("insert")).toBeUndefined();
+  });
+
+  it("Ordenacao das perguntas: Na ordem grava sem embaralhar", async () => {
+    const dados = formularioComMinimo("");
+    dados.set("ordenacao_perguntas", "2");
+    await salvarModelo({}, dados);
+    expect(primeira("insert")?.args[0]).toMatchObject({ ordem_aleatoria: false });
   });
 });
