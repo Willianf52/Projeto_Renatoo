@@ -3,26 +3,31 @@ import { abrirFila, idDaVisitaNoServidor } from "./fila";
 import { sincronizar } from "./sincronizacao";
 
 /**
- * A visita de HOJE, deste inspetor neste site, que ainda nao tem checklist.
+ * A inspecao de HOJE, deste inspetor neste site, que ainda nao foi
+ * finalizada.
  *
  * POR QUE EXISTE (achado de 26/10/2026, revisando o caminho sem sinal): o QR
  * lido sem sinal grava uma visita so com o Inicio, e o checklist nao abre. Com
  * sinal, o inspetor le o QR de novo para fazer o checklist -- e o QR criava
  * OUTRA visita, deixando a primeira sem checklist em Coletas Importadas e no
- * relatorio de Inicio e Fim (a visita 102 do ensaio de 23/10). Agora o QR
- * reabre a visita que ja existe, e o Inicio continua sendo o da primeira
- * leitura.
+ * relatorio de Inicio e Fim. Agora o QR (e o "Ver sites") reabre a inspecao
+ * que ja existe, e o Inicio continua sendo o da primeira leitura.
  *
- * So a ULTIMA visita do dia: se ela ja tem checklist, o inspetor ja fez a
- * inspecao, e um QR novo e uma inspecao nova. Visita com rascunho comecado nao
- * chega aqui: `rascunhoDeRondaDoSite` a acha antes.
+ * VARIOS CHECKLISTS NA MESMA INSPECAO (0114, 22/11/2026): a inspecao so
+ * termina no "Finalizar inspecao" (ou sozinha a meia-noite). Entao a regra
+ * deixou de ser "sem checklist" e virou "nao finalizada" (`finalizada_em`
+ * nulo no servidor; Termino na fila, no aparelho).
+ *
+ * Dois lugares onde a inspecao pode estar:
+ *   1. Na fila do aparelho (lida pelo QR aqui). Visita ainda nao enviada e
+ *      sincronizada antes, porque a conferencia e pelo id do servidor.
+ *   2. So no servidor: a aberta pelo "Ver sites", que nasce no envio do
+ *      primeiro checklist e nao passa pela fila.
  *
  * Sem conseguir confirmar no servidor (sem sinal, erro de consulta), devolve
  * `null` e o QR segue o caminho de sempre: este atalho nunca trava o inspetor.
- * Visita nao enviada ainda e sincronizada antes, porque o checklist e
- * conferido pelo id do servidor.
  */
-export async function visitaDoDiaSemChecklist(
+export async function visitaDoDiaAberta(
   siteId: number,
   funcionarioId: string,
   desde: string,
@@ -34,7 +39,7 @@ export async function visitaDoDiaSemChecklist(
       where site_id = ?
         and funcionario_id = ?
         and capturado_em >= ?
-        -- Convertida para visita (Termino gravado): concluida, nao reabre.
+        -- Finalizada, convertida ou encerrada (Termino na fila): nao reabre.
         and not exists (
           select 1 from leituras_na_fila l where l.chave_da_visita = visitas_na_fila.chave and l.termino = 1
         )
@@ -44,23 +49,41 @@ export async function visitaDoDiaSemChecklist(
     funcionarioId,
     desde,
   );
-  if (!linha) return null;
 
-  let visitaId = linha.visita_id;
-  if (visitaId === null) {
-    // `sincronizar` nao lanca por falha de rede: devolve em `falhas`.
-    const resultado = await sincronizar(funcionarioId);
-    if (resultado.falhas.length > 0) return null;
-    visitaId = await idDaVisitaNoServidor(linha.chave);
-    if (visitaId === null) return null;
+  if (linha) {
+    let visitaId = linha.visita_id;
+    if (visitaId === null) {
+      // `sincronizar` nao lanca por falha de rede: devolve em `falhas`.
+      const resultado = await sincronizar(funcionarioId);
+      if (resultado.falhas.length > 0) return null;
+      visitaId = await idDaVisitaNoServidor(linha.chave);
+      if (visitaId === null) return null;
+    }
+
+    const { data, error } = await supabase.from("visitas").select("finalizada_em").eq("id", visitaId).maybeSingle();
+    if (error || !data) return null;
+    return data.finalizada_em === null ? { visitaId, numeroColeta: linha.chave } : null;
   }
 
+  // So no servidor (aberta pelo "Ver sites"). Fica de fora a que o aparelho
+  // ja finalizou e ainda nao enviou o Termino.
+  const finalizadasAqui = await banco.getAllAsync<{ chave: string }>(
+    `select v.chave from visitas_na_fila v
+      where exists (select 1 from leituras_na_fila l where l.chave_da_visita = v.chave and l.termino = 1)`,
+  );
+  const ignorar = new Set(finalizadasAqui.map((l) => l.chave));
+
   const { data, error } = await supabase
-    .from("checklists_visita")
-    .select("id")
-    .eq("visita_id", visitaId)
-    .limit(1);
+    .from("visitas")
+    .select("id, numero_coleta")
+    .eq("funcionario_id", funcionarioId)
+    .eq("site_id", siteId)
+    .gte("criado_em", desde)
+    .is("finalizada_em", null)
+    .order("criado_em", { ascending: false })
+    .limit(5);
   if (error || !data) return null;
 
-  return data.length === 0 ? { visitaId, numeroColeta: linha.chave } : null;
+  const aberta = data.find((v) => !ignorar.has(v.numero_coleta));
+  return aberta ? { visitaId: aberta.id, numeroColeta: aberta.numero_coleta } : null;
 }

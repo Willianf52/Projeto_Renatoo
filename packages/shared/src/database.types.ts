@@ -446,7 +446,7 @@ export type Database = {
           {
             foreignKeyName: "checklists_visita_visita_id_fkey"
             columns: ["visita_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "visitas"
             referencedColumns: ["id"]
           },
@@ -2595,6 +2595,7 @@ export type Database = {
           coletor_dados_id: number | null
           criado_em: string
           data_integracao: string | null
+          finalizada_em: string | null
           funcionario_id: string | null
           id: number
           motivo_visita_id: number | null
@@ -2605,6 +2606,7 @@ export type Database = {
           coletor_dados_id?: number | null
           criado_em?: string
           data_integracao?: string | null
+          finalizada_em?: string | null
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null
@@ -2615,6 +2617,7 @@ export type Database = {
           coletor_dados_id?: number | null
           criado_em?: string
           data_integracao?: string | null
+          finalizada_em?: string | null
           funcionario_id?: string | null
           id?: never
           motivo_visita_id?: number | null

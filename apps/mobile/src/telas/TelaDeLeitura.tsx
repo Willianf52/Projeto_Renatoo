@@ -26,7 +26,7 @@ import {
 } from "../campo/ronda";
 import { inicioDoDia, rascunhoDeRondaDoSite } from "../campo/rascunho";
 import { sincronizar } from "../campo/sincronizacao";
-import { visitaDoDiaSemChecklist } from "../campo/visita-do-dia";
+import { visitaDoDiaAberta } from "../campo/visita-do-dia";
 import { Aviso } from "../componentes/Aviso";
 import { Botao } from "../componentes/Botao";
 import { Campo } from "../componentes/Campo";
@@ -253,7 +253,7 @@ export function TelaDeLeitura() {
           // Visita de hoje sem checklist (a lida sem sinal): o QR reabre ela, em
           // vez de criar outra e deixar a primeira so com o Inicio (26/10/2026).
           // Sem como confirmar, segue o caminho de sempre.
-          const semChecklist = await visitaDoDiaSemChecklist(qr.siteId, idDoUsuario, inicioDoDia()).catch(
+          const semChecklist = await visitaDoDiaAberta(qr.siteId, idDoUsuario, inicioDoDia()).catch(
             () => null,
           );
           if (semChecklist) {
