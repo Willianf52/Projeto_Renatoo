@@ -35,7 +35,17 @@ describe("Politica de Privacidade", () => {
   it("diz o que o app nao coleta, como as lojas perguntam", async () => {
     await renderizar();
 
-    expect(screen.getByText(/não coleta localização, contatos, áudio/)).toBeInTheDocument();
+    expect(screen.getByText(/não coleta contatos, áudio/)).toBeInTheDocument();
+  });
+
+  // A versao de 26/10 dizia que o app nao coletava localizacao; ele coleta na
+  // leitura do QR desde a 0088, e o formulario das lojas declara isso.
+  it("declara a localizacao no momento da leitura, e so nela", async () => {
+    await renderizar();
+
+    expect(screen.getByText(/registra a posição do aparelho/)).toBeInTheDocument();
+    expect(screen.getByText(/não acompanha a localização fora da leitura/)).toBeInTheDocument();
+    expect(screen.queryByText(/não coleta localização/)).not.toBeInTheDocument();
   });
 
   it("com o suporte configurado, o pedido do titular leva ao link do suporte", async () => {

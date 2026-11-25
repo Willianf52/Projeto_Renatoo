@@ -107,9 +107,11 @@ Para escrever policy nova, ver a skill `supabase-rls-security` e os pgTAP em
 1. Cada leitura grava a visita e a leitura em **SQLite**
    (`apps/mobile/src/campo/fila.ts`) — sobrevive ao app morto pelo sistema no
    meio da ronda. Migração do schema local por `PRAGMA user_version`, nunca
-   trocando de arquivo. **O leitor de QR ainda não existe no app**: hoje só o
-   roteiro de teste do marco 03 chama `registrarLeitura` (ver "Limites
-   conhecidos").
+   trocando de arquivo. A leitura do QR é pela câmera (`TelaDeLeitura`,
+   `expo-camera`, com lanterna e "Digitar identificador") e entra na fila por
+   `registrarLeitura` (`campo/ronda.ts`). Cada leitura guarda também latitude,
+   longitude e precisão do aparelho (0088), sem bloquear a leitura quando a
+   permissão de localização é negada.
 2. `numero_coleta` é um **UUID cunhado no aparelho** na primeira leitura
    (0047), chave de idempotência junto com `site_id`.
 3. Com rede, `sincronizacao.ts` drena a fila **do inspetor logado** (o RLS
@@ -148,9 +150,12 @@ Resiliência do lado do app (#123):
 - **Reenvio não sobe de novo o que já chegou.** A tela guarda, por origem
   local (uri da foto, traço da assinatura), o caminho já gravado no bucket; um
   novo toque em "Finalizar" depois de uma falha só sobe o que faltou.
-- **`23505` é sucesso.** A unique de `visita_id` recusando o segundo envio
-  significa que o primeiro chegou e a resposta se perdeu: o app conclui a
-  visita em vez de prender o inspetor num aviso de erro.
+- **`23505` é sucesso.** Desde a 0114 a guarda do reenvio é a unique de
+  `assinatura_path`: o app reaproveita o mesmo caminho da assinatura em toda
+  tentativa do mesmo formulário, então o segundo envio colide e significa que o
+  primeiro chegou e a resposta se perdeu. O app conclui em vez de prender o
+  inspetor num aviso de erro. (Até a 0114 era a unique de `visita_id`, que
+  também impedia mais de um checklist por inspeção.)
 - **Rascunho no aparelho** (`campo/rascunho.ts`, tabela
   `rascunhos_de_checklist`, schema local v3): motivo, respostas e fotos são
   gravados meio segundo depois de cada mudança e voltam se o app morrer no
@@ -159,6 +164,95 @@ Resiliência do lado do app (#123):
   **assinatura não é restaurada**, de propósito: ela é o aceite sobre o que
   estava na tela no momento em que foi colhida. O rascunho é apagado quando o
   checklist chega ao banco.
+
+### Vários checklists por inspeção (0114)
+
+Dentro de uma inspeção o inspetor responde quantos checklists quiser, e a
+inspeção só termina no "Finalizar inspeção" (ou "Converter para Visita",
+"Encerrar ronda"). `visitas.finalizada_em` marca o fim: o Término gravado pelo
+app finaliza; o Término que o envio de checklist grava (0096) não. Inspeção
+esquecida aberta fecha sozinha à meia-noite (job `fechar-inspecoes-esquecidas`,
+03:05 UTC), com o Término na hora do último checklist. A tela "Inspeção em
+andamento" do "Ver sites" (`campo/inspecoes-em-andamento.ts`) mostra o que o
+toque retoma: rascunho com conteúdo ou visita de hoje sem Término.
+
+### Peso, pergunta condicional e ordem aleatória (0108)
+
+- **Peso** (1 a 10, padrão 1) em cada pergunta: a nota é a média ponderada dos
+  Conforme. A mesma conta está no banco (`historico_de_checklist`, inclusive o
+  filtro de nota) e no `notaDoChecklist` do `shared`; peso 1 em todas dá a nota
+  de antes.
+- **Condicional**: a pergunta aparece só quando a pergunta base recebe a
+  resposta escolhida. Um nível só, no mesmo modelo, garantido pelo gatilho
+  `validar_pergunta_condicional`. Escondida, não é cobrada nem enviada (o banco
+  nunca exigiu resposta, 0099).
+- **Ordem aleatória** (Ordenação das perguntas "Randômica"): o app embaralha
+  dentro de cada grupo de perguntas, fixo por inspeção e dia, com a condicional
+  logo depois da base. A numeração na tela é a posição (1, 2, 3...), não a
+  ordem do cadastro.
+
+As regras de tela moram em `packages/shared/src/campo/condicionais.ts`.
+
+### PDF do checklist no celular
+
+O PDF é o mesmo do Histórico e do aviso por e-mail (`lib/pdf-do-checklist.ts`,
+montado no servidor). O app pede o link em
+`POST /api/app/checklists/[id]/link-do-pdf` com o próprio token: o portal
+confere pelo RLS que a pessoa enxerga o checklist e devolve um link assinado
+(HMAC derivado da service_role, 5 minutos, um checklist só) para
+`GET /api/app/pdf/[token]`, que o navegador do celular abre sem login. O
+botão "Baixar PDF" aparece depois do envio e em "Checklists respondidos".
+
+### Notificações e push (0103, 0110)
+
+A caixa de avisos de cada pessoa é `notificacoes`: só funções do banco criam
+(`manutencao.notificar`, com `chave` contra aviso repetido), cada um lê e marca
+como lidas só as próprias, e um expurgo diário apaga as lidas há mais de 90
+dias e qualquer uma com mais de 180. O portal mostra no sino; o app, na caixa
+"Avisos".
+
+Cada aviso novo vira também notificação no celular: o app (APK 1.3.0, com
+`expo-notifications` e o Firebase) registra o endereço de push do aparelho em
+`dispositivos_push` por `registrar_dispositivo_push`, e um gatilho em
+`notificacoes` manda a mensagem ao serviço de push do Expo pelo `pg_net`,
+assíncrono. O endereço é do aparelho: outra pessoa que entra no mesmo celular
+passa a ser a dona dele, e sair do app apaga o registro.
+
+### Veículos, km e manutenção (0104, 0109)
+
+Cadastro de veículo (modelo, placa, cor, empresa) com histórico de km e de
+manutenção. `km_atual` só muda pelo banco: o maior km já registrado.
+`registrado_por` é sempre quem está logado. A revisão é a cada 10.000 km, com
+aviso aos 9.000 para GESTOR, SUPERVISOR e OPERADOR ativos, pela caixa de
+notificações. O app pede o km a cada abertura, para todos, com a frota inteira
+na lista. Manutenção de veículo é só dos cargos da UP (não CLIENTE).
+
+### Metas de visita (0105 a 0107)
+
+Meta por pessoa, lugar e período: diário, semanal (segunda a domingo),
+quinzenal (15 dias corridos a partir de `inicia_em`) ou mensal. Conta as
+visitas da pessoa no lugar dentro do período (`progresso_das_metas`, security
+invoker). Meta que ainda não começou fica fora do progresso e do aviso. Quem
+está abaixo recebe aviso perto do fim do período (pg_cron). Não confundir com
+`metas_visitas` (0004), que é por site e mês, para o relatório de Visitas de
+Supervisão.
+
+### Máquinas, acessórios e clientes atendidos (0111, 0113)
+
+Máquinas são de um site, com histórico de manutenção preventiva, autônoma e
+corretiva; todos os cargos registram manutenção, inclusive o CLIENTE no seu
+escopo (`autorizacao.pode_ver_site`). Acessórios e produtos são uma lista por
+site. "Clientes atendidos" liga a pessoa aos grupos de sites que ela atende:
+é cadastro e consulta, não muda o que ela enxerga (o escopo do CLIENTE segue
+em `grupos_sites_clientes`, 0014).
+
+### Foto do usuário (0112)
+
+Bucket privado `fotos-de-usuario` (`<id>/foto`), registro em
+`fotos_de_usuario`. Vê e troca a própria pessoa e o GESTOR. A foto sobe do
+navegador direto para o bucket (Server Action aceita só 1 MB) e a tela mostra
+por link assinado de uma hora, também na prévia logo depois do envio. A CSP
+`img-src` inclui a origem do Supabase.
 
 ### Importação do sistema de origem
 
@@ -293,7 +387,12 @@ outros botões de importar:
 |---|---|---|
 | `/api/importar/coletas` | `x-importacao-secret` | por chamador |
 | `/api/webhooks/user-updated` | `SUPABASE_WEBHOOK_SECRET` | por chamador |
+| `/api/webhooks/ocorrencia-emails` | segredo compartilhado | global |
 | `/api/cron/verificar-importacoes` | `Authorization: Bearer <CRON_SECRET>` | por chamador |
+| `/api/cron/enviar-emails-de-ocorrencia` | `Authorization: Bearer <CRON_SECRET>` | global |
+| `/api/entrar-com-login` | pública (é o próprio login) | 20/min |
+| `/api/app/checklists/[id]/link-do-pdf` | token do app + RLS | 30/min |
+| `/api/app/pdf/[token]` | link assinado (HMAC, 5 min) | 30/min |
 | `/api/senha/verificar-vazamento` | sessão | por chamador |
 | `/api/cep` | sessão | 30/min |
 | `/api/health` | pública | 60/min |
@@ -330,10 +429,10 @@ nos dois segmentos.
 
 ## App de campo (`apps/mobile`)
 
-Expo SDK 57, React Native 0.86, React Navigation. Só Android: `app.json` não
-tem `ios.bundleIdentifier` e `eas.json` só tem perfil Android. **Não roda no
-Expo Go** — os config plugins do Sentry, SecureStore, SQLite e image picker
-exigem dev build.
+Expo SDK 58, React Native 0.88, React Navigation. Só Android em produção:
+`eas.json` só tem perfil Android. Para teste, o app abre no Expo Go 58 do
+iPhone (`pnpm run apresentar`, com o computador e o celular no mesmo Wi-Fi),
+sem push. O APK dos aparelhos é o 1.3.0 (com push e Firebase).
 
 - **Sessão no Keystore**, não no AsyncStorage (`lib/armazenamento-seguro.ts`).
   A sessão do Supabase já nasce com mais de 2048 bytes, o teto do SecureStore
@@ -508,7 +607,7 @@ Sem os secrets, os dois se pulam e o job aparece como *skipped*, com aviso
 dizendo que não existe cópia (#115). O sinal de que funcionaram é a
 **duração** — minutos, não segundos —, não a cor do run.
 
-## Limites conhecidos (revisto em 16/11/2026)
+## Limites conhecidos (revisto em 25/11/2026)
 
 Estado real, não plano. Cada item diz o que falta para sair daqui.
 
