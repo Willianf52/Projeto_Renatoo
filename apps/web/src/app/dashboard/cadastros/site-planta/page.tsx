@@ -17,6 +17,7 @@ import {
   CopyIcon,
   ExcelIcon,
   FilterIcon,
+  MailIcon,
   MapPinIcon,
   PdfIcon,
   PencilIcon,
@@ -196,6 +197,16 @@ async function AcoesDoCabecalho({ searchParams }: { searchParams: SearchParamsPr
       ) : (
         <AcaoDesabilitada titulo="Importar sites" motivo="você não tem permissão" tom="importar">
           <UploadIcon className="h-4 w-4" />
+        </AcaoDesabilitada>
+      )}
+      {/* "Alterar E-mails em Massa" do sistema antigo (25/11/2026). */}
+      {podeAdministrar ? (
+        <Acao titulo="Alterar E-mails em Massa" href="/dashboard/cadastros/site-planta/emails-em-massa" tom="neutro">
+          <MailIcon className="h-4 w-4" />
+        </Acao>
+      ) : (
+        <AcaoDesabilitada titulo="Alterar E-mails em Massa" motivo="você não tem permissão" tom="neutro">
+          <MailIcon className="h-4 w-4" />
         </AcaoDesabilitada>
       )}
       <Acao
