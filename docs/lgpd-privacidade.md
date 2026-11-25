@@ -125,4 +125,9 @@ ação em `usuarios/actions.ts` (que já roda com `service_role`, fora do RLS).
 - [ ] Audit trail de leitura de dado de outro usuário desenhado e priorizado
 - [x] Política pública revista em 25/11/2026 (localização na leitura, foto,
       km, notificações, Firebase)
+- [x] Termos de Uso (`/termos`) e Política de Cookies (`/cookies`) públicos
+      desde 25/11/2026; o portal só usa cookies e armazenamento necessários,
+      então não pede consentimento
+- [ ] Termos de Uso revisados por advogado
+- [ ] CNPJ do controlador nas páginas legais
 - [ ] Este documento revisado a cada tabela nova que armazene dado pessoal

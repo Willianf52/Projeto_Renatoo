@@ -202,6 +202,9 @@ incompleto num relatório meses depois, não como erro. O piso é a env
 antigos no próximo login, sem tocar em APK. **Vazio, o portão fica desligado.**
 A checagem falha aberta de propósito (sem rede, ninguém é barrado) — o
 raciocínio completo está em `apps/mobile/src/lib/versao-minima.ts`.
+Valor em produção: **1.3.0** desde 25/11/2026 (era 1.1.0), para o teste dos
+inspetores rodar todo na mesma versão; a env só vale depois de publicar o
+portal de novo.
 
 **Atualização remota (EAS Update).** Correção só de JavaScript chega aos
 aparelhos sem APK novo. O `updates.url` do `app.json` é o que liga o

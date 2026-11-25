@@ -254,6 +254,21 @@ navegador direto para o bucket (Server Action aceita só 1 MB) e a tela mostra
 por link assinado de uma hora, também na prévia logo depois do envio. A CSP
 `img-src` inclui a origem do Supabase.
 
+### Alterar E-mails em Massa (Site / Planta)
+
+Igual ao do sistema antigo (25/11/2026): `site-planta/emails-em-massa`. Escolhe
+grupos de sites (que trazem todos os seus locais) e locais avulsos, e os
+e-mails **substituem** a lista marcada de cada local: "Checklists"
+(`emails_checklist`, 0082) e/ou "Eventos (ocorrências)" (`emails_eventos`,
+0065). O FieldLab do antigo não existe aqui. Grava com o cliente da sessão: o
+RLS e o grant por coluna de `sites` decidem, e zero linhas alteradas vira aviso
+de permissão. A trava do aviso de inspeção (`aviso_de_inspecao.somente_para`)
+continua valendo sobre os e-mails do site. Regras em `regras.ts`, testadas.
+
+O "Forçar atualização de vínculos" do antigo (Usuários) ficou de fora de
+propósito: lá ele liga usuários a outras contas de empresa (sistema
+multiempresa), o que não existe no novo.
+
 ### Importação do sistema de origem
 
 `POST /api/importar/coletas`, autenticado por `x-importacao-secret` comparado
@@ -403,6 +418,23 @@ outros botões de importar:
 serverless. A chave vai com sha256 — o banco não guarda IP em claro. Com o
 banco fora, cai para um `Map` por instância: limite frouxo, mas limite.
 
+### Páginas públicas e legais
+
+Abrem sem login (`PUBLIC_ROUTES` em `lib/supabase/middleware.ts`):
+`/privacidade`, `/termos` e `/cookies` (25/11/2026), com a moldura
+`components/legal/PaginaLegal.tsx` e os links das três no rodapé do login. Os
+links vão com `prefetch={false}`: o prefetch deles somava requisições ao login
+e estourava o orçamento do check `desempenho`.
+
+A Política de Cookies descreve o que o código guarda: o cookie da sessão
+(`cookie-options.ts`, 30 dias), o tema e o "lembrar meu login" no
+`localStorage` e o bloqueio de tentativas (30 s) no `sessionStorage`. Por ser
+só o necessário, **não há aviso de consentimento**. Entrar qualquer coisa não
+essencial (Google Analytics, por exemplo) exige mudar a página, a CSP e pôr o
+aviso com "aceitar" e "recusar" antes de carregar o script. Em 25/11 o dono
+perguntou pelo Google Analytics e a decisão ficou em aberto; a recomendação é
+um relatório sobre `eventos_de_uso`, que já registra o uso sem cookie.
+
 ### Cabeçalhos e CSP
 
 Um lugar só emite cabeçalho de segurança: `headers()` no `next.config.ts`, a
@@ -530,6 +562,11 @@ propósito, com o motivo documentado em cada uma. É uma troca já avaliada.
   `docs/lgpd-privacidade.md`.
 - **Storage**: bucket privado `checklists`, com o caminho amarrado à visita
   (0045) e tipo e tamanho validados no banco (0046).
+- **Índices nas chaves estrangeiras que crescem** (0116, 25/11/2026): as 15
+  do advisor nas tabelas de ocorrências, andamentos, e-mails de ocorrência,
+  aprovação do checklist, km e manutenções. As outras 17 apontadas são de
+  cadastros pequenos e ficam sem índice de propósito; tabela nova que cresça
+  com o uso já nasce com índice na chave estrangeira.
 
 ## Observabilidade
 

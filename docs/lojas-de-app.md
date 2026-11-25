@@ -11,11 +11,12 @@ contas existirem.
 |---|---|
 | Identificador do app: `br.com.upservicos.inspecao` (Android e iPhone) | `apps/mobile/app.json` |
 | Build de loja: perfil `production` (Android em AAB, versão sobe sozinha) | `apps/mobile/eas.json` |
-| Versão do app de loja: **1.2.0**, Expo SDK 58 (desde 28/10, #251). O primeiro build de loja é um build nativo novo, então já sai nela | `apps/mobile/app.json` |
+| Versão do app de loja: **1.3.0**, Expo SDK 58 (o APK do teste dos inspetores, 22/11). O primeiro build de loja é um build nativo novo: sobe para 1.4.0 junto com allowBackup e OTA assinada | `apps/mobile/app.json` |
 | Variáveis do ambiente `production` do EAS, inclusive `EXPO_PUBLIC_URL_DO_PORTAL` (26/10) | painel do EAS |
 | Textos de permissão da câmera em português | plugins `expo-camera` e `expo-image-picker` no `app.json` |
 | iPhone: sem criptografia própria (`usesNonExemptEncryption: false`) e idioma base pt-BR | `apps/mobile/app.json` |
 | Política de privacidade pública | https://portalupservicos.com.br/privacidade |
+| Termos de Uso e Política de Cookies (25/11) | https://portalupservicos.com.br/termos e /cookies |
 | Atualizações depois da loja: canal `production` | `pnpm run atualizar:producao` em `apps/mobile` |
 
 ## Ficha da loja (textos)
