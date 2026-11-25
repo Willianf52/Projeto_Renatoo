@@ -27,7 +27,15 @@ export function LinksLegais({ atual, className = "" }: { atual?: string; classNa
   return (
     <nav aria-label="Documentos legais" className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${className}`}>
       {PAGINAS_LEGAIS.filter((p) => p.href !== atual).map((p) => (
-        <Link key={p.href} href={p.href} className="text-xs text-brand-muted underline underline-offset-2 hover:text-white">
+        // Sem prefetch: os links aparecem no login, e o prefetch de cada um somava
+        // requisicoes ao carregamento da tela mais aberta do portal (orcamento
+        // de desempenho, e2e/desempenho.spec.ts). Quase ninguem clica neles.
+        <Link
+          key={p.href}
+          href={p.href}
+          prefetch={false}
+          className="text-xs text-brand-muted underline underline-offset-2 hover:text-white"
+        >
           {p.rotulo}
         </Link>
       ))}
