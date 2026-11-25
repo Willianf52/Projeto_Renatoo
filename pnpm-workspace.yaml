@@ -24,6 +24,14 @@ overrides:
   # apps/mobile > expo > @expo/metro-config > postcss (ferramenta de build do
   # app). A 1.2.2 saiu em 30/09/2026 e e compativel (correcao de patch).
   source-map-js: ^1.2.2
+  # GHSA-3g3m-2fjr-6pw4 e GHSA-g3hv-75wg-m249 (medium, 25/11/2026): glob
+  # <= 14.0.1 ignora o AbortSignal e minimatch < 11.0.1 pode travar com
+  # padroes amplificados. So ferramenta de build: @expo/cli, @expo/config,
+  # @expo/fingerprint, expo-updates (CLI), @sentry/bundler-plugins e o
+  # typescript-eslint. Nada disso vai no bundle do app nem do portal, entao
+  # nao exige APK novo. Seletivo: o minimatch 3 (fora da faixa) fica.
+  glob@13: ^14.0.2
+  minimatch@10: ^11.0.9
   # GHSA-mrhx-c7xc-m3w5 (high, 01/10/2026): zod < 4.6.6 pode esgotar a memoria
   # validando colecao grande com limite. O portal e o shared validam formulario
   # com zod (sobem para ^4.6.7 no package.json); aqui pegam as copias 4.x
