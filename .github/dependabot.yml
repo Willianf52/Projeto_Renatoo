@@ -43,6 +43,11 @@ updates:
         patterns: ["@sentry/react-native", "react-native-screens", "react-native-safe-area-context"]
       npm-patch-e-minor:
         update-types: ["patch", "minor"]
+        # EXCLUSAO EXPLICITA (25/11/2026): mesmo com o grupo `app-nativo`
+        # acima, a #343 veio com o Sentry e o react-native-screens dentro deste
+        # grupo. Juntada, a proxima OTA levaria o JS novo deles a APKs com o
+        # nativo antigo. Fora daqui, eles so sobem com um APK novo.
+        exclude-patterns: ["@sentry/react-native", "react-native-screens", "react-native-safe-area-context"]
     # QUEM MANDA NESSES PACOTES E O EXPO SDK, nao o Dependabot. O SDK 57 fixa
     # `react-native`, `react`, `react-native-svg` e a major do
     # `@sentry/react-native` que o app nativo embarca; fora disso o `tsc` do
