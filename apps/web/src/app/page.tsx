@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { BrandLogo, FundoDaEntrada, HeroPanel } from "@/components/HeroPanel";
+import { LinksLegais } from "@/components/legal/PaginaLegal";
 import { LoginForm } from "@/components/LoginForm";
 
 // Server Component: HeroPanel e a logo sao estaticos e nao precisam ir para o
@@ -31,6 +32,7 @@ export default function Home() {
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-brand-green" />
             Conexão segura · Up Serviços
           </p>
+          <LinksLegais className="mt-3 justify-center" />
         </div>
       </section>
     </div>

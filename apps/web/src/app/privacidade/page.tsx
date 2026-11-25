@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLogo } from "@/components/HeroPanel";
+import { LinksLegais } from "@/components/legal/PaginaLegal";
 
 /**
  * Politica de privacidade do portal e do app de campo, publica (sem login).
@@ -195,6 +196,7 @@ export default function PrivacidadePage() {
             Ir para o portal
           </Link>
         </p>
+        <LinksLegais atual="/privacidade" className="mt-3" />
       </article>
     </main>
   );

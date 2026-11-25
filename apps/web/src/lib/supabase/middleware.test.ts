@@ -90,6 +90,14 @@ describe("updateSession", () => {
     expect(redirectLocation(response)).toBeNull();
   });
 
+  it.each(["/termos", "/cookies"])("sem sessao, %s: abre sem redirecionar", async (rota) => {
+    getUserMock.mockResolvedValue({ data: { user: null } });
+
+    const response = await updateSession(buildRequest(rota));
+
+    expect(redirectLocation(response)).toBeNull();
+  });
+
   it("sem sessao, rota protegida: redireciona para / preservando o destino em redirectTo", async () => {
     getUserMock.mockResolvedValue({ data: { user: null } });
 
