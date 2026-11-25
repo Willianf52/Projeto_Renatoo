@@ -55,8 +55,9 @@ contas existirem.
 
 ## Formulário de segurança de dados (Google Play)
 
-Respostas conforme o código em 26/10/2026. Se o app passar a coletar algo novo,
-revisar aqui, na política e em `docs/lgpd-privacidade.md`.
+Respostas conforme o código em 25/11/2026 (revistas: a versão de 26/10 dizia
+que o app não coletava localização, e ele coleta desde a 0088). Se o app passar
+a coletar algo novo, revisar aqui, na política e em `docs/lgpd-privacidade.md`.
 
 | Pergunta | Resposta |
 |---|---|
@@ -64,10 +65,12 @@ revisar aqui, na política e em `docs/lgpd-privacidade.md`.
 | Dados criptografados em trânsito? | Sim (HTTPS) |
 | O usuário pode pedir a exclusão dos dados? | Sim, pelo suporte (ver a política) |
 | Informações pessoais | Nome, e-mail, IDs do usuário (login). Finalidade: funcionalidade do app, gerenciamento da conta. Obrigatório |
+| Localização | **Precisa**, só em primeiro plano, no momento da leitura do QR (`expo-location`, permissão "durante o uso"). Finalidade: funcionalidade do app. **Opcional**: negar não impede a leitura. Sem localização em segundo plano |
 | Fotos e vídeos | Fotos (as da inspeção). Finalidade: funcionalidade do app. Obrigatório |
-| Atividade no app | Interações no app (respostas do checklist, ocorrências). Finalidade: funcionalidade do app |
+| Atividade no app | Interações no app (respostas do checklist, ocorrências, km do veículo). Finalidade: funcionalidade do app |
+| IDs do dispositivo | Endereço de push do aparelho (Expo e Firebase Cloud Messaging), para os avisos. Finalidade: funcionalidade do app |
 | Informações e desempenho do app | Registros de falhas e diagnóstico (Sentry). Finalidade: análise, correção de erros |
-| Localização, contatos, áudio, arquivos, mensagens, saúde, financeiro | Não coleta |
+| Contatos, áudio, arquivos, mensagens, saúde, financeiro | Não coleta |
 | Exclusão de conta pelo próprio app | Não se aplica: as contas não são criadas no app, e sim pela empresa no portal |
 
 **Classificação de conteúdo:** app de ferramenta de trabalho, sem conteúdo

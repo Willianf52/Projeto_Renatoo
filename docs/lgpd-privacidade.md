@@ -11,7 +11,10 @@
 | Dado | Onde vive | Titular |
 |---|---|---|
 | Nome completo, e-mail, cargo | `profiles` | Usuários do sistema (operadores, gestores, clientes) |
-| Coordenadas de leitura, horário de visita | `leituras`, `visitas` | Indiretamente ligado ao operador que fez a coleta |
+| Coordenadas de leitura, horário de visita | `leituras`, `visitas`. Desde a 0088 cada leitura do app guarda latitude, longitude e precisão do aparelho, **só no momento da leitura** e só com a permissão de localização em uso (sem ela, a leitura entra sem posição). Não há rastreio em segundo plano | Indiretamente ligado ao operador que fez a coleta |
+| Km do veículo e manutenções | `veiculo_km`, `veiculo_manutencoes` (0104), `maquina_manutencoes` (0111), sempre com `registrado_por` e a hora; `veiculos.usuario_id` diz de quem é o carro | Usuários da UP (e o CLIENTE, só na manutenção de máquina do seu escopo) |
+| Clientes que cada pessoa atende | `clientes_atendidos` (0113) | Usuários da UP. Cadastro e consulta, não muda o acesso |
+| Avisos recebidos | `notificacoes` (0103): título e texto do aviso por pessoa; expurgo de lidas em 90 dias e de qualquer uma em 180 | Usuários do sistema. Cada um vê só os próprios |
 | Nome/e-mail de contato de cliente | `grupos_sites_clientes` (via `profiles` de nível CLIENTE) | Contato de cliente/holding |
 | Login e telas abertas no painel (rota e **nomes** dos filtros, nunca os valores), com cargo | `eventos_de_uso` (migration 0051) | Usuários do sistema. Leitura só por quem vê a operação inteira |
 | Foto do usuário | Bucket **privado** `fotos-de-usuario` (`<id>/foto`) e `fotos_de_usuario` (migration 0112) | Usuários do sistema. Vê e troca só a própria pessoa e o GESTOR; a tela recebe link assinado de 1 hora. JPG, PNG ou WebP até 2 MB. Removida pela própria pessoa ou pelo GESTOR a qualquer momento; sai junto com a conta |
@@ -81,8 +84,8 @@ precisar dele pela primeira vez sob pressão de prazo legal.
 |---|---|---|
 | Supabase | Todo o banco (dados de usuário, leituras, visitas) + Auth | A confirmar — checar Data Processing Agreement da Supabase Inc. |
 | Expo (push) e Google Firebase Cloud Messaging | Notificação no celular (0110): recebem o endereço de push do aparelho, o título e o texto do aviso (ex.: "Revisão do veículo ABC-1D23"). Sem nome, e-mail nem dado de inspeção. O projeto do Firebase tem o Analytics ligado, mas o app não tem o pacote do Analytics: nenhum dado de uso vai para o Google | A confirmar |
-| Resend | E-mail transacional (hoje: recuperação de senha) — recebe endereço de e-mail do destinatário | A confirmar |
-| Sentry | Erros de aplicação — inerte enquanto não houver DSN configurado. **Correção de registro (16/09/2026):** esta linha dizia que `sendDefaultPii` estava desligado "por padrão do SDK", o que não valia no painel web: o `dataCollection: {}` gerado pelo wizard fazia o SDK ignorar `sendDefaultPii` e coletar corpo de requisição (inclusive senha em texto puro), cookies e dados do usuário. Desde então as três inicializações usam `src/lib/sentry-privacidade.ts` — sem corpo, cookie, usuário, consulta ao banco nem cabeçalho de credencial, com `beforeSend` removendo corpo como segunda barreira — travado em `sentry-privacidade.test.ts`. O que sai é stack trace, rota e mensagem de erro. Dado hospedado na UE: transferência internacional | A confirmar quando for ativado |
+| Resend | E-mail transacional: recuperação e troca de senha, ocorrência aberta e o aviso de inspeção realizada (com o PDF do checklist, que leva nomes, respostas e fotos) aos gestores da lista — recebe o endereço do destinatário e o conteúdo | A confirmar |
+| Sentry | Erros de aplicação, no portal e no app. **Correção de registro (16/09/2026):** esta linha dizia que `sendDefaultPii` estava desligado "por padrão do SDK", o que não valia no painel web: o `dataCollection: {}` gerado pelo wizard fazia o SDK ignorar `sendDefaultPii` e coletar corpo de requisição (inclusive senha em texto puro), cookies e dados do usuário. Desde então as três inicializações usam `src/lib/sentry-privacidade.ts` — sem corpo, cookie, usuário, consulta ao banco nem cabeçalho de credencial, com `beforeSend` removendo corpo como segunda barreira — travado em `sentry-privacidade.test.ts`. O que sai é stack trace, rota e mensagem de erro. Dado hospedado na UE: transferência internacional | A confirmar quando for ativado |
 
 Ação: confirmar com cada fornecedor se o DPA padrão deles (geralmente
 disponível nos Termos de Serviço/Trust Center) cobre o que a LGPD exige para
@@ -90,6 +93,11 @@ operador de dados, e guardar o link/documento em local acessível ao time
 jurídico.
 
 ## Log de auditoria de acesso/alteração a dado de outro usuário
+
+**Atualização (25/11/2026):** a parte de **alteração** já existe. A tabela
+`auditoria` (0034, ampliada na 0070) grava quem mudou o quê, quando e os
+valores antes e depois, por gatilho, e só a gestão lê. O que segue em aberto
+abaixo é a **leitura** ("quem viu o cadastro de X").
 
 Hoje existe log técnico (`apps/web/src/lib/log.ts`, correlacionado por id de
 requisição) para depuração — mas não um **audit trail de negócio**
@@ -113,5 +121,8 @@ ação em `usuarios/actions.ts` (que já roda com `service_role`, fora do RLS).
 - [x] Política de privacidade pública (`apps/web/src/app/privacidade`), exigida
       pelas lojas de app
 - [ ] DPA confirmado com Supabase, Resend e (quando ativado) Sentry
-- [ ] Audit trail de acesso a dado de outro usuário desenhado e priorizado
+- [x] Audit trail de alteração (`auditoria`, 0034/0070)
+- [ ] Audit trail de leitura de dado de outro usuário desenhado e priorizado
+- [x] Política pública revista em 25/11/2026 (localização na leitura, foto,
+      km, notificações, Firebase)
 - [ ] Este documento revisado a cada tabela nova que armazene dado pessoal

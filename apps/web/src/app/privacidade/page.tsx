@@ -25,7 +25,7 @@ const RESPONSAVEL: { razaoSocial: string; cnpj: string | null } = {
   cnpj: null,
 };
 
-const ATUALIZADA_EM = "26/10/2026";
+const ATUALIZADA_EM = "25/11/2026";
 
 const URL_SUPORTE = process.env.NEXT_PUBLIC_URL_SUPORTE?.trim();
 
@@ -72,12 +72,27 @@ export default function PrivacidadePage() {
         <Secao titulo="Quais dados tratamos">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong className="text-white">Dados da conta:</strong> nome, e-mail, login e cargo.
+              <strong className="text-white">Dados da conta:</strong> nome, e-mail, login, cargo e,
+              se a pessoa cadastrar, a foto do perfil.
             </li>
             <li>
               <strong className="text-white">Dados das inspeções:</strong> o local inspecionado, a data e
               a hora da leitura do QR code, as respostas do checklist, as observações, as fotos tiradas
               durante a visita, a assinatura e as ocorrências registradas.
+            </li>
+            <li>
+              <strong className="text-white">Localização na leitura:</strong> no momento em que o QR code
+              é lido, o aplicativo registra a posição do aparelho (latitude, longitude e precisão), para
+              comprovar onde a visita começou e terminou. Só é registrada se a pessoa permitir, e a
+              leitura funciona sem ela. O aplicativo não acompanha a localização fora da leitura.
+            </li>
+            <li>
+              <strong className="text-white">Veículos e máquinas:</strong> o km informado do carro usado no
+              dia e as manutenções registradas, com quem registrou e quando.
+            </li>
+            <li>
+              <strong className="text-white">Notificações:</strong> o endereço de notificação do celular,
+              para enviar avisos como a revisão do veículo. É apagado ao sair do aplicativo.
             </li>
             <li>
               <strong className="text-white">Uso do portal:</strong> o registro de entrada e das telas
@@ -91,7 +106,7 @@ export default function PrivacidadePage() {
           </ul>
           <p>
             O aplicativo usa a câmera apenas para ler o QR code do local e para tirar as fotos da
-            inspeção. Ele não coleta localização, contatos, áudio nem outros arquivos do aparelho.
+            inspeção. Ele não coleta contatos, áudio nem outros arquivos do aparelho.
           </p>
         </Secao>
 
@@ -99,7 +114,10 @@ export default function PrivacidadePage() {
           <ul className="list-disc space-y-2 pl-5">
             <li>Registrar e comprovar as inspeções feitas nos locais atendidos.</li>
             <li>Gerar os relatórios e indicadores para a Up Serviços e para os clientes contratantes.</li>
-            <li>Enviar avisos por e-mail, como a abertura de uma ocorrência e a recuperação de senha.</li>
+            <li>
+              Enviar avisos por e-mail e no celular, como a inspeção realizada, a abertura de uma ocorrência,
+              a revisão do veículo e a recuperação de senha.
+            </li>
             <li>Manter a segurança das contas e corrigir falhas do sistema.</li>
           </ul>
           <p>
@@ -116,8 +134,9 @@ export default function PrivacidadePage() {
           <p>
             Para funcionar, o sistema usa fornecedores que tratam os dados em nome da Up Serviços:
             Supabase (banco de dados e login), Vercel (hospedagem do portal), Resend (envio de
-            e-mails), Sentry (registro de erros), Cloudflare (cópias de segurança) e Expo (atualizações
-            do aplicativo). Alguns desses serviços ficam fora do Brasil, o que caracteriza
+            e-mails), Sentry (registro de erros), Cloudflare (cópias de segurança), Expo (atualizações
+            do aplicativo e envio de notificações) e Google Firebase (entrega das notificações no
+            celular). Alguns desses serviços ficam fora do Brasil, o que caracteriza
             transferência internacional de dados.
           </p>
         </Secao>
