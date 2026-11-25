@@ -7,9 +7,11 @@ import { COOKIE_OPTIONS } from "@/lib/supabase/cookie-options";
 
 /**
  * Rotas publicas: acessiveis sem sessao ativa. `/privacidade` porque a Play
- * Store e a App Store conferem a politica sem conta nenhuma (26/10/2026).
+ * Store e a App Store conferem a politica sem conta nenhuma (26/10/2026);
+ * `/termos` e `/cookies` pelo mesmo motivo, e porque o login liga para elas
+ * (25/11/2026).
  */
-const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth", "/privacidade"];
+const PUBLIC_ROUTES = ["/", "/recuperar-senha", "/nova-senha", "/auth", "/privacidade", "/termos", "/cookies"];
 
 const isPublicRoute = (pathname: string) =>
   PUBLIC_ROUTES.some(
