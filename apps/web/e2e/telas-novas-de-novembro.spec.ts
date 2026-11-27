@@ -71,8 +71,10 @@ test.describe("Telas novas com sessao do GESTOR", () => {
     await page.getByRole("button", { name: "Alterar E-mails" }).click();
 
     // Filtrado pelo texto: o Next tambem poe um anunciador de rota com role "alert".
+    // Folga de 30s: no `next dev` frio da CI, a primeira chamada da Server
+    // Action inclui compila-la (mesmo motivo do checklist-de-campo.spec.ts).
     await expect(
       page.getByRole("alert").filter({ hasText: "Selecione ao menos um grupo de sites ou um local." }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
   });
 });
