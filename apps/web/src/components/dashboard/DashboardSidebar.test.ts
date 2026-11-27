@@ -66,6 +66,8 @@ const DO_GESTOR = TELAS_DO_MENU.filter((tela) => tela.somenteGestor).map((tela) 
 describe("telas so do GESTOR (issue #209)", () => {
   it("sao as telas do menu do GESTOR na referencia", () => {
     expect(DO_GESTOR).toEqual([
+      // Relatorio de uso do portal (27/11/2026), no lugar do Google Analytics.
+      "/dashboard/cadastros/uso-do-portal",
       "/dashboard/eventos/painel-de-eventos",
       "/dashboard/eventos/cadastro-de-eventos",
       "/dashboard/eventos/registrar-evento",

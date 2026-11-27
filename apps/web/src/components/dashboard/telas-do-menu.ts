@@ -111,6 +111,8 @@ export const NAV_ITEMS: NavItem[] = [
       // Pedido do gestor (22/11/2026, 0111): maquinas e a lista de acessorios e produtos de cada site.
       { label: "Máquinas", href: "/dashboard/cadastros/maquinas", icon: SlidersIcon },
       { label: "Acessórios e Produtos", href: "/dashboard/cadastros/acessorios-e-produtos", icon: ClipboardListIcon },
+      // No lugar do Google Analytics (27/11/2026): soma de `eventos_de_uso` (0117).
+      { label: "Uso do Portal", href: "/dashboard/cadastros/uso-do-portal", icon: BarChartIcon, somenteGestor: true },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },

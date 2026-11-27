@@ -2898,6 +2898,26 @@ export type Database = {
           site_nome: string
         }[]
       }
+      relatorio_telas_do_portal: {
+        Args: { p_cargo?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          aberturas: number
+          pessoas: number
+          rota: string
+        }[]
+      }
+      relatorio_uso_do_portal: {
+        Args: { p_cargo?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          cargo: string
+          dias_com_acesso: number
+          logins: number
+          nome: string
+          perfil_id: string
+          telas: number
+          ultimo_acesso: string
+        }[]
+      }
       relatorio_visitas_de_supervisao: {
         Args: { p_fim: string; p_inicio: string; p_site: number }
         Returns: {
