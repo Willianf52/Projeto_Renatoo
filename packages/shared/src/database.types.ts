@@ -2761,6 +2761,7 @@ export type Database = {
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      pode_ver_uso_do_portal: { Args: never; Returns: boolean }
       progresso_das_metas: {
         Args: { p_dia?: string }
         Returns: {
@@ -2896,6 +2897,26 @@ export type Database = {
           duracoes_ms: number[]
           site_id: number
           site_nome: string
+        }[]
+      }
+      relatorio_telas_do_portal: {
+        Args: { p_cargo?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          aberturas: number
+          pessoas: number
+          rota: string
+        }[]
+      }
+      relatorio_uso_do_portal: {
+        Args: { p_cargo?: string; p_fim: string; p_inicio: string }
+        Returns: {
+          cargo: string
+          dias_com_acesso: number
+          logins: number
+          nome: string
+          perfil_id: string
+          telas: number
+          ultimo_acesso: string
         }[]
       }
       relatorio_visitas_de_supervisao: {

@@ -5,14 +5,15 @@
 --   1) o autor vem do banco, nao do cliente -- nem `perfil_id` nem `cargo`
 --      sao gravaveis pela sessao;
 --   2) o teto de tamanho e a lista fechada de eventos seguram lixo;
---   3) a gestao le tudo; quem nao e gestao le so o proprio uso (0062) e
+--   3) so quem acompanha o uso le tudo (0118, antes a gestao toda); os demais,
+--      GESTOR incluso, leem so o proprio uso (0062) e
 --      nunca o que os outros registraram;
 --   4) conta inativa e `anon` nao registram nada.
 -- ============================================================================
 
 begin;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -99,12 +100,25 @@ select lives_ok(
   'GESTOR ativo registra login'
 );
 
+select is(
+  (select count(*)::int from public.eventos_de_uso
+    where perfil_id is distinct from 'e5100000-0000-0000-0000-000000000001'),
+  0,
+  'GESTOR fora da lista de quem acompanha o uso le so o proprio (0118)'
+);
+reset role;
+
+insert into manutencao.quem_acompanha_o_uso (perfil_id) values ('e5100000-0000-0000-0000-000000000001');
+
+set local role authenticated;
+set local "request.jwt.claims" to '{"sub": "e5100000-0000-0000-0000-000000000001", "role": "authenticated"}';
+
 select cmp_ok(
   (select count(*)::int from public.eventos_de_uso
     where perfil_id in ('e5100000-0000-0000-0000-000000000001', 'e5100000-0000-0000-0000-000000000002')),
   '=',
   2,
-  'GESTOR le os eventos de todos'
+  'quem acompanha o uso le os eventos de todos'
 );
 reset role;
 

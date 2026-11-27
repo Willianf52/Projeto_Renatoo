@@ -61,6 +61,8 @@ const hrefsDo = (itens: typeof NAV_ITEMS) =>
     item.children.flatMap((child) => (isGroup(child) ? child.items : [child]).map((link) => link.href)),
   );
 
+const SEM_ACESSO = { ehGestor: false, veUsoDoPortal: false };
+
 const DO_GESTOR = TELAS_DO_MENU.filter((tela) => tela.somenteGestor).map((tela) => tela.href);
 
 describe("telas so do GESTOR (issue #209)", () => {
@@ -86,13 +88,16 @@ describe("telas so do GESTOR (issue #209)", () => {
   });
 
   it("o GESTOR ve o menu inteiro", () => {
-    expect(itensDoMenu(NAV_ITEMS, true)).toBe(NAV_ITEMS);
-    expect(telasDoMenu(true)).toEqual(TELAS_DO_MENU);
+    const gestor = { ehGestor: true, veUsoDoPortal: false };
+    expect(hrefsDo(itensDoMenu(NAV_ITEMS, gestor))).toEqual(
+      hrefsDo(NAV_ITEMS).filter((href) => href !== "/dashboard/cadastros/uso-do-portal"),
+    );
+    expect(telasDoMenu(gestor)).toEqual(TELAS_DO_MENU.filter((tela) => !tela.somenteQuemAcompanhaOUso));
   });
 
   it("os demais nao veem nenhuma delas, nem no menu nem nos atalhos", () => {
-    const menu = hrefsDo(itensDoMenu(NAV_ITEMS, false));
-    const atalhos = telasDoMenu(false).map((tela) => tela.href);
+    const menu = hrefsDo(itensDoMenu(NAV_ITEMS, SEM_ACESSO));
+    const atalhos = telasDoMenu(SEM_ACESSO).map((tela) => tela.href);
     for (const href of DO_GESTOR) {
       expect(menu).not.toContain(href);
       expect(atalhos).not.toContain(href);
@@ -103,7 +108,7 @@ describe("telas so do GESTOR (issue #209)", () => {
   });
 
   it("subgrupo que fica vazio some (a Administracao do ChecklistLab), a secao nao", () => {
-    const checklistlab = itensDoMenu(NAV_ITEMS, false).find((item) => item.label === "ChecklistLab");
+    const checklistlab = itensDoMenu(NAV_ITEMS, SEM_ACESSO).find((item) => item.label === "ChecklistLab");
     expect(checklistlab?.children.map((child) => child.label)).toEqual(["Histórico de Checklist"]);
   });
 
@@ -118,4 +123,26 @@ describe("telas so do GESTOR (issue #209)", () => {
       expect(readFileSync(layout, "utf8")).toContain("<SomenteGestor>");
     },
   );
+});
+
+// Pedido do dono (27/11/2026, 0118): "Uso do Portal" so para quem acompanha o
+// uso, nem os outros GESTORES veem.
+describe("Uso do Portal so para quem acompanha o uso", () => {
+  const USO = "/dashboard/cadastros/uso-do-portal";
+
+  it("e a unica tela com essa marca", () => {
+    expect(TELAS_DO_MENU.filter((tela) => tela.somenteQuemAcompanhaOUso).map((tela) => tela.href)).toEqual([USO]);
+  });
+
+  it("aparece so para quem acompanha, seja ou nao GESTOR", () => {
+    expect(hrefsDo(itensDoMenu(NAV_ITEMS, { ehGestor: true, veUsoDoPortal: false }))).not.toContain(USO);
+    expect(hrefsDo(itensDoMenu(NAV_ITEMS, SEM_ACESSO))).not.toContain(USO);
+    expect(hrefsDo(itensDoMenu(NAV_ITEMS, { ehGestor: true, veUsoDoPortal: true }))).toContain(USO);
+    expect(telasDoMenu({ ehGestor: false, veUsoDoPortal: true }).map((tela) => tela.href)).toContain(USO);
+  });
+
+  it("o layout tem o portao proprio", () => {
+    const layout = fileURLToPath(new URL(`../../app${USO}/layout.tsx`, import.meta.url));
+    expect(readFileSync(layout, "utf8")).toContain("<SomenteQuemAcompanhaOUso>");
+  });
 });
