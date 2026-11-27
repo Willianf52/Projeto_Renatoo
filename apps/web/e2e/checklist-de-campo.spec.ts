@@ -64,8 +64,13 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     // O tablet ("Visualizar Respostas") abre o detalhe; o olho abre a ficha
     // so leitura, igual a do sistema antigo.
     await linha.getByRole("link", { name: /^Visualizar respostas do checklist / }).click();
+    // Folga de 30s, como a da assinatura abaixo: no `next dev` frio da CI, a
+    // primeira ida ao detalhe inclui compilar a rota, e o endereco so troca
+    // quando a resposta chega. Com os 5s padrao o teste falhava de vez em
+    // quando e passava na segunda tentativa (27/11/2026), sem defeito no portal.
     await expect(page).toHaveURL(
       new RegExp(`/dashboard/checklistlab/historico-de-checklist/${checklistId}\\?`),
+      { timeout: 30_000 },
     );
 
     // No cartao da corretiva, e nao em qualquer lugar da pagina: o motivo
@@ -74,7 +79,7 @@ test.describe("Checklist enviado pelo app aparece no painel", () => {
     const cartaoDoMotivo = page
       .getByRole("heading", { name: "Motivo da visita corretiva" })
       .locator("xpath=../following-sibling::p");
-    await expect(cartaoDoMotivo).toHaveText(motivo);
+    await expect(cartaoDoMotivo).toHaveText(motivo, { timeout: 30_000 });
 
     // A assinatura vem do bucket privado pela rota do painel, com a sessao do
     // gestor. `naturalWidth` > 0 prova que chegaram bytes de imagem, e nao so
