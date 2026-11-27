@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { extrairFiltros, hojeEmBrasilia, juntarTelasPeloNome, nomeDaTela, periodoValido, resumo, rotuloDoCargo } from "./queries";
+import {
+  extrairFiltros,
+  hojeEmBrasilia,
+  juntarTelasPeloNome,
+  nomeDaTela,
+  nomeDoArquivo,
+  periodoValido,
+  planilhaDoUso,
+  resumo,
+  rotuloDoCargo,
+} from "./queries";
 
 // O primeiro import do menu (icones) passa dos 5 s padrao numa maquina lenta.
 vi.setConfig({ testTimeout: 30_000 });
@@ -76,5 +86,34 @@ describe("somas", () => {
   it("rotulo do cargo", () => {
     expect(rotuloDoCargo("SUPERVISOR")).toBe("Supervisor");
     expect(rotuloDoCargo(null)).toBe("");
+  });
+});
+
+describe("Exportar para Excel", () => {
+  const uso = {
+    pessoas: [{ nome: "Ana", cargo: "Gestor", logins: 2, telas: 5, diasComAcesso: 1, ultimoAcesso: "27/11/2026 10:00" }],
+    telas: [{ tela: "QR-Code", aberturas: 3, pessoas: 1 }],
+  };
+
+  it("as duas tabelas no mesmo arquivo, com as linhas curtas completadas", () => {
+    expect(planilhaDoUso(uso)).toEqual({
+      colunas: ["Nome", "Cargo", "Logins", "Telas abertas", "Dias com acesso", "Último acesso"],
+      linhas: [
+        ["Ana", "Gestor", "2", "5", "1", "27/11/2026 10:00"],
+        ["", "", "", "", "", ""],
+        ["Tela", "Aberturas", "Pessoas", "", "", ""],
+        ["QR-Code", "3", "1", "", "", ""],
+      ],
+    });
+  });
+
+  it("sem uso, so o cabecalho das telas depois da linha em branco", () => {
+    expect(planilhaDoUso({ pessoas: [], telas: [] }).linhas).toHaveLength(2);
+  });
+
+  it("o nome do arquivo leva o periodo", () => {
+    expect(nomeDoArquivo({ dataInicial: "2026-11-01", dataFinal: "2026-11-27" })).toBe(
+      "uso-do-portal-2026-11-01-a-2026-11-27.csv",
+    );
   });
 });

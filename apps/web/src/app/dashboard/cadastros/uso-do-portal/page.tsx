@@ -5,14 +5,24 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { FiltrosEmGradeEsqueleto, TabelaEsqueleto } from "@/components/dashboard/EsqueletosDeListagem";
 import { FilterDatePicker } from "@/components/dashboard/FilterDatePicker";
 import { FilterSelect } from "@/components/dashboard/FilterField";
-import { BarChartIcon, FilterIcon } from "@/components/dashboard/icons";
+import { Acao } from "@/components/dashboard/Acao";
+import { BarChartIcon, ExcelIcon, FilterIcon } from "@/components/dashboard/icons";
 import { NIVEIS_ACESSO } from "../usuarios/constantes";
-import { extrairFiltros, getUsoDoPortal, periodoValido, resumo, type SearchParams } from "./queries";
+import {
+  COLUNAS_PESSOAS,
+  COLUNAS_TELAS,
+  extrairFiltros,
+  getUsoDoPortal,
+  linhaDaPessoa,
+  linhaDaTela,
+  periodoValido,
+  primeiro,
+  resumo,
+  type SearchParams,
+} from "./queries";
 
 type SearchParamsPromise = Promise<SearchParams>;
 
-const COLUNAS_PESSOAS = ["Nome", "Cargo", "Logins", "Telas abertas", "Dias com acesso", "Último acesso"];
-const COLUNAS_TELAS = ["Tela", "Aberturas", "Pessoas"];
 
 /** Pagina sem `async` -- ver `inspecoes/coletas-importadas/page.tsx` (Cache Components). */
 export default function UsoDoPortalPage({ searchParams }: { searchParams: SearchParamsPromise }) {
@@ -27,10 +37,15 @@ export default function UsoDoPortalPage({ searchParams }: { searchParams: Search
         style={{ animationDelay: "80ms" }}
       >
         <div className="border-b border-slate-800 px-4 py-3">
-          <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <BarChartIcon className="h-4 w-4" />
-            Uso do Portal
-          </h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <BarChartIcon className="h-4 w-4" />
+              Uso do Portal
+            </h1>
+            <Suspense fallback={null}>
+              <Exportar searchParams={searchParams} />
+            </Suspense>
+          </div>
           <p className="mt-1 text-xs text-brand-muted">
             Entradas e telas abertas no portal, sem cookie e sem serviço de fora. O app de campo não entra aqui: o
             trabalho dele aparece nas inspeções.
@@ -46,6 +61,27 @@ export default function UsoDoPortalPage({ searchParams }: { searchParams: Search
         </Suspense>
       </div>
     </div>
+  );
+}
+
+/** Mesmos filtros da tela no endereco do arquivo. */
+async function Exportar({ searchParams }: { searchParams: SearchParamsPromise }) {
+  const params = await searchParams;
+  const query = new URLSearchParams();
+  for (const chave of ["data_inicial", "data_final", "cargo"]) {
+    const valor = primeiro(params[chave]);
+    if (valor) query.set(chave, valor);
+  }
+  const texto = query.toString();
+  return (
+    <Acao
+      titulo="Exportar para Excel"
+      href={`/dashboard/cadastros/uso-do-portal/export/excel${texto ? `?${texto}` : ""}`}
+      tom="excel"
+      target="_blank"
+    >
+      <ExcelIcon className="h-4 w-4" />
+    </Acao>
   );
 }
 
@@ -99,14 +135,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
         <h2 className="mb-2 text-sm font-semibold text-white">Por pessoa</h2>
         <DataTable
           columns={COLUNAS_PESSOAS}
-          rows={uso.pessoas.map((l) => [
-            l.nome,
-            l.cargo,
-            String(l.logins),
-            String(l.telas),
-            String(l.diasComAcesso),
-            l.ultimoAcesso,
-          ])}
+          rows={uso.pessoas.map(linhaDaPessoa)}
           page={1}
           totalPages={uso.pessoas.length > 0 ? 1 : 0}
           totalItems={uso.pessoas.length}
@@ -119,7 +148,7 @@ async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise })
         <h2 className="mb-2 text-sm font-semibold text-white">Telas mais abertas</h2>
         <DataTable
           columns={COLUNAS_TELAS}
-          rows={uso.telas.map((l) => [l.tela, String(l.aberturas), String(l.pessoas)])}
+          rows={uso.telas.map(linhaDaTela)}
           page={1}
           totalPages={uso.telas.length > 0 ? 1 : 0}
           totalItems={uso.telas.length}
