@@ -16,7 +16,7 @@
 | Clientes que cada pessoa atende | `clientes_atendidos` (0113) | Usuários da UP. Cadastro e consulta, não muda o acesso |
 | Avisos recebidos | `notificacoes` (0103): título e texto do aviso por pessoa; expurgo de lidas em 90 dias e de qualquer uma em 180 | Usuários do sistema. Cada um vê só os próprios |
 | Nome/e-mail de contato de cliente | `grupos_sites_clientes` (via `profiles` de nível CLIENTE) | Contato de cliente/holding |
-| Login e telas abertas no painel (rota e **nomes** dos filtros, nunca os valores), com cargo | `eventos_de_uso` (migration 0051) | Usuários do sistema. Leitura só por quem vê a operação inteira |
+| Login e telas abertas no painel (rota e **nomes** dos filtros, nunca os valores), com cargo | `eventos_de_uso` (migration 0051) | Usuários do sistema. Cada um lê o próprio uso (0062); o de todos, só quem está em `manutencao.quem_acompanha_o_uso` (0118, hoje só o dono), pela tela "Uso do Portal". Até 27/11/2026 era a gestão toda (GESTOR e SUPERVISOR) |
 | Foto do usuário | Bucket **privado** `fotos-de-usuario` (`<id>/foto`) e `fotos_de_usuario` (migration 0112) | Usuários do sistema. Vê e troca só a própria pessoa e o GESTOR; a tela recebe link assinado de 1 hora. JPG, PNG ou WebP até 2 MB. Removida pela própria pessoa ou pelo GESTOR a qualquer momento; sai junto com a conta |
 | Endereço de push do celular e quem está logado nele | `dispositivos_push` (migration 0110) | Usuários do app. Cada um vê só os próprios; apagado ao sair do app |
 

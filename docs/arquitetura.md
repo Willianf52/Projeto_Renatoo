@@ -254,6 +254,25 @@ navegador direto para o bucket (Server Action aceita só 1 MB) e a tela mostra
 por link assinado de uma hora, também na prévia logo depois do envio. A CSP
 `img-src` inclui a origem do Supabase.
 
+### Uso do Portal (0117, 0118)
+
+Cadastros > Uso do Portal: a soma de `eventos_de_uso` (logins e telas abertas
+no portal; o app de campo não grava telemetria). Duas funções no banco,
+`relatorio_uso_do_portal` (por pessoa: logins, telas, dias com acesso, último
+acesso) e `relatorio_telas_do_portal` (aberturas e pessoas por rota), ambas
+`security invoker`, com período em dias de Brasília de até 366. A tela traduz a
+rota no nome do menu (`nomeDaTela`).
+
+**Só para quem acompanha o uso**, a pedido do dono (27/11/2026): a lista
+`manutencao.quem_acompanha_o_uso` (hoje só ele), preenchida por SQL no painel
+e nunca por migration, porque o repositório é público. A 0118 trocou a policy
+"gestão lê os eventos de uso" por "quem acompanha o uso lê tudo", então GESTOR
+fora da lista lê só o próprio uso, como qualquer outro. No portal,
+`pode_ver_uso_do_portal()` decide o item do menu e dos atalhos
+(`somenteQuemAcompanhaOUso`, `AcessosDoMenu`) e o portão
+`SomenteQuemAcompanhaOUso` no `layout.tsx`. Incluir alguém:
+`insert into manutencao.quem_acompanha_o_uso (perfil_id) values ('<uuid>')`.
+
 ### Alterar E-mails em Massa (Site / Planta)
 
 Igual ao do sistema antigo (25/11/2026): `site-planta/emails-em-massa`. Escolhe
@@ -432,8 +451,8 @@ A Política de Cookies descreve o que o código guarda: o cookie da sessão
 só o necessário, **não há aviso de consentimento**. Entrar qualquer coisa não
 essencial (Google Analytics, por exemplo) exige mudar a página, a CSP e pôr o
 aviso com "aceitar" e "recusar" antes de carregar o script. Em 25/11 o dono
-perguntou pelo Google Analytics e a decisão ficou em aberto; a recomendação é
-um relatório sobre `eventos_de_uso`, que já registra o uso sem cookie.
+perguntou pelo Google Analytics; em 27/11 a resposta foi o relatório "Uso do
+Portal" (abaixo), sem cookie e sem serviço de fora.
 
 ### Cabeçalhos e CSP
 
@@ -574,7 +593,7 @@ propósito, com o motivo documentado em cada uma. É uma troca já avaliada.
 |---|---|---|
 | Erros | Sentry `javascript-nextjs`, túnel `/monitoring`, sem corpo, cookie nem dado de usuário (`lib/sentry-privacidade.ts`) | Sentry `app-inspetores`, source maps enviados no build do EAS |
 | Log | `lib/log.ts`: id de correlação por requisição, stdout da Vercel e Sentry | — |
-| Uso | `eventos_de_uso` (0051): login e tela aberta, com autor preenchido por trigger | — |
+| Uso | `eventos_de_uso` (0051): login e tela aberta, com autor preenchido por trigger; relatório "Uso do Portal" (0117, só para quem acompanha o uso, 0118) | — |
 | Saúde | `/api/health` (consulta o banco) | — |
 | Integração | `importacoes` + alerta de silêncio pelo cron | — |
 
