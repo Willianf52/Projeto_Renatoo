@@ -2761,6 +2761,7 @@ export type Database = {
       pode_administrar_grupos_usuarios: { Args: never; Returns: boolean }
       pode_administrar_usuarios: { Args: never; Returns: boolean }
       pode_ver_toda_operacao: { Args: never; Returns: boolean }
+      pode_ver_uso_do_portal: { Args: never; Returns: boolean }
       progresso_das_metas: {
         Args: { p_dia?: string }
         Returns: {

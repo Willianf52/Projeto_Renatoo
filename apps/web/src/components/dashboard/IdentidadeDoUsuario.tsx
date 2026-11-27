@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { linkDaFoto } from "@/lib/foto-do-usuario";
+import { podeVerUsoDoPortal } from "@/lib/permissoes";
 import { getPerfilAtual, getUsuarioAtual } from "@/lib/perfil-atual";
 import { InformarCargoDoMenu } from "./CargoDoMenu";
 import { UserIcon } from "./icons";
@@ -86,15 +87,16 @@ export function IdentidadeNavbarSkeleton() {
 }
 
 export async function SaudacaoSidebar() {
-  const { nome, cargo } = await identidade();
+  const [{ nome, cargo }, veUsoDoPortal] = await Promise.all([identidade(), podeVerUsoDoPortal()]);
 
   return (
     <>
       <span className="block truncate font-medium text-slate-200" title={nome}>
         {nome}
       </span>
-      {/* Entrega o cargo ao menu, que esconde os itens de GESTOR dos demais. */}
-      <InformarCargoDoMenu ehGestor={cargo === "GESTOR"} />
+      {/* Entrega o cargo ao menu, que esconde os itens de GESTOR dos demais (e o
+          "Uso do Portal" de quem nao acompanha o uso, 0118). */}
+      <InformarCargoDoMenu ehGestor={cargo === "GESTOR"} veUsoDoPortal={veUsoDoPortal} />
     </>
   );
 }

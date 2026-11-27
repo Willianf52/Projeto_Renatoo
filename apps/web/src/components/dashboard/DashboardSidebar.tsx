@@ -5,7 +5,15 @@ import { usePathname } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 import { DefinirCargoDoMenu } from "./CargoDoMenu";
 import { ChevronDownIcon, XIcon } from "./icons";
-import { isGroup, itensDoMenu, naRota, NAV_ITEMS, type NavChild, type NavItem } from "./telas-do-menu";
+import {
+  isGroup,
+  itensDoMenu,
+  naRota,
+  NAV_ITEMS,
+  type AcessosDoMenu,
+  type NavChild,
+  type NavItem,
+} from "./telas-do-menu";
 
 
 const childContainsPath = (child: NavChild, pathname: string | null): boolean =>
@@ -268,8 +276,8 @@ export function DashboardSidebar({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   // Comeca sem os itens de GESTOR: o cargo chega pela saudacao (`CargoDoMenu.tsx`).
-  const [ehGestor, setEhGestor] = useState(false);
-  const itens = useMemo(() => itensDoMenu(NAV_ITEMS, ehGestor), [ehGestor]);
+  const [acessos, setAcessos] = useState<AcessosDoMenu>({ ehGestor: false, veUsoDoPortal: false });
+  const itens = useMemo(() => itensDoMenu(NAV_ITEMS, acessos), [acessos]);
 
   // O estado de abertura vive aqui, acima do <Suspense>: quando o boundary
   // resolve, o menu aberto continua aberto.
@@ -315,7 +323,7 @@ export function DashboardSidebar({
           </button>
         </div>
 
-        <DefinirCargoDoMenu.Provider value={setEhGestor}>
+        <DefinirCargoDoMenu.Provider value={setAcessos}>
           <p className="px-5 pb-4 text-sm text-brand-muted">
             Olá,{" "}
             {saudacao}

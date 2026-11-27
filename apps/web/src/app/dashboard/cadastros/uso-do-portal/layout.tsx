@@ -1,6 +1,6 @@
-import { SomenteGestor } from "@/components/dashboard/SomenteGestor";
+import { SomenteQuemAcompanhaOUso } from "@/components/dashboard/SomenteQuemAcompanhaOUso";
 
-/** "Uso do Portal" (27/11/2026) e do GESTOR, como os outros cadastros da gestao: ver `SomenteGestor`. */
+/** "Uso do Portal" so para quem acompanha o uso (0118, hoje so o dono): ver o componente. */
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <SomenteGestor>{children}</SomenteGestor>;
+  return <SomenteQuemAcompanhaOUso>{children}</SomenteQuemAcompanhaOUso>;
 }

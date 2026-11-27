@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect } from "react";
+import type { AcessosDoMenu } from "./telas-do-menu";
 
 /**
  * Por onde o cargo chega ao menu lateral sem uma leitura a mais.
@@ -15,12 +16,12 @@ import { createContext, useContext, useEffect } from "react";
  * fechado. E so vitrine -- o portao de cada tela de GESTOR e o `SomenteGestor`
  * no servidor.
  */
-export const DefinirCargoDoMenu = createContext<(ehGestor: boolean) => void>(() => {});
+export const DefinirCargoDoMenu = createContext<(acessos: AcessosDoMenu) => void>(() => {});
 
-export function InformarCargoDoMenu({ ehGestor }: { ehGestor: boolean }) {
+export function InformarCargoDoMenu({ ehGestor, veUsoDoPortal }: AcessosDoMenu) {
   const definir = useContext(DefinirCargoDoMenu);
   useEffect(() => {
-    definir(ehGestor);
-  }, [definir, ehGestor]);
+    definir({ ehGestor, veUsoDoPortal });
+  }, [definir, ehGestor, veUsoDoPortal]);
   return null;
 }

@@ -1,8 +1,9 @@
 -- ============================================================================
 -- pgTAP -- relatorio de uso do portal (0117)
 --
---   1) A gestao ve a soma de todo mundo: logins, telas e dias por pessoa.
---   2) Quem nao e gestao so ve o proprio uso (RLS de eventos_de_uso).
+--   1) Quem acompanha o uso (0118) ve a soma de todo mundo.
+--   2) Os demais, GESTOR fora da lista incluso, so veem o proprio uso.
+--   6) pode_ver_uso_do_portal responde pela lista.
 --   3) Telas: aberturas e pessoas distintas por rota.
 --   4) Filtro de cargo e periodo invalido.
 --   5) anon nao executa.
@@ -10,7 +11,7 @@
 
 begin;
 
-select plan(9);
+select plan(12);
 
 insert into auth.users (id, instance_id, aud, role, email)
 values
@@ -21,6 +22,14 @@ update public.profiles set ativo = true, cargo = 'GESTOR', nome_completo = 'Gest
   where id = 'e5117000-0000-0000-0000-000000000001';
 update public.profiles set ativo = true, cargo = 'OPERADOR', nome_completo = 'Operador 0117'
   where id = 'e5117000-0000-0000-0000-000000000002';
+
+insert into auth.users (id, instance_id, aud, role, email)
+values ('e5117000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'outrogestor.0117@teste.local');
+update public.profiles set ativo = true, cargo = 'GESTOR', nome_completo = 'Outro Gestor 0117'
+  where id = 'e5117000-0000-0000-0000-000000000003';
+
+-- So o primeiro GESTOR acompanha o uso (0118).
+insert into manutencao.quem_acompanha_o_uso (perfil_id) values ('e5117000-0000-0000-0000-000000000001');
 
 create temporary table hoje_0117 as select (now() at time zone 'America/Sao_Paulo')::date as dia;
 grant select on hoje_0117 to public;
@@ -40,7 +49,10 @@ insert into public.eventos_de_uso (evento, detalhes) values
   ('tela_aberta', '{"rota": "/dashboard/teste-0117/a", "filtros": []}'),
   ('tela_aberta', '{"rota": "/dashboard/teste-0117/b", "filtros": []}');
 
--- 1) GESTOR ve os dois
+-- 6) a lista decide
+select ok(public.pode_ver_uso_do_portal(), 'quem esta na lista pode ver o uso do portal');
+
+-- 1) quem acompanha ve os dois
 select results_eq(
   $$ select nome, cargo, logins, telas, dias_com_acesso
        from public.relatorio_uso_do_portal((select dia from hoje_0117), (select dia from hoje_0117))
@@ -98,6 +110,18 @@ select is(
     where rota = '/dashboard/teste-0117/a'),
   2,
   'OPERADOR so soma as proprias telas'
+);
+
+-- 2b) GESTOR fora da lista: nao ve nem o uso do outro GESTOR
+set local "request.jwt.claims" to '{"sub": "e5117000-0000-0000-0000-000000000003", "role": "authenticated"}';
+
+select ok(not public.pode_ver_uso_do_portal(), 'GESTOR fora da lista nao pode ver o uso do portal');
+
+select is(
+  (select count(*)::integer from public.relatorio_uso_do_portal((select dia from hoje_0117), (select dia from hoje_0117))
+    where nome like '% 0117'),
+  0,
+  'GESTOR fora da lista nao ve o uso dos outros'
 );
 
 -- 5) anon

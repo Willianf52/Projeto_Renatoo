@@ -77,7 +77,18 @@ export async function podeVerTodaAOperacao(): Promise<boolean> {
   return consultarPermissao("pode_ver_toda_operacao", "ver toda a operação");
 }
 
+/**
+ * Chama `pode_ver_uso_do_portal()` (0118): ativo e na lista
+ * `manutencao.quem_acompanha_o_uso` (hoje, so o dono). Decide o item "Uso do
+ * Portal" no menu e nos atalhos e o portao da tela; o RLS de `eventos_de_uso`
+ * e o portao de verdade.
+ */
+export async function podeVerUsoDoPortal(): Promise<boolean> {
+  return consultarPermissao("pode_ver_uso_do_portal", "ver o uso do portal");
+}
+
 type FuncaoDePermissao =
+  | "pode_ver_uso_do_portal"
   | "pode_ver_toda_operacao"
   | "pode_administrar_cadastros"
   | "pode_administrar_usuarios"

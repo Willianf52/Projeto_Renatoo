@@ -38,7 +38,16 @@ export type NavLink = {
    * de cada pasta (`SomenteGestor`) e as policies do banco.
    */
   somenteGestor?: boolean;
+  /**
+   * So para quem acompanha o uso do portal (0118, hoje so o dono): "Uso do
+   * Portal". Mesma logica de vitrine do `somenteGestor`; o portao e o
+   * `layout.tsx` da tela e o RLS de `eventos_de_uso`.
+   */
+  somenteQuemAcompanhaOUso?: boolean;
 };
+
+/** O que decide os itens do menu de quem esta logado. */
+export type AcessosDoMenu = { ehGestor: boolean; veUsoDoPortal: boolean };
 
 /** Sub-secao dentro de um item do menu, como "Relatorios" dentro de
  * "Inspecoes" -- um segundo nivel de agrupamento, com seu proprio toggle. */
@@ -112,7 +121,13 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Máquinas", href: "/dashboard/cadastros/maquinas", icon: SlidersIcon },
       { label: "Acessórios e Produtos", href: "/dashboard/cadastros/acessorios-e-produtos", icon: ClipboardListIcon },
       // No lugar do Google Analytics (27/11/2026): soma de `eventos_de_uso` (0117).
-      { label: "Uso do Portal", href: "/dashboard/cadastros/uso-do-portal", icon: BarChartIcon, somenteGestor: true },
+      // So para quem acompanha o uso (0118, pedido do dono em 27/11/2026).
+      {
+        label: "Uso do Portal",
+        href: "/dashboard/cadastros/uso-do-portal",
+        icon: BarChartIcon,
+        somenteQuemAcompanhaOUso: true,
+      },
       { label: "Trocar Senha", href: "/dashboard/cadastros/trocar-senha", icon: KeyIcon },
     ],
   },
@@ -367,7 +382,8 @@ export const TELAS_DO_MENU: TelaDoMenu[] = NAV_ITEMS.filter((item) => !item.exte
   ),
 ]);
 
-const visivel = (link: NavLink, ehGestor: boolean) => ehGestor || !link.somenteGestor;
+const visivel = (link: NavLink, acessos: AcessosDoMenu) =>
+  (acessos.ehGestor || !link.somenteGestor) && (acessos.veUsoDoPortal || !link.somenteQuemAcompanhaOUso);
 
 /**
  * O menu de quem esta logado: sem os itens `somenteGestor` para quem nao e
@@ -375,19 +391,19 @@ const visivel = (link: NavLink, ehGestor: boolean) => ehGestor || !link.somenteG
  * Uma secao de primeiro nivel nunca some: as que tem item de GESTOR tambem tem
  * itens de todos.
  */
-export function itensDoMenu(itens: NavItem[], ehGestor: boolean): NavItem[] {
-  if (ehGestor) return itens;
+export function itensDoMenu(itens: NavItem[], acessos: AcessosDoMenu): NavItem[] {
+  if (acessos.ehGestor && acessos.veUsoDoPortal) return itens;
   return itens.map((item) => ({
     ...item,
     children: item.children.flatMap((child): NavChild[] => {
-      if (!isGroup(child)) return visivel(child, ehGestor) ? [child] : [];
-      const items = child.items.filter((link) => visivel(link, ehGestor));
+      if (!isGroup(child)) return visivel(child, acessos) ? [child] : [];
+      const items = child.items.filter((link) => visivel(link, acessos));
       return items.length > 0 ? [{ ...child, items }] : [];
     }),
   }));
 }
 
 /** As telas que podem virar atalho na Pagina Principal de quem esta logado. */
-export function telasDoMenu(ehGestor: boolean): TelaDoMenu[] {
-  return TELAS_DO_MENU.filter((tela) => visivel(tela, ehGestor));
+export function telasDoMenu(acessos: AcessosDoMenu): TelaDoMenu[] {
+  return TELAS_DO_MENU.filter((tela) => visivel(tela, acessos));
 }

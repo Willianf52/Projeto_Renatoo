@@ -74,7 +74,7 @@ function Numero({ rotulo, valor }: { rotulo: string; valor: number }) {
 }
 
 async function Conteudo({ searchParams }: { searchParams: SearchParamsPromise }) {
-  // Portao: `layout.tsx` (SomenteGestor). O RLS de `eventos_de_uso` recortaria para o proprio uso.
+  // Portao: `layout.tsx` (SomenteQuemAcompanhaOUso, 0118) e o RLS de `eventos_de_uso`.
   const filtros = extrairFiltros(await searchParams);
   if (!periodoValido(filtros)) {
     return (

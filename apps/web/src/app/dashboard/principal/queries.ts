@@ -1,7 +1,7 @@
 import { mesAnterior, montarGrade, type AtalhoFixado } from "@/lib/atalhos";
 import { createClient } from "@/lib/supabase/server";
-import { podeAdministrarUsuarios } from "@/lib/permissoes";
-import { telasDoMenu } from "@/components/dashboard/telas-do-menu";
+import { podeAdministrarUsuarios, podeVerUsoDoPortal } from "@/lib/permissoes";
+import { telasDoMenu, type AcessosDoMenu } from "@/components/dashboard/telas-do-menu";
 import { STATUS_EM_ABERTO } from "@/app/dashboard/eventos/painel-de-eventos/status";
 import { FUSO_DO_PROJETO, periodoEntreDatas } from "@/lib/data-hora";
 
@@ -13,6 +13,8 @@ export type AtalhosDaPessoa = {
   falhou: boolean;
   /** Quem nao e GESTOR nao ve as telas `somenteGestor`, nem para fixar. */
   ehGestor: boolean;
+  /** Para o dialogo de atalhos filtrar as telas como o menu. */
+  acessos: AcessosDoMenu;
 };
 
 /**
@@ -25,15 +27,17 @@ export async function lerAtalhos(): Promise<AtalhosDaPessoa> {
   // Date()` so pode rodar depois de a rota ja ser dinamica.
   const { inicio, fim } = mesAnterior(new Date());
 
-  const [fixadosLidos, usoLido, ehGestor] = await Promise.all([
+  const [fixadosLidos, usoLido, ehGestor, veUsoDoPortal] = await Promise.all([
     supabase.from("atalhos_fixados").select("rota, posicao"),
     supabase.rpc("uso_das_minhas_telas", { p_desde: inicio.toISOString(), p_ate: fim.toISOString() }),
     podeAdministrarUsuarios(),
+    podeVerUsoDoPortal(),
   ]);
+  const acessos: AcessosDoMenu = { ehGestor, veUsoDoPortal };
 
   // Fixado de tela que a pessoa nao ve (sobra de antes do recorte) sai da
   // grade, igual a fixado de tela removida do menu.
-  const hrefs = telasDoMenu(ehGestor).map((tela) => tela.href);
+  const hrefs = telasDoMenu(acessos).map((tela) => tela.href);
   const fixados = (fixadosLidos.data ?? []).filter((fixado) => hrefs.includes(fixado.rota));
 
   return {
@@ -41,6 +45,7 @@ export async function lerAtalhos(): Promise<AtalhosDaPessoa> {
     fixados,
     falhou: Boolean(fixadosLidos.error || usoLido.error),
     ehGestor,
+    acessos,
   };
 }
 

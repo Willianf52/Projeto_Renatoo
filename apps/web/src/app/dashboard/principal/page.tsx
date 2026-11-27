@@ -116,7 +116,7 @@ function ResumoEsqueleto() {
 }
 
 async function Atalhos() {
-  const { grade, fixados, falhou, ehGestor } = await lerAtalhos();
+  const { grade, fixados, falhou, acessos } = await lerAtalhos();
   const fixadas = new Set(fixados.map((a) => a.rota));
 
   return (
@@ -125,7 +125,7 @@ async function Atalhos() {
       style={{ animationDelay: "120ms" }}
     >
       <Cabecalho>
-        <PersonalizarAtalhos grade={grade} fixados={fixados} ehGestor={ehGestor} />
+        <PersonalizarAtalhos grade={grade} fixados={fixados} acessos={acessos} />
       </Cabecalho>
 
       <div className="space-y-4 p-4">
