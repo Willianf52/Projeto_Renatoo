@@ -60,6 +60,10 @@ test.describe("Telas novas com sessao do GESTOR", () => {
 
     await page.goto("/dashboard/cadastros/uso-do-portal");
     await expect(page).toHaveURL(/\/dashboard\/principal$/);
+
+    // A planilha (rota de API, fora do layout) confere por conta propria.
+    const planilha = await page.request.get("/dashboard/cadastros/uso-do-portal/export/excel");
+    expect(planilha.status()).toBe(403);
   });
 
   test("Alterar E-mails em Massa: abre para quem administra e recusa o envio sem local", async ({ page }) => {

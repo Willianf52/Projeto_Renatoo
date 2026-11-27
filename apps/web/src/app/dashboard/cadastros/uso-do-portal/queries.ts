@@ -133,6 +133,41 @@ export function juntarTelasPeloNome(linhas: LinhaPorTela[]): LinhaPorTela[] {
   return [...porNome.values()].sort((a, b) => b.aberturas - a.aberturas || a.tela.localeCompare(b.tela, "pt-BR"));
 }
 
+export const COLUNAS_PESSOAS = ["Nome", "Cargo", "Logins", "Telas abertas", "Dias com acesso", "Último acesso"];
+export const COLUNAS_TELAS = ["Tela", "Aberturas", "Pessoas"];
+
+export function linhaDaPessoa(l: LinhaPorPessoa): string[] {
+  return [l.nome, l.cargo, String(l.logins), String(l.telas), String(l.diasComAcesso), l.ultimoAcesso];
+}
+
+export function linhaDaTela(l: LinhaPorTela): string[] {
+  return [l.tela, String(l.aberturas), String(l.pessoas)];
+}
+
+/**
+ * O "Exportar para Excel": um CSV so, com as duas tabelas da tela uma abaixo
+ * da outra (o cabecalho do arquivo e o de "Por pessoa"; o de "Telas mais
+ * abertas" entra como linha, depois de uma linha em branco). As linhas curtas
+ * sao completadas para o Excel nao desalinhar as colunas.
+ */
+export function planilhaDoUso(uso: UsoDoPortal): { colunas: string[]; linhas: string[][] } {
+  const largura = COLUNAS_PESSOAS.length;
+  const completar = (campos: string[]) => [...campos, ...Array<string>(largura - campos.length).fill("")];
+  return {
+    colunas: COLUNAS_PESSOAS,
+    linhas: [
+      ...uso.pessoas.map(linhaDaPessoa),
+      completar([]),
+      completar(COLUNAS_TELAS),
+      ...uso.telas.map((l) => completar(linhaDaTela(l))),
+    ],
+  };
+}
+
+export function nomeDoArquivo(filtros: Filtros): string {
+  return `uso-do-portal-${filtros.dataInicial}-a-${filtros.dataFinal}.csv`;
+}
+
 /** Os numeros do topo: soma das linhas por pessoa. */
 export function resumo(uso: UsoDoPortal): { pessoas: number; logins: number; telas: number } {
   return {
