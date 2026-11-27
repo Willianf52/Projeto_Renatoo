@@ -102,7 +102,8 @@ select
   (select count(*) from leituras where data_hora::date = current_date) leituras_hoje,
   (select count(*) from checklists_visita where criado_em::date = current_date) checklists_hoje;
 
--- Quem entrou no painel, e onde foi (telemetria da 0051)
+-- Quem entrou no painel, e onde foi (telemetria da 0051). Pela tela: Cadastros >
+-- Uso do Portal (0117), so para quem acompanha o uso (0118).
 select evento, detalhes->>'rota' rota, cargo, count(*), max(criado_em) ultimo
 from eventos_de_uso
 where criado_em > now() - interval '7 days'
